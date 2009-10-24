@@ -1,0 +1,358 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.littleshoot</groupId>
+    <artifactId>littleproxy</artifactId>
+    <packaging>jar</packaging>
+    <version>0.1</version>
+    <name>LittleProxy</name>
+    <description>
+        LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework. 
+        </description>
+    <url>http://www.littleshoot.org</url>
+
+    <properties>
+       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+       <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    </properties>
+
+    <organization>
+        <name>LittleShoot</name>
+        <url>http://www.littleshoot.org</url>
+        </organization>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            </license>
+        </licenses>
+    <inceptionYear>2009</inceptionYear>
+
+    <issueManagement>
+        <system>JIRA</system>
+        <url>http://dev.littleshoot.org:8081</url>
+        </issueManagement>
+
+    <dependencies>
+
+       <dependency>
+           <groupId>commons-lang</groupId>
+           <artifactId>commons-lang</artifactId>
+           </dependency>
+
+       <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            </dependency>
+
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            </dependency>
+
+        <dependency>
+            <groupId>org.jboss.netty</groupId>
+            <artifactId>netty</artifactId>
+            </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl104-over-slf4j</artifactId>
+            </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            </dependency>
+
+        </dependencies>
+
+    <!-- Dependency management is specified in alphabetical order with the
+         'groupId' as the primary criteria and 'artifactId' as the secondary
+         criteria. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>commons-lang</groupId>
+                <artifactId>commons-lang</artifactId>
+                <version>2.4</version>
+                </dependency>
+
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>4.1</version>
+                <scope>test</scope>
+                </dependency>
+
+            <dependency>
+                <groupId>log4j</groupId>
+                <artifactId>log4j</artifactId>
+                <version>1.2.14</version>
+                </dependency>
+
+            <dependency>
+                <groupId>org.jboss.netty</groupId>
+                <artifactId>netty</artifactId>
+                <version>3.1.5.GA</version>
+                </dependency>
+
+            <dependency>
+                <groupId>org.littleshoot</groupId>
+                <artifactId>littleshoot-maven-plugin</artifactId>
+                <version>1.0</version>
+                </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jcl104-over-slf4j</artifactId>
+                <version>1.4.0</version>
+                </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>1.4.0</version>
+                </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-log4j12</artifactId>
+                <version>1.4.0</version>
+                </dependency>
+
+            </dependencies>
+ 
+        </dependencyManagement>
+
+    <distributionManagement>
+        <site>
+            <id>littleshoot</id>
+            <url>scp://www.littleshoot.org/var/www/html/developer/</url>
+            </site>
+        </distributionManagement>
+
+    <scm>
+        <connection>scm:svn:https://svn.littleshoot.org/svn/littleproxy</connection>
+        <developerConnection>scm:svn:https://svn.littleshoot.org/svn/littleproxy</developerConnection>
+        <tag>HEAD</tag>
+        <url>http://svn.littleshoot.org</url>
+        </scm>
+
+    <prerequisites>
+        <maven>2.0.4</maven>
+    </prerequisites>
+
+    <build>
+        <plugins>
+<!--
+            <plugin>
+               <groupId>org.apache.maven.plugins</groupId>
+               <artifactId>maven-site-plugin</artifactId>
+               <version>2.0-SNAPSHOT</version>
+               </plugin>
+-->
+
+            <!-- Compiling with java 1.5 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.5</source>
+                    <target>1.5</target>
+                    <!-- The following force compilation with full warnings. -->
+                    <!--
+                        <fork>true</fork>
+                        <showWarnings>true</showWarnings>
+                        <showDeprecation>true</showDeprecation>
+                        <compilerArguments><Xlint/></compilerArguments>
+                    -->
+                    </configuration>
+                </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <show>private</show>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </build>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>findbugs-maven-plugin</artifactId>
+                <version>1.1.1</version>
+                </plugin>
+
+            <!-- Standard maven site report -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+            </plugin>
+
+            <!-- Style report -->
+            <!--    <plugin>   error - heap space problem
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+            </plugin>-->
+
+            <!-- Report code metrics using JDepend. -->
+            <!--    <plugin>  error - could not download
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>jdepend-maven-plugin</artifactId>
+                <version>2.0-beta-1-SNAPSHOT</version>
+            </plugin>-->
+
+            <!-- Tag Report -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>taglist-maven-plugin</artifactId>
+                <configuration>
+                    <multipleLineComments>true</multipleLineComments>
+                     <tags>
+                        <tag>mudo</tag>
+                        <tag>todo</tag>
+                        <tag>idea</tag>
+                        <tag>MUDO</tag>
+                        <tag>TODO</tag>
+                        <tag>IDEA</tag>
+                        </tags>
+                </configuration>
+            </plugin>
+
+            <!-- Unit Test Report -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>surefire-report-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Changes Report -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>changes-maven-plugin</artifactId>
+                <version>2.0-beta-1</version>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>changes-report</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+
+            <!-- SCM activity report -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>changelog-maven-plugin</artifactId>
+                <reportSets>
+                    <reportSet>
+                        <id>dual-report</id>
+                        <configuration>
+                            <type>range</type>
+                            <range>30</range>
+                        </configuration>
+                        <reports>
+                            <report>changelog</report>
+                            <report>file-activity</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+
+            </plugin>
+
+            <!-- Javadoc report -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <source>1.5</source>
+                </configuration>
+            </plugin>
+
+            <!-- Source ref plugin -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>jxr-maven-plugin</artifactId>
+                </plugin>
+        </plugins>
+    </reporting>
+
+    <developers>
+        <developer>
+            <id>afisk</id>
+            <name>Adam fisk</name>
+            <email>a@littleshoot.org</email>
+            <organization>LittleShoot</organization>
+            <organizationUrl>http://www.littleshoot.org/</organizationUrl>
+            <roles><role>Developer</role></roles>
+            <timezone>-5</timezone>
+            </developer>
+        </developers>
+
+    <repositories>
+        <repository>
+            <id>repo1</id>
+            <name>Maven Repository Switchboard</name>
+            <url>http://repo1.maven.org/maven2</url>
+            </repository>
+
+        <repository>
+            <id>spring-milestone</id>
+            <name>Spring Portfolio Milestone Repository</name>
+            <url>http://s3.amazonaws.com/maven.springframework.org/milestone</url>
+            </repository>
+
+        <repository>
+            <id>repository.jboss.org</id>
+            <url>http://repository.jboss.org/maven2</url>
+            <snapshots>
+                <enabled>false</enabled>
+                </snapshots>
+            </repository>
+
+
+        <repository>
+            <id>oracleReleases</id>
+            <name>Oracle Released Java Packages</name>
+            <url>http://download.oracle.com/maven</url>
+            <layout>default</layout>
+            </repository>
+
+
+        <repository>
+            <id>sun</id>
+            <name>Sun Repository</name>
+            <url>http://download.java.net/maven/1</url>
+            <layout>legacy</layout>
+            </repository>
+
+        <!--
+          This one's quirky - our cluster servers can't seem to
+          download from each other's public addresses - likely
+          some NAT hairpinning issues.
+        <repository>
+            <id>last-bamboo-local</id>
+            <name>Last Bamboo Repository</name>
+            <url>http://127.0.0.1/maven</url>
+            </repository>
+        -->
+
+        <repository>
+            <id>last-bamboo</id>
+            <name>Last Bamboo Repository</name>
+            <url>http://svn.littleshoot.org/maven</url>
+            </repository>
+
+        </repositories>
+    </project>
