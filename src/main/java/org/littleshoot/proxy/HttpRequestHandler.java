@@ -126,18 +126,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 httpRequest.removeHeader("Proxy-Authorization");
             }
             
-            final String uri;
-            String uriStr = httpRequest.getUri();
-            if (uriStr.startsWith("http://www.amazon.com")) {
-                final String query = StringUtils.substringAfterLast(uriStr, "?");
-                if (StringUtils.isBlank(query)) {
-                    uriStr += "?tag=littl08-20";
-                }
-                uri = uriStr;
-            }
-            else {
-                uri = httpRequest.getUri();
-            }
+            final String uri = httpRequest.getUri();
             
             m_log.warn("Using URI: "+uri);
             final String noHostUri = ProxyUtils.stripHost(uri);
