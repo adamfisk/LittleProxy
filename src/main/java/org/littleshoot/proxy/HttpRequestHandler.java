@@ -62,16 +62,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
         m_messagesReceived++;
-        m_log.warn("Received "+m_messagesReceived+" total messages");
+        m_log.info("Received "+m_messagesReceived+" total messages");
         if (!readingChunks) {
             final HttpRequest httpRequest = this.request = (HttpRequest) me.getMessage();
             
-            m_log.warn("Got request: {} on channel: "+me.getChannel(), httpRequest);
+            m_log.info("Got request: {} on channel: "+me.getChannel(), httpRequest);
             
             final Set<String> headerNames = httpRequest.getHeaderNames();
             for (final String name : headerNames) {
                 final List<String> values = httpRequest.getHeaders(name);
-                m_log.warn(name+": "+values);
+                m_log.info(name+": "+values);
                 if (name.equalsIgnoreCase("Proxy-Authorization")) {
                     final String fullValue = values.iterator().next();
                     final String value = StringUtils.substringAfter(fullValue, "Basic ").trim();
@@ -114,21 +114,21 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     "browser doesn't understand how to supply\n"+
                     "the credentials required.</p>\n"+
                     "</body></html>\n";
-                m_log.warn("Content-Length is really: "+responseBody.length());
+                m_log.info("Content-Length is really: "+responseBody.length());
                 writeResponse(ctx.getChannel(), statusLine, headers);
             }
             
             else {
-                m_log.warn("Got proxy authorization!");
+                m_log.info("Got proxy authorization!");
                 final String authentication = 
                     httpRequest.getHeader("Proxy-Authorization");
-                m_log.warn(authentication);
+                m_log.info(authentication);
                 httpRequest.removeHeader("Proxy-Authorization");
             }
             
             final String uri = httpRequest.getUri();
             
-            m_log.warn("Using URI: "+uri);
+            m_log.info("Using URI: "+uri);
             final String noHostUri = ProxyUtils.stripHost(uri);
             
             final HttpMethod method = httpRequest.getMethod();
@@ -139,11 +139,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             final ChannelBuffer originalContent = httpRequest.getContent();
             
             if (originalContent != null) {
-                m_log.warn("Setting content");
+                m_log.info("Setting content");
                 httpRequestCopy.setContent(originalContent);
             }
             
-            m_log.warn("Request copy method: {}", httpRequestCopy.getMethod());
+            m_log.info("Request copy method: {}", httpRequestCopy.getMethod());
             for (final String name : headerNames) {
                 final List<String> values = httpRequest.getHeaders(name);
                 httpRequestCopy.setHeader(name, values);
@@ -227,20 +227,20 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                         public void operationComplete(final ChannelFuture future)
                             throws Exception {
                             if (future.isSuccess()) {
-                                m_log.warn("Connected successfully to: {}", future.getChannel());
+                                m_log.info("Connected successfully to: {}", future.getChannel());
                                 final Channel newChannel = cf.getChannel();
                                 newChannel.getCloseFuture().addListener(
                                     new ChannelFutureListener() {
                                     public void operationComplete(
                                         final ChannelFuture closeFuture)
                                         throws Exception {
-                                        m_log.warn("Got an outbound channel close event. Removing channel: "+newChannel);
-                                        m_log.warn("Channel open??" +newChannel.isOpen());
+                                        m_log.info("Got an outbound channel close event. Removing channel: "+newChannel);
+                                        m_log.info("Channel open??" +newChannel.isOpen());
                                         m_endpointsToChannelFutures.remove(hostAndPort);
-                                        m_log.warn("Outgoing channels on this connection: "+
+                                        m_log.info("Outgoing channels on this connection: "+
                                             m_endpointsToChannelFutures.size());
                                         if (m_endpointsToChannelFutures.isEmpty()) {
-                                            m_log.warn("All outbound channels closed...");
+                                            m_log.info("All outbound channels closed...");
                                             
                                             // We *don't* want to close here because
                                             // the external site may have closed
@@ -251,23 +251,23 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                                             // is likely expecting more responses
                                             // on this connection.
                                             if (inboundChannel.isOpen()) {
-                                                m_log.warn("Closing on flush...");
+                                                m_log.info("Closing on flush...");
                                                 closeOnFlush(inboundChannel);
                                             }
                                         }
                                         else {
-                                            m_log.warn("Existing connections: {}", m_endpointsToChannelFutures);
+                                            m_log.info("Existing connections: {}", m_endpointsToChannelFutures);
                                         }
                                     }
                                 });
                                 
-                                m_log.warn("Writing message on channel...");
+                                m_log.info("Writing message on channel...");
                                 final ChannelFuture wf = onConnect.onConnect();
                                 //final ChannelFuture wf = newChannel.write(httpRequestCopy);
                                 wf.addListener(new ChannelFutureListener() {
                                     public void operationComplete(final ChannelFuture wcf)
                                         throws Exception {
-                                        m_log.warn("Finished write: "+wcf+ " to: "+
+                                        m_log.info("Finished write: "+wcf+ " to: "+
                                             httpRequest.getMethod()+" "+httpRequest.getUri());
                                     }
                                 });
@@ -335,7 +335,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private void writeResponse(final Channel browserToProxyChannel,
         final String statusLine, final String headers) {
         final String fullResponse = statusLine + headers;
-        m_log.warn("Writing full response:\n"+fullResponse);
+        m_log.info("Writing full response:\n"+fullResponse);
         try {
             final ChannelBuffer buf = 
                 ChannelBuffers.copiedBuffer(fullResponse.getBytes("UTF-8"));
@@ -427,7 +427,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         cb.setOption("connectTimeoutMillis", 60*1000);
 
         // Start the connection attempt.
-        m_log.warn("Starting new connection to: "+hostAndPort);
+        m_log.info("Starting new connection to: "+hostAndPort);
         final ChannelFuture future = cb.connect(new InetSocketAddress(host, port));
         return future;
     }
@@ -453,7 +453,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         else {
             hostAndPort = tempUri;
         }
-        m_log.warn("Got URI: "+hostAndPort);
+        m_log.info("Got URI: "+hostAndPort);
         return hostAndPort;
     }
 
@@ -461,26 +461,26 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     public void channelOpen(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) throws Exception {
         final Channel inboundChannel = cse.getChannel();
-        m_log.warn("New channel opened: {}", inboundChannel);
+        m_log.info("New channel opened: {}", inboundChannel);
         s_totalInboundConnections++;
         m_totalInboundConnections++;
-        m_log.warn("Now "+s_totalInboundConnections+" browser to proxy channels...");
-        m_log.warn("Now this class has "+m_totalInboundConnections+" browser to proxy channels...");
+        m_log.info("Now "+s_totalInboundConnections+" browser to proxy channels...");
+        m_log.info("Now this class has "+m_totalInboundConnections+" browser to proxy channels...");
     }
     
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) {
-        m_log.warn("Channel closed: {}", cse.getChannel());
+        m_log.info("Channel closed: {}", cse.getChannel());
         s_totalInboundConnections--;
         m_totalInboundConnections--;
-        m_log.warn("Now "+s_totalInboundConnections+" browser to proxy channels...");
-        m_log.warn("Now this class has "+m_totalInboundConnections+" browser to proxy channels...");
+        m_log.info("Now "+s_totalInboundConnections+" total browser to proxy channels...");
+        m_log.info("Now this class has "+m_totalInboundConnections+" browser to proxy channels...");
         
         // The following should always be the case with
         // @ChannelPipelineCoverage("one")
         if (m_totalInboundConnections == 0) {
-            m_log.warn("Closing all outgoing channels for this browser connection!!!");
+            m_log.info("Closing all outgoing channels for this browser connection!!!");
             final Collection<ChannelFuture> futures = 
                 this.m_endpointsToChannelFutures.values();
             for (final ChannelFuture future : futures) {
@@ -506,7 +506,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * Closes the specified channel after all queued write requests are flushed.
      */
     private static void closeOnFlush(final Channel ch) {
-        m_log.warn("Closing on flush: {}", ch);
+        m_log.info("Closing on flush: {}", ch);
         if (ch.isConnected()) {
             ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
         }

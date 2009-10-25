@@ -55,7 +55,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
             final ChannelFutureListener logListener = new ChannelFutureListener() {
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
-                    m_log.warn("Finished writing data");
+                    m_log.info("Finished writing data");
                 }
             };
             m_relayChannel.write(msg).addListener(logListener);
@@ -74,13 +74,13 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
     public void channelOpen(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) throws Exception {
         final Channel ch = cse.getChannel();
-        m_log.warn("New channel opened from proxy to web: {}", ch);
+        m_log.info("New channel opened from proxy to web: {}", ch);
     }
 
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent e) throws Exception {
-        m_log.warn("Got closed event on proxy -> web connection: "+e.getChannel());
+        m_log.info("Got closed event on proxy -> web connection: "+e.getChannel());
         //closeOnFlush(m_browserToProxyChannel);
     }
 
@@ -98,7 +98,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
      * Closes the specified channel after all queued write requests are flushed.
      */
     private void closeOnFlush(final Channel ch) {
-        m_log.warn("Closing channel on flush: {}", ch);
+        m_log.info("Closing channel on flush: {}", ch);
         if (ch.isConnected()) {
             ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(
                 ChannelFutureListener.CLOSE);

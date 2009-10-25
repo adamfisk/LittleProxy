@@ -1,6 +1,5 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
@@ -46,59 +45,37 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         if (!readingChunks) {
             final HttpResponse response = (HttpResponse) e.getMessage();
 
-            m_log.warn("STATUS: " + response.getStatus());
-            m_log.warn("VERSION: " + response.getProtocolVersion());
-            //LOG.warn();
-
             if (!response.getHeaderNames().isEmpty()) {
                 for (String name: response.getHeaderNames()) {
                     for (String value: response.getHeaders(name)) {
-                        m_log.warn("HEADER: " + name + " = " + value);
+                        m_log.info("HEADER: " + name + " = " + value);
                     }
                 }
-                //LOG.warn();
             }
 
-            //if (response.getStatus().getCode() == 200 && response.isChunked()) {
             if (response.isChunked()) {
                 readingChunks = true;
-                //LOG.warn("CHUNKED CONTENT {");
-            } else {
-                ChannelBuffer content = response.getContent();
-                if (content.readable()) {
-                    //LOG.warn("CONTENT {");
-                    //LOG.warn(content.toString("UTF-8"));
-                    //LOG.warn("} END OF CONTENT");
-                }
-            }
+            } 
         } else {
             final HttpChunk chunk = (HttpChunk) e.getMessage();
             if (chunk.isLast()) {
                 readingChunks = false;
-                //LOG.warn("} END OF CHUNKED CONTENT");
-            } else {
-                //LOG.warn(chunk.getContent().toString("UTF-8"));
-                //System.out.flush();
-            }
+            } 
         }
         if (m_browserToProxyChannel.isOpen()) {
-            if (!readingChunks) {
-                //final HttpResponse response = (HttpResponse) e.getMessage();
-                //LOG.warn("Writing message with body length: "+response.getContent().readableBytes());
-            }
             final ChannelFutureListener logListener = new ChannelFutureListener() {
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
-                    m_log.warn("Finished writing data");
+                    m_log.info("Finished writing data");
                 }
             };
             
             final Object msg = e.getMessage();
-            m_log.warn("Writing message: {}", msg);
+            m_log.info("Writing message: {}", msg);
             m_browserToProxyChannel.write(msg).addListener(logListener);
         }
         else {
-            m_log.warn("Channel not open. Connected? {}", 
+            m_log.info("Channel not open. Connected? {}", 
                 m_browserToProxyChannel.isConnected());
             // This will undoubtedly happen anyway, but just in case.
             if (e.getChannel().isOpen()) {
@@ -111,13 +88,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     public void channelOpen(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) throws Exception {
         final Channel ch = cse.getChannel();
-        m_log.warn("New channel opened from proxy to web: {}", ch);
+        m_log.info("New channel opened from proxy to web: {}", ch);
     }
 
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent e) throws Exception {
-        m_log.warn("Got closed event on proxy -> web connection: "+e.getChannel());
+        m_log.info("Got closed event on proxy -> web connection: "+e.getChannel());
         //closeOnFlush(m_browserToProxyChannel);
     }
 
@@ -135,7 +112,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * Closes the specified channel after all queued write requests are flushed.
      */
     private void closeOnFlush(final Channel ch) {
-        m_log.warn("Closing channel on flush: {}", ch);
+        m_log.info("Closing channel on flush: {}", ch);
         if (ch.isConnected()) {
             ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
         }
