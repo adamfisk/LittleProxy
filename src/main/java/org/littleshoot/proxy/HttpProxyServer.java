@@ -5,11 +5,16 @@ import java.util.concurrent.Executors;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * HTTP proxy server.
  */
 public class HttpProxyServer {
+    
+    private static final Logger LOG = 
+        LoggerFactory.getLogger(HttpProxyServer.class);
     
     /**
      * Starts the proxy from the command line.
@@ -36,6 +41,7 @@ public class HttpProxyServer {
         } else {
             port = defaultPort;
         }
+        LOG.info("Starting proxy on port: "+port);
         bootstrap.bind(new InetSocketAddress("127.0.0.1", port));
         
         /*
