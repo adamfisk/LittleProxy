@@ -2,4 +2,4 @@
 mvn clean
 mvn package
 cd target
-jav -jar littleproxy-0.1.jar
+java -jar littleproxy-0.1.jar
