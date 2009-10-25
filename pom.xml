@@ -59,17 +59,12 @@
 
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>jcl104-over-slf4j</artifactId>
+            <artifactId>slf4j-log4j12</artifactId>
             </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-log4j12</artifactId>
             </dependency>
 
         </dependencies>
@@ -112,20 +107,14 @@
 
             <dependency>
                 <groupId>org.slf4j</groupId>
-                <artifactId>jcl104-over-slf4j</artifactId>
-                <version>1.4.0</version>
+                <artifactId>slf4j-log4j12</artifactId>
+                <version>1.5.9-RC0</version>
                 </dependency>
 
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
-                <version>1.4.0</version>
-                </dependency>
-
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-log4j12</artifactId>
-                <version>1.4.0</version>
+                <version>1.5.9-RC0</version>
                 </dependency>
 
             </dependencies>
@@ -184,7 +173,29 @@
                     <show>private</show>
                     </configuration>
                 </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>1.2.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>org.littleshoot.proxy.HttpProxyServer</mainClass>
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
             </plugins>
+
         </build>
 
     <reporting>
