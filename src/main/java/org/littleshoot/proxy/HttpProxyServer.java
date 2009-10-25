@@ -23,7 +23,20 @@ public class HttpProxyServer {
                 Executors.newCachedThreadPool()));
 
         bootstrap.setPipelineFactory(new HttpServerPipelineFactory());
-        bootstrap.bind(new InetSocketAddress("127.0.0.1", 8080));
+        
+        final int defaultPort = 8080;
+        int port;
+        if (args.length > 0) {
+            final String arg = args[0];
+            try {
+                port = Integer.parseInt(arg);
+            } catch (final NumberFormatException e) {
+                port = defaultPort;
+            }
+        } else {
+            port = defaultPort;
+        }
+        bootstrap.bind(new InetSocketAddress("127.0.0.1", port));
         
         /*
         final ServerBootstrap sslBootstrap = new ServerBootstrap(
