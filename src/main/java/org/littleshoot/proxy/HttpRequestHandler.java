@@ -274,6 +274,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                             }
                             else {
                                 m_log.error("Could not connect!!", future.getCause());
+                                if (m_totalInboundConnections == 1) {
+                                    m_log.warn("Closing browser to proxy channel");
+                                    me.getChannel().close();
+                                }
                             }
                         }
                     });

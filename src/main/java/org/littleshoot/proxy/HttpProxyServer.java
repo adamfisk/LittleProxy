@@ -42,7 +42,8 @@ public class HttpProxyServer {
             port = defaultPort;
         }
         LOG.info("Starting proxy on port: "+port);
-        bootstrap.bind(new InetSocketAddress("127.0.0.1", port));
+        //bootstrap.bind(new InetSocketAddress("127.0.0.1", port));
+        bootstrap.bind(new InetSocketAddress(port));
         
         /*
         final ServerBootstrap sslBootstrap = new ServerBootstrap(
