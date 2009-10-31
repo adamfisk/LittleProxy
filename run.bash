@@ -6,4 +6,14 @@ function die() {
 
 mvn clean || die "Could not clean?"
 mvn package || die "Could not package proxy"
-java -jar target/littleproxy-0.1.jar $* || die "Java process exited abnormally"
+javaArgs="-Xmx400m -jar target/littleproxy-0.1.jar $*"
+java6Path=/System/Library/Frameworks/JavaVM.framework/Versions/1.6/Home/bin/java
+
+if [ -f "$java6Path" ]
+then
+    echo "Running with Java 6 on OSX"
+    /System/Library/Frameworks/JavaVM.framework/Versions/1.6/Home/bin/java $javaArgs || die "Java process exited abnormally"
+else
+    echo "Running using Java on path at `which java`"
+    java $javaArgs || die "Java process exited abnormally"
+fi
