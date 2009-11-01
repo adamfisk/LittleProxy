@@ -60,7 +60,9 @@ public class HttpProxyTest
         final ByteArrayInputStream baseBais = new ByteArrayInputStream(baseResponse);
         //final String baseStr = IOUtils.toString(new GZIPInputStream(baseBais));
         final String baseStr = IOUtils.toString(baseBais);
-        final FileWriter baseFileWriter = new FileWriter(new File("base.js"));
+        final File baseFile = new File("base_sandberg.jpg");
+        baseFile.deleteOnExit();
+        final FileWriter baseFileWriter = new FileWriter(baseFile);
         baseFileWriter.write(baseStr);
         baseFileWriter.close();
         //System.out.println("RESPONSE:\n"+baseStr);
@@ -68,7 +70,9 @@ public class HttpProxyTest
         final ByteArrayInputStream proxyBais = new ByteArrayInputStream(proxyResponse);
         //final String proxyStr = IOUtils.toString(new GZIPInputStream(proxyBais));
         final String proxyStr = IOUtils.toString(proxyBais);
-        final FileWriter proxyFileWriter = new FileWriter(new File("proxy.js"));
+        final File proxyFile = new File("proxy_sandberg.jpg");
+        proxyFile.deleteOnExit();
+        final FileWriter proxyFileWriter = new FileWriter(proxyFile);
         proxyFileWriter.write(proxyStr);
         proxyFileWriter.close();
         //System.out.println("RESPONSE:\n"+proxyStr);
@@ -86,7 +90,7 @@ public class HttpProxyTest
         System.out.println("Connected...");
         final OutputStream os = sock.getOutputStream();
         final Writer writer = new OutputStreamWriter(os);
-        final String uri = "http://i.i.com.com/cnwk.1d/i/bto/20091023/sandberg.jpg ";
+        final String uri = "http://i.i.com.com/cnwk.1d/i/bto/20091023/sandberg.jpg";
         if (simulateProxy)
             {
             final String noHostUri = ProxyUtils.stripHost(uri);
@@ -167,7 +171,8 @@ public class HttpProxyTest
                 }
             }
         
-        final File file = new File("test.html");
+        final File file = new File("chunked_test_file");
+        file.deleteOnExit();
         if (file.isFile()) file.delete();
         final FileChannel fc = 
             new FileOutputStream(file).getChannel();
