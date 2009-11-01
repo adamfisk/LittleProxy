@@ -35,7 +35,7 @@ import org.junit.Test;
 /**
  * Tests the default HTTP proxy.
  */
-public class DefaultHttpProxyTest
+public class HttpProxyTest
     {
 
     @Test public void testProxyChunkAndNo() throws Exception 
