@@ -38,6 +38,11 @@
     <dependencies>
 
        <dependency>
+           <groupId>commons-io</groupId>
+           <artifactId>commons-io</artifactId>
+           </dependency>
+
+       <dependency>
            <groupId>commons-lang</groupId>
            <artifactId>commons-lang</artifactId>
            </dependency>
@@ -74,6 +79,12 @@
          criteria. -->
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>1.4</version>
+                </dependency>
+
             <dependency>
                 <groupId>commons-lang</groupId>
                 <artifactId>commons-lang</artifactId>
