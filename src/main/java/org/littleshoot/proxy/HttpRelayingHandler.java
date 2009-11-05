@@ -44,11 +44,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent e) throws Exception {
+        final Object messageToWrite;
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
             final HttpResponse response;
             if (hr.containsHeader("Transfer-Encoding")) {
                 if (hr.getProtocolVersion() != HttpVersion.HTTP_1_1) {
+                    m_log.info("Fixing HTTP version.");
                     response = ProxyUtils.copyMutableResponseFields(hr, 
                         new DefaultHttpResponse(HttpVersion.HTTP_1_1, hr.getStatus()));
                 }
@@ -71,11 +73,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             if (response.isChunked()) {
                 readingChunks = true;
             } 
+            messageToWrite = response;
         } else {
             final HttpChunk chunk = (HttpChunk) e.getMessage();
             if (chunk.isLast()) {
                 readingChunks = false;
-            } 
+            }
+            messageToWrite = chunk;
         }
         if (m_browserToProxyChannel.isOpen()) {
             final ChannelFutureListener logListener = new ChannelFutureListener() {
@@ -84,10 +88,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     m_log.info("Finished writing data");
                 }
             };
-            
-            final Object msg = e.getMessage();
-            m_log.info("Writing message: {}", msg);
-            m_browserToProxyChannel.write(msg).addListener(logListener);
+            m_log.info("Writing message: {}", messageToWrite);
+            m_browserToProxyChannel.write(messageToWrite).addListener(logListener);
         }
         else {
             m_log.info("Channel not open. Connected? {}", 

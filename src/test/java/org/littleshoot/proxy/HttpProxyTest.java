@@ -30,6 +30,7 @@ import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.junit.Test;
 
 /**
@@ -47,8 +48,8 @@ public class HttpProxyTest
         // Give the proxy a second to start...
         Thread.sleep(2000);
 
-        final byte[] baseResponse = rawResponse("i.i.com.com", 80, true);
-        final byte[] proxyResponse = rawResponse("127.0.0.1", 8080, false);
+        final byte[] baseResponse = rawResponse("i.i.com.com", 80, true, HttpVersion.HTTP_1_0);
+        final byte[] proxyResponse = rawResponse("127.0.0.1", 8080, false, HttpVersion.HTTP_1_1);
         final ChannelBuffer wrappedBase = ChannelBuffers.wrappedBuffer(baseResponse);
         final ChannelBuffer wrappedProxy = ChannelBuffers.wrappedBuffer(proxyResponse);
         
@@ -83,7 +84,8 @@ public class HttpProxyTest
         }
     
     private byte[] rawResponse(final String url, final int port, 
-        final boolean simulateProxy) throws UnknownHostException, IOException
+        final boolean simulateProxy, final HttpVersion httpVersion) 
+        throws UnknownHostException, IOException
         {
         //final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", 8080);
         final Socket sock = new Socket(url, port);
@@ -155,6 +157,19 @@ public class HttpProxyTest
                             StringUtils.substringBefore(headerLine, ":").trim(), 
                             StringUtils.substringAfter(headerLine, ":").trim());
                         }
+                    else {
+                        if (httpVersion == HttpVersion.HTTP_1_0) {
+                            assertEquals("HTTP/1.0", 
+                                StringUtils.substringBefore(headerLine, " "));
+                        }
+                        else if (httpVersion == HttpVersion.HTTP_1_1) {
+                            assertEquals("HTTP/1.1", 
+                            StringUtils.substringBefore(headerLine, " "));
+                        }
+                        else {
+                            fail("Unexpected HTTP version in line: "+headerLine);
+                        }
+                    }
                     curLine = new StringBuilder();
                     haveCrLn = true;
                     }
