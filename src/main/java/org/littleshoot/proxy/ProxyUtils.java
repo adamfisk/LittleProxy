@@ -1,11 +1,14 @@
 package org.littleshoot.proxy;
 
 import java.text.SimpleDateFormat;
+import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
 import org.apache.commons.lang.StringUtils;
+import org.jboss.netty.handler.codec.http.HttpResponse;
 
 /**
  * Utilities for the proxy.
@@ -94,5 +97,24 @@ public class ProxyUtils {
      */
     public static String httpDate() {
         return formatDate(new Date());
+    }
+
+    /**
+     * Copies the mutable fields from the response original to the copy.
+     * 
+     * @param original The original response to copy from.
+     * @param copy The copy.
+     * @return The copy with all mutable fields from the original.
+     */
+    public static HttpResponse copyMutableResponseFields(
+        final HttpResponse original, final HttpResponse copy) {
+        
+        final Collection<String> headerNames = original.getHeaderNames();
+        for (final String name : headerNames) {
+            final List<String> values = original.getHeaders(name);
+            copy.setHeader(name, values);
+        }
+        copy.setContent(original.getContent());
+        return copy;
     }
 }

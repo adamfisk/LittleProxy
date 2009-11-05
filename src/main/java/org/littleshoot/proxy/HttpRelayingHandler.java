@@ -10,8 +10,10 @@ import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +45,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent e) throws Exception {
         if (!readingChunks) {
-            final HttpResponse response = (HttpResponse) e.getMessage();
+            final HttpResponse hr = (HttpResponse) e.getMessage();
+            final HttpResponse response;
+            if (hr.containsHeader("Transfer-Encoding")) {
+                if (hr.getProtocolVersion() != HttpVersion.HTTP_1_1) {
+                    response = ProxyUtils.copyMutableResponseFields(hr, 
+                        new DefaultHttpResponse(HttpVersion.HTTP_1_1, hr.getStatus()));
+                }
+                else {
+                    response = hr;
+                }
+            }
+            else {
+                response = hr;
+            }
 
             if (!response.getHeaderNames().isEmpty()) {
                 for (String name: response.getHeaderNames()) {
