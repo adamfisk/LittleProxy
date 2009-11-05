@@ -494,7 +494,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 }
             }
         }
-        }
+    }
 
     @Override
     public void exceptionCaught(final ChannelHandlerContext ctx, 
