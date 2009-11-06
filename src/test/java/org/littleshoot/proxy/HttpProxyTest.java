@@ -333,9 +333,11 @@ public class HttpProxyTest
                 Executors.newCachedThreadPool(),
                 Executors.newCachedThreadPool()));
         
-
+        final ProxyAuthorizationManager pam = 
+            new DefaultProxyAuthorizationManager();
+        
         // Set up the event pipeline factory.
-        bootstrap.setPipelineFactory(new HttpServerPipelineFactory());
+        bootstrap.setPipelineFactory(new HttpServerPipelineFactory(pam));
 
         // Bind and start to accept incoming connections.
         bootstrap.bind(new InetSocketAddress(8080));
