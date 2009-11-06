@@ -57,6 +57,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     
     private volatile int m_messagesReceived = 0;
     private final ProxyAuthorizationManager m_authorizationManager;
+    private String m_hostAndPort;
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -76,188 +77,201 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         m_messagesReceived++;
         m_log.info("Received "+m_messagesReceived+" total messages");
         if (!m_readingChunks) {
-            final HttpRequest httpRequest = this.m_request = (HttpRequest) me.getMessage();
-            
-            m_log.info("Got request: {} on channel: "+me.getChannel(), httpRequest);
-            if (!this.m_authorizationManager.handleProxyAuthorization(httpRequest, ctx)) {
-                return;
-            }
-            
-            
-            // Switch the de-facto standard "Proxy-Connection" header to 
-            // "Connection" when we pass it along to the remote host.
-            final String proxyConnectionKey = "Proxy-Connection";
-            if (httpRequest.containsHeader(proxyConnectionKey)) {
-                final String header = httpRequest.getHeader(proxyConnectionKey);
-                httpRequest.removeHeader(proxyConnectionKey);
-                httpRequest.setHeader("Connection", header);
-            }
-            
-            final String uri = httpRequest.getUri();
-            
-            m_log.info("Using URI: "+uri);
-            final String noHostUri = ProxyUtils.stripHost(uri);
-            
-            final HttpMethod method = httpRequest.getMethod();
-            final HttpRequest httpRequestCopy = 
-                new DefaultHttpRequest(httpRequest.getProtocolVersion(), 
-                    method, noHostUri);
-            
-            final ChannelBuffer originalContent = httpRequest.getContent();
-            
-            if (originalContent != null) {
-                m_log.info("Setting content");
-                httpRequestCopy.setContent(originalContent);
-            }
-            
-            m_log.info("Request copy method: {}", httpRequestCopy.getMethod());
-            final Set<String> headerNames = httpRequest.getHeaderNames();
-            for (final String name : headerNames) {
-                final List<String> values = httpRequest.getHeaders(name);
-                httpRequestCopy.setHeader(name, values);
-            }
-            
-            final List<String> vias; 
-            if (httpRequestCopy.containsHeader(HttpHeaders.Names.VIA)) {
-                vias = httpRequestCopy.getHeaders(HttpHeaders.Names.VIA);
-            }
-            else {
-                vias = new LinkedList<String>();
-            }
-            
-            try {
-                final InetAddress address = InetAddress.getLocalHost();
-                final String host = address.getHostName();
-                final String via = 
-                    httpRequestCopy.getProtocolVersion().getMajorVersion() + 
-                    "." +
-                    httpRequestCopy.getProtocolVersion().getMinorVersion() +
-                    " " +
-                    host;
-                vias.add(via);
-                httpRequestCopy.setHeader(HttpHeaders.Names.VIA, vias);
-            }
-            catch (final UnknownHostException e) {
-                // Just don't add the Via.
-                m_log.error("Could not get the host", e);
-            }
-            
-            final Channel inboundChannel = me.getChannel();
-            final String hostAndPort = parseHostAndPort(httpRequest);
-            
-            final class OnConnect {
-                private final ChannelFuture m_cf;
-                private OnConnect(final ChannelFuture cf) {
-                    this.m_cf = cf;
-                }
-                public ChannelFuture onConnect() {
-                    if (method != HttpMethod.CONNECT) {
-                        return this.m_cf.getChannel().write(httpRequestCopy);
-                    }
-                    else {
-                        writeConnectResponse(ctx, httpRequest, 
-                            this.m_cf.getChannel());
-                        return this.m_cf;
-                    }
-                }
-            }
-         
-            // We synchronized to avoid creating duplicate connections to the
-            // same host, which we shouldn't for a single connection from the
-            // browser. Note the synchronization here is short-lived, however,
-            // due to the asynchronous connection establishment.
-            synchronized (m_endpointsToChannelFutures) {
-                final ChannelFuture curFuture = 
-                    m_endpointsToChannelFutures.get(hostAndPort);
-                if (curFuture != null) {
-                    final OnConnect onConnect = new OnConnect(curFuture);
-                    if (curFuture.getChannel().isConnected()) {
-                        onConnect.onConnect();
-                        //curFuture.getChannel().write(httpRequestCopy);
-                    }
-                    else {
-                        final ChannelFutureListener cfl = new ChannelFutureListener() {
-                            public void operationComplete(final ChannelFuture future)
-                                throws Exception {
-                                onConnect.onConnect();
-                                //curFuture.getChannel().write(httpRequestCopy);
-                            }
-                        };
-                        curFuture.addListener(cfl);
-                    }
-                }
-                else {
-                    final ChannelFuture cf = 
-                        newChannelFuture(httpRequestCopy, hostAndPort, inboundChannel);
-                    final OnConnect onConnect = new OnConnect(cf);
-                    m_endpointsToChannelFutures.put(hostAndPort, cf);
-                    cf.addListener(new ChannelFutureListener() {
-                        public void operationComplete(final ChannelFuture future)
-                            throws Exception {
-                            if (future.isSuccess()) {
-                                m_log.info("Connected successfully to: {}", future.getChannel());
-                                final Channel newChannel = cf.getChannel();
-                                newChannel.getCloseFuture().addListener(
-                                    new ChannelFutureListener() {
-                                    public void operationComplete(
-                                        final ChannelFuture closeFuture)
-                                        throws Exception {
-                                        m_log.info("Got an outbound channel close event. Removing channel: "+newChannel);
-                                        m_log.info("Channel open??" +newChannel.isOpen());
-                                        m_endpointsToChannelFutures.remove(hostAndPort);
-                                        m_log.info("Outgoing channels on this connection: "+
-                                            m_endpointsToChannelFutures.size());
-                                        if (m_endpointsToChannelFutures.isEmpty()) {
-                                            m_log.info("All outbound channels closed...");
-                                            
-                                            // We *don't* want to close here because
-                                            // the external site may have closed
-                                            // the connection due to a 
-                                            // Connection: close header, but we may
-                                            // not have actually processed the 
-                                            // response yet, and the client side
-                                            // is likely expecting more responses
-                                            // on this connection.
-                                            if (inboundChannel.isOpen()) {
-                                                m_log.info("Closing on flush...");
-                                                closeOnFlush(inboundChannel);
-                                            }
-                                        }
-                                        else {
-                                            m_log.info("Existing connections: {}", m_endpointsToChannelFutures);
-                                        }
-                                    }
-                                });
-                                
-                                m_log.info("Writing message on channel...");
-                                final ChannelFuture wf = onConnect.onConnect();
-                                //final ChannelFuture wf = newChannel.write(httpRequestCopy);
-                                wf.addListener(new ChannelFutureListener() {
-                                    public void operationComplete(final ChannelFuture wcf)
-                                        throws Exception {
-                                        m_log.info("Finished write: "+wcf+ " to: "+
-                                            httpRequest.getMethod()+" "+httpRequest.getUri());
-                                    }
-                                });
-                            }
-                            else {
-                                m_log.error("Could not connect!!", future.getCause());
-                                if (m_totalInboundConnections == 1) {
-                                    m_log.warn("Closing browser to proxy channel");
-                                    me.getChannel().close();
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-                
-            if (m_request.isChunked()) {
-                m_readingChunks = true;
-            }
+            processMessage(ctx, me);
         } 
         else {
-            m_log.error("PROCESSING CHUNK!!!!");
+            processChunk(ctx, me);
+        }
+    }
+
+    private void processChunk(final ChannelHandlerContext ctx, 
+        final MessageEvent me) {
+        m_log.debug("Processing chunk...");
+        final ChannelFuture cf = 
+            m_endpointsToChannelFutures.get(m_hostAndPort);
+        cf.getChannel().write(me.getMessage());
+    }
+
+    private void processMessage(final ChannelHandlerContext ctx, 
+        final MessageEvent me) {
+        final HttpRequest httpRequest = this.m_request = (HttpRequest) me.getMessage();
+        
+        m_log.info("Got request: {} on channel: "+me.getChannel(), httpRequest);
+        if (!this.m_authorizationManager.handleProxyAuthorization(httpRequest, ctx)) {
+            return;
+        }
+        
+        
+        // Switch the de-facto standard "Proxy-Connection" header to 
+        // "Connection" when we pass it along to the remote host.
+        final String proxyConnectionKey = "Proxy-Connection";
+        if (httpRequest.containsHeader(proxyConnectionKey)) {
+            final String header = httpRequest.getHeader(proxyConnectionKey);
+            httpRequest.removeHeader(proxyConnectionKey);
+            httpRequest.setHeader("Connection", header);
+        }
+        
+        final String uri = httpRequest.getUri();
+        
+        m_log.info("Using URI: "+uri);
+        final String noHostUri = ProxyUtils.stripHost(uri);
+        
+        final HttpMethod method = httpRequest.getMethod();
+        final HttpRequest httpRequestCopy = 
+            new DefaultHttpRequest(httpRequest.getProtocolVersion(), 
+                method, noHostUri);
+        
+        final ChannelBuffer originalContent = httpRequest.getContent();
+        
+        if (originalContent != null) {
+            m_log.info("Setting content");
+            httpRequestCopy.setContent(originalContent);
+        }
+        
+        m_log.info("Request copy method: {}", httpRequestCopy.getMethod());
+        final Set<String> headerNames = httpRequest.getHeaderNames();
+        for (final String name : headerNames) {
+            final List<String> values = httpRequest.getHeaders(name);
+            httpRequestCopy.setHeader(name, values);
+        }
+        
+        final List<String> vias; 
+        if (httpRequestCopy.containsHeader(HttpHeaders.Names.VIA)) {
+            vias = httpRequestCopy.getHeaders(HttpHeaders.Names.VIA);
+        }
+        else {
+            vias = new LinkedList<String>();
+        }
+        
+        try {
+            final InetAddress address = InetAddress.getLocalHost();
+            final String host = address.getHostName();
+            final String via = 
+                httpRequestCopy.getProtocolVersion().getMajorVersion() + 
+                "." +
+                httpRequestCopy.getProtocolVersion().getMinorVersion() +
+                " " +
+                host;
+            vias.add(via);
+            httpRequestCopy.setHeader(HttpHeaders.Names.VIA, vias);
+        }
+        catch (final UnknownHostException e) {
+            // Just don't add the Via.
+            m_log.error("Could not get the host", e);
+        }
+        
+        final Channel inboundChannel = me.getChannel();
+        this.m_hostAndPort = parseHostAndPort(httpRequest);
+        
+        final class OnConnect {
+            private final ChannelFuture m_cf;
+            private OnConnect(final ChannelFuture cf) {
+                this.m_cf = cf;
+            }
+            public ChannelFuture onConnect() {
+                if (method != HttpMethod.CONNECT) {
+                    return this.m_cf.getChannel().write(httpRequestCopy);
+                }
+                else {
+                    writeConnectResponse(ctx, httpRequest, 
+                        this.m_cf.getChannel());
+                    return this.m_cf;
+                }
+            }
+        }
+     
+        // We synchronized to avoid creating duplicate connections to the
+        // same host, which we shouldn't for a single connection from the
+        // browser. Note the synchronization here is short-lived, however,
+        // due to the asynchronous connection establishment.
+        synchronized (m_endpointsToChannelFutures) {
+            final ChannelFuture curFuture = 
+                m_endpointsToChannelFutures.get(m_hostAndPort);
+            if (curFuture != null) {
+                final OnConnect onConnect = new OnConnect(curFuture);
+                if (curFuture.getChannel().isConnected()) {
+                    onConnect.onConnect();
+                    //curFuture.getChannel().write(httpRequestCopy);
+                }
+                else {
+                    final ChannelFutureListener cfl = new ChannelFutureListener() {
+                        public void operationComplete(final ChannelFuture future)
+                            throws Exception {
+                            onConnect.onConnect();
+                            //curFuture.getChannel().write(httpRequestCopy);
+                        }
+                    };
+                    curFuture.addListener(cfl);
+                }
+            }
+            else {
+                final ChannelFuture cf = 
+                    newChannelFuture(httpRequestCopy, m_hostAndPort, inboundChannel);
+                final OnConnect onConnect = new OnConnect(cf);
+                m_endpointsToChannelFutures.put(m_hostAndPort, cf);
+                cf.addListener(new ChannelFutureListener() {
+                    public void operationComplete(final ChannelFuture future)
+                        throws Exception {
+                        if (future.isSuccess()) {
+                            m_log.info("Connected successfully to: {}", future.getChannel());
+                            final Channel newChannel = cf.getChannel();
+                            newChannel.getCloseFuture().addListener(
+                                new ChannelFutureListener() {
+                                public void operationComplete(
+                                    final ChannelFuture closeFuture)
+                                    throws Exception {
+                                    m_log.info("Got an outbound channel close event. Removing channel: "+newChannel);
+                                    m_log.info("Channel open??" +newChannel.isOpen());
+                                    m_endpointsToChannelFutures.remove(m_hostAndPort);
+                                    m_log.info("Outgoing channels on this connection: "+
+                                        m_endpointsToChannelFutures.size());
+                                    if (m_endpointsToChannelFutures.isEmpty()) {
+                                        m_log.info("All outbound channels closed...");
+                                        
+                                        // We *don't* want to close here because
+                                        // the external site may have closed
+                                        // the connection due to a 
+                                        // Connection: close header, but we may
+                                        // not have actually processed the 
+                                        // response yet, and the client side
+                                        // is likely expecting more responses
+                                        // on this connection.
+                                        if (inboundChannel.isOpen()) {
+                                            m_log.info("Closing on flush...");
+                                            closeOnFlush(inboundChannel);
+                                        }
+                                    }
+                                    else {
+                                        m_log.info("Existing connections: {}", m_endpointsToChannelFutures);
+                                    }
+                                }
+                            });
+                            
+                            m_log.info("Writing message on channel...");
+                            final ChannelFuture wf = onConnect.onConnect();
+                            //final ChannelFuture wf = newChannel.write(httpRequestCopy);
+                            wf.addListener(new ChannelFutureListener() {
+                                public void operationComplete(final ChannelFuture wcf)
+                                    throws Exception {
+                                    m_log.info("Finished write: "+wcf+ " to: "+
+                                        httpRequest.getMethod()+" "+httpRequest.getUri());
+                                }
+                            });
+                        }
+                        else {
+                            m_log.error("Could not connect!!", future.getCause());
+                            if (m_totalInboundConnections == 1) {
+                                m_log.warn("Closing browser to proxy channel");
+                                me.getChannel().close();
+                            }
+                        }
+                    }
+                });
+            }
+        }
+            
+        if (m_request.isChunked()) {
+            m_readingChunks = true;
         }
     }
 
