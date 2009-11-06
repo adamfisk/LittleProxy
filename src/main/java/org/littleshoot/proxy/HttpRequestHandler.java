@@ -2,7 +2,6 @@ package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
-import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -47,8 +46,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     private final static Logger m_log = 
         LoggerFactory.getLogger(HttpRequestHandler.class);
-    private volatile HttpRequest request;
-    private volatile boolean readingChunks;
+    private volatile HttpRequest m_request;
+    private volatile boolean m_readingChunks;
     
     private static int s_totalInboundConnections = 0;
     private int m_totalInboundConnections = 0;
@@ -57,73 +56,41 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         new ConcurrentHashMap<String, ChannelFuture>();
     
     private volatile int m_messagesReceived = 0;
+    private final ProxyAuthorizationManager m_authorizationManager;
+    
+    /**
+     * Creates a new class for handling HTTP requests with the specified
+     * authentication manager.
+     * 
+     * @param authorizationManager The class that handles any 
+     * proxy authentication requirements.
+     */
+    public HttpRequestHandler(
+        final ProxyAuthorizationManager authorizationManager){
+        this.m_authorizationManager = authorizationManager;
+    }
     
     @Override
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
         m_messagesReceived++;
         m_log.info("Received "+m_messagesReceived+" total messages");
-        if (!readingChunks) {
-            final HttpRequest httpRequest = this.request = (HttpRequest) me.getMessage();
+        if (!m_readingChunks) {
+            final HttpRequest httpRequest = this.m_request = (HttpRequest) me.getMessage();
             
             m_log.info("Got request: {} on channel: "+me.getChannel(), httpRequest);
-            
-            final Set<String> headerNames = httpRequest.getHeaderNames();
-            for (final String name : headerNames) {
-                final List<String> values = httpRequest.getHeaders(name);
-                m_log.info(name+": "+values);
-                if (name.equalsIgnoreCase("Proxy-Authorization")) {
-                    final String fullValue = values.iterator().next();
-                    final String value = StringUtils.substringAfter(fullValue, "Basic ").trim();
-                    final byte[] decodedValue = Base64.decode(value);
-                    try {
-                        final String decodedString = new String(decodedValue, "UTF-8");
-                    }
-                    catch (final UnsupportedEncodingException e) {
-                        m_log.error("Could not decode?", e);
-                    }
-                }
+            if (!this.m_authorizationManager.handleProxyAuthorization(httpRequest, ctx)) {
+                return;
             }
+            
+            
+            // Switch the de-facto standard "Proxy-Connection" header to 
+            // "Connection" when we pass it along to the remote host.
             final String proxyConnectionKey = "Proxy-Connection";
             if (httpRequest.containsHeader(proxyConnectionKey)) {
                 final String header = httpRequest.getHeader(proxyConnectionKey);
                 httpRequest.removeHeader(proxyConnectionKey);
                 httpRequest.setHeader("Connection", header);
-            }
-            
-            //if (!httpRequest.containsHeader("Proxy-Authorization"))
-            if (false) {
-                final String statusLine = "HTTP/1.1 407 Proxy Authentication Required\r\n";
-                final String headers = 
-                    "Date: "+ProxyUtils.httpDate()+"\r\n"+
-                    "Proxy-Authenticate: Basic realm=\"Restricted Files\"\r\n"+
-                    "Content-Length: 415\r\n"+
-                    "Content-Type: text/html; charset=iso-8859-1\r\n" +
-                    "\r\n";
-                
-                final String responseBody = 
-                    "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\n"+
-                    "<html><head>\n"+
-                    "<title>407 Proxy Authentication Required</title>\n"+
-                    "</head><body>\n"+
-                    "<h1>Proxy Authentication Required</h1>\n"+
-                    "<p>This server could not verify that you\n"+
-                    "are authorized to access the document\n"+
-                    "requested.  Either you supplied the wrong\n"+
-                    "credentials (e.g., bad password), or your\n"+
-                    "browser doesn't understand how to supply\n"+
-                    "the credentials required.</p>\n"+
-                    "</body></html>\n";
-                m_log.info("Content-Length is really: "+responseBody.length());
-                writeResponse(ctx.getChannel(), statusLine, headers);
-            }
-            
-            else {
-                m_log.info("Got proxy authorization!");
-                final String authentication = 
-                    httpRequest.getHeader("Proxy-Authorization");
-                m_log.info(authentication);
-                httpRequest.removeHeader("Proxy-Authorization");
             }
             
             final String uri = httpRequest.getUri();
@@ -144,6 +111,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             }
             
             m_log.info("Request copy method: {}", httpRequestCopy.getMethod());
+            final Set<String> headerNames = httpRequest.getHeaderNames();
             for (final String name : headerNames) {
                 final List<String> values = httpRequest.getHeaders(name);
                 httpRequestCopy.setHeader(name, values);
@@ -284,15 +252,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 }
             }
                 
-            if (request.isChunked()) {
-                readingChunks = true;
+            if (m_request.isChunked()) {
+                m_readingChunks = true;
             }
         } 
         else {
             m_log.error("PROCESSING CHUNK!!!!");
         }
     }
-    
+
     private void writeConnectResponse(final ChannelHandlerContext ctx, 
         final HttpRequest httpRequest, final Channel outgoingChannel) {
         final String address = httpRequest.getUri();
@@ -310,7 +278,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 "Cache-Control: no-cache\r\n" +
                 via + 
                 "\r\n";
-            writeResponse(browserToProxyChannel, statusLine, headers);
+            ProxyUtils.writeResponse(browserToProxyChannel, statusLine, headers);
         }
         else {
             browserToProxyChannel.setReadable(false);
@@ -332,24 +300,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 "Proxy-Connection: Keep-Alive\r\n"+
                 via + 
                 "\r\n";
-            writeResponse(browserToProxyChannel, statusLine, headers);
-        }
-    }
-
-    private void writeResponse(final Channel browserToProxyChannel,
-        final String statusLine, final String headers) {
-        final String fullResponse = statusLine + headers;
-        m_log.info("Writing full response:\n"+fullResponse);
-        try {
-            final ChannelBuffer buf = 
-                ChannelBuffers.copiedBuffer(fullResponse.getBytes("UTF-8"));
-            browserToProxyChannel.write(buf);
-            browserToProxyChannel.setReadable(true);
-            return;
-        }
-        catch (final UnsupportedEncodingException e) {
-            // Never.
-            return;
+            ProxyUtils.writeResponse(browserToProxyChannel, statusLine, headers);
         }
     }
 

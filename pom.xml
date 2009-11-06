@@ -198,7 +198,7 @@
             <configuration>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>org.littleshoot.proxy.HttpProxyServer</mainClass>
+                  <mainClass>org.littleshoot.proxy.Launcher</mainClass>
                 </transformer>
               </transformers>
             </configuration>

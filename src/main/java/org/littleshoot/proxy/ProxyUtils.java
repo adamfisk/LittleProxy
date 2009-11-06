@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import java.io.UnsupportedEncodingException;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
@@ -8,12 +9,19 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 import org.apache.commons.lang.StringUtils;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for the proxy.
  */
 public class ProxyUtils {
+    
+    public static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
 
     private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
     
@@ -116,5 +124,44 @@ public class ProxyUtils {
         }
         copy.setContent(original.getContent());
         return copy;
+    }
+
+
+    /**
+     * Writes a raw HTTP response to the channel. 
+     * 
+     * @param channel The channel.
+     * @param statusLine The status line of the response.
+     * @param headers The raw headers string.
+     */
+    public static void writeResponse(final Channel channel,
+        final String statusLine, final String headers) {
+        writeResponse(channel, statusLine, headers, "");
+    }
+
+    /**
+     * Writes a raw HTTP response to the channel. 
+     * 
+     * @param channel The channel.
+     * @param statusLine The status line of the response.
+     * @param headers The raw headers string.
+     * @param responseBody The response body.
+     */
+    public static void writeResponse(final Channel channel, 
+        final String statusLine, final String headers, 
+        final String responseBody) {
+        final String fullResponse = statusLine + headers + responseBody;
+        LOG.info("Writing full response:\n"+fullResponse);
+        try {
+            final ChannelBuffer buf = 
+                ChannelBuffers.copiedBuffer(fullResponse.getBytes("UTF-8"));
+            channel.write(buf);
+            channel.setReadable(true);
+            return;
+        }
+        catch (final UnsupportedEncodingException e) {
+            // Never.
+            return;
+        }    
     }
 }

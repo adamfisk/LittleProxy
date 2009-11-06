@@ -13,6 +13,19 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
  */
 public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     
+    private final ProxyAuthorizationManager m_authenticationManager;
+
+    /**
+     * Creates a new pipeline factory with the specified class for processing
+     * proxy authentication.
+     * 
+     * @param authenticationManager The manager for proxy authentication.
+     */
+    public HttpServerPipelineFactory(
+        final ProxyAuthorizationManager authenticationManager) {
+        this.m_authenticationManager = authenticationManager;
+    }
+
     public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = pipeline();
 
@@ -24,7 +37,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         // We want to allow longer request lines, headers, and chunks respectively.
         pipeline.addLast("decoder", new HttpRequestDecoder(8192*2, 8192*2, 8192*2));
         pipeline.addLast("encoder", new HttpResponseEncoder());
-        pipeline.addLast("handler", new HttpRequestHandler());
+        pipeline.addLast("handler", new HttpRequestHandler(m_authenticationManager));
         return pipeline;
     }
 }
