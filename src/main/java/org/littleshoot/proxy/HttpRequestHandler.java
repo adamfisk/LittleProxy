@@ -383,7 +383,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     return pipeline;
                 }
             };
-            }
+        }
         else {
             cpf = new ChannelPipelineFactory() {
                 public ChannelPipeline getPipeline() throws Exception {
@@ -398,14 +398,24 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 }
             };
         }
+        
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            public void run() {
+                // We just re-use the other channel group, so we don't worry
+                // about it here.
+                cb.releaseExternalResources();
+            }
+        }));
             
         // Set up the event pipeline factory.
         cb.setPipelineFactory(cpf);
-        cb.setOption("connectTimeoutMillis", 60*1000);
+        cb.setOption("connectTimeoutMillis", 30*1000);
 
         // Start the connection attempt.
         m_log.info("Starting new connection to: "+hostAndPort);
-        final ChannelFuture future = cb.connect(new InetSocketAddress(host, port));
+        final ChannelFuture future = 
+            cb.connect(new InetSocketAddress(host, port));
+        future.getChannel().getCloseFuture().awaitUninterruptibly();
         return future;
     }
     
@@ -476,7 +486,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
         final Channel channel = e.getChannel();
-        m_log.warn("Caught an exception on browser to proxy channel: "+channel, e.getCause());
+        m_log.warn("Caught an exception on browser to proxy channel: "+channel, 
+            e.getCause());
         if (channel.isOpen()) {
             closeOnFlush(channel);
         }
