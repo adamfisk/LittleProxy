@@ -12,6 +12,8 @@ import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,16 @@ public class ProxyUtils {
      * Date format pattern used to parse HTTP date headers in RFC 1036 format.
      */
     public static final String PATTERN_RFC1036 = "EEEE, dd-MMM-yy HH:mm:ss zzz";
+
+    /**
+     * Utility class for a no-op {@link ChannelFutureListener}.
+     */
+    public static final ChannelFutureListener NO_OP_LISTENER = 
+        new ChannelFutureListener() {
+        public void operationComplete(final ChannelFuture future) 
+            throws Exception {
+        }
+    };
     
     private ProxyUtils() {
     }

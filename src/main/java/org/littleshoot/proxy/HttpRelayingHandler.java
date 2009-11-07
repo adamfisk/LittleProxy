@@ -2,7 +2,6 @@ package org.littleshoot.proxy;
 
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipelineCoverage;
@@ -13,6 +12,7 @@ import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
+import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
@@ -51,10 +51,11 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent e) throws Exception {
         final Object messageToWrite;
+        final ChannelFutureListener writeListener;
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
             final HttpResponse response;
-            if (hr.containsHeader("Transfer-Encoding")) {
+            if (hr.containsHeader(HttpHeaders.Names.TRANSFER_ENCODING)) {
                 if (hr.getProtocolVersion() != HttpVersion.HTTP_1_1) {
                     m_log.warn("Fixing HTTP version.");
                     response = ProxyUtils.copyMutableResponseFields(hr, 
@@ -72,21 +73,42 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 readingChunks = true;
             } 
             messageToWrite = response;
+            
+            // Decide whether to close the connection or not.
+            final boolean connectionClose = 
+                HttpHeaders.Values.CLOSE.equalsIgnoreCase(
+                    response.getHeader(HttpHeaders.Names.CONNECTION));
+            final boolean http10AndNoKeepAlive =
+                response.getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
+                !HttpHeaders.Values.KEEP_ALIVE.equalsIgnoreCase(
+                    response.getHeader(HttpHeaders.Names.CONNECTION));
+            
+            final boolean close = connectionClose || http10AndNoKeepAlive;
+            final boolean chunked = 
+                HttpHeaders.Values.CHUNKED.equals(
+                    response.getHeader(HttpHeaders.Names.TRANSFER_ENCODING));
+            if (close && !chunked) {
+                writeListener = ChannelFutureListener.CLOSE;
+            }
+            else {
+                // Do nothing.
+                writeListener = ProxyUtils.NO_OP_LISTENER;
+            }
         } else {
             final HttpChunk chunk = (HttpChunk) e.getMessage();
             if (chunk.isLast()) {
                 readingChunks = false;
+                writeListener = ChannelFutureListener.CLOSE;
+            }
+            else {
+                // Do nothing.
+                writeListener = ProxyUtils.NO_OP_LISTENER;
             }
             messageToWrite = chunk;
         }
+        
         if (m_browserToProxyChannel.isOpen()) {
-            final ChannelFutureListener logListener = new ChannelFutureListener() {
-                public void operationComplete(final ChannelFuture future) 
-                    throws Exception {
-                    m_log.info("Finished writing data");
-                }
-            };
-            m_browserToProxyChannel.write(messageToWrite).addListener(logListener);
+            m_browserToProxyChannel.write(messageToWrite).addListener(writeListener);
         }
         else {
             m_log.info("Channel not open. Connected? {}", 
