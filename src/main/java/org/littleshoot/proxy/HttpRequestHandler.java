@@ -29,7 +29,6 @@ import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
@@ -405,8 +404,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             public void run() {
                 // We just re-use the other channel group, so we don't worry
                 // about it here.
-                final ChannelGroupFuture future = m_channelGroup.close();
-                future.awaitUninterruptibly(60 * 1000);
                 cb.releaseExternalResources();
             }
         }));

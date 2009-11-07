@@ -48,7 +48,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
                 final ChannelGroupFuture future = m_allChannels.close();
-                future.awaitUninterruptibly();
+                future.awaitUninterruptibly(120*1000);
                 bootstrap.releaseExternalResources();
             }
         }));
