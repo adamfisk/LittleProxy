@@ -29,6 +29,8 @@ import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.junit.Test;
@@ -336,8 +338,11 @@ public class HttpProxyTest
         final ProxyAuthorizationManager pam = 
             new DefaultProxyAuthorizationManager();
         
+        final ChannelGroup group = 
+            new DefaultChannelGroup("HTTP-Proxy-Server");
+        
         // Set up the event pipeline factory.
-        bootstrap.setPipelineFactory(new HttpServerPipelineFactory(pam));
+        bootstrap.setPipelineFactory(new HttpServerPipelineFactory(pam, group));
 
         // Bind and start to accept incoming connections.
         bootstrap.bind(new InetSocketAddress(8080));

@@ -11,6 +11,7 @@ import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.group.ChannelGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,26 +32,25 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
      */
     private final Channel m_relayChannel;
 
+    private final ChannelGroup m_channelGroup;
+
     /**
      * Creates a new {@link HttpConnectRelayingHandler} with the specified 
      * connection to relay to..
      * 
      * @param relayChannel The channel to relay messages to.
+     * @param channelGroup The group of channels to close on shutdown.
      */
-    public HttpConnectRelayingHandler(final Channel relayChannel) {
+    public HttpConnectRelayingHandler(final Channel relayChannel, 
+        final ChannelGroup channelGroup) {
         this.m_relayChannel = relayChannel;
+        this.m_channelGroup = channelGroup;
     }
 
     @Override
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent e) throws Exception {
         final ChannelBuffer msg = (ChannelBuffer) e.getMessage();
-        m_log.info("Got message from: "+
-            e.getChannel()+"\n<<< " + ChannelBuffers.hexDump(msg));
-        final String raw = msg.toString("UTF-8");
-        if (raw.contains(": ")) {
-            m_log.info("Raw buffer: {}", raw);
-        }
         if (m_relayChannel.isOpen()) {
             final ChannelFutureListener logListener = new ChannelFutureListener() {
                 public void operationComplete(final ChannelFuture future) 
@@ -75,6 +75,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
         final ChannelStateEvent cse) throws Exception {
         final Channel ch = cse.getChannel();
         m_log.info("New channel opened from proxy to web: {}", ch);
+        this.m_channelGroup.add(ch);
     }
 
     @Override

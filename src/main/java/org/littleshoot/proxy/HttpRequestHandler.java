@@ -28,6 +28,7 @@ import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
@@ -58,6 +59,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private volatile int m_messagesReceived = 0;
     private final ProxyAuthorizationManager m_authorizationManager;
     private String m_hostAndPort;
+    private final ChannelGroup m_channelGroup;
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -65,10 +67,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * 
      * @param authorizationManager The class that handles any 
      * proxy authentication requirements.
+     * @param channelGroup 
      */
     public HttpRequestHandler(
-        final ProxyAuthorizationManager authorizationManager){
+        final ProxyAuthorizationManager authorizationManager, 
+        final ChannelGroup channelGroup){
         this.m_authorizationManager = authorizationManager;
+        this.m_channelGroup = channelGroup;
     }
     
     @Override
@@ -86,7 +91,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     private void processChunk(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
-        m_log.debug("Processing chunk...");
+        m_log.warn("Processing chunk...");
         final ChannelFuture cf = 
             m_endpointsToChannelFutures.get(m_hostAndPort);
         cf.getChannel().write(me.getMessage());
@@ -305,7 +310,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             ctx.getPipeline().remove("handler");
             
             ctx.getPipeline().addLast("handler", 
-                new HttpConnectRelayingHandler(outgoingChannel));
+                new HttpConnectRelayingHandler(outgoingChannel, this.m_channelGroup));
             
             final String statusLine = "HTTP/1.1 200 Connection established\r\n";
             final String via = newVia();
@@ -373,7 +378,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     // Create a default pipeline implementation.
                     final ChannelPipeline pipeline = pipeline();
                     pipeline.addLast("handler", 
-                        new HttpConnectRelayingHandler(browserToProxyChannel));
+                        new HttpConnectRelayingHandler(browserToProxyChannel,
+                            m_channelGroup));
                     return pipeline;
                 }
             };
@@ -383,9 +389,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 public ChannelPipeline getPipeline() throws Exception {
                     // Create a default pipeline implementation.
                     final ChannelPipeline pipeline = pipeline();
-                    pipeline.addLast("decoder", new HttpResponseDecoder(4096*2, 81920, 81920));
+                    //pipeline.addLast("decoder", new HttpResponseDecoder(4096*2, 81920, 81920));
+                    pipeline.addLast("decoder", new HttpResponseDecoder());
                     pipeline.addLast("encoder", new HttpRequestEncoder());
-                    pipeline.addLast("handler", new HttpRelayingHandler(browserToProxyChannel));
+                    pipeline.addLast("handler", 
+                        new HttpRelayingHandler(browserToProxyChannel, m_channelGroup));
                     return pipeline;
                 }
             };
@@ -435,6 +443,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         m_totalInboundConnections++;
         m_log.info("Now "+s_totalInboundConnections+" browser to proxy channels...");
         m_log.info("Now this class has "+m_totalInboundConnections+" browser to proxy channels...");
+        
+        // We need to keep track of the channel so we can close it at the end.
+        this.m_channelGroup.add(inboundChannel);
     }
     
     @Override

@@ -10,6 +10,7 @@ import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpResponse;
@@ -31,14 +32,19 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     
     private final Channel m_browserToProxyChannel;
 
+    private final ChannelGroup m_channelGroup;
+
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
      * to the browser.
      * 
      * @param browserToProxyChannel The browser connection.
+     * @param channelGroup Keeps track of channels to close on shutdown.
      */
-    public HttpRelayingHandler(final Channel browserToProxyChannel) {
+    public HttpRelayingHandler(final Channel browserToProxyChannel, 
+        final ChannelGroup channelGroup) {
         this.m_browserToProxyChannel = browserToProxyChannel;
+        this.m_channelGroup = channelGroup;
     }
 
     @Override
@@ -50,7 +56,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             final HttpResponse response;
             if (hr.containsHeader("Transfer-Encoding")) {
                 if (hr.getProtocolVersion() != HttpVersion.HTTP_1_1) {
-                    m_log.info("Fixing HTTP version.");
+                    m_log.warn("Fixing HTTP version.");
                     response = ProxyUtils.copyMutableResponseFields(hr, 
                         new DefaultHttpResponse(HttpVersion.HTTP_1_1, hr.getStatus()));
                 }
@@ -60,14 +66,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
             else {
                 response = hr;
-            }
-
-            if (!response.getHeaderNames().isEmpty()) {
-                for (String name: response.getHeaderNames()) {
-                    for (String value: response.getHeaders(name)) {
-                        m_log.info("HEADER: " + name + " = " + value);
-                    }
-                }
             }
 
             if (response.isChunked()) {
@@ -88,7 +86,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     m_log.info("Finished writing data");
                 }
             };
-            m_log.info("Writing message: {}", messageToWrite);
             m_browserToProxyChannel.write(messageToWrite).addListener(logListener);
         }
         else {
@@ -106,6 +103,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         final ChannelStateEvent cse) throws Exception {
         final Channel ch = cse.getChannel();
         m_log.info("New channel opened from proxy to web: {}", ch);
+        this.m_channelGroup.add(ch);
     }
 
     @Override
@@ -118,7 +116,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
-        m_log.warn("Caught exception on proxy -> web connection: "+
+        m_log.info("Caught exception on proxy -> web connection: "+
             e.getChannel(), e.getCause());
         if (e.getChannel().isOpen()) {
             closeOnFlush(e.getChannel());
