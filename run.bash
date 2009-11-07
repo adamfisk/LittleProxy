@@ -6,7 +6,7 @@ function die() {
 
 mvn clean || die "Could not clean?"
 mvn package -Dmaven.test.skip=true || die "Could not package proxy"
-javaArgs="-Xmx400m -jar target/littleproxy-0.1.jar $*"
+javaArgs="-jar target/littleproxy-0.1.jar $*"
 java6Path=/System/Library/Frameworks/JavaVM.framework/Versions/1.6/Home/bin/java
 
 if [ -f "$java6Path" ]
