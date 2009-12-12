@@ -34,17 +34,23 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     private final ChannelGroup m_channelGroup;
 
+    private final HttpResponseProcessorManager m_responseProcessorManager;
+
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
      * to the browser.
      * 
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
+     * @param responseProcessorManager The class that manages response 
+     * processors.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel, 
-        final ChannelGroup channelGroup) {
+        final ChannelGroup channelGroup, 
+        final HttpResponseProcessorManager responseProcessorManager) {
         this.m_browserToProxyChannel = browserToProxyChannel;
         this.m_channelGroup = channelGroup;
+        this.m_responseProcessorManager = responseProcessorManager;
     }
 
     @Override
@@ -72,7 +78,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             if (response.isChunked()) {
                 readingChunks = true;
             } 
-            messageToWrite = response;
+            messageToWrite = 
+                this.m_responseProcessorManager.processResponse(response);
             
             // Decide whether to close the connection or not.
             final boolean connectionClose = 

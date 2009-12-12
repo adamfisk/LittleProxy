@@ -17,37 +17,52 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
     
-    private final Logger m_log = 
+    private final Logger log = 
         LoggerFactory.getLogger(DefaultHttpProxyServer.class);
     
-    private final ChannelGroup m_allChannels = 
+    private final ChannelGroup allChannels = 
         new DefaultChannelGroup("HTTP-Proxy-Server");
             
-    private final int m_port;
+    private final int port;
     
-    private final ProxyAuthorizationManager m_authenticationManager =
+    private final ProxyAuthorizationManager authenticationManager =
         new DefaultProxyAuthorizationManager();
+
+    private final DefaultHttpRelayingHandlerFactory handlerFactory;
+
+    private final HttpResponseProcessorManager responseProcessorManager;
     
+    /**
+     * Creates a new proxy server.
+     * 
+     * @param port The port the server should run on.
+     */
     public DefaultHttpProxyServer(final int port) {
-        this.m_port = port;
+        this.port = port;
+        this.responseProcessorManager = 
+            new DefaultHttpResponseProcessorManager();
+        this.handlerFactory = 
+            new DefaultHttpRelayingHandlerFactory(this.allChannels, 
+                this.responseProcessorManager);
     }
     
     public void start() {
-        m_log.info("Starting proxy on port: "+this.m_port);
+        log.info("Starting proxy on port: "+this.port);
         final ServerBootstrap bootstrap = new ServerBootstrap(
             new NioServerSocketChannelFactory(
                 Executors.newCachedThreadPool(),
                 Executors.newCachedThreadPool()));
 
         final HttpServerPipelineFactory factory = 
-            new HttpServerPipelineFactory(m_authenticationManager, this.m_allChannels);
+            new HttpServerPipelineFactory(authenticationManager, 
+                this.handlerFactory, this.allChannels);
         bootstrap.setPipelineFactory(factory);
-        final Channel channel = bootstrap.bind(new InetSocketAddress(m_port));
-        m_allChannels.add(channel);
+        final Channel channel = bootstrap.bind(new InetSocketAddress(port));
+        allChannels.add(channel);
         
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
-                final ChannelGroupFuture future = m_allChannels.close();
+                final ChannelGroupFuture future = allChannels.close();
                 future.awaitUninterruptibly(120*1000);
                 bootstrap.releaseExternalResources();
             }
@@ -64,6 +79,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     public void addProxyAuthenticationHandler(
         final ProxyAuthorizationHandler pah) {
-        this.m_authenticationManager.addHandler(pah);
+        this.authenticationManager.addHandler(pah);
+    }
+
+    public void addResponseProcessor(final HttpResponseProcessor responseProcessor) {
+        this.responseProcessorManager.addResponseProcessor(responseProcessor);
     }
 }

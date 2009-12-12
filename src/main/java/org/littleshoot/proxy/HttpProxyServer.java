@@ -18,4 +18,11 @@ public interface HttpProxyServer {
      * @param pah The new authentication handler.
      */
     void addProxyAuthenticationHandler(ProxyAuthorizationHandler pah);
+
+    /**
+     * Adds a class for processing responses.
+     * 
+     * @param responseProcessor The class for processing responses.
+     */
+    void addResponseProcessor(HttpResponseProcessor responseProcessor);
 }

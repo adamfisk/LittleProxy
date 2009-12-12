@@ -24,6 +24,7 @@ public class Launcher {
             port = defaultPort;
         }
         final HttpProxyServer server = new DefaultHttpProxyServer(port);
+        server.addResponseProcessor(new GzipResponseProcessor());
         server.start();
     }
 }

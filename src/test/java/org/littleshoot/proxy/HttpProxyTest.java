@@ -14,7 +14,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.channels.Channels;
@@ -22,16 +21,11 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
-import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.channel.group.DefaultChannelGroup;
-import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.junit.Test;
 
@@ -41,6 +35,12 @@ import org.junit.Test;
 public class HttpProxyTest
     {
 
+    /**
+     * Tests the proxy both with chunking and without to make sure it's working
+     * identically with both.
+     * 
+     * @throws Exception If any unexpected error occurs.
+     */
     @Test public void testProxyChunkAndNo() throws Exception 
         {
         System.out.println("starting proxy");
@@ -94,7 +94,8 @@ public class HttpProxyTest
         System.out.println("Connected...");
         final OutputStream os = sock.getOutputStream();
         final Writer writer = new OutputStreamWriter(os);
-        final String uri = "http://i.i.com.com/cnwk.1d/i/bto/20091023/sandberg.jpg";
+        //final String uri = "http://i.i.com.com/cnwk.1d/i/bto/20091023/sandberg.jpg";
+        final String uri = "http://www.google.com/search?hl=en&client=safari&rls=en-us&q=headphones&aq=f&oq=&aqi=";
         if (simulateProxy)
             {
             final String noHostUri = ProxyUtils.stripHost(uri);
@@ -110,9 +111,9 @@ public class HttpProxyTest
         writeHeader(writer, "Accept-Language: en-us,en;q=0.5\r\n");
         //writeHeader(writer, "Cookie: XCLGFbrowser=Cg8ILkmHQruNAAAAeAs; globid=1.1WJrGuYpPuQP4SL3\r\n");
         
-        writeHeader(writer, "Cookie: [XCLGFbrowser=Cg8ILkmHQruNAAAAeAs; globid=1.1WJrGuYpPuQP4SL3]\r\n");
-        writeHeader(writer, "Host: i.i.com.com\r\n");
-        //writeHeader(writer, "Host: www.google.com\r\n");
+        //writeHeader(writer, "Cookie: [XCLGFbrowser=Cg8ILkmHQruNAAAAeAs; globid=1.1WJrGuYpPuQP4SL3]\r\n");
+        //writeHeader(writer, "Host: i.i.com.com\r\n");
+        writeHeader(writer, "Host: www.google.com\r\n");
         writeHeader(writer, "Keep-Alive: 300\r\n");
         if (simulateProxy)
             {
@@ -153,6 +154,7 @@ public class HttpProxyTest
                     {
                     final String headerLine = curLine.toString();
                     System.out.println("READ HEADER: "+headerLine);
+                    /*
                     if (!headerLine.startsWith("HTTP"))
                         {
                         headers.put(
@@ -172,6 +174,7 @@ public class HttpProxyTest
                             fail("Unexpected HTTP version in line: "+headerLine);
                         }
                     }
+                    */
                     curLine = new StringBuilder();
                     haveCrLn = true;
                     }
@@ -329,6 +332,10 @@ public class HttpProxyTest
 
     private void startHttpProxy()
         {
+        final HttpProxyServer server = new DefaultHttpProxyServer(8080);
+        server.addResponseProcessor(new GzipResponseProcessor());
+        server.start();
+        /*
         // Configure the server.
         final ServerBootstrap bootstrap = new ServerBootstrap(
             new NioServerSocketChannelFactory(
@@ -346,6 +353,7 @@ public class HttpProxyTest
 
         // Bind and start to accept incoming connections.
         bootstrap.bind(new InetSocketAddress(8080));
+        */
         }
     }
 

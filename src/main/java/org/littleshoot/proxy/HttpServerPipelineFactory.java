@@ -16,18 +16,23 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     
     private final ProxyAuthorizationManager m_authenticationManager;
     private final ChannelGroup m_channelGroup;
+    private final HttpRelayingHandlerFactory m_handlerFactory;
 
     /**
      * Creates a new pipeline factory with the specified class for processing
      * proxy authentication.
      * 
      * @param authorizationManager The manager for proxy authentication.
+     * @param handlerFactory The class that creates new relaying handles for
+     * relaying responses back to the client.
      * @param channelGroup The group that keeps track of open channels.
      */
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
+        final HttpRelayingHandlerFactory handlerFactory, 
         final ChannelGroup channelGroup) {
         this.m_authenticationManager = authorizationManager;
+        this.m_handlerFactory = handlerFactory;
         this.m_channelGroup = channelGroup;
     }
 
@@ -43,7 +48,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast("handler", 
-            new HttpRequestHandler(m_authenticationManager, this.m_channelGroup));
+            new HttpRequestHandler(m_authenticationManager, 
+                this.m_handlerFactory, this.m_channelGroup));
         return pipeline;
     }
 }

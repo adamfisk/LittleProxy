@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.TimeZone;
 
 import org.apache.commons.lang.StringUtils;
@@ -14,6 +15,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.handler.codec.http.HttpMessage;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -175,5 +177,19 @@ public class ProxyUtils {
             // Never.
             return;
         }    
+    }
+
+    /**
+     * Prints the headers of the message (for debugging).
+     * 
+     * @param msg The {@link HttpMessage}.
+     */
+    public static void printHeaders(final HttpMessage msg) {
+        final Set<String> headerNames = msg.getHeaderNames();
+        for (final String name : headerNames) {
+            final String value = msg.getHeader(name);
+            System.out.println(name + ": "+value);
+            LOG.debug(name + ": "+value);
+        }
     }
 }

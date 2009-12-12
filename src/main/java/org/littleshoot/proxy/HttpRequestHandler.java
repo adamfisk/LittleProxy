@@ -31,6 +31,8 @@ import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
+import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
@@ -60,6 +62,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final ProxyAuthorizationManager m_authorizationManager;
     private String m_hostAndPort;
     private final ChannelGroup m_channelGroup;
+    private final HttpRelayingHandlerFactory m_handlerFactory;
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -67,12 +70,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * 
      * @param authorizationManager The class that handles any 
      * proxy authentication requirements.
-     * @param channelGroup 
+     * @param handlerFactory The class for creating new classes for relaying
+     * responses.
+     * @param channelGroup The group of channels for keeping track of all
+     * channels we've opened.
      */
     public HttpRequestHandler(
         final ProxyAuthorizationManager authorizationManager, 
+        final HttpRelayingHandlerFactory handlerFactory, 
         final ChannelGroup channelGroup){
         this.m_authorizationManager = authorizationManager;
+        this.m_handlerFactory = handlerFactory;
         this.m_channelGroup = channelGroup;
     }
     
@@ -105,7 +113,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         if (!this.m_authorizationManager.handleProxyAuthorization(httpRequest, ctx)) {
             return;
         }
-        
         
         // Switch the de-facto standard "Proxy-Connection" header to 
         // "Connection" when we pass it along to the remote host.
@@ -185,7 +192,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             }
         }
      
-        // We synchronized to avoid creating duplicate connections to the
+        // We synchronize to avoid creating duplicate connections to the
         // same host, which we shouldn't for a single connection from the
         // browser. Note the synchronization here is short-lived, however,
         // due to the asynchronous connection establishment.
@@ -390,11 +397,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 public ChannelPipeline getPipeline() throws Exception {
                     // Create a default pipeline implementation.
                     final ChannelPipeline pipeline = pipeline();
-                    //pipeline.addLast("decoder", new HttpResponseDecoder(4096*2, 81920, 81920));
                     pipeline.addLast("decoder", new HttpResponseDecoder());
+                    pipeline.addLast("inflater", new HttpContentDecompressor());
+                    
+                    // TODO: Get rid of the aggregator as soon as we get decompression
+                    // working.
+                    pipeline.addLast("aggregator", new HttpChunkAggregator(1048576));
                     pipeline.addLast("encoder", new HttpRequestEncoder());
                     pipeline.addLast("handler", 
-                        new HttpRelayingHandler(browserToProxyChannel, m_channelGroup));
+                        m_handlerFactory.newHandler(browserToProxyChannel));
                     return pipeline;
                 }
             };
