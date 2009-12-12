@@ -1,5 +1,5 @@
 
-//$(document).ready(function() {
+$(document).ready(function() {
     //console.info('jquery ready!!');
     //alert('cnt is: '+$('cnt').size());
 
@@ -13,7 +13,6 @@
         
         //$('#ghead').hide('slow');
         alert ('Got ads: '+ads);
-        /*
         var rhs = $('#rhsline');
         
         var toHide;
@@ -23,17 +22,14 @@
             toHide = rhs;
         }
         alert('about to hide'+ toHide.size());
-        */
-        if (ads) {
-            ads.style.display = "none";
-        }
-        /*
+        //if (ads) {
+        //    ads.style.display = "none";
+        //}
         $(toHide).hide(2000, function() {
             //console.info('in hide callback');
             $(this).html('<page_token>');
             $(this).show(6000);
         });
-        */
     }
     
     function delayedFade() {
@@ -42,4 +38,4 @@
     }
     if(window.addEventListener)window.addEventListener("load",delayedFade,false);else if(window.attachEvent)window.attachEvent("onload",delayedFade);
     
-//});
+});

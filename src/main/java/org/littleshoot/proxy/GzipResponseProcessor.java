@@ -67,7 +67,7 @@ public class GzipResponseProcessor implements HttpResponseProcessor {
             //var ads = document.getElementById('rhscol');" +
             //ads.style = 'visibility:none;'" +
             final String script = 
-                //"<script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js'></script>"+
+                "<script type='text/javascript' src='http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js'></script>"+
                 "<script>" +
                 jsBody+
                 /*
