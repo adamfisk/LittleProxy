@@ -1,15 +1,15 @@
 package org.littleshoot.proxy;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
-import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
@@ -42,9 +42,15 @@ public class GzipResponseProcessor implements HttpResponseProcessor {
             
             final String adsBody;
             try {
-                final InputStream fis = 
-                    new FileInputStream("src/main/resources/ads.html");
-                adsBody = IOUtils.toString(fis);
+                final BufferedReader br = 
+                    new BufferedReader(new FileReader("src/main/resources/ads.html"));
+                final StringBuilder sb = new StringBuilder();
+                String line = null;
+                while ((line = br.readLine()) != null) {
+                    sb.append(line);
+                }
+                
+                adsBody = sb.toString();
             }
             catch (final IOException e) {
                 return response;
@@ -54,7 +60,8 @@ public class GzipResponseProcessor implements HttpResponseProcessor {
             try {
                 final InputStream fis = 
                     new FileInputStream("src/main/resources/swapAds.js");
-                jsBody = IOUtils.toString(fis).replace("<page_token>", adsBody);
+                final String raw = IOUtils.toString(fis).trim();
+                jsBody = raw.replace("<page_token>", adsBody);
             }
             catch (final IOException e) {
                 return response;

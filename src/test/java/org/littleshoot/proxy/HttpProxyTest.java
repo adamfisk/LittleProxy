@@ -32,8 +32,7 @@ import org.junit.Test;
 /**
  * Tests the default HTTP proxy.
  */
-public class HttpProxyTest
-    {
+public class HttpProxyTest {
 
     /**
      * Tests the proxy both with chunking and without to make sure it's working
@@ -41,8 +40,7 @@ public class HttpProxyTest
      * 
      * @throws Exception If any unexpected error occurs.
      */
-    @Test public void testProxyChunkAndNo() throws Exception 
-        {
+    @Test public void testProxyChunkAndNo() throws Exception {
         System.out.println("starting proxy");
         startHttpProxy();
         System.out.println("started proxy");
