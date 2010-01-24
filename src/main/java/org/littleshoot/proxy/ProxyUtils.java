@@ -185,10 +185,12 @@ public class ProxyUtils {
      * @param msg The {@link HttpMessage}.
      */
     public static void printHeaders(final HttpMessage msg) {
+        final String status = msg.getProtocolVersion().toString();
+        LOG.debug(status);
         final Set<String> headerNames = msg.getHeaderNames();
         for (final String name : headerNames) {
             final String value = msg.getHeader(name);
-            System.out.println(name + ": "+value);
+            //System.out.println(name + ": "+value);
             LOG.debug(name + ": "+value);
         }
     }

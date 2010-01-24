@@ -13,6 +13,7 @@ import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
+import org.jboss.netty.handler.codec.http.HttpMessage;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
@@ -34,7 +35,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     private final ChannelGroup m_channelGroup;
 
-    private final HttpResponseProcessorManager m_responseProcessorManager;
+    private final HttpResponseProcessor m_responseProcessor;
+
+    private final String m_hostAndPort;
 
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
@@ -42,30 +45,41 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * 
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
-     * @param responseProcessorManager The class that manages response 
+     * @param responseProcessor The class that manages response 
      * processors.
+     * @param hostAndPort The host and port of the remote server to relay 
+     * from.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel, 
         final ChannelGroup channelGroup, 
-        final HttpResponseProcessorManager responseProcessorManager) {
+        final HttpResponseProcessor responseProcessor, 
+        final String hostAndPort) {
         this.m_browserToProxyChannel = browserToProxyChannel;
         this.m_channelGroup = channelGroup;
-        this.m_responseProcessorManager = responseProcessorManager;
+        this.m_responseProcessor = responseProcessor;
+        this.m_hostAndPort = hostAndPort;
     }
 
     @Override
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent e) throws Exception {
+        
         final Object messageToWrite;
         final ChannelFutureListener writeListener;
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
+            m_log.info("Received headers: ");
+            ProxyUtils.printHeaders(hr);
             final HttpResponse response;
-            if (hr.containsHeader(HttpHeaders.Names.TRANSFER_ENCODING)) {
+            if (hr.containsHeader(HttpHeaders.Names.TRANSFER_ENCODING) || hr.isChunked()) {
                 if (hr.getProtocolVersion() != HttpVersion.HTTP_1_1) {
                     m_log.warn("Fixing HTTP version.");
                     response = ProxyUtils.copyMutableResponseFields(hr, 
                         new DefaultHttpResponse(HttpVersion.HTTP_1_1, hr.getStatus()));
+                    if (!response.containsHeader(HttpHeaders.Names.TRANSFER_ENCODING)) {
+                        m_log.info("Adding chunked encoding header");
+                        response.addHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
+                    }
                 }
                 else {
                     response = hr;
@@ -76,10 +90,12 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
 
             if (response.isChunked()) {
+                m_log.info("Starting to read chunks");
                 readingChunks = true;
-            } 
+            }
             messageToWrite = 
-                this.m_responseProcessorManager.processResponse(response);
+                this.m_responseProcessor.processResponse(response, 
+                    this.m_hostAndPort);
             
             // Decide whether to close the connection or not.
             final boolean connectionClose = 
@@ -87,22 +103,28 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     response.getHeader(HttpHeaders.Names.CONNECTION));
             final boolean http10AndNoKeepAlive =
                 response.getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
-                !HttpHeaders.Values.KEEP_ALIVE.equalsIgnoreCase(
-                    response.getHeader(HttpHeaders.Names.CONNECTION));
+                !response.isKeepAlive();
             
             final boolean close = connectionClose || http10AndNoKeepAlive;
-            final boolean chunked = 
+            final boolean chunked = //response.isChunked(); 
                 HttpHeaders.Values.CHUNKED.equals(
                     response.getHeader(HttpHeaders.Names.TRANSFER_ENCODING));
             if (close && !chunked) {
+                m_log.info("Closing channel after last write");
                 writeListener = ChannelFutureListener.CLOSE;
+                //writeListener = ProxyUtils.NO_OP_LISTENER;
             }
             else {
                 // Do nothing.
                 writeListener = ProxyUtils.NO_OP_LISTENER;
             }
+            m_log.info("Headers sent to browser: ");
+            ProxyUtils.printHeaders((HttpMessage) messageToWrite);
         } else {
+            m_log.info("Processing a chunk");
             final HttpChunk chunk = (HttpChunk) e.getMessage();
+            //final HttpChunk chunkToWrite = 
+            //    this.m_responseProcessor.processChunk(chunk, m_hostAndPort);
             if (chunk.isLast()) {
                 readingChunks = false;
                 writeListener = ChannelFutureListener.CLOSE;
@@ -111,6 +133,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 // Do nothing.
                 writeListener = ProxyUtils.NO_OP_LISTENER;
             }
+            m_log.info("Chunk is:\n{}", chunk.getContent().toString("UTF-8"));
             messageToWrite = chunk;
         }
         

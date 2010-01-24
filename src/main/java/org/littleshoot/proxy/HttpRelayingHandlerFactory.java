@@ -13,7 +13,8 @@ public interface HttpRelayingHandlerFactory {
      * 
      * @param browserToProxyChannel The channel from the browser to the proxy
      * server.
+     * @param hostAndPort The host and port of the remote server to relay from.
      * @return The new handler.
      */
-    ChannelHandler newHandler(Channel browserToProxyChannel);
+    ChannelHandler newHandler(Channel browserToProxyChannel, String hostAndPort);
 }

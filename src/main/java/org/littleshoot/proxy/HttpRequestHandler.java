@@ -113,6 +113,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         if (!this.m_authorizationManager.handleProxyAuthorization(httpRequest, ctx)) {
             return;
         }
+        final String ae = httpRequest.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
+        if (StringUtils.isNotBlank(ae)) {
+            final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
+            httpRequest.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
+            m_log.info("Removed sdch and inserted: {}", noSdch);
+        }
+        ProxyUtils.printHeaders(httpRequest);
         
         // Switch the de-facto standard "Proxy-Connection" header to 
         // "Connection" when we pass it along to the remote host.
@@ -402,10 +409,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     
                     // TODO: Get rid of the aggregator as soon as we get decompression
                     // working.
-                    pipeline.addLast("aggregator", new HttpChunkAggregator(1048576));
+                    pipeline.addLast("aggregator", new HttpChunkAggregator(2048576));
                     pipeline.addLast("encoder", new HttpRequestEncoder());
                     pipeline.addLast("handler", 
-                        m_handlerFactory.newHandler(browserToProxyChannel));
+                        m_handlerFactory.newHandler(browserToProxyChannel, m_hostAndPort));
                     return pipeline;
                 }
             };

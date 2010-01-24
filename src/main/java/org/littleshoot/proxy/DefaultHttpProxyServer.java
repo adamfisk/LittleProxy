@@ -9,6 +9,8 @@ import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpChunk;
+import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,20 +32,44 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private final DefaultHttpRelayingHandlerFactory handlerFactory;
 
-    private final HttpResponseProcessorManager responseProcessorManager;
+    /**
+     * Creates a new server with the default, no-op response processor.
+     * 
+     * @param port The port to listen on.
+     */
+    public DefaultHttpProxyServer(final int port) {
+        this(port, new HttpResponseProcessorFactory() {
+            public HttpResponseProcessor newProcessor() {
+                return new HttpResponseProcessor() {
+                    public HttpResponse processResponse(
+                        final HttpResponse response, 
+                        final String hostAndPort) {
+                        return response;
+                    }
+                    
+                    public HttpChunk processChunk(final HttpChunk chunk, 
+                        final String hostAndPort) {
+                        return chunk;
+                    }
+                };
+            }
+        });
+    }
     
     /**
      * Creates a new proxy server.
      * 
      * @param port The port the server should run on.
+     * @param responseProcessorFactory 
      */
-    public DefaultHttpProxyServer(final int port) {
+    public DefaultHttpProxyServer(final int port, 
+        final HttpResponseProcessorFactory responseProcessorFactory) {
         this.port = port;
-        this.responseProcessorManager = 
-            new DefaultHttpResponseProcessorManager();
+        //this.responseProcessorManager = 
+        //    new DefaultHttpResponseProcessorManager();
         this.handlerFactory = 
             new DefaultHttpRelayingHandlerFactory(this.allChannels, 
-                this.responseProcessorManager);
+                responseProcessorFactory);
     }
     
     public void start() {
@@ -80,9 +106,5 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public void addProxyAuthenticationHandler(
         final ProxyAuthorizationHandler pah) {
         this.authenticationManager.addHandler(pah);
-    }
-
-    public void addResponseProcessor(final HttpResponseProcessor responseProcessor) {
-        this.responseProcessorManager.addResponseProcessor(responseProcessor);
     }
 }

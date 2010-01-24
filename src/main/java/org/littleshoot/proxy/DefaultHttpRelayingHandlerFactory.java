@@ -11,17 +11,20 @@ public class DefaultHttpRelayingHandlerFactory implements
     HttpRelayingHandlerFactory {
 
     private final ChannelGroup allChannels;
-    private final HttpResponseProcessorManager responseProcessorManager;
+    private final HttpResponseProcessorFactory responseProcessorFactory;
 
     public DefaultHttpRelayingHandlerFactory(final ChannelGroup allChannels,
-        final HttpResponseProcessorManager responseProcessorManager) {
+        final HttpResponseProcessorFactory responseProcessorFactory) {
         this.allChannels = allChannels;
-        this.responseProcessorManager = responseProcessorManager;
+        this.responseProcessorFactory = responseProcessorFactory;
     }
 
-    public ChannelHandler newHandler(final Channel browserToProxyChannel) {
+    public ChannelHandler newHandler(final Channel browserToProxyChannel, 
+        final String hostAndPort) {
+        final HttpResponseProcessor processor = 
+            responseProcessorFactory.newProcessor();
         return new HttpRelayingHandler(browserToProxyChannel, 
-           this.allChannels, this.responseProcessorManager);
+           this.allChannels, processor, hostAndPort);
     }
 
 }
