@@ -23,8 +23,7 @@ public class Launcher {
         } else {
             port = defaultPort;
         }
-        final HttpProxyServer server = //new DefaultHttpProxyServer(port);
-            new DefaultHttpProxyServer(port, new GzipResponseProcessorFactory());
+        final HttpProxyServer server = new DefaultHttpProxyServer(port);
         server.start();
     }
 }

@@ -129,7 +129,7 @@
     <distributionManagement>
         <repository>
             <id>littleshoot</id>
-            <url>scp://dev.littleshoot.org/var/maven</url>
+            <url>scpexe://dev.littleshoot.org/var/maven</url>
         </repository>
     </distributionManagement>
 
