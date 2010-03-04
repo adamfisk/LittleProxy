@@ -64,6 +64,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final ChannelGroup m_channelGroup;
     private final HttpRelayingHandlerFactory m_handlerFactory;
     
+    private volatile boolean m_closeOnResponse;
+    
     /**
      * Creates a new class for handling HTTP requests with the specified
      * authentication manager.
@@ -107,7 +109,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     private void processMessage(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
-        final HttpRequest httpRequest = this.m_request = (HttpRequest) me.getMessage();
+        final HttpRequest httpRequest = 
+            this.m_request = (HttpRequest) me.getMessage();
         
         m_log.info("Got request: {} on channel: "+me.getChannel(), httpRequest);
         if (!this.m_authorizationManager.handleProxyAuthorization(httpRequest, ctx)) {
@@ -115,6 +118,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         }
         final String ae = httpRequest.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
         if (StringUtils.isNotBlank(ae)) {
+            // Remove sdch from encodings we accept since we can't decode it.
             final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
             httpRequest.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
             m_log.info("Removed sdch and inserted: {}", noSdch);
@@ -224,6 +228,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 }
             }
             else {
+                final ChannelFutureListener closedCfl = new ChannelFutureListener() {
+                    public void operationComplete(final ChannelFuture closed) 
+                        throws Exception {
+                        m_endpointsToChannelFutures.remove(m_hostAndPort);
+                    }
+                };
                 final ChannelFuture cf = 
                     newChannelFuture(httpRequestCopy, m_hostAndPort, inboundChannel);
                 final OnConnect onConnect = new OnConnect(cf);
@@ -231,45 +241,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 cf.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture future)
                         throws Exception {
-                        m_channelGroup.add(future.getChannel());
+                        final Channel channel = future.getChannel();
+                        m_channelGroup.add(channel);
                         if (future.isSuccess()) {
                             m_log.info("Connected successfully to: {}", future.getChannel());
-                            final Channel newChannel = cf.getChannel();
-                            newChannel.getCloseFuture().addListener(
-                                new ChannelFutureListener() {
-                                public void operationComplete(
-                                    final ChannelFuture closeFuture)
-                                    throws Exception {
-                                    m_log.info("Got an outbound channel close event. Removing channel: "+newChannel);
-                                    m_log.info("Channel open??" +newChannel.isOpen());
-                                    m_endpointsToChannelFutures.remove(m_hostAndPort);
-                                    m_log.info("Outgoing channels on this connection: "+
-                                        m_endpointsToChannelFutures.size());
-                                    if (m_endpointsToChannelFutures.isEmpty()) {
-                                        m_log.info("All outbound channels closed...");
-                                        
-                                        // We *don't* want to close here because
-                                        // the external site may have closed
-                                        // the connection due to a 
-                                        // Connection: close header, but we may
-                                        // not have actually processed the 
-                                        // response yet, and the client side
-                                        // is likely expecting more responses
-                                        // on this connection.
-                                        if (inboundChannel.isOpen()) {
-                                            m_log.info("Closing on flush...");
-                                            closeOnFlush(inboundChannel);
-                                        }
-                                    }
-                                    else {
-                                        m_log.info("Existing connections: {}", m_endpointsToChannelFutures);
-                                    }
-                                }
-                            });
+                            channel.getCloseFuture().addListener(closedCfl);
                             
                             m_log.info("Writing message on channel...");
                             final ChannelFuture wf = onConnect.onConnect();
-                            //final ChannelFuture wf = newChannel.write(httpRequestCopy);
                             wf.addListener(new ChannelFutureListener() {
                                 public void operationComplete(final ChannelFuture wcf)
                                     throws Exception {
@@ -283,6 +262,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                             if (m_totalInboundConnections == 1) {
                                 m_log.warn("Closing browser to proxy channel");
                                 me.getChannel().close();
+                                m_endpointsToChannelFutures.remove(m_hostAndPort);
                             }
                         }
                     }

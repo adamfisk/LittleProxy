@@ -2,14 +2,9 @@ package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
-import javax.net.ssl.SSLEngine;
-
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
-import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
-import org.jboss.netty.handler.ssl.SslHandler;
 
 /**
  * Factory for creating pipelines for incoming requests to our listening

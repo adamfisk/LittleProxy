@@ -2,6 +2,7 @@ package org.littleshoot.proxy;
 
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipelineCoverage;
@@ -161,8 +162,15 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent e) throws Exception {
-        m_log.info("Got closed event on proxy -> web connection: "+e.getChannel());
-        //closeOnFlush(m_browserToProxyChannel);
+        m_log.info("Got closed event on proxy -> web connection: {}",
+            e.getChannel());
+        
+        // This is vital this take place here and only here. If we handle this
+        // in other listeners, it's possible to get close events before
+        // we actually receive the HTTP response, in which case the response
+        // might never get back to the browser. It has to do with the order
+        // listeners are called in, but apparently the 
+        closeOnFlush(m_browserToProxyChannel);
     }
 
     @Override
