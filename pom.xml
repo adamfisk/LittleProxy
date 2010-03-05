@@ -107,7 +107,7 @@
             <dependency>
                 <groupId>org.jboss.netty</groupId>
                 <artifactId>netty</artifactId>
-                <version>3.2.0.ALPHA1</version>
+                <version>3.2.0.BETA1</version>
             </dependency>
 
             <dependency>
