@@ -5,7 +5,6 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipelineCoverage;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
@@ -15,7 +14,6 @@ import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMessage;
-import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
@@ -25,7 +23,6 @@ import org.slf4j.LoggerFactory;
  * Class that simply relays traffic from a remote server the proxy is 
  * connected to back to the browser.
  */
-@ChannelPipelineCoverage("one")
 public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     
     private final Logger m_log = 
@@ -112,9 +109,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 !response.isKeepAlive();
             
             final boolean close = connectionClose || http10AndNoKeepAlive;
-            final boolean chunked = //response.isChunked(); 
-                HttpHeaders.Values.CHUNKED.equals(
-                    response.getHeader(HttpHeaders.Names.TRANSFER_ENCODING));
+            final boolean chunked = response.isChunked(); 
+                //HttpHeaders.Values.CHUNKED.equals(
+                //    response.getHeader(HttpHeaders.Names.TRANSFER_ENCODING));
             if (close && !chunked) {
                 m_log.info("Closing channel after last write");
                 writeListener = ChannelFutureListener.CLOSE;
@@ -151,6 +148,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 m_browserToProxyChannel.isConnected());
             // This will undoubtedly happen anyway, but just in case.
             if (e.getChannel().isOpen()) {
+                m_log.info("Closing channel to remove server");
                 e.getChannel().close();
             }
         }
