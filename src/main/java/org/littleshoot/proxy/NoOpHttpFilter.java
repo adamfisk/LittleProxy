@@ -16,4 +16,9 @@ public class NoOpHttpFilter implements HttpFilter {
         return response;
     }
 
+    public int getMaxResponseSize() {
+        // Should not be called.
+        throw new UnsupportedOperationException("Not supported!!");
+    }
+
 }

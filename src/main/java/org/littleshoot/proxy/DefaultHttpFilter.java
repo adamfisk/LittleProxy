@@ -43,6 +43,10 @@ public class DefaultHttpFilter implements HttpFilter {
     public HttpResponse filterResponse(final HttpResponse response) {
         return responseFilter.filterResponse(response);
     }
+    
+    public int getMaxResponseSize() {
+        return 1024 * 200;
+    }
 
     @Override
     public String toString() {

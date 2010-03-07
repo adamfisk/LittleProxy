@@ -15,4 +15,14 @@ public interface HttpFilter extends HttpRequestMatcher {
      */
     HttpResponse filterResponse(HttpResponse response);
 
+    /**
+     * Returns the maximum response size to expect in bytes for this filter.
+     * You should set this as small as possible to save memory, but of course
+     * not smaller than response body sizes will be.
+     * 
+     * @return The maximum response body size to support for this filter, 
+     * in bytes.
+     */
+    int getMaxResponseSize();
+
 }
