@@ -228,6 +228,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 }
             }
             else {
+                m_log.info("Establishing new connection");
                 final ChannelFutureListener closedCfl = new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture closed) 
                         throws Exception {
@@ -405,7 +406,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                         pipeline.addLast("inflater", 
                             new HttpContentDecompressor());
                         pipeline.addLast("aggregator",            
-                            new HttpChunkAggregator(1024 * 200));//2048576));
+                            new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
                     }
                     pipeline.addLast("encoder", new HttpRequestEncoder());
                     if (shouldFilter) {
