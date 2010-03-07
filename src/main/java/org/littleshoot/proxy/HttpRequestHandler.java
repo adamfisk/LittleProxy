@@ -404,8 +404,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     if (shouldFilter) {
                         pipeline.addLast("inflater", 
                             new HttpContentDecompressor());
-                        pipeline.addLast("aggregator", 
-                            new HttpChunkAggregator(2048576));
+                        pipeline.addLast("aggregator",            
+                            new HttpChunkAggregator(1024 * 200));//2048576));
                     }
                     pipeline.addLast("encoder", new HttpRequestEncoder());
                     if (shouldFilter) {
