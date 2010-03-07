@@ -5,7 +5,7 @@ import java.util.Collection;
 /**
  * Manager for response processors.
  */
-public interface HttpResponseProcessorManager extends HttpResponseProcessor{
+public interface HttpResponseProcessorManager extends HttpResponseFilter{
 
     /**
      * Adds a response processor factory to the chain.
@@ -13,10 +13,10 @@ public interface HttpResponseProcessorManager extends HttpResponseProcessor{
      * @param responseProcessorFactory The factory for creating processors.
      */
     void addResponseProcessor(
-        HttpResponseProcessor responseProcessor);
+        HttpResponseFilter responseProcessor);
 
-    Collection<HttpResponseProcessorFactory> getAll();
+    Collection<HttpResponseFilterFactory> getAll();
 
-    void addAll(Collection<HttpResponseProcessorFactory> all);
+    void addAll(Collection<HttpResponseFilterFactory> all);
 
 }

@@ -5,26 +5,28 @@ import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
 
 /**
- * Factory for creating new 
+ * Factory for creating new classes for relaying data from remote sites to 
+ * the browsers hitting the proxy.
  */
 public class DefaultHttpRelayingHandlerFactory implements
     HttpRelayingHandlerFactory {
 
     private final ChannelGroup allChannels;
-    private final HttpResponseProcessorFactory responseProcessorFactory;
 
-    public DefaultHttpRelayingHandlerFactory(final ChannelGroup allChannels,
-        final HttpResponseProcessorFactory responseProcessorFactory) {
+    /**
+     * Creates a new factory for creating classes for relaying data from 
+     * remote sites to the browsers hitting the proxy.
+     * 
+     * @param allChannels {@link ChannelGroup} for keeping track of all 
+     * channels so we can close them.
+     */
+    public DefaultHttpRelayingHandlerFactory(final ChannelGroup allChannels) {
         this.allChannels = allChannels;
-        this.responseProcessorFactory = responseProcessorFactory;
     }
 
     public ChannelHandler newHandler(final Channel browserToProxyChannel, 
         final String hostAndPort) {
-        final HttpResponseProcessor processor = 
-            responseProcessorFactory.newProcessor();
-        return new HttpRelayingHandler(browserToProxyChannel, 
-           this.allChannels, processor, hostAndPort);
+        return new HttpRelayingHandler(browserToProxyChannel, this.allChannels);
     }
 
 }

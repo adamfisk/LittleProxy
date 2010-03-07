@@ -1,5 +1,8 @@
 package org.littleshoot.proxy;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Launches a new HTTP proxy.
  */
@@ -23,7 +26,9 @@ public class Launcher {
         } else {
             port = defaultPort;
         }
-        final HttpProxyServer server = new DefaultHttpProxyServer(port);
+        
+        final HttpProxyServer server = 
+            new DefaultHttpProxyServer(port, filters);
         server.start();
     }
 }

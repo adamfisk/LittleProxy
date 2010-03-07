@@ -62,9 +62,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final ProxyAuthorizationManager m_authorizationManager;
     private String m_hostAndPort;
     private final ChannelGroup m_channelGroup;
-    private final HttpRelayingHandlerFactory m_handlerFactory;
-    
-    private volatile boolean m_closeOnResponse;
+
+    /**
+     * {@link Map} of host name and port strings to filters to apply.
+     */
+    private final Map<String, HttpFilter> filters;
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -72,18 +74,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * 
      * @param authorizationManager The class that handles any 
      * proxy authentication requirements.
-     * @param handlerFactory The class for creating new classes for relaying
-     * responses.
      * @param channelGroup The group of channels for keeping track of all
      * channels we've opened.
+     * @param filters HTTP filtering rules.
      */
     public HttpRequestHandler(
         final ProxyAuthorizationManager authorizationManager, 
-        final HttpRelayingHandlerFactory handlerFactory, 
-        final ChannelGroup channelGroup){
+        final ChannelGroup channelGroup, 
+        final Map<String, HttpFilter> filters) {
         this.m_authorizationManager = authorizationManager;
-        this.m_handlerFactory = handlerFactory;
         this.m_channelGroup = channelGroup;
+        this.filters = filters;
     }
     
     @Override
@@ -116,7 +117,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         if (!this.m_authorizationManager.handleProxyAuthorization(httpRequest, ctx)) {
             return;
         }
-        final String ae = httpRequest.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
+        final String ae = 
+            httpRequest.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
         if (StringUtils.isNotBlank(ae)) {
             // Remove sdch from encodings we accept since we can't decode it.
             final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
@@ -136,7 +138,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         
         final String uri = httpRequest.getUri();
         
-        m_log.info("Using URI: "+uri);
+        m_log.info("Raw URI before switching from proxy format: {}", uri);
         final String noHostUri = ProxyUtils.stripHost(uri);
         
         final HttpMethod method = httpRequest.getMethod();
@@ -385,14 +387,41 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     // Create a default pipeline implementation.
                     final ChannelPipeline pipeline = pipeline();
                     pipeline.addLast("decoder", new HttpResponseDecoder());
-                    pipeline.addLast("inflater", new HttpContentDecompressor());
                     
-                    // TODO: Get rid of the aggregator as soon as we get decompression
-                    // working.
-                    pipeline.addLast("aggregator", new HttpChunkAggregator(2048576));
+                    m_log.info("Querying for host and post: {}", hostAndPort);
+                    final boolean shouldFilter;
+                    final HttpFilter filter = filters.get(hostAndPort);
+                    m_log.info("Using filter: {}", filter);
+                    if (filter == null) {
+                        m_log.info("Filter not found in: {}", filters);
+                        shouldFilter = false;
+                    }
+                    else { 
+                        shouldFilter = filter.shouldFilterResponses(httpRequest);
+                    }
+                    m_log.info("Filtering: "+shouldFilter);
+                    
+                    // We decompress and aggregate chunks for responses from 
+                    // sites we're applying rules to.
+                    if (shouldFilter) {
+                        pipeline.addLast("inflater", 
+                            new HttpContentDecompressor());
+                        pipeline.addLast("aggregator", 
+                            new HttpChunkAggregator(2048576));
+                    }
                     pipeline.addLast("encoder", new HttpRequestEncoder());
-                    pipeline.addLast("handler", 
-                        m_handlerFactory.newHandler(browserToProxyChannel, m_hostAndPort));
+                    if (shouldFilter) {
+                        //pipeline.addLast("handler", 
+                        //    m_handlerFactory.newHandler(browserToProxyChannel, 
+                        //        m_hostAndPort));
+                        pipeline.addLast("handler",
+                            new HttpRelayingHandler(browserToProxyChannel, 
+                                m_channelGroup, filter));
+                    } else {
+                        pipeline.addLast("handler",
+                            new HttpRelayingHandler(browserToProxyChannel, 
+                                m_channelGroup));
+                    }
                     return pipeline;
                 }
             };
@@ -484,7 +513,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
         final Channel channel = e.getChannel();
-        m_log.warn("Caught an exception on browser to proxy channel: "+channel, 
+        m_log.info("Caught an exception on browser to proxy channel: "+channel, 
             e.getCause());
         if (channel.isOpen()) {
             closeOnFlush(channel);
@@ -497,7 +526,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private static void closeOnFlush(final Channel ch) {
         m_log.info("Closing on flush: {}", ch);
         if (ch.isConnected()) {
-            ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
+            ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(
+                ChannelFutureListener.CLOSE);
         }
     }
 }

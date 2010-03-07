@@ -1,8 +1,8 @@
 package org.littleshoot.proxy;
 
+import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipelineCoverage;
@@ -15,6 +15,7 @@ import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMessage;
+import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
@@ -36,9 +37,19 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     private final ChannelGroup m_channelGroup;
 
-    private final HttpResponseProcessor m_responseProcessor;
-
-    private final String m_hostAndPort;
+    private final HttpFilter requestFilter;
+    
+    /**
+     * Creates a new {@link HttpRelayingHandler} with the specified connection
+     * to the browser.
+     * 
+     * @param browserToProxyChannel The browser connection.
+     * @param channelGroup Keeps track of channels to close on shutdown.
+     */
+    public HttpRelayingHandler(final Channel browserToProxyChannel, 
+        final ChannelGroup channelGroup) {
+        this (browserToProxyChannel, channelGroup, new NoOpHttpFilter());
+    }
 
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
@@ -46,19 +57,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * 
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
-     * @param responseProcessor The class that manages response 
-     * processors.
-     * @param hostAndPort The host and port of the remote server to relay 
-     * from.
+     * @param filter The HTTP filter.
      */
-    public HttpRelayingHandler(final Channel browserToProxyChannel, 
-        final ChannelGroup channelGroup, 
-        final HttpResponseProcessor responseProcessor, 
-        final String hostAndPort) {
+    public HttpRelayingHandler(final Channel browserToProxyChannel,
+        final ChannelGroup channelGroup, final HttpFilter filter) {
         this.m_browserToProxyChannel = browserToProxyChannel;
         this.m_channelGroup = channelGroup;
-        this.m_responseProcessor = responseProcessor;
-        this.m_hostAndPort = hostAndPort;
+        this.requestFilter = filter;
     }
 
     @Override
@@ -72,14 +77,16 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             m_log.info("Received headers: ");
             ProxyUtils.printHeaders(hr);
             final HttpResponse response;
-            if (hr.containsHeader(HttpHeaders.Names.TRANSFER_ENCODING) || hr.isChunked()) {
+            final String te = hr.getHeader(HttpHeaders.Names.TRANSFER_ENCODING);
+            if (StringUtils.isNotBlank(te) && te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED)) {
                 if (hr.getProtocolVersion() != HttpVersion.HTTP_1_1) {
                     m_log.warn("Fixing HTTP version.");
                     response = ProxyUtils.copyMutableResponseFields(hr, 
                         new DefaultHttpResponse(HttpVersion.HTTP_1_1, hr.getStatus()));
                     if (!response.containsHeader(HttpHeaders.Names.TRANSFER_ENCODING)) {
                         m_log.info("Adding chunked encoding header");
-                        response.addHeader(HttpHeaders.Names.TRANSFER_ENCODING, HttpHeaders.Values.CHUNKED);
+                        response.addHeader(HttpHeaders.Names.TRANSFER_ENCODING, 
+                            HttpHeaders.Values.CHUNKED);
                     }
                 }
                 else {
@@ -94,9 +101,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 m_log.info("Starting to read chunks");
                 readingChunks = true;
             }
-            messageToWrite = 
-                this.m_responseProcessor.processResponse(response, 
-                    this.m_hostAndPort);
+            messageToWrite = this.requestFilter.filterResponse(response);
             
             // Decide whether to close the connection or not.
             final boolean connectionClose = 

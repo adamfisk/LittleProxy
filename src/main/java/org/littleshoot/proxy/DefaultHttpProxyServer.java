@@ -1,6 +1,9 @@
 package org.littleshoot.proxy;
 
 import java.net.InetSocketAddress;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Executors;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
@@ -9,8 +12,6 @@ import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
-import org.jboss.netty.handler.codec.http.HttpChunk;
-import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,48 +31,30 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ProxyAuthorizationManager authenticationManager =
         new DefaultProxyAuthorizationManager();
 
-    private final DefaultHttpRelayingHandlerFactory handlerFactory;
+    private final Map<String, HttpFilter> filters;
 
     /**
-     * Creates a new server with the default, no-op response processor.
+     * Creates a new proxy server.
      * 
-     * @param port The port to listen on.
+     * @param port The port the server should run on.
      */
     public DefaultHttpProxyServer(final int port) {
-        this(port, new HttpResponseProcessorFactory() {
-            public HttpResponseProcessor newProcessor() {
-                return new HttpResponseProcessor() {
-                    public HttpResponse processResponse(
-                        final HttpResponse response, 
-                        final String hostAndPort) {
-                        return response;
-                    }
-                    
-                    public HttpChunk processChunk(final HttpChunk chunk, 
-                        final String hostAndPort) {
-                        return chunk;
-                    }
-                };
-            }
-        });
+        this(port, new HashMap<String, HttpFilter>());
     }
     
     /**
      * Creates a new proxy server.
      * 
      * @param port The port the server should run on.
-     * @param responseProcessorFactory 
+     * @param filters HTTP filters to apply.
      */
     public DefaultHttpProxyServer(final int port, 
-        final HttpResponseProcessorFactory responseProcessorFactory) {
+        final Map<String, HttpFilter> filters) {
         this.port = port;
-        //this.responseProcessorManager = 
-        //    new DefaultHttpResponseProcessorManager();
-        this.handlerFactory = 
-            new DefaultHttpRelayingHandlerFactory(this.allChannels, 
-                responseProcessorFactory);
+        this.filters = Collections.unmodifiableMap(filters);
     }
     
+
     public void start() {
         log.info("Starting proxy on port: "+this.port);
         final ServerBootstrap bootstrap = new ServerBootstrap(
@@ -81,7 +64,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         final HttpServerPipelineFactory factory = 
             new HttpServerPipelineFactory(authenticationManager, 
-                this.handlerFactory, this.allChannels);
+                this.allChannels, this.filters);
         bootstrap.setPipelineFactory(factory);
         final Channel channel = bootstrap.bind(new InetSocketAddress(port));
         allChannels.add(channel);

@@ -2,6 +2,8 @@ package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
+import java.util.Map;
+
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
@@ -14,26 +16,25 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
  */
 public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     
-    private final ProxyAuthorizationManager m_authenticationManager;
-    private final ChannelGroup m_channelGroup;
-    private final HttpRelayingHandlerFactory m_handlerFactory;
+    private final ProxyAuthorizationManager authenticationManager;
+    private final ChannelGroup channelGroup;
+    private final Map<String, HttpFilter> filters;
 
     /**
      * Creates a new pipeline factory with the specified class for processing
      * proxy authentication.
      * 
      * @param authorizationManager The manager for proxy authentication.
-     * @param handlerFactory The class that creates new relaying handles for
-     * relaying responses back to the client.
      * @param channelGroup The group that keeps track of open channels.
+     * @param filters HTTP filters to apply.
      */
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
-        final HttpRelayingHandlerFactory handlerFactory, 
-        final ChannelGroup channelGroup) {
-        this.m_authenticationManager = authorizationManager;
-        this.m_handlerFactory = handlerFactory;
-        this.m_channelGroup = channelGroup;
+        final ChannelGroup channelGroup, 
+        final Map<String, HttpFilter> filters) {
+        this.authenticationManager = authorizationManager;
+        this.channelGroup = channelGroup;
+        this.filters = filters;
     }
 
     public ChannelPipeline getPipeline() throws Exception {
@@ -48,8 +49,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast("handler", 
-            new HttpRequestHandler(m_authenticationManager, 
-                this.m_handlerFactory, this.m_channelGroup));
+            new HttpRequestHandler(authenticationManager, 
+                this.channelGroup, this.filters));
         return pipeline;
     }
 }

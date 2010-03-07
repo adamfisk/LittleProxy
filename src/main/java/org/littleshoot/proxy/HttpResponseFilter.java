@@ -1,12 +1,11 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
 /**
  * Interface for classes that process responses.
  */
-public interface HttpResponseProcessor {
+public interface HttpResponseFilter {
 
     /**
      * Processes the response.
@@ -15,8 +14,5 @@ public interface HttpResponseProcessor {
      * @param hostAndPort The host and port the response came from.
      * @return The processed response, possibly modified.
      */
-    HttpResponse processResponse(HttpResponse response, String hostAndPort);
-    
-    HttpChunk processChunk(HttpChunk chunk, String hostAndPort);
-
+    HttpResponse filterResponse(HttpResponse response);
 }
