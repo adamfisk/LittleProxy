@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,6 +53,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final Map<String, HttpFilter> filters) {
         this.port = port;
         this.filters = Collections.unmodifiableMap(filters);
+        Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+            
+            public void uncaughtException(final Thread t, final Throwable e) {
+                log.error("Uncaught exception", e);
+            }
+        });
     }
     
 

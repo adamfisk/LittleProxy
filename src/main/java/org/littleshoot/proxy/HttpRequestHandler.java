@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
 
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -28,7 +27,7 @@ import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
@@ -65,6 +64,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * {@link Map} of host name and port strings to filters to apply.
      */
     private final Map<String, HttpFilter> filters;
+    private final ClientSocketChannelFactory clientChannelFactory;
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -75,14 +75,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * @param channelGroup The group of channels for keeping track of all
      * channels we've opened.
      * @param filters HTTP filtering rules.
+     * @param clientChannelFactory The common channel factory for clients.
      */
     public HttpRequestHandler(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final Map<String, HttpFilter> filters) {
+        final Map<String, HttpFilter> filters,
+        final ClientSocketChannelFactory clientChannelFactory) {
         this.m_authorizationManager = authorizationManager;
         this.m_channelGroup = channelGroup;
         this.filters = filters;
+        this.clientChannelFactory = clientChannelFactory;
     }
     
     @Override
@@ -187,22 +190,19 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         this.m_hostAndPort = parseHostAndPort(httpRequest);
         
         final class OnConnect {
-            private final ChannelFuture m_cf;
-            private OnConnect(final ChannelFuture cf) {
-                this.m_cf = cf;
-            }
-            public ChannelFuture onConnect() {
+            public ChannelFuture onConnect(final ChannelFuture cf) {
                 if (method != HttpMethod.CONNECT) {
-                    return this.m_cf.getChannel().write(httpRequestCopy);
+                    return cf.getChannel().write(httpRequestCopy);
                 }
                 else {
-                    writeConnectResponse(ctx, httpRequest, 
-                        this.m_cf.getChannel());
-                    return this.m_cf;
+                    writeConnectResponse(ctx, httpRequest, cf.getChannel());
+                    return cf;
                 }
             }
         }
      
+        final OnConnect onConnect = new OnConnect();
+        
         // We synchronize to avoid creating duplicate connections to the
         // same host, which we shouldn't for a single connection from the
         // browser. Note the synchronization here is short-lived, however,
@@ -211,16 +211,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             final ChannelFuture curFuture = 
                 m_endpointsToChannelFutures.get(m_hostAndPort);
             if (curFuture != null) {
-                final OnConnect onConnect = new OnConnect(curFuture);
+                
                 if (curFuture.getChannel().isConnected()) {
-                    onConnect.onConnect();
+                    onConnect.onConnect(curFuture);
                     //curFuture.getChannel().write(httpRequestCopy);
                 }
                 else {
                     final ChannelFutureListener cfl = new ChannelFutureListener() {
                         public void operationComplete(final ChannelFuture future)
                             throws Exception {
-                            onConnect.onConnect();
+                            onConnect.onConnect(curFuture);
                             //curFuture.getChannel().write(httpRequestCopy);
                         }
                     };
@@ -237,7 +237,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 };
                 final ChannelFuture cf = 
                     newChannelFuture(httpRequestCopy, m_hostAndPort, inboundChannel);
-                final OnConnect onConnect = new OnConnect(cf);
                 m_endpointsToChannelFutures.put(m_hostAndPort, cf);
                 cf.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture future)
@@ -249,7 +248,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                             channel.getCloseFuture().addListener(closedCfl);
                             
                             m_log.info("Writing message on channel...");
-                            final ChannelFuture wf = onConnect.onConnect();
+                            final ChannelFuture wf = onConnect.onConnect(cf);
                             wf.addListener(new ChannelFutureListener() {
                                 public void operationComplete(final ChannelFuture wcf)
                                     throws Exception {
@@ -259,7 +258,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                             });
                         }
                         else {
-                            m_log.error("Could not connect!!", future.getCause());
+                            m_log.info("Could not connect!!", future.getCause());
                             if (m_totalInboundConnections == 1) {
                                 m_log.warn("Closing browser to proxy channel");
                                 me.getChannel().close();
@@ -359,10 +358,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         }
         
         // Configure the client.
-        final ClientBootstrap cb = new ClientBootstrap(
-            new NioClientSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()));
+        final ClientBootstrap cb = new ClientBootstrap(clientChannelFactory);
         
         final ChannelPipelineFactory cpf;
         if (httpRequest.getMethod() == HttpMethod.CONNECT) {
@@ -415,28 +411,20 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                         //        m_hostAndPort));
                         pipeline.addLast("handler",
                             new HttpRelayingHandler(browserToProxyChannel, 
-                                m_channelGroup, filter));
+                                m_channelGroup, filter, cb));
                     } else {
                         pipeline.addLast("handler",
                             new HttpRelayingHandler(browserToProxyChannel, 
-                                m_channelGroup));
+                                m_channelGroup, cb));
                     }
                     return pipeline;
                 }
             };
         }
-        
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            public void run() {
-                // We just re-use the other channel group, so we don't worry
-                // about it here.
-                cb.releaseExternalResources();
-            }
-        }));
             
         // Set up the event pipeline factory.
         cb.setPipelineFactory(cpf);
-        cb.setOption("connectTimeoutMillis", 30*1000);
+        cb.setOption("connectTimeoutMillis", 40*1000);
 
         // Start the connection attempt.
         m_log.info("Starting new connection to: "+hostAndPort);
@@ -496,7 +484,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         // The following should always be the case with
         // @ChannelPipelineCoverage("one")
         if (m_totalInboundConnections == 0) {
-            m_log.info("Closing all outgoing channels for this browser connection!!!");
+            m_log.info("Closing all proxy to web channels for this browser " +
+                "to proxy connection!!!");
             final Collection<ChannelFuture> futures = 
                 this.m_endpointsToChannelFutures.values();
             for (final ChannelFuture future : futures) {
@@ -512,7 +501,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
         final Channel channel = e.getChannel();
-        m_log.info("Caught an exception on browser to proxy channel: "+channel, 
+        m_log.warn("Caught an exception on browser to proxy channel: "+channel, 
             e.getCause());
         if (channel.isOpen()) {
             closeOnFlush(channel);
