@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.handler.codec.http.HttpRequest;
@@ -42,7 +43,7 @@ public class DefaultProxyAuthorizationManager implements
         final String fullValue = values.iterator().next();
         final String value =
             StringUtils.substringAfter(fullValue, "Basic ").trim();
-        final byte[] decodedValue = Base64.decode(value);
+        final byte[] decodedValue = Base64.decodeBase64(value);
         try {
             final String decodedString = new String(decodedValue, "UTF-8");
             final String userName = StringUtils.substringBefore(decodedString, ":");
