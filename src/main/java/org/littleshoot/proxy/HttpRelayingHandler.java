@@ -1,7 +1,6 @@
 package org.littleshoot.proxy;
 
 import org.apache.commons.lang.StringUtils;
-import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -15,6 +14,7 @@ import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMessage;
+import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
@@ -35,23 +35,29 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     private final ChannelGroup channelGroup;
 
-    private final HttpFilter requestFilter;
+    private final HttpFilter httpFilter;
 
-    private final ClientBootstrap clientBootstrap;
+    private final HttpRequest httpRequest;
     
+    private HttpResponse httpResponse;
+
+    private final ProxyCacheManager cacheManager;
+
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
      * to the browser.
      * 
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
-     * @param clientBootstrap The top-level class for generating the client
-     * connection.
+     * @param httpRequest The original request. We need this for things like
+     * determining whether or not to close the HTTP response.
+     * @param cacheManager The cache that keeps track of the caches.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel, 
-        final ChannelGroup channelGroup, final ClientBootstrap clientBootstrap) {
+        final ChannelGroup channelGroup, final HttpRequest httpRequest,
+        final ProxyCacheManager cacheManager) {
         this (browserToProxyChannel, channelGroup, new NoOpHttpFilter(), 
-            clientBootstrap);
+            httpRequest, cacheManager);
     }
 
     /**
@@ -61,16 +67,18 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
      * @param filter The HTTP filter.
-     * @param clientBootstrap The top-level class for generating the client
-     * connection.
+     * @param httpRequest The original request. We need this for things like
+     * determining whether or not to close the HTTP response.
+     * @param cacheManager The class that keeps track of the caches.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel,
         final ChannelGroup channelGroup, final HttpFilter filter,
-        final ClientBootstrap clientBootstrap) {
+        final HttpRequest httpRequest, final ProxyCacheManager cacheManager) {
         this.browserToProxyChannel = browserToProxyChannel;
         this.channelGroup = channelGroup;
-        this.requestFilter = filter;
-        this.clientBootstrap = clientBootstrap;
+        this.httpFilter = filter;
+        this.httpRequest = httpRequest;
+        this.cacheManager = cacheManager;
     }
 
     @Override
@@ -78,12 +86,15 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         final MessageEvent e) throws Exception {
         
         final Object messageToWrite;
-        final ChannelFutureListener writeListener;
+        
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
+            httpResponse = hr;
             log.info("Received headers: ");
             ProxyUtils.printHeaders(hr);
             final HttpResponse response;
+            
+            // Double check the Transfer-Encoding, since it gets tricky.
             final String te = hr.getHeader(HttpHeaders.Names.TRANSFER_ENCODING);
             if (StringUtils.isNotBlank(te) && 
                 te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED)) {
@@ -109,50 +120,33 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 log.info("Starting to read chunks");
                 readingChunks = true;
             }
-            messageToWrite = this.requestFilter.filterResponse(response);
+            final HttpResponse filtered = 
+                this.httpFilter.filterResponse(response);
+            messageToWrite = filtered;
             
-            // Decide whether to close the connection or not.
-            final boolean connectionClose = 
-                HttpHeaders.Values.CLOSE.equalsIgnoreCase(
-                    response.getHeader(HttpHeaders.Names.CONNECTION));
-            final boolean http10AndNoKeepAlive =
-                response.getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
-                !response.isKeepAlive();
+            this.cacheManager.cache(httpRequest, filtered);
             
-            final boolean close = connectionClose || http10AndNoKeepAlive;
-            final boolean chunked = response.isChunked(); 
-                //HttpHeaders.Values.CHUNKED.equals(
-                //    response.getHeader(HttpHeaders.Names.TRANSFER_ENCODING));
-            if (close && !chunked) {
-                log.info("Closing channel after last write");
-                writeListener = ChannelFutureListener.CLOSE;
-                //writeListener = ProxyUtils.NO_OP_LISTENER;
-            }
-            else {
-                // Do nothing.
-                writeListener = ProxyUtils.NO_OP_LISTENER;
-            }
             log.info("Headers sent to browser: ");
             ProxyUtils.printHeaders((HttpMessage) messageToWrite);
         } else {
             log.info("Processing a chunk");
             final HttpChunk chunk = (HttpChunk) e.getMessage();
-            //final HttpChunk chunkToWrite = 
-            //    this.m_responseProcessor.processChunk(chunk, m_hostAndPort);
+            
+            // TODO: Figure out a way to cache chunks. Possibly append the 
+            // chunk number after the request URL, and store the chunk using
+            // that as the key? 
             if (chunk.isLast()) {
                 readingChunks = false;
-                writeListener = ChannelFutureListener.CLOSE;
             }
-            else {
-                // Do nothing.
-                writeListener = ProxyUtils.NO_OP_LISTENER;
-            }
-            log.info("Chunk is:\n{}", chunk.getContent().toString("UTF-8"));
             messageToWrite = chunk;
         }
         
         if (browserToProxyChannel.isOpen()) {
-            browserToProxyChannel.write(messageToWrite).addListener(writeListener);
+            final ChannelFutureListener writeListener = 
+                ProxyUtils.writeListenerForResponse(this.httpRequest, 
+                    this.httpResponse, e.getMessage());
+            browserToProxyChannel.write(messageToWrite).addListener(
+                writeListener);
         }
         else {
             log.info("Channel not open. Connected? {}", 

@@ -69,6 +69,12 @@
         </dependency>
 
         <dependency>
+            <groupId>net.sf.ehcache</groupId>
+            <artifactId>ehcache-core</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.jboss.netty</groupId>
             <artifactId>netty</artifactId>
             <version>3.2.0.BETA1</version>
@@ -287,7 +293,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>jxr-maven-plugin</artifactId>
-                </plugin>
+            </plugin>
         </plugins>
     </reporting>
 
@@ -300,37 +306,30 @@
             <organizationUrl>http://www.littleshoot.org/</organizationUrl>
             <roles><role>Developer</role></roles>
             <timezone>-5</timezone>
-            </developer>
-        </developers>
+        </developer>
+    </developers>
 
     <repositories>
         <repository>
             <id>repo1</id>
             <name>Maven Repository Switchboard</name>
             <url>http://repo1.maven.org/maven2</url>
-            </repository>
-
-        <repository>
-            <id>spring-milestone</id>
-            <name>Spring Portfolio Milestone Repository</name>
-            <url>http://s3.amazonaws.com/maven.springframework.org/milestone</url>
-            </repository>
+        </repository>
 
         <repository>
             <id>repository.jboss.org</id>
             <url>http://repository.jboss.org/maven2</url>
             <snapshots>
                 <enabled>false</enabled>
-                </snapshots>
-            </repository>
-
+            </snapshots>
+        </repository>
 
         <repository>
             <id>oracleReleases</id>
             <name>Oracle Released Java Packages</name>
             <url>http://download.oracle.com/maven</url>
             <layout>default</layout>
-            </repository>
+        </repository>
 
 
         <repository>
@@ -338,7 +337,7 @@
             <name>Sun Repository</name>
             <url>http://download.java.net/maven/1</url>
             <layout>legacy</layout>
-            </repository>
+        </repository>
 
         <!--
           This one's quirky - our cluster servers can't seem to
@@ -355,7 +354,7 @@
             <id>last-bamboo</id>
             <name>Last Bamboo Repository</name>
             <url>http://svn.littleshoot.org/maven</url>
-            </repository>
+        </repository>
 
-        </repositories>
-    </project>
+    </repositories>
+</project>

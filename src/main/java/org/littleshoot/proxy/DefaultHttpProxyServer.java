@@ -63,6 +63,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     
 
     public void start() {
+        System.out.println("Starting...");
         log.info("Starting proxy on port: "+this.port);
         final ServerBootstrap bootstrap = new ServerBootstrap(
             new NioServerSocketChannelFactory(

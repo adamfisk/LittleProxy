@@ -5,6 +5,8 @@ import static org.jboss.netty.channel.Channels.pipeline;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
+import net.sf.ehcache.CacheManager;
+
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
@@ -27,6 +29,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         new NioClientSocketChannelFactory(
             Executors.newCachedThreadPool(),
             Executors.newCachedThreadPool());
+    private final ProxyCacheManager cacheManager = 
+        new DefaultProxyCacheManager();
 
     /**
      * Creates a new pipeline factory with the specified class for processing
@@ -62,8 +66,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast("handler", 
-            new HttpRequestHandler(authenticationManager, 
-                this.channelGroup, this.filters, this.clientSocketChannelFactory));
+            new HttpRequestHandler(this.cacheManager, authenticationManager, 
+                this.channelGroup, this.filters, 
+                this.clientSocketChannelFactory));
         return pipeline;
     }
 }

@@ -15,7 +15,10 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.handler.codec.http.HttpChunk;
+import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMessage;
+import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +28,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ProxyUtils {
     
-    public static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
 
     private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
     
@@ -192,6 +195,82 @@ public class ProxyUtils {
             final String value = msg.getHeader(name);
             //System.out.println(name + ": "+value);
             LOG.debug(name + ": "+value);
+        }
+    }
+
+    /**
+     * Creates a write listener for the given HTTP response. This is the 
+     * listener that should be used after the response is written. If the
+     * request is HTTP 1.0 with no keep-alive header, for example, the 
+     * write listener would close the connection.
+     * 
+     * @param httpRequest The HTTP request.
+     * @param httpResponse The HTTP response.
+     * @param msg The HTTP response or chunk. This will be equal to
+     * the second parameter except in the case of chunking, where this will
+     * be an HTTP chunk.
+     * @return The {@link ChannelFutureListener} to apply after the write.
+     */
+    public static ChannelFutureListener writeListenerForResponse(
+        final HttpRequest httpRequest, final HttpResponse httpResponse, 
+        final Object msg) {
+        if (shouldClose(httpRequest, httpResponse, msg)) {
+            LOG.info("Closing channel after last write");
+            return ChannelFutureListener.CLOSE;
+        }
+        else {
+            // Do nothing.
+            return ProxyUtils.NO_OP_LISTENER;
+        }
+    }
+
+    /**
+     * Determines if we should close the connection. Here's the relevant 
+     * section of RFC 2616:
+     * 
+     * "HTTP/1.1 defines the "close" connection option for the sender to 
+     * signal that the connection will be closed after completion of the 
+     * response. For example,
+     * 
+     * Connection: close
+     * 
+     * in either the request or the response header fields indicates that the 
+     * connection SHOULD NOT be considered `persistent' (section 8.1) after 
+     * the current request/response is complete."
+     * 
+     * @param request The original HTTP request. 
+     * @param response The HTTP response.
+     * @param msg The HTTP message. This will be identical to the 
+     * second argument except in the case of chunked responses, where this
+     * could be an HTTP chunk. 
+     * @return <code>true</code> if we should close the connection, otherwise
+     * <code>false</code>.
+     */
+    private static boolean shouldClose(final HttpRequest request, 
+        final HttpResponse response, final Object msg) {
+        if (response.isChunked()) {
+            // If the response is chunked, we want to return false unless it's
+            // the last chunk. If it is the last chunk, then we want to pass
+            // through to the same close semantics we'd otherwise use.
+            if (msg != null && !isLastChunk(msg)) {
+                return false;
+            }
+        }
+        if (!HttpHeaders.isKeepAlive(request)) {
+            return true;
+        }
+        if (!HttpHeaders.isKeepAlive(response)) {
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isLastChunk(final Object msg) {
+        if (msg instanceof HttpChunk) {
+            final HttpChunk chunk = (HttpChunk) msg;
+            return chunk.isLast();
+        } else {
+            return false;
         }
     }
 }
