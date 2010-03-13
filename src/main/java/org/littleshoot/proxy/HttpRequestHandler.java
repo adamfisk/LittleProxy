@@ -294,6 +294,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         
         // We don't allow access to any port but 443.
         if (port != 443) {
+            log.warn("Connecting on port other than 443!!");
             final String statusLine = "HTTP/1.1 502 Proxy Error\r\n";
             final String via = newVia();
             final String headers = 
@@ -301,7 +302,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 "Proxy-Connection: close\r\n"+
                 "Pragma: no-cache\r\n"+
                 "Cache-Control: no-cache\r\n" +
-                via + 
+                "Via: "+via +
                 "\r\n";
             ProxyUtils.writeResponse(browserToProxyChannel, statusLine, headers);
         }

@@ -22,6 +22,8 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final CacheManager cacheManager = new CacheManager();
     
+    private final boolean CACHE_ENABLED = false;
+    
     /**
      * Creates a new cache manager.
      */
@@ -44,6 +46,9 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
     }
 
     private boolean isCacheable(final HttpResponse httpResponse) {
+        if (!CACHE_ENABLED) {
+            return false;
+        }
         final HttpResponseStatus status = httpResponse.getStatus();
         final boolean ok = status.equals(HttpResponseStatus.OK) ||
             status.equals(HttpResponseStatus.PARTIAL_CONTENT);
