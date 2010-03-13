@@ -292,8 +292,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         final int port = parsePort(address);
         final Channel browserToProxyChannel = ctx.getChannel();
         
-        // We don't allow access to any port but 443.
-        if (port != 443) {
+        // TODO: We should really only allow access on 443, but this breaks
+        // what a lot of browsers do in practice.
+        //if (port != 443) {
+        if (port < 0) {
             log.warn("Connecting on port other than 443!!");
             final String statusLine = "HTTP/1.1 502 Proxy Error\r\n";
             final String via = newVia();

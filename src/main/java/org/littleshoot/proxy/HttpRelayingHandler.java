@@ -3,6 +3,7 @@ package org.littleshoot.proxy;
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
@@ -142,11 +143,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         }
         
         if (browserToProxyChannel.isOpen()) {
-            final ChannelFutureListener writeListener = 
-                ProxyUtils.writeListenerForResponse(this.httpRequest, 
-                    this.httpResponse, e.getMessage());
-            browserToProxyChannel.write(messageToWrite).addListener(
-                writeListener);
+            final ChannelFuture ch = 
+                browserToProxyChannel.write(messageToWrite);
+            ProxyUtils.addListenerForResponse(ch, this.httpRequest, 
+                this.httpResponse, e.getMessage());
         }
         else {
             log.info("Channel not open. Connected? {}", 

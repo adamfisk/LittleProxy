@@ -49,9 +49,11 @@ public class ProxyUtils {
         new ChannelFutureListener() {
         public void operationComplete(final ChannelFuture future) 
             throws Exception {
+            LOG.info("No op listener - write finished");
         }
     };
     
+    // Should never be constructed.
     private ProxyUtils() {
     }
     
@@ -204,29 +206,8 @@ public class ProxyUtils {
      * request is HTTP 1.0 with no keep-alive header, for example, the 
      * write listener would close the connection.
      * 
-     * @param httpRequest The HTTP request.
-     * @param httpResponse The HTTP response.
-     * @param msg The HTTP response or chunk. This will be equal to
-     * the second parameter except in the case of chunking, where this will
-     * be an HTTP chunk.
-     * @return The {@link ChannelFutureListener} to apply after the write.
-     */
-    public static ChannelFutureListener writeListenerForResponse(
-        final HttpRequest httpRequest, final HttpResponse httpResponse, 
-        final Object msg) {
-        if (shouldClose(httpRequest, httpResponse, msg)) {
-            LOG.info("Closing channel after last write");
-            return ChannelFutureListener.CLOSE;
-        }
-        else {
-            // Do nothing.
-            return ProxyUtils.NO_OP_LISTENER;
-        }
-    }
-
-    /**
-     * Determines if we should close the connection. Here's the relevant 
-     * section of RFC 2616:
+     * This in part determines if we should close the connection. Here's the  
+     * relevant section of RFC 2616:
      * 
      * "HTTP/1.1 defines the "close" connection option for the sender to 
      * signal that the connection will be closed after completion of the 
@@ -237,32 +218,38 @@ public class ProxyUtils {
      * in either the request or the response header fields indicates that the 
      * connection SHOULD NOT be considered `persistent' (section 8.1) after 
      * the current request/response is complete."
+     * @param future 
      * 
-     * @param request The original HTTP request. 
-     * @param response The HTTP response.
+     * @param httpRequest The original HTTP request. 
+     * @param httpResponse The HTTP response.
      * @param msg The HTTP message. This will be identical to the 
      * second argument except in the case of chunked responses, where this
      * could be an HTTP chunk. 
-     * @return <code>true</code> if we should close the connection, otherwise
-     * <code>false</code>.
      */
-    private static boolean shouldClose(final HttpRequest request, 
-        final HttpResponse response, final Object msg) {
-        if (response.isChunked()) {
-            // If the response is chunked, we want to return false unless it's
+    public static void addListenerForResponse(
+        final ChannelFuture future, final HttpRequest httpRequest, 
+        final HttpResponse httpResponse, final Object msg) {
+        if (httpResponse.isChunked()) {
+            // If the response is chunked, we want to return unless it's
             // the last chunk. If it is the last chunk, then we want to pass
             // through to the same close semantics we'd otherwise use.
-            if (msg != null && !isLastChunk(msg)) {
-                return false;
+            if (msg != null) {
+                if (!isLastChunk(msg)) {
+                    return;
+                }
             }
         }
-        if (!HttpHeaders.isKeepAlive(request)) {
-            return true;
+        if (!HttpHeaders.isKeepAlive(httpRequest)) {
+            LOG.info("Closing since request is not keep alive:");
+            ProxyUtils.printHeaders(httpRequest);
+            future.addListener(ChannelFutureListener.CLOSE);
         }
-        if (!HttpHeaders.isKeepAlive(response)) {
-            return true;
+        if (!HttpHeaders.isKeepAlive(httpResponse)) {
+            LOG.info("Closing since response is not keep alive:");
+            ProxyUtils.printHeaders(httpResponse);
+            future.addListener(ChannelFutureListener.CLOSE);
         }
-        return false;
+        LOG.info("Not closing connection...");
     }
 
     private static boolean isLastChunk(final Object msg) {

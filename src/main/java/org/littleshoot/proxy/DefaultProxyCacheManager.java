@@ -6,7 +6,7 @@ import net.sf.ehcache.Element;
 
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
@@ -80,15 +80,14 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
     }
 
     public boolean returnCacheHit(final HttpRequest hr, final Channel channel) {
-
         final String uri = hr.getUri();
         final Cache cache = this.cacheManager.getCache(ProxyConstants.CACHE);
         final Element elem = cache.get(uri);
         if (elem != null) {
             final HttpResponse response = (HttpResponse) elem.getObjectValue();
-            final ChannelFutureListener wl = 
-                ProxyUtils.writeListenerForResponse(hr, response, response);
-            channel.write(response).addListener(wl);
+
+            final ChannelFuture cf = channel.write(response);
+            ProxyUtils.addListenerForResponse(cf, hr, response, response);
             return true;
         }
         return false;
