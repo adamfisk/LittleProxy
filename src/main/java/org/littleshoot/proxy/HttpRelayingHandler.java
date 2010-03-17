@@ -1,5 +1,8 @@
 package org.littleshoot.proxy;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -42,23 +45,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     
     private HttpResponse httpResponse;
 
-    private final ProxyCacheManager cacheManager;
-
+    //private final String originalUri;
+    
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
      * to the browser.
      * 
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
-     * @param httpRequest The original request. We need this for things like
-     * determining whether or not to close the HTTP response.
-     * @param cacheManager The cache that keeps track of the caches.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel, 
-        final ChannelGroup channelGroup, final HttpRequest httpRequest,
-        final ProxyCacheManager cacheManager) {
+        final ChannelGroup channelGroup, 
+        final HttpRequest httpRequest) {
         this (browserToProxyChannel, channelGroup, new NoOpHttpFilter(), 
-            httpRequest, cacheManager);
+            httpRequest);
     }
 
     /**
@@ -68,18 +68,14 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
      * @param filter The HTTP filter.
-     * @param httpRequest The original request. We need this for things like
-     * determining whether or not to close the HTTP response.
-     * @param cacheManager The class that keeps track of the caches.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel,
         final ChannelGroup channelGroup, final HttpFilter filter,
-        final HttpRequest httpRequest, final ProxyCacheManager cacheManager) {
+        final HttpRequest httpRequest) {
         this.browserToProxyChannel = browserToProxyChannel;
         this.channelGroup = channelGroup;
         this.httpFilter = filter;
         this.httpRequest = httpRequest;
-        this.cacheManager = cacheManager;
     }
 
     @Override
@@ -91,8 +87,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
             httpResponse = hr;
-            log.info("Received headers: ");
-            ProxyUtils.printHeaders(hr);
             final HttpResponse response;
             
             // Double check the Transfer-Encoding, since it gets tricky.
@@ -125,8 +119,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 this.httpFilter.filterResponse(response);
             messageToWrite = filtered;
             
-            this.cacheManager.cache(httpRequest, filtered);
-            
             log.info("Headers sent to browser: ");
             ProxyUtils.printHeaders((HttpMessage) messageToWrite);
         } else {
@@ -143,10 +135,18 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         }
         
         if (browserToProxyChannel.isOpen()) {
+            // At this point, the HTTP request for this given request and
+            // response has of course been written, and it's in the encoder.
             final ChannelFuture ch = 
-                browserToProxyChannel.write(messageToWrite);
-            ProxyUtils.addListenerForResponse(ch, this.httpRequest, 
-                this.httpResponse, e.getMessage());
+                browserToProxyChannel.write(
+                    new ProxyHttpResponse(httpRequest, httpResponse, 
+                        messageToWrite));
+            
+
+            final ChannelFutureListener cfl = 
+                ProxyUtils.newWriteListener(httpRequest, httpResponse, 
+                    messageToWrite);
+            ch.addListener(cfl);
         }
         else {
             log.info("Channel not open. Connected? {}", 
@@ -197,7 +197,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     private void closeOnFlush(final Channel ch) {
         log.info("Closing channel on flush: {}", ch);
         if (ch.isConnected()) {
-            ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
+            ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(
+                ChannelFutureListener.CLOSE);
         }
     }
 }

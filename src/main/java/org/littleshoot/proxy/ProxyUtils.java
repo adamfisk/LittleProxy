@@ -15,9 +15,11 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMessage;
+import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.slf4j.Logger;
@@ -194,10 +196,19 @@ public class ProxyUtils {
         LOG.debug(status);
         final Set<String> headerNames = msg.getHeaderNames();
         for (final String name : headerNames) {
-            final String value = msg.getHeader(name);
-            //System.out.println(name + ": "+value);
-            LOG.debug(name + ": "+value);
+            printHeader(msg, name);
         }
+    }
+
+    /**
+     * Prints the specified header from the specified method.
+     * 
+     * @param msg The HTTP message.
+     * @param name The name of the header to print.
+     */
+    public static void printHeader(final HttpMessage msg, final String name) {
+        final String value = msg.getHeader(name);
+        LOG.debug(name + ": "+value);
     }
 
     /**
@@ -229,16 +240,24 @@ public class ProxyUtils {
     public static void addListenerForResponse(
         final ChannelFuture future, final HttpRequest httpRequest, 
         final HttpResponse httpResponse, final Object msg) {
-        if (httpResponse.isChunked()) {
-            // If the response is chunked, we want to return unless it's
-            // the last chunk. If it is the last chunk, then we want to pass
-            // through to the same close semantics we'd otherwise use.
-            if (msg != null) {
-                if (!isLastChunk(msg)) {
-                    return;
-                }
-            }
+        final ChannelFutureListener cfl = 
+            newWriteListener(httpRequest, httpResponse, msg);
+        if (cfl != ProxyUtils.NO_OP_LISTENER) {
+            future.addListener(cfl);
         }
+    }
+
+    /**
+     * Adds a listener for the given response when we know all the response
+     * body data is complete.
+     * 
+     * @param future The future to add the listener to.
+     * @param httpRequest The original request.
+     * @param httpResponse The original response.
+     */
+    public static void addListenerForCompleteResponse(
+        final ChannelFuture future, final HttpRequest httpRequest, 
+        final HttpResponse httpResponse) {
         if (!HttpHeaders.isKeepAlive(httpRequest)) {
             LOG.info("Closing since request is not keep alive:");
             ProxyUtils.printHeaders(httpRequest);
@@ -249,7 +268,37 @@ public class ProxyUtils {
             ProxyUtils.printHeaders(httpResponse);
             future.addListener(ChannelFutureListener.CLOSE);
         }
+    }
+
+    public static ChannelFutureListener newWriteListener(
+        final HttpRequest httpRequest, final HttpResponse httpResponse, 
+        final Object msg) {
+        if (httpResponse.isChunked()) {
+            // If the response is chunked, we want to return unless it's
+            // the last chunk. If it is the last chunk, then we want to pass
+            // through to the same close semantics we'd otherwise use.
+            if (msg != null) {
+                if (!isLastChunk(msg)) {
+                    LOG.info("Not closing on middle chunk");
+                    return ProxyUtils.NO_OP_LISTENER;
+                }
+                else {
+                    LOG.info("Last chunk...following normal closing rules");
+                }
+            }
+        }
+        if (!HttpHeaders.isKeepAlive(httpRequest)) {
+            LOG.info("Closing since request is not keep alive:");
+            ProxyUtils.printHeaders(httpRequest);
+            return ChannelFutureListener.CLOSE;
+        }
+        if (!HttpHeaders.isKeepAlive(httpResponse)) {
+            LOG.info("Closing since response is not keep alive:");
+            ProxyUtils.printHeaders(httpResponse);
+            return ChannelFutureListener.CLOSE;
+        }
         LOG.info("Not closing connection...");
+        return ProxyUtils.NO_OP_LISTENER;
     }
 
     private static boolean isLastChunk(final Object msg) {
@@ -259,5 +308,95 @@ public class ProxyUtils {
         } else {
             return false;
         }
+    }
+
+    /**
+     * Parses the host and port an HTTP request is being sent to.
+     * 
+     * @param httpRequest The request.
+     * @return The host and port string.
+     */
+    public static String parseHostAndPort(final HttpRequest httpRequest) {
+        final String uri = httpRequest.getUri();
+        final String tempUri;
+        if (!uri.startsWith("http")) {
+            // Browsers particularly seem to send requests in this form when
+            // they use CONNECT.
+            tempUri = uri;
+        }
+        else {
+            // We can't just take a substring from a hard-coded index because it
+            // could be either http or https.
+            tempUri = StringUtils.substringAfter(uri, "://");
+        }
+        final String hostAndPort;
+        if (tempUri.contains("/")) {
+            hostAndPort = tempUri.substring(0, tempUri.indexOf("/"));
+        }
+        else {
+            hostAndPort = tempUri;
+        }
+        return hostAndPort;
+    }
+    
+    /**
+     * Parses the port from an address.
+     * 
+     * @param httpRequest The request containing the URI.
+     * @return The port. If not port is explicitly specified, returns the 
+     * the default port 80 if the protocol is HTTP and 443 if the protocol is
+     * HTTPS.
+     */
+    public static int parsePort(final HttpRequest httpRequest) {
+        final String uri = httpRequest.getUri();
+        if (uri.contains(":")) {
+            final String portStr = StringUtils.substringAfter(uri, ":"); 
+            return Integer.parseInt(portStr);
+        }
+        else if (uri.startsWith("http")) {
+            return 80;
+        }
+        else if (uri.startsWith("https")) {
+            return 443;
+        }
+        else {
+            // Unsupported protocol -- return 80 for now.
+            return 80;
+        }
+    }
+
+
+    public static HttpRequest copyHttpRequest(
+        final HttpRequest originalRequest) {
+        final HttpMethod method = originalRequest.getMethod();
+        final String uri = originalRequest.getUri();
+        LOG.info("Raw URI before switching from proxy format: {}", uri);
+        final String noHostUri = ProxyUtils.stripHost(uri);
+        final HttpRequest httpRequestCopy = 
+            new DefaultHttpRequest(originalRequest.getProtocolVersion(), 
+                method, noHostUri);
+        
+        final ChannelBuffer originalContent = originalRequest.getContent();
+        
+        if (originalContent != null) {
+            LOG.info("Setting content");
+            httpRequestCopy.setContent(originalContent);
+        }
+        
+        LOG.info("Request copy method: {}", httpRequestCopy.getMethod());
+        final Set<String> headerNames = originalRequest.getHeaderNames();
+        for (final String name : headerNames) {
+            final List<String> values = originalRequest.getHeaders(name);
+            httpRequestCopy.setHeader(name, values);
+        }
+        final String ae = 
+            httpRequestCopy.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
+        if (StringUtils.isNotBlank(ae)) {
+            // Remove sdch from encodings we accept since we can't decode it.
+            final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
+            httpRequestCopy.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
+            LOG.info("Removed sdch and inserted: {}", noSdch);
+        }
+        return httpRequestCopy;
     }
 }

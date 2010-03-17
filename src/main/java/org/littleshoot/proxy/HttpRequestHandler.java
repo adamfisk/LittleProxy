@@ -5,6 +5,7 @@ import static org.jboss.netty.channel.Channels.pipeline;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
+import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
@@ -66,6 +68,24 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final Map<String, HttpFilter> filters;
     private final ClientSocketChannelFactory clientChannelFactory;
     private final ProxyCacheManager cacheManager;
+    private static final String via;
+    private static final String hostName;
+    
+    static {
+        try {
+            final InetAddress localAddress = InetAddress.getLocalHost();
+            hostName = localAddress.getHostName();
+        }
+        catch (final UnknownHostException e) {
+            log.error("Could not lookup host", e);
+            throw new IllegalStateException("Could not determine host!", e);
+        }
+        final StringBuilder sb = new StringBuilder();
+        sb.append("Via: 1.1 ");
+        sb.append(hostName);
+        sb.append("\r\n");
+        via = sb.toString();
+    }
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -106,10 +126,18 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     private void processChunk(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
-        log.warn("Processing chunk...");
+        log.info("Processing chunk...");
+        final HttpChunk chunk = (HttpChunk) me.getMessage();
+        
+        // Remember this will typically be a persistent connection, so we'll
+        // get another request after we're read the last chunk. So we need to
+        // reset it back to no longer read in chunk mode.
+        if (chunk.isLast()) {
+            this.readingChunks = false;
+        }
         final ChannelFuture cf = 
             endpointsToChannelFutures.get(hostAndPort);
-        cf.getChannel().write(me.getMessage());
+        cf.getChannel().write(chunk);
     }
 
     private void processMessage(final ChannelHandlerContext ctx, 
@@ -117,59 +145,30 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         
         if (this.cacheManager.returnCacheHit((HttpRequest)me.getMessage(), 
             me.getChannel())) {
-            log.info("Found cache hit! Using cache.");
+            log.info("Found cache hit! Cache wrote the response.");
             return;
         }
         
-        //final SimplePageCachingFilter filter = new SimplePageCachingFilter();
-        final HttpRequest httpRequest = 
-            this.request = (HttpRequest) me.getMessage();
+        final HttpRequest originalRequest = (HttpRequest) me.getMessage();
+        this.request = originalRequest;
         
-        log.info("Got request: {} on channel: "+me.getChannel(), httpRequest);
-        if (!this.authorizationManager.handleProxyAuthorization(httpRequest, ctx)) {
+        log.info("Got request: {} on channel: "+me.getChannel(), originalRequest);
+        if (!this.authorizationManager.handleProxyAuthorization(originalRequest, ctx)) {
             return;
         }
-        final String ae = 
-            httpRequest.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
-        if (StringUtils.isNotBlank(ae)) {
-            // Remove sdch from encodings we accept since we can't decode it.
-            final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
-            httpRequest.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
-            log.info("Removed sdch and inserted: {}", noSdch);
-        }
-        ProxyUtils.printHeaders(httpRequest);
+        
+        final HttpRequest httpRequestCopy = 
+            ProxyUtils.copyHttpRequest(originalRequest);
+        
+        ProxyUtils.printHeaders(originalRequest);
         
         // Switch the de-facto standard "Proxy-Connection" header to 
         // "Connection" when we pass it along to the remote host.
         final String proxyConnectionKey = "Proxy-Connection";
-        if (httpRequest.containsHeader(proxyConnectionKey)) {
-            final String header = httpRequest.getHeader(proxyConnectionKey);
-            httpRequest.removeHeader(proxyConnectionKey);
-            httpRequest.setHeader("Connection", header);
-        }
-        
-        final String uri = httpRequest.getUri();
-        
-        log.info("Raw URI before switching from proxy format: {}", uri);
-        final String noHostUri = ProxyUtils.stripHost(uri);
-        
-        final HttpMethod method = httpRequest.getMethod();
-        final HttpRequest httpRequestCopy = 
-            new DefaultHttpRequest(httpRequest.getProtocolVersion(), 
-                method, noHostUri);
-        
-        final ChannelBuffer originalContent = httpRequest.getContent();
-        
-        if (originalContent != null) {
-            log.info("Setting content");
-            httpRequestCopy.setContent(originalContent);
-        }
-        
-        log.info("Request copy method: {}", httpRequestCopy.getMethod());
-        final Set<String> headerNames = httpRequest.getHeaderNames();
-        for (final String name : headerNames) {
-            final List<String> values = httpRequest.getHeaders(name);
-            httpRequestCopy.setHeader(name, values);
+        if (httpRequestCopy.containsHeader(proxyConnectionKey)) {
+            final String header = httpRequestCopy.getHeader(proxyConnectionKey);
+            httpRequestCopy.removeHeader(proxyConnectionKey);
+            httpRequestCopy.setHeader("Connection", header);
         }
         
         final List<String> vias; 
@@ -180,33 +179,25 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             vias = new LinkedList<String>();
         }
         
-        try {
-            final InetAddress address = InetAddress.getLocalHost();
-            final String host = address.getHostName();
-            final String via = 
-                httpRequestCopy.getProtocolVersion().getMajorVersion() + 
-                "." +
-                httpRequestCopy.getProtocolVersion().getMinorVersion() +
-                " " +
-                host;
-            vias.add(via);
-            httpRequestCopy.setHeader(HttpHeaders.Names.VIA, vias);
-        }
-        catch (final UnknownHostException e) {
-            // Just don't add the Via.
-            log.error("Could not get the host", e);
-        }
+        final StringBuilder sb = new StringBuilder();
+        sb.append(httpRequestCopy.getProtocolVersion().getMajorVersion());
+        sb.append(".");
+        sb.append(httpRequestCopy.getProtocolVersion().getMinorVersion());
+        sb.append(".");
+        sb.append(hostName);
+        vias.add(sb.toString());
+        httpRequestCopy.setHeader(HttpHeaders.Names.VIA, vias);
         
         final Channel inboundChannel = me.getChannel();
-        this.hostAndPort = parseHostAndPort(httpRequest);
+        this.hostAndPort = ProxyUtils.parseHostAndPort(originalRequest);
         
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
-                if (method != HttpMethod.CONNECT) {
+                if (httpRequestCopy.getMethod() != HttpMethod.CONNECT) {
                     return cf.getChannel().write(httpRequestCopy);
                 }
                 else {
-                    writeConnectResponse(ctx, httpRequest, cf.getChannel());
+                    writeConnectResponse(ctx, originalRequest, cf.getChannel());
                     return cf;
                 }
             }
@@ -225,14 +216,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 
                 if (curFuture.getChannel().isConnected()) {
                     onConnect.onConnect(curFuture);
-                    //curFuture.getChannel().write(httpRequestCopy);
                 }
                 else {
                     final ChannelFutureListener cfl = new ChannelFutureListener() {
                         public void operationComplete(final ChannelFuture future)
                             throws Exception {
                             onConnect.onConnect(curFuture);
-                            //curFuture.getChannel().write(httpRequestCopy);
                         }
                     };
                     curFuture.addListener(cfl);
@@ -247,7 +236,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     }
                 };
                 final ChannelFuture cf = 
-                    newChannelFuture(httpRequestCopy, hostAndPort, inboundChannel);
+                    newChannelFuture(httpRequestCopy, inboundChannel, originalRequest);
                 endpointsToChannelFutures.put(hostAndPort, cf);
                 cf.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture future)
@@ -264,7 +253,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                                 public void operationComplete(final ChannelFuture wcf)
                                     throws Exception {
                                     log.info("Finished write: "+wcf+ " to: "+
-                                        httpRequest.getMethod()+" "+httpRequest.getUri());
+                                        httpRequestCopy.getMethod()+" "+httpRequestCopy.getUri());
                                 }
                             });
                         }
@@ -288,8 +277,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     private void writeConnectResponse(final ChannelHandlerContext ctx, 
         final HttpRequest httpRequest, final Channel outgoingChannel) {
-        final String address = httpRequest.getUri();
-        final int port = parsePort(address);
+        final int port = ProxyUtils.parsePort(httpRequest);
         final Channel browserToProxyChannel = ctx.getChannel();
         
         // TODO: We should really only allow access on 443, but this breaks
@@ -298,13 +286,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         if (port < 0) {
             log.warn("Connecting on port other than 443!!");
             final String statusLine = "HTTP/1.1 502 Proxy Error\r\n";
-            final String via = newVia();
             final String headers = 
                 "Connection: close\r\n"+
                 "Proxy-Connection: close\r\n"+
                 "Pragma: no-cache\r\n"+
                 "Cache-Control: no-cache\r\n" +
-                "Via: "+via +
+                via +
                 "\r\n";
             ProxyUtils.writeResponse(browserToProxyChannel, statusLine, headers);
         }
@@ -322,48 +309,26 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 new HttpConnectRelayingHandler(outgoingChannel, this.channelGroup));
             
             final String statusLine = "HTTP/1.1 200 Connection established\r\n";
-            final String via = newVia();
             final String headers = 
                 "Connection: Keep-Alive\r\n"+
                 "Proxy-Connection: Keep-Alive\r\n"+
                 via + 
                 "\r\n";
             ProxyUtils.writeResponse(browserToProxyChannel, statusLine, headers);
-        }
-    }
-
-    private String newVia() {
-        String host;
-        try {
-            final InetAddress localAddress = InetAddress.getLocalHost();
-            host = localAddress.getHostName();
-        }
-        catch (final UnknownHostException e) {
-            log.error("Could not lookup host", e);
-            host = "Unknown";
-        }
-         
-        final String via = "1.1 " + host + "\r\n";
-        return via;
-    }
-
-    private int parsePort(final String address) {
-        if (address.contains(":")) {
-            final String portStr = StringUtils.substringAfter(address, ":"); 
-            return Integer.parseInt(portStr);
-        }
-        else {
-            return 80;
+            
+            // TODO: Set this back to readable true?
+            //browserToProxyChannel.setReadable(true);
         }
     }
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
-        final String hostAndPort, final Channel browserToProxyChannel) {
+        final Channel browserToProxyChannel, final HttpRequest originalRequest){
         final String host;
         final int port;
         if (hostAndPort.contains(":")) {
             host = StringUtils.substringBefore(hostAndPort, ":");
-            final String portString = StringUtils.substringAfter(hostAndPort, ":");
+            final String portString = 
+                StringUtils.substringAfter(hostAndPort, ":");
             port = Integer.parseInt(portString);
         }
         else {
@@ -395,9 +360,18 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 public ChannelPipeline getPipeline() throws Exception {
                     // Create a default pipeline implementation.
                     final ChannelPipeline pipeline = pipeline();
+                    
+                    // We always include the request and response decoders
+                    // regardless of whether or not this is a URL we're 
+                    // filtering responses for. The reason is that we need to
+                    // follow connection closing rules based on the response
+                    // headers and HTTP version. 
+                    //
+                    // We also importantly need to follow the cache directives
+                    // in the HTTP response.
                     pipeline.addLast("decoder", new HttpResponseDecoder());
                     
-                    log.info("Querying for host and post: {}", hostAndPort);
+                    log.info("Querying for host and port: {}", hostAndPort);
                     final boolean shouldFilter;
                     final HttpFilter filter = filters.get(hostAndPort);
                     log.info("Using filter: {}", filter);
@@ -420,17 +394,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     }
                     pipeline.addLast("encoder", new HttpRequestEncoder());
                     if (shouldFilter) {
-                        //pipeline.addLast("handler", 
-                        //    m_handlerFactory.newHandler(browserToProxyChannel, 
-                        //        m_hostAndPort));
                         pipeline.addLast("handler",
                             new HttpRelayingHandler(browserToProxyChannel, 
-                                channelGroup, filter, httpRequest,
-                                cacheManager));
+                                channelGroup, filter, originalRequest));
                     } else {
                         pipeline.addLast("handler",
                             new HttpRelayingHandler(browserToProxyChannel, 
-                                channelGroup, httpRequest, cacheManager));
+                                channelGroup, originalRequest));
                     }
                     return pipeline;
                 }
@@ -448,31 +418,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         return future;
     }
     
-    private String parseHostAndPort(final HttpRequest httpRequest) {
-        final String uri = httpRequest.getUri();
-        final String tempUri;
-        if (!uri.startsWith("http")) {
-            // Browsers particularly seem to send requests in this form when
-            // they use CONNECT.
-            tempUri = uri;
-            //return "";
-        }
-        else {
-            // We can't just take a substring from a hard-coded index because it
-            // could be either http or https.
-            tempUri = StringUtils.substringAfter(uri, "://");
-        }
-        final String hostAndPort;
-        if (tempUri.contains("/")) {
-            hostAndPort = tempUri.substring(0, tempUri.indexOf("/"));
-        }
-        else {
-            hostAndPort = tempUri;
-        }
-        log.info("Got URI: "+hostAndPort);
-        return hostAndPort;
-    }
-
     @Override
     public void channelOpen(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) throws Exception {
@@ -516,8 +461,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
         final Channel channel = e.getChannel();
-        log.warn("Caught an exception on browser to proxy channel: "+channel, 
-            e.getCause());
+        final Throwable cause = e.getCause();
+        if (cause instanceof ClosedChannelException) {
+            log.info("Caught an exception on browser to proxy channel: "+
+                channel, cause);
+        }
+        else {
+            log.warn("Caught an exception on browser to proxy channel: "+
+                channel, cause);
+        }
         if (channel.isOpen()) {
             closeOnFlush(channel);
         }

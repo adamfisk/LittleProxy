@@ -1,0 +1,52 @@
+package org.littleshoot.proxy;
+
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * HTTP response encoder for the proxy.
+ */
+public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
+
+    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final ProxyCacheManager cacheManager;
+
+    /**
+     * Creates a new HTTP response encoder that intercepts the encoding to 
+     * include any relevant responses in the cache.
+     * 
+     * @param cacheManager The class that manages the cache.
+     */
+    public ProxyHttpResponseEncoder(final ProxyCacheManager cacheManager) {
+        this.cacheManager = cacheManager;
+    }
+    
+    @Override
+    protected Object encode(final ChannelHandlerContext ctx, 
+        final Channel channel, final Object msg) throws Exception {
+        if (msg instanceof ProxyHttpResponse) {
+            log.info("Processing proxy response!!");
+            final ProxyHttpResponse proxyResponse = (ProxyHttpResponse) msg;
+            
+            // We need the original request and response objects to adequately
+            // follow the HTTP caching rules.
+            final HttpRequest httpRequest = proxyResponse.getHttpRequest();
+            final HttpResponse httpResponse = proxyResponse.getHttpResponse();
+            log.info("Got response: {}", httpResponse);
+            final Object response = proxyResponse.getResponse();
+            final ChannelBuffer encoded = 
+                (ChannelBuffer) super.encode(ctx, channel, response);
+            
+            this.cacheManager.cache(httpRequest, httpResponse, response, encoded);
+            
+            return encoded;
+        }
+        return msg;
+    }
+}

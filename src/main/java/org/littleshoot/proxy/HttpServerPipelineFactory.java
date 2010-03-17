@@ -5,15 +5,12 @@ import static org.jboss.netty.channel.Channels.pipeline;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
-import net.sf.ehcache.CacheManager;
-
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
-import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
-import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 
 /**
  * Factory for creating pipelines for incoming requests to our listening
@@ -64,7 +61,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         
         // We want to allow longer request lines, headers, and chunks respectively.
         pipeline.addLast("decoder", new HttpRequestDecoder());
-        pipeline.addLast("encoder", new HttpResponseEncoder());
+        pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
         pipeline.addLast("handler", 
             new HttpRequestHandler(this.cacheManager, authenticationManager, 
                 this.channelGroup, this.filters, 
