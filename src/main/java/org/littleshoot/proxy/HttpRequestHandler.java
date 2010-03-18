@@ -28,7 +28,6 @@ import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
 import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +49,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     
     private volatile int messagesReceived = 0;
     private final ProxyAuthorizationManager authorizationManager;
+    
+    /**
+     * Note, we *can* receive requests for multiple different sites from the
+     * same connection from the browser, so the host and port most certainly
+     * does change.
+     * 
+     * Why do we need to store it? We need it to lookup the appropriate 
+     * external connection to send HTTP chunks to.
+     */
     private String hostAndPort;
     private final ChannelGroup channelGroup;
 
@@ -133,9 +141,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         final HttpRequest httpRequestCopy = ProxyUtils.copyHttpRequest(request);
         
         final Channel inboundChannel = me.getChannel();
-        if (StringUtils.isBlank(this.hostAndPort)) {
-            this.hostAndPort = ProxyUtils.parseHostAndPort(request);
-        }
+        this.hostAndPort = ProxyUtils.parseHostAndPort(request);
         
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
