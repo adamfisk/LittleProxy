@@ -1,9 +1,12 @@
 package org.littleshoot.proxy;
 
 import java.io.UnsupportedEncodingException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -43,6 +46,25 @@ public class ProxyUtils {
      * Date format pattern used to parse HTTP date headers in RFC 1036 format.
      */
     public static final String PATTERN_RFC1036 = "EEEE, dd-MMM-yy HH:mm:ss zzz";
+    
+    private static final String via;
+    private static final String hostName;
+    
+    static {
+        try {
+            final InetAddress localAddress = InetAddress.getLocalHost();
+            hostName = localAddress.getHostName();
+        }
+        catch (final UnknownHostException e) {
+            LOG.error("Could not lookup host", e);
+            throw new IllegalStateException("Could not determine host!", e);
+        }
+        final StringBuilder sb = new StringBuilder();
+        sb.append("Via: 1.1 ");
+        sb.append(hostName);
+        sb.append("\r\n");
+        via = sb.toString();
+    }
 
     /**
      * Utility class for a no-op {@link ChannelFutureListener}.
@@ -54,6 +76,26 @@ public class ProxyUtils {
             LOG.info("No op listener - write finished");
         }
     };
+
+    /**
+     * Constant for the headers for an OK response to an HTTP connect request.
+     */
+    public static final String CONNECT_OK_HEADERS = 
+        "Connection: Keep-Alive\r\n"+
+        "Proxy-Connection: Keep-Alive\r\n"+
+        via + 
+        "\r\n";
+
+    /**
+     * Constant for the headers for a proxy error response.
+     */
+    public static final String PROXY_ERROR_HEADERS = 
+        "Connection: close\r\n"+
+        "Proxy-Connection: close\r\n"+
+        "Pragma: no-cache\r\n"+
+        "Cache-Control: no-cache\r\n" +
+        via +
+        "\r\n";
     
     // Should never be constructed.
     private ProxyUtils() {
@@ -398,5 +440,25 @@ public class ProxyUtils {
             LOG.info("Removed sdch and inserted: {}", noSdch);
         }
         return httpRequestCopy;
+    }
+
+
+    public static void addVia(final HttpRequest httpRequest) {
+        final List<String> vias; 
+        if (httpRequest.containsHeader(HttpHeaders.Names.VIA)) {
+            vias = httpRequest.getHeaders(HttpHeaders.Names.VIA);
+        }
+        else {
+            vias = new LinkedList<String>();
+        }
+        
+        final StringBuilder sb = new StringBuilder();
+        sb.append(httpRequest.getProtocolVersion().getMajorVersion());
+        sb.append(".");
+        sb.append(httpRequest.getProtocolVersion().getMinorVersion());
+        sb.append(".");
+        sb.append(hostName);
+        vias.add(sb.toString());
+        httpRequest.setHeader(HttpHeaders.Names.VIA, vias);
     }
 }

@@ -2,20 +2,14 @@ package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
-import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
@@ -29,11 +23,9 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
-import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
@@ -68,24 +60,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final Map<String, HttpFilter> filters;
     private final ClientSocketChannelFactory clientChannelFactory;
     private final ProxyCacheManager cacheManager;
-    private static final String via;
-    private static final String hostName;
-    
-    static {
-        try {
-            final InetAddress localAddress = InetAddress.getLocalHost();
-            hostName = localAddress.getHostName();
-        }
-        catch (final UnknownHostException e) {
-            log.error("Could not lookup host", e);
-            throw new IllegalStateException("Could not determine host!", e);
-        }
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Via: 1.1 ");
-        sb.append(hostName);
-        sb.append("\r\n");
-        via = sb.toString();
-    }
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -171,25 +145,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             httpRequestCopy.setHeader("Connection", header);
         }
         
-        final List<String> vias; 
-        if (httpRequestCopy.containsHeader(HttpHeaders.Names.VIA)) {
-            vias = httpRequestCopy.getHeaders(HttpHeaders.Names.VIA);
-        }
-        else {
-            vias = new LinkedList<String>();
-        }
-        
-        final StringBuilder sb = new StringBuilder();
-        sb.append(httpRequestCopy.getProtocolVersion().getMajorVersion());
-        sb.append(".");
-        sb.append(httpRequestCopy.getProtocolVersion().getMinorVersion());
-        sb.append(".");
-        sb.append(hostName);
-        vias.add(sb.toString());
-        httpRequestCopy.setHeader(HttpHeaders.Names.VIA, vias);
+        ProxyUtils.addVia(httpRequestCopy);
         
         final Channel inboundChannel = me.getChannel();
-        this.hostAndPort = ProxyUtils.parseHostAndPort(originalRequest);
+        if (StringUtils.isBlank(this.hostAndPort)) {
+            this.hostAndPort = ProxyUtils.parseHostAndPort(originalRequest);
+        }
         
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
@@ -253,12 +214,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                                 public void operationComplete(final ChannelFuture wcf)
                                     throws Exception {
                                     log.info("Finished write: "+wcf+ " to: "+
-                                        httpRequestCopy.getMethod()+" "+httpRequestCopy.getUri());
+                                        httpRequestCopy.getMethod()+" "+
+                                        httpRequestCopy.getUri());
                                 }
                             });
                         }
                         else {
-                            log.info("Could not connect!!", future.getCause());
+                            log.info("Could not connect to "+hostAndPort, 
+                                future.getCause());
                             if (browserToProxyConnections == 1) {
                                 log.warn("Closing browser to proxy channel");
                                 me.getChannel().close();
@@ -286,14 +249,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         if (port < 0) {
             log.warn("Connecting on port other than 443!!");
             final String statusLine = "HTTP/1.1 502 Proxy Error\r\n";
-            final String headers = 
-                "Connection: close\r\n"+
-                "Proxy-Connection: close\r\n"+
-                "Pragma: no-cache\r\n"+
-                "Cache-Control: no-cache\r\n" +
-                via +
-                "\r\n";
-            ProxyUtils.writeResponse(browserToProxyChannel, statusLine, headers);
+            ProxyUtils.writeResponse(browserToProxyChannel, statusLine, 
+                ProxyUtils.PROXY_ERROR_HEADERS);
         }
         else {
             browserToProxyChannel.setReadable(false);
@@ -309,12 +266,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 new HttpConnectRelayingHandler(outgoingChannel, this.channelGroup));
             
             final String statusLine = "HTTP/1.1 200 Connection established\r\n";
-            final String headers = 
-                "Connection: Keep-Alive\r\n"+
-                "Proxy-Connection: Keep-Alive\r\n"+
-                via + 
-                "\r\n";
-            ProxyUtils.writeResponse(browserToProxyChannel, statusLine, headers);
+            ProxyUtils.writeResponse(browserToProxyChannel, statusLine, 
+                ProxyUtils.CONNECT_OK_HEADERS);
             
             // TODO: Set this back to readable true?
             //browserToProxyChannel.setReadable(true);
