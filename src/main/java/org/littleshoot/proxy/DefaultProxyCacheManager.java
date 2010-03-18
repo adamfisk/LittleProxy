@@ -59,7 +59,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
 
     public boolean returnCacheHit(final HttpRequest httpRequest, 
         final Channel channel) {
-        final String uri = httpRequest.getUri();
+        final String uri = ProxyUtils.cacheUri(httpRequest);
         final Cache cache = this.cacheManager.getCache(ProxyConstants.CACHE);
         final Element elem = cache.get(uri);
         if (elem != null) {
@@ -97,13 +97,13 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
         return false;
     }
     
-    public Future<String> cache(final HttpRequest originalRequest, 
+    public Future<String> cache(final HttpRequest httpRequest, 
         final HttpResponse httpResponse, final Object response, 
         final ChannelBuffer encoded) {
         final Callable<String> task = new Callable<String>() {
             public String call() {
-                final String uri = originalRequest.getUri();
-                if (!isCacheable(originalRequest, httpResponse)) {
+                final String uri = ProxyUtils.cacheUri(httpRequest);
+                if (!isCacheable(httpRequest, httpResponse)) {
                     log.info("Not cachable: {}", uri);
                     return "";
                 }
@@ -120,7 +120,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
                 // keep the request and response objects in memory to 
                 // determine what to do after writing the response.
                 final ChannelFutureListener cfl = 
-                    ProxyUtils.newWriteListener(originalRequest, httpResponse, 
+                    ProxyUtils.newWriteListener(httpRequest, httpResponse, 
                         response);
                 
                 if (response instanceof HttpResponse) {
@@ -143,7 +143,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
                         }
                         else {
                             cacher = new DefaultCachedHttpChunks(
-                                cacheManager, originalRequest, cfl);
+                                cacheManager, httpRequest, cfl);
                             cache.put(new Element(uri, cacher));
                         }
                     }

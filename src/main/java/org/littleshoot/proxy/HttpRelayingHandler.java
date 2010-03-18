@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.LinkedList;
+import java.util.Queue;
 
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -41,9 +41,11 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     private final HttpFilter httpFilter;
 
-    private final HttpRequest httpRequest;
+    //private final HttpRequest httpRequest;
     
     private HttpResponse httpResponse;
+
+    private HttpRequest httpRequest;
 
     //private final String originalUri;
     
@@ -55,10 +57,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param channelGroup Keeps track of channels to close on shutdown.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel, 
-        final ChannelGroup channelGroup, 
-        final HttpRequest httpRequest) {
-        this (browserToProxyChannel, channelGroup, new NoOpHttpFilter(), 
-            httpRequest);
+        final ChannelGroup channelGroup) {
+        this (browserToProxyChannel, channelGroup, new NoOpHttpFilter());
     }
 
     /**
@@ -70,12 +70,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param filter The HTTP filter.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel,
-        final ChannelGroup channelGroup, final HttpFilter filter,
-        final HttpRequest httpRequest) {
+        final ChannelGroup channelGroup, final HttpFilter filter) {
         this.browserToProxyChannel = browserToProxyChannel;
         this.channelGroup = channelGroup;
         this.httpFilter = filter;
-        this.httpRequest = httpRequest;
     }
 
     @Override
@@ -135,17 +133,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         }
         
         if (browserToProxyChannel.isOpen()) {
-            // At this point, the HTTP request for this given request and
-            // response has of course been written, and it's in the encoder.
+            final HttpRequest hr;
+            if (messageToWrite instanceof HttpResponse) {
+                hr = this.requestQueue.remove();
+                this.httpRequest = hr;
+            }
+            else {
+                hr  = this.httpRequest;
+            }
             final ChannelFuture ch = 
                 browserToProxyChannel.write(
-                    new ProxyHttpResponse(httpRequest, httpResponse, 
-                        messageToWrite));
-            
+                    new ProxyHttpResponse(hr, httpResponse, messageToWrite));
 
             final ChannelFutureListener cfl = 
-                ProxyUtils.newWriteListener(httpRequest, httpResponse, 
-                    messageToWrite);
+                ProxyUtils.newWriteListener(hr, httpResponse, messageToWrite);
             ch.addListener(cfl);
         }
         else {
@@ -200,5 +201,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(
                 ChannelFutureListener.CLOSE);
         }
+    }
+
+    private final Queue<HttpRequest> requestQueue = 
+        new LinkedList<HttpRequest>();
+    
+    /**
+     * Adds this HTTP request. We need to keep track of all encoded requests
+     * because we ultimately need the request data to determine whether or not
+     * we can cache responses. It's a queue because we're dealing with HTTP 1.1
+     * persistent connections, and we need to match all requests with responses.
+     * 
+     * @param request The HTTP request to add.
+     */
+    public void requestEncoded(final HttpRequest request) {
+        this.requestQueue.add(request);
     }
 }

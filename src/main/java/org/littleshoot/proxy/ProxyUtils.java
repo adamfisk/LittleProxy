@@ -123,6 +123,28 @@ public class ProxyUtils {
         final String noHostUri = noHttpUri.substring(slashIndex);
         return noHostUri;
     }
+
+    /**
+     * Builds the cache URI from the request, including the host and the path.
+     * 
+     * @param httpRequest The request.
+     * @return The cache URI.
+     */
+    public static String cacheUri(final HttpRequest httpRequest) {
+        final String host = httpRequest.getHeader(HttpHeaders.Names.HOST);
+        final String uri = httpRequest.getUri();
+        final String path;
+        if (uri.startsWith("http")) {
+            path = stripHost(uri);
+        }
+        else {
+            path = uri;
+        }
+        
+        // TODO: We don't append http:// or https:// here. Is it really OK to
+        // ignore the protocol?
+        return host + path;
+    }
     
     /**
      * Formats the given date according to the RFC 1123 pattern.
@@ -312,6 +334,15 @@ public class ProxyUtils {
         }
     }
 
+    /**
+     * Creates a new write listener for the given request and response pair.
+     * 
+     * @param httpRequest The HTTP request.
+     * @param httpResponse The HTTP response.
+     * @param msg The real message being written. This can be the HTTP message,
+     * and it can also be a chunk.
+     * @return The new listener.
+     */
     public static ChannelFutureListener newWriteListener(
         final HttpRequest httpRequest, final HttpResponse httpResponse, 
         final Object msg) {
@@ -321,25 +352,25 @@ public class ProxyUtils {
             // through to the same close semantics we'd otherwise use.
             if (msg != null) {
                 if (!isLastChunk(msg)) {
-                    LOG.info("Not closing on middle chunk");
+                    LOG.info("Using no-op listener on middle chunk");
                     return ProxyUtils.NO_OP_LISTENER;
                 }
                 else {
-                    LOG.info("Last chunk...following normal closing rules");
+                    LOG.info("Last chunk...using normal closing rules");
                 }
             }
         }
         if (!HttpHeaders.isKeepAlive(httpRequest)) {
-            LOG.info("Closing since request is not keep alive:");
+            LOG.info("Using close listener since request is not keep alive:");
             ProxyUtils.printHeaders(httpRequest);
             return ChannelFutureListener.CLOSE;
         }
         if (!HttpHeaders.isKeepAlive(httpResponse)) {
-            LOG.info("Closing since response is not keep alive:");
+            LOG.info("Using close listener since response is not keep alive:");
             ProxyUtils.printHeaders(httpResponse);
             return ChannelFutureListener.CLOSE;
         }
-        LOG.info("Not closing connection...");
+        LOG.info("Using no-op listener...");
         return ProxyUtils.NO_OP_LISTENER;
     }
 
@@ -407,42 +438,60 @@ public class ProxyUtils {
         }
     }
 
-
-    public static HttpRequest copyHttpRequest(
-        final HttpRequest originalRequest) {
-        final HttpMethod method = originalRequest.getMethod();
-        final String uri = originalRequest.getUri();
+    /**
+     * Creates a copy of an original HTTP request to void modifying it.
+     * 
+     * @param original The original request.
+     * @return The request copy.
+     */
+    public static HttpRequest copyHttpRequest(final HttpRequest original) {
+        final HttpMethod method = original.getMethod();
+        final String uri = original.getUri();
         LOG.info("Raw URI before switching from proxy format: {}", uri);
         final String noHostUri = ProxyUtils.stripHost(uri);
-        final HttpRequest httpRequestCopy = 
-            new DefaultHttpRequest(originalRequest.getProtocolVersion(), 
+        final HttpRequest copy = 
+            new DefaultHttpRequest(original.getProtocolVersion(), 
                 method, noHostUri);
         
-        final ChannelBuffer originalContent = originalRequest.getContent();
+        final ChannelBuffer originalContent = original.getContent();
         
         if (originalContent != null) {
-            LOG.info("Setting content");
-            httpRequestCopy.setContent(originalContent);
+            copy.setContent(originalContent);
         }
         
-        LOG.info("Request copy method: {}", httpRequestCopy.getMethod());
-        final Set<String> headerNames = originalRequest.getHeaderNames();
+        LOG.info("Request copy method: {}", copy.getMethod());
+        final Set<String> headerNames = original.getHeaderNames();
         for (final String name : headerNames) {
-            final List<String> values = originalRequest.getHeaders(name);
-            httpRequestCopy.setHeader(name, values);
+            final List<String> values = original.getHeaders(name);
+            copy.setHeader(name, values);
         }
-        final String ae = 
-            httpRequestCopy.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
+        final String ae = copy.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
         if (StringUtils.isNotBlank(ae)) {
             // Remove sdch from encodings we accept since we can't decode it.
             final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
-            httpRequestCopy.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
+            copy.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
             LOG.info("Removed sdch and inserted: {}", noSdch);
         }
-        return httpRequestCopy;
+        
+        // Switch the de-facto standard "Proxy-Connection" header to 
+        // "Connection" when we pass it along to the remote host.
+        final String proxyConnectionKey = "Proxy-Connection";
+        if (copy.containsHeader(proxyConnectionKey)) {
+            final String header = copy.getHeader(proxyConnectionKey);
+            copy.removeHeader(proxyConnectionKey);
+            copy.setHeader("Connection", header);
+        }
+        
+        ProxyUtils.addVia(copy);
+        return copy;
     }
 
-
+    /**
+     * Adds the Via header to specify that's the request has passed through
+     * the proxy.
+     * 
+     * @param httpRequest The request.
+     */
     public static void addVia(final HttpRequest httpRequest) {
         final List<String> vias; 
         if (httpRequest.containsHeader(HttpHeaders.Names.VIA)) {

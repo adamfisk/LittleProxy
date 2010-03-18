@@ -40,7 +40,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     private final static Logger log = 
         LoggerFactory.getLogger(HttpRequestHandler.class);
-    private volatile HttpRequest request;
     private volatile boolean readingChunks;
     
     private static int totalBrowserToProxyConnections = 0;
@@ -123,33 +122,19 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             return;
         }
         
-        final HttpRequest originalRequest = (HttpRequest) me.getMessage();
-        this.request = originalRequest;
+        final HttpRequest request = (HttpRequest) me.getMessage();
         
-        log.info("Got request: {} on channel: "+me.getChannel(), originalRequest);
-        if (!this.authorizationManager.handleProxyAuthorization(originalRequest, ctx)) {
+        log.info("Got request: {} on channel: "+me.getChannel(), request);
+        if (!this.authorizationManager.handleProxyAuthorization(request, ctx)) {
+            log.info("Not authorized!!");
             return;
         }
         
-        final HttpRequest httpRequestCopy = 
-            ProxyUtils.copyHttpRequest(originalRequest);
-        
-        ProxyUtils.printHeaders(originalRequest);
-        
-        // Switch the de-facto standard "Proxy-Connection" header to 
-        // "Connection" when we pass it along to the remote host.
-        final String proxyConnectionKey = "Proxy-Connection";
-        if (httpRequestCopy.containsHeader(proxyConnectionKey)) {
-            final String header = httpRequestCopy.getHeader(proxyConnectionKey);
-            httpRequestCopy.removeHeader(proxyConnectionKey);
-            httpRequestCopy.setHeader("Connection", header);
-        }
-        
-        ProxyUtils.addVia(httpRequestCopy);
+        final HttpRequest httpRequestCopy = ProxyUtils.copyHttpRequest(request);
         
         final Channel inboundChannel = me.getChannel();
         if (StringUtils.isBlank(this.hostAndPort)) {
-            this.hostAndPort = ProxyUtils.parseHostAndPort(originalRequest);
+            this.hostAndPort = ProxyUtils.parseHostAndPort(request);
         }
         
         final class OnConnect {
@@ -158,7 +143,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     return cf.getChannel().write(httpRequestCopy);
                 }
                 else {
-                    writeConnectResponse(ctx, originalRequest, cf.getChannel());
+                    writeConnectResponse(ctx, request, cf.getChannel());
                     return cf;
                 }
             }
@@ -197,7 +182,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     }
                 };
                 final ChannelFuture cf = 
-                    newChannelFuture(httpRequestCopy, inboundChannel, originalRequest);
+                    newChannelFuture(httpRequestCopy, inboundChannel, request);
                 endpointsToChannelFutures.put(hostAndPort, cf);
                 cf.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture future)
@@ -345,16 +330,25 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                         pipeline.addLast("aggregator",            
                             new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
                     }
-                    pipeline.addLast("encoder", new HttpRequestEncoder());
+                    
+                    // The trick here is we need to determine whether or not
+                    // to cache responses based on the full URI of the request.
+                    // This request encoder will only get the URI without the
+                    // host, so we just have to be aware of that and construct
+                    // the original.
+                    final HttpRelayingHandler handler;
                     if (shouldFilter) {
-                        pipeline.addLast("handler",
-                            new HttpRelayingHandler(browserToProxyChannel, 
-                                channelGroup, filter, originalRequest));
+                        handler = new HttpRelayingHandler(browserToProxyChannel, 
+                            channelGroup, filter);
                     } else {
-                        pipeline.addLast("handler",
-                            new HttpRelayingHandler(browserToProxyChannel, 
-                                channelGroup, originalRequest));
+                        handler = new HttpRelayingHandler(browserToProxyChannel, 
+                            channelGroup);
                     }
+                    
+                    final ProxyHttpRequestEncoder encoder = 
+                        new ProxyHttpRequestEncoder(handler);
+                    pipeline.addLast("encoder", encoder);
+                    pipeline.addLast("handler", handler);
                     return pipeline;
                 }
             };

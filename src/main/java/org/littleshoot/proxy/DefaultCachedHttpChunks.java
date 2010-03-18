@@ -38,7 +38,7 @@ public class DefaultCachedHttpChunks implements CachedHttpChunks {
         final ChannelFutureListener writeListener) {
         this.cacheManager = cacheManager;
         this.writeListener = writeListener;
-        this.uri = httpRequest.getUri();
+        this.uri = ProxyUtils.cacheUri(httpRequest);
     }
     
     public void cache(final HttpChunk chunk, final ChannelBuffer encoded) {

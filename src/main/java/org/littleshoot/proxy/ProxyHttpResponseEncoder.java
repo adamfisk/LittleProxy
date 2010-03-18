@@ -38,8 +38,11 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
             // follow the HTTP caching rules.
             final HttpRequest httpRequest = proxyResponse.getHttpRequest();
             final HttpResponse httpResponse = proxyResponse.getHttpResponse();
-            log.info("Got response: {}", httpResponse);
+            
+            // The actual response is either a chunk or a "normal" response.
             final Object response = proxyResponse.getResponse();
+            log.info("Got response:\n{}", response);
+            
             final ChannelBuffer encoded = 
                 (ChannelBuffer) super.encode(ctx, channel, response);
             
