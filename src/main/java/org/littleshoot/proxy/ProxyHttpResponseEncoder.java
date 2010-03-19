@@ -46,7 +46,10 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
             final ChannelBuffer encoded = 
                 (ChannelBuffer) super.encode(ctx, channel, response);
             
-            this.cacheManager.cache(httpRequest, httpResponse, response, encoded);
+            // The buffer will be null when it's the last chunk, for example.
+            if (encoded != null) {
+                this.cacheManager.cache(httpRequest, httpResponse, response, encoded);
+            }
             
             return encoded;
         }
