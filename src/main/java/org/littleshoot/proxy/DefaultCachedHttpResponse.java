@@ -27,9 +27,8 @@ public class DefaultCachedHttpResponse implements CachedHttpResponse {
     public ChannelBuffer getChannelBuffer() {
         // We can never return the original buffer because multiple threads 
         // could then access it and modify the mutable data.
-        final ChannelBuffer cb = channelBuffer.duplicate();
-        cb.clear();
-        return cb;
+        // NOTE: This does not copy the actual bytes.
+        return channelBuffer.duplicate();
     }
 
     public ChannelFutureListener getChannelFutureListener() {

@@ -188,7 +188,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     }
                 };
                 final ChannelFuture cf = 
-                    newChannelFuture(httpRequestCopy, inboundChannel, request);
+                    newChannelFuture(httpRequestCopy, inboundChannel);
                 endpointsToChannelFutures.put(hostAndPort, cf);
                 cf.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture future)
@@ -266,7 +266,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     }
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
-        final Channel browserToProxyChannel, final HttpRequest originalRequest){
+        final Channel browserToProxyChannel) {
         final String host;
         final int port;
         if (hostAndPort.contains(":")) {

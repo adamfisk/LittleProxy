@@ -18,7 +18,6 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
@@ -34,7 +33,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final CacheManager cacheManager = new CacheManager();
     
-    private final boolean CACHE_ENABLED = false;
+    private final boolean CACHE_ENABLED = true;
     
     private final ExecutorService cacheExecutor = 
         Executors.newSingleThreadExecutor(new ThreadFactory() {
@@ -100,21 +99,21 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
     public Future<String> cache(final HttpRequest httpRequest, 
         final HttpResponse httpResponse, final Object response, 
         final ChannelBuffer encoded) {
+        
+        // We can't depend on the write position and such of the
+        // original buffer, so make a duplicate.
+        
+        // NOTE: This does not copy the actual bytes.
+        final ChannelBuffer copy = encoded.duplicate();
+        
         final Callable<String> task = new Callable<String>() {
             public String call() {
                 final String uri = ProxyUtils.cacheUri(httpRequest);
                 if (!isCacheable(httpRequest, httpResponse)) {
                     log.info("Not cachable: {}", uri);
-                    return "";
+                    return uri;
                 }
                 log.info("Response is cacheable -- caching {}", uri);
-                
-                // We can't depend on the write position and such of the
-                // original buffer. We also can afford to keep the original
-                // around in memory because it could prevent any subtle
-                // garbage collection expectations of the Netty internals.
-                final ChannelBuffer copy = encoded.duplicate();
-                copy.clear();
                 
                 // We store the ChannelFutureListener so we don't have to
                 // keep the request and response objects in memory to 
@@ -124,6 +123,11 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
                         response);
                 
                 if (response instanceof HttpResponse) {
+                    final HttpResponse hr = (HttpResponse) response;
+                    // We don't currently support caching chunked responses.
+                    if (hr.isChunked()) {
+                        return uri;
+                    }
                     final Cache cache = 
                         cacheManager.getCache(ProxyConstants.CACHE);
                     final CachedHttpResponse cached = 
@@ -131,6 +135,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
                     log.info("Adding to response cache under URI: {}", uri);
                     cache.put(new Element(uri, cached));
                 }
+                /*
                 else if (response instanceof HttpChunk) {
                     final Cache cache = 
                         cacheManager.getCache(ProxyConstants.CHUNKS_CACHE);
@@ -154,6 +159,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
                     log.error("Unknown response type: {}", 
                         response.getClass());
                 }
+                */
                 return uri;
             }
         };
