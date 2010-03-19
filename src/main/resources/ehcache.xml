@@ -623,7 +623,6 @@ used with JMX monitors.
     If there are more than 10000 elements it will overflow to the
     disk cache, which in this configuration will go to wherever java.io.tmp is
     defined on your system. On a standard Linux system this will be /tmp"
-    -->
     <cache name="sampleCache1"
            maxElementsInMemory="10000"
            maxElementsOnDisk="1000"
@@ -635,26 +634,26 @@ used with JMX monitors.
            memoryStoreEvictionPolicy="LFU"
             />
 
+    -->
 
     <!--
     Sample cache named sampleCache2
     This cache has a maximum of 1000 elements in memory. There is no overflow to disk, so 1000
     is also the maximum cache size. Note that when a cache is eternal, timeToLive and
     timeToIdle are not used and do not need to be specified.
-    -->
     <cache name="sampleCache2"
            maxElementsInMemory="1000"
            eternal="true"
            overflowToDisk="false"
            memoryStoreEvictionPolicy="FIFO"
             />
+    -->
 
 
     <!--
     Sample cache named sampleCache3. This cache overflows to disk. The disk store is
     persistent between cache and VM restarts. The disk expiry thread interval is set to 10
     minutes, overriding the default of 2 minutes.
-    -->
     <cache name="sampleCache3"
            maxElementsInMemory="500"
            eternal="false"
@@ -665,13 +664,13 @@ used with JMX monitors.
            diskExpiryThreadIntervalSeconds="1"
            memoryStoreEvictionPolicy="LFU"
             />
+    -->
 
 
     <!--
     Sample distributed cache named sampleDistributedCache1.
     This cache replicates using defaults.
     It also bootstraps from the cluster, using default properties.
-    -->
     <cache name="sampleDistributedCache1"
            maxElementsInMemory="10"
            eternal="false"
@@ -684,13 +683,13 @@ used with JMX monitors.
         <bootstrapCacheLoaderFactory
                 class="net.sf.ehcache.distribution.RMIBootstrapCacheLoaderFactory"/>
     </cache>
+    -->
 
 
     <!--
     Sample distributed cache named sampleDistributedCache2.
     This cache replicates using specific properties.
     It only replicates updates and does so synchronously via copy
-    -->
     <cache name="sampleDistributedCache2"
            maxElementsInMemory="10"
            eternal="false"
@@ -703,13 +702,13 @@ used with JMX monitors.
                             replicatePutsViaCopy=false, replicateUpdates=true,
                             replicateUpdatesViaCopy=true, replicateRemovals=false"/>
     </cache>
+    -->
 
     <!--
     Sample distributed cache named sampleDistributedCache3.
     This cache replicates using defaults except that the asynchronous replication
     interval is set to 200ms.
     This one includes / and # which were illegal in ehcache 1.5.
-    -->
     <cache name="sample/DistributedCache3"
            maxElementsInMemory="10"
            eternal="false"
@@ -720,6 +719,7 @@ used with JMX monitors.
                 class="net.sf.ehcache.distribution.RMICacheReplicatorFactory"
                 properties="asynchronousReplicationIntervalMillis=200"/>
     </cache>
+    -->
 
     <!--
     Sample Terracotta clustered cache named sampleTerracottaCache.
@@ -735,7 +735,5 @@ used with JMX monitors.
         <terracotta/>
     </cache>
     -->
-    
-
 
 </ehcache>
