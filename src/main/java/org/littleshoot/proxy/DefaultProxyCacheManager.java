@@ -33,7 +33,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final CacheManager cacheManager = new CacheManager();
     
-    private final boolean CACHE_ENABLED = true;
+    private final boolean CACHE_ENABLED = false;
     
     private final ExecutorService cacheExecutor = 
         Executors.newSingleThreadExecutor(new ThreadFactory() {
@@ -62,7 +62,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
         final Cache cache = this.cacheManager.getCache(ProxyConstants.CACHE);
         final Element elem = cache.get(uri);
         if (elem != null) {
-            log.info("Found element in cache");
+            log.info("Found element in cache for URI: {}", uri);
             final CachedHttpResponse cached = 
                 (CachedHttpResponse) elem.getObjectValue();
             final ChannelFutureListener cfl = cached.getChannelFutureListener();
@@ -71,7 +71,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
             log.info("Wrote response from cache!!");
             return true;
         }
-        
+        /*
         final Cache chunkedCache = 
             this.cacheManager.getCache(ProxyConstants.CHUNKS_CACHE);
         final Element chunkedElem = chunkedCache.get(uri);
@@ -93,6 +93,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
         else {
             log.info("No matching element for: {}", uri);
         }
+        */
         return false;
     }
     
