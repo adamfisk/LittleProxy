@@ -118,7 +118,22 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         }
         final ChannelFuture cf = 
             endpointsToChannelFutures.get(hostAndPort);
-        cf.getChannel().write(chunk);
+        
+        // We don't necessarily know the channel is connected yet!! This can
+        // happen if the client sends a chunk directly after the initial 
+        // request.
+        if (cf.getChannel().isConnected()) {
+            cf.getChannel().write(chunk);
+        }
+        else {
+            cf.addListener(new ChannelFutureListener() {
+                
+                public void operationComplete(final ChannelFuture future) 
+                    throws Exception {
+                    cf.getChannel().write(chunk);
+                }
+            });
+        }
     }
 
     private void processMessage(final ChannelHandlerContext ctx, 
