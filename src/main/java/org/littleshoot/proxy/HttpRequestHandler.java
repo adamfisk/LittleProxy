@@ -229,7 +229,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                             log.info("Could not connect to "+hostAndPort, 
                                 future.getCause());
                             if (browserToProxyConnections == 1) {
-                                log.warn("Closing browser to proxy channel");
+                                log.warn("Closing browser to proxy channel " +
+                                    "after not connecting to: {}", hostAndPort);
                                 me.getChannel().close();
                                 endpointsToChannelFutures.remove(hostAndPort);
                             }
@@ -276,7 +277,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 ProxyUtils.CONNECT_OK_HEADERS);
             
             // TODO: Set this back to readable true?
-            //browserToProxyChannel.setReadable(true);
+            browserToProxyChannel.setReadable(true);
         }
     }
 

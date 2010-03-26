@@ -41,14 +41,14 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     private final HttpFilter httpFilter;
 
-    //private final HttpRequest httpRequest;
-    
     private HttpResponse httpResponse;
 
-    private HttpRequest httpRequest;
+    /**
+     * The current, most recent HTTP request we're processing. This changes
+     * as multiple requests come in on the same persistent HTTP 1.1 connection.
+     */
+    private HttpRequest currentHttpRequest;
 
-    //private final String originalUri;
-    
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
      * to the browser.
@@ -82,6 +82,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         
         final Object messageToWrite;
         
+        final boolean flush;
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
             httpResponse = hr;
@@ -112,6 +113,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             if (response.isChunked()) {
                 log.info("Starting to read chunks");
                 readingChunks = true;
+                flush = false;
+            }
+            else {
+                flush = true;
             }
             final HttpResponse filtered = 
                 this.httpFilter.filterResponse(response);
@@ -119,35 +124,38 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             
             log.info("Headers sent to browser: ");
             ProxyUtils.printHeaders((HttpMessage) messageToWrite);
+            
+            // An HTTP response is associated with a single request, so we
+            // can pop the correct request off the queue.
+            this.currentHttpRequest = this.requestQueue.remove();
         } else {
             log.info("Processing a chunk");
             final HttpChunk chunk = (HttpChunk) e.getMessage();
-            
-            // TODO: Figure out a way to cache chunks. Possibly append the 
-            // chunk number after the request URL, and store the chunk using
-            // that as the key? 
             if (chunk.isLast()) {
                 readingChunks = false;
+                flush = true;
+            }
+            else {
+                flush = false;
             }
             messageToWrite = chunk;
         }
         
         if (browserToProxyChannel.isOpen()) {
-            final HttpRequest hr;
-            if (messageToWrite instanceof HttpResponse) {
-                hr = this.requestQueue.remove();
-                this.httpRequest = hr;
-            }
-            else {
-                hr  = this.httpRequest;
-            }
-            final ChannelFuture ch = 
+            final ChannelFuture future = 
                 browserToProxyChannel.write(
-                    new ProxyHttpResponse(hr, httpResponse, messageToWrite));
+                    new ProxyHttpResponse(this.currentHttpRequest, httpResponse, 
+                        messageToWrite));
 
             final ChannelFutureListener cfl = 
-                ProxyUtils.newWriteListener(hr, httpResponse, messageToWrite);
-            ch.addListener(cfl);
+                ProxyUtils.newWriteListener(this.currentHttpRequest,  
+                    httpResponse, messageToWrite);
+            if (flush) {
+                browserToProxyChannel.write(
+                    ChannelBuffers.EMPTY_BUFFER).addListener(cfl);
+            } else {
+                future.addListener(cfl);
+            }
         }
         else {
             log.info("Channel not open. Connected? {}", 
