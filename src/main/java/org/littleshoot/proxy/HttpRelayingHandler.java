@@ -127,7 +127,14 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             
             // An HTTP response is associated with a single request, so we
             // can pop the correct request off the queue.
-            this.currentHttpRequest = this.requestQueue.remove();
+            // 
+            // TODO: I'm a little unclear as to when the request queue would
+            // ever actually be empty, but it is from time to time in practice.
+            // We've seen this particularly when behind proxies that govern
+            // access control on local networks, likely related to redirects.
+            if (!this.requestQueue.isEmpty()) {
+                this.currentHttpRequest = this.requestQueue.remove();
+            }
         } else {
             log.info("Processing a chunk");
             final HttpChunk chunk = (HttpChunk) e.getMessage();
