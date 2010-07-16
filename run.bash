@@ -4,16 +4,14 @@ function die() {
   exit 1
 }
 
-#mvn clean || die "Could not clean?"
-mvn package -Dmaven.test.skip=true || die "Could not package proxy"
-javaArgs="-jar target/LittleProxy-LATEST.jar $*"
-java6Path=/System/Library/Frameworks/JavaVM.framework/Versions/1.6/Home/bin/java
+pushd ..
+mvn package -Dmaven.test.skip=true || die "Could not package"
+popd
 
-if [ -f "$java6Path" ]
-then
-    echo "Running with Java 6 on OSX"
-    /System/Library/Frameworks/JavaVM.framework/Versions/1.6/Home/bin/java $javaArgs || die "Java process exited abnormally"
-else
-    echo "Running using Java on path at `which java`"
-    java $javaArgs || die "Java process exited abnormally"
-fi
+fullPath=`dirname $0`
+jar=`find $fullPath/target/*with-dependencies.jar`
+cp=`echo $jar | sed 's,./,'$fullPath'/,'`
+javaArgs="-server -Xmx600m -jar "$cp" $*"
+
+echo "Running using Java on path at `which java` with args $javaArgs"
+java $javaArgs || die "Java process exited abnormally"
