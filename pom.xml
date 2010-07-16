@@ -5,7 +5,7 @@
     <groupId>org.littleshoot</groupId>
     <artifactId>littleproxy</artifactId>
     <packaging>jar</packaging>
-    <version>0.3</version>
+    <version>0.3-SNAPSHOT</version>
     <name>LittleProxy</name>
     <description>
         LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework. 
@@ -99,6 +99,10 @@
             <id>littleshoot</id>
             <url>scpexe://dev.littleshoot.org/var/maven</url>
         </repository>
+        <snapshotRepository>
+            <id>littleshoot</id>
+            <url>scpexe://dev.littleshoot.org/var/maven-snapshots</url>
+        </snapshotRepository>
     </distributionManagement>
 
     <scm>
@@ -339,20 +343,15 @@
             <layout>legacy</layout>
         </repository>
 
-        <!--
-          This one's quirky - our cluster servers can't seem to
-          download from each other's public addresses - likely
-          some NAT hairpinning issues.
-        <repository>
-            <id>last-bamboo-local</id>
-            <name>Last Bamboo Repository</name>
-            <url>http://127.0.0.1/maven</url>
-            </repository>
-        -->
-
         <repository>
             <id>last-bamboo</id>
             <name>Last Bamboo Repository</name>
+            <url>http://svn.littleshoot.org/maven</url>
+        </repository>
+
+        <repository>
+            <id>littleshoot-snapshots</id>
+            <name>LittleShoot Snapshot Repository</name>
             <url>http://svn.littleshoot.org/maven</url>
         </repository>
 
