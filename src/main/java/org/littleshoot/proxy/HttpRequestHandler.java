@@ -211,7 +211,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                         final Channel channel = future.getChannel();
                         channelGroup.add(channel);
                         if (future.isSuccess()) {
-                            log.info("Connected successfully to: {}", future.getChannel());
+                            log.info("Connected successfully to: {}", channel);
                             channel.getCloseFuture().addListener(closedCfl);
                             
                             log.info("Writing message on channel...");
@@ -394,8 +394,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         log.info("New channel opened: {}", inboundChannel);
         totalBrowserToProxyConnections++;
         browserToProxyConnections++;
-        log.info("Now "+totalBrowserToProxyConnections+" browser to proxy channels...");
-        log.info("Now this class has "+browserToProxyConnections+" browser to proxy channels...");
+        log.info("Now "+totalBrowserToProxyConnections+
+            " browser to proxy channels...");
+        log.info("Now this class has "+browserToProxyConnections+
+            " browser to proxy channels...");
         
         // We need to keep track of the channel so we can close it at the end.
         this.channelGroup.add(inboundChannel);
@@ -407,8 +409,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         log.info("Channel closed: {}", cse.getChannel());
         totalBrowserToProxyConnections--;
         browserToProxyConnections--;
-        log.info("Now "+totalBrowserToProxyConnections+" total browser to proxy channels...");
-        log.info("Now this class has "+browserToProxyConnections+" browser to proxy channels...");
+        log.info("Now "+totalBrowserToProxyConnections+
+            " total browser to proxy channels...");
+        log.info("Now this class has "+browserToProxyConnections+
+            " browser to proxy channels...");
         
         // The following should always be the case with
         // @ChannelPipelineCoverage("one")
