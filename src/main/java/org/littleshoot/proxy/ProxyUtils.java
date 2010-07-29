@@ -258,9 +258,13 @@ public class ProxyUtils {
     public static void printHeaders(final HttpMessage msg) {
         final String status = msg.getProtocolVersion().toString();
         LOG.debug(status);
+        final StringBuilder sb = new StringBuilder();
         final Set<String> headerNames = msg.getHeaderNames();
         for (final String name : headerNames) {
-            printHeader(msg, name);
+            final String value = msg.getHeader(name);
+            sb.append(name);
+            sb.append(": ");
+            sb.append(value);
         }
     }
 
