@@ -4,9 +4,7 @@ function die() {
   exit 1
 }
 
-pushd ..
 mvn package -Dmaven.test.skip=true || die "Could not package"
-popd
 
 fullPath=`dirname $0`
 jar=`find $fullPath/target/*with-dependencies.jar`
