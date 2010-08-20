@@ -446,16 +446,24 @@ public class ProxyUtils {
      * Creates a copy of an original HTTP request to void modifying it.
      * 
      * @param original The original request.
+     * @param keepProxyFormat keep proxy-formatted URI (used in chaining) 
      * @return The request copy.
      */
-    public static HttpRequest copyHttpRequest(final HttpRequest original) {
+    public static HttpRequest copyHttpRequest(final HttpRequest original, 
+        boolean keepProxyFormat) {
         final HttpMethod method = original.getMethod();
         final String uri = original.getUri();
         LOG.info("Raw URI before switching from proxy format: {}", uri);
-        final String noHostUri = ProxyUtils.stripHost(uri);
-        final HttpRequest copy = 
-            new DefaultHttpRequest(original.getProtocolVersion(), 
+        final HttpRequest copy;
+
+        if (keepProxyFormat) {
+            copy = new DefaultHttpRequest(original.getProtocolVersion(), 
+                method, uri);
+        } else {
+            final String noHostUri = ProxyUtils.stripHost(uri);
+            copy = new DefaultHttpRequest(original.getProtocolVersion(), 
                 method, noHostUri);
+        }
         
         final ChannelBuffer originalContent = original.getContent();
         
@@ -488,6 +496,17 @@ public class ProxyUtils {
         
         ProxyUtils.addVia(copy);
         return copy;
+    }
+    
+    /**
+     * Creates a copy of an original HTTP request to void modifying it.
+     * This variant will unconditionally strip the proxy-formatted request.
+     * 
+     * @param original The original request.
+     * @return The request copy.
+     */
+    public static HttpRequest copyHttpRequest(final HttpRequest original) {
+    	return copyHttpRequest(original, false);
     }
 
     /**

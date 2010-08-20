@@ -169,7 +169,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 browserToProxyChannel.isConnected());
             // This will undoubtedly happen anyway, but just in case.
             if (e.getChannel().isOpen()) {
-                log.info("Closing channel to remove server");
+                log.warn("Closing channel to remote server");
                 e.getChannel().close();
             }
         }
@@ -186,9 +186,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent e) throws Exception {
-        log.info("Got closed event on proxy -> web connection: {}",
+        log.warn("Got closed event on proxy -> web connection: {}",
             e.getChannel());
         
+        log.warn("Closing browsr to proxy channel...");
         // This is vital this take place here and only here. If we handle this
         // in other listeners, it's possible to get close events before
         // we actually receive the HTTP response, in which case the response
@@ -203,7 +204,14 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         log.warn("Caught exception on proxy -> web connection: "+
             e.getChannel(), e.getCause());
         if (e.getChannel().isOpen()) {
+            log.warn("Closing open connection");
             closeOnFlush(e.getChannel());
+        }
+        else {
+            // We've seen odd cases where channels seem to continually attempt
+            // connections. Make sure we explicitly close the connection here.
+            log.warn("Closing connection even though isOpen is false");
+            e.getChannel().close();
         }
     }
 

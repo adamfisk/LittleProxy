@@ -21,6 +21,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final Map<String, HttpFilter> filters;
+    private final String chainProxyHostAndPort;
     
     private final ClientSocketChannelFactory clientSocketChannelFactory =
         new NioClientSocketChannelFactory(
@@ -36,21 +37,31 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
      * @param authorizationManager The manager for proxy authentication.
      * @param channelGroup The group that keeps track of open channels.
      * @param filters HTTP filters to apply.
+     * @param chainProxyHostAndPort upstream proxy server host and port or null if none used.
      */
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final Map<String, HttpFilter> filters) {
+        final Map<String, HttpFilter> filters,
+        final String chainProxyHostAndPort) {
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.filters = filters;
+        this.chainProxyHostAndPort = chainProxyHostAndPort;
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
                 clientSocketChannelFactory.releaseExternalResources();
             }
         }));
     }
-
+    
+    public HttpServerPipelineFactory(
+            final ProxyAuthorizationManager authorizationManager, 
+            final ChannelGroup channelGroup, 
+            final Map<String, HttpFilter> filters) {
+    	this(authorizationManager, channelGroup, filters, null);
+    }
+    
     public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = pipeline();
 
@@ -65,7 +76,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("handler", 
             new HttpRequestHandler(this.cacheManager, authenticationManager, 
                 this.channelGroup, this.filters, 
-                this.clientSocketChannelFactory));
+                this.clientSocketChannelFactory,
+                this.chainProxyHostAndPort));
         return pipeline;
     }
 }

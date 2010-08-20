@@ -59,6 +59,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * external connection to send HTTP chunks to.
      */
     private String hostAndPort;
+    private final String chainProxyHostAndPort;
     private final ChannelGroup channelGroup;
 
     /**
@@ -79,17 +80,42 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * channels we've opened.
      * @param filters HTTP filtering rules.
      * @param clientChannelFactory The common channel factory for clients.
+     * @param chainProxyHostAndPort upstream proxy server host and port or null 
+     * if none used.
+     */
+    public HttpRequestHandler(final ProxyCacheManager cacheManager, 
+        final ProxyAuthorizationManager authorizationManager, 
+        final ChannelGroup channelGroup, 
+        final Map<String, HttpFilter> filters,
+        final ClientSocketChannelFactory clientChannelFactory,
+        final String chainProxyHostAndPort) {
+        this.cacheManager = cacheManager;
+        this.authorizationManager = authorizationManager;
+        this.channelGroup = channelGroup;
+        this.filters = filters;
+        this.clientChannelFactory = clientChannelFactory;
+        this.chainProxyHostAndPort = chainProxyHostAndPort;
+    }
+
+    /**
+     * Creates a new class for handling HTTP requests with the specified
+     * authentication manager.
+     * 
+     * @param cacheManager The manager for the cache. 
+     * @param authorizationManager The class that handles any 
+     * proxy authentication requirements.
+     * @param channelGroup The group of channels for keeping track of all
+     * channels we've opened.
+     * @param filters HTTP filtering rules.
+     * @param clientChannelFactory The common channel factory for clients.
      */
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final Map<String, HttpFilter> filters,
         final ClientSocketChannelFactory clientChannelFactory) {
-        this.cacheManager = cacheManager;
-        this.authorizationManager = authorizationManager;
-        this.channelGroup = channelGroup;
-        this.filters = filters;
-        this.clientChannelFactory = clientChannelFactory;
+        this(cacheManager, authorizationManager, channelGroup, filters, 
+            clientChannelFactory, null);
     }
     
     @Override
@@ -153,10 +179,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             return;
         }
         
-        final HttpRequest httpRequestCopy = ProxyUtils.copyHttpRequest(request);
+        // Check if we are running in proxy chain mode and modify request 
+        // accordingly
+        final HttpRequest httpRequestCopy = ProxyUtils.copyHttpRequest(request, 
+            this.chainProxyHostAndPort != null);
+        if (this.chainProxyHostAndPort != null) {
+            this.hostAndPort = this.chainProxyHostAndPort;
+        } else {
+            this.hostAndPort = ProxyUtils.parseHostAndPort(request);
+        }
         
         final Channel inboundChannel = me.getChannel();
-        this.hostAndPort = ProxyUtils.parseHostAndPort(request);
         
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
@@ -406,7 +439,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) {
-        log.info("Channel closed: {}", cse.getChannel());
+        log.warn("Channel closed: {}", cse.getChannel());
         totalBrowserToProxyConnections--;
         browserToProxyConnections--;
         log.info("Now "+totalBrowserToProxyConnections+
@@ -417,7 +450,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         // The following should always be the case with
         // @ChannelPipelineCoverage("one")
         if (browserToProxyConnections == 0) {
-            log.info("Closing all proxy to web channels for this browser " +
+            log.warn("Closing all proxy to web channels for this browser " +
                 "to proxy connection!!!");
             final Collection<ChannelFuture> futures = 
                 this.endpointsToChannelFutures.values();
@@ -436,7 +469,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         final Channel channel = e.getChannel();
         final Throwable cause = e.getCause();
         if (cause instanceof ClosedChannelException) {
-            log.info("Caught an exception on browser to proxy channel: "+
+            log.warn("Caught an exception on browser to proxy channel: "+
                 channel, cause);
         }
         else {
@@ -452,7 +485,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * Closes the specified channel after all queued write requests are flushed.
      */
     private static void closeOnFlush(final Channel ch) {
-        log.info("Closing on flush: {}", ch);
+        log.warn("Closing on flush: {}", ch);
         if (ch.isConnected()) {
             ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(
                 ChannelFutureListener.CLOSE);

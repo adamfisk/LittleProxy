@@ -33,6 +33,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         new DefaultProxyAuthorizationManager();
 
     private final Map<String, HttpFilter> filters;
+    
+    private final String chainProxyHostAndPort;
 
     /**
      * Creates a new proxy server.
@@ -43,6 +45,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this(port, new HashMap<String, HttpFilter>());
     }
     
+    public DefaultHttpProxyServer(final int port, 
+        final Map<String, HttpFilter> filters) {
+        this(port, filters, null);
+    }
+    
     /**
      * Creates a new proxy server.
      * 
@@ -50,9 +57,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param filters HTTP filters to apply.
      */
     public DefaultHttpProxyServer(final int port, 
-        final Map<String, HttpFilter> filters) {
+        final Map<String, HttpFilter> filters,
+        final String chainProxyHostAndPort) {
         this.port = port;
         this.filters = Collections.unmodifiableMap(filters);
+        this.chainProxyHostAndPort = chainProxyHostAndPort;
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
             
             public void uncaughtException(final Thread t, final Throwable e) {
@@ -71,7 +80,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         final HttpServerPipelineFactory factory = 
             new HttpServerPipelineFactory(authenticationManager, 
-                this.allChannels, this.filters);
+                this.allChannels, this.filters, this.chainProxyHostAndPort);
         bootstrap.setPipelineFactory(factory);
         final Channel channel = bootstrap.bind(new InetSocketAddress(port));
         allChannels.add(channel);
