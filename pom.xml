@@ -5,7 +5,7 @@
     <groupId>org.littleshoot</groupId>
     <artifactId>littleproxy</artifactId>
     <packaging>jar</packaging>
-    <version>0.4</version>
+    <version>0.3</version>
     <name>LittleProxy</name>
     <description>
         LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework. 
@@ -32,7 +32,7 @@
 
     <issueManagement>
         <system>JIRA</system>
-        <url>http://dev.littleshoot.org:8081</url>
+        <url>http://dev.littleshoot.org:8081/browse/LP</url>
         </issueManagement>
 
     <dependencies>
@@ -58,7 +58,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.1</version>
+            <version>4.8.1</version>
             <scope>test</scope>
         </dependency>
 
@@ -103,6 +103,10 @@
             <id>littleshoot</id>
             <url>scpexe://dev.littleshoot.org/var/maven-snapshots</url>
         </snapshotRepository>
+        <site>
+            <id>littleshoot</id>
+            <url>scpexe://dev.littleshoot.org/var/www/html/littleproxy</url>
+        </site>
     </distributionManagement>
 
     <scm>
@@ -168,16 +172,23 @@
                 </executions>
             </plugin>
 
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-site-plugin</artifactId>
+                <version>2.1.1</version>
+            </plugin>
+
         </plugins>
     </build>
 
     <reporting>
         <plugins>
+
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>findbugs-maven-plugin</artifactId>
-                <version>1.1.1</version>
-                </plugin>
+                <version>2.3.1</version>
+            </plugin>
 
             <!-- Standard maven site report -->
             <plugin>
@@ -315,8 +326,8 @@
         </repository>
 
         <repository>
-            <id>last-bamboo</id>
-            <name>Last Bamboo Repository</name>
+            <id>littleshoot</id>
+            <name>LittleShoot Repository</name>
             <url>http://svn.littleshoot.org/maven</url>
         </repository>
 
