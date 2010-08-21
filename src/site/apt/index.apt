@@ -1,0 +1,49 @@
+LittleProxy
+
+  LittleProxy is a high-performance HTTP proxy written in Java atop Trustin Lee's {{{http://jboss.org/netty}Netty}} framework. It's a side-project of {{{http://www.littleshoot.org}LittleShoot}} and the Brave New Software Project. While many may still think of "high-performance" and "Java" as a contradiction in terms, the JVM has made astonishing strides over the years. That combined with Netty's use of event-based IO means that LittleProxy outperforms mod_proxy in every test we've ever run, beating it by as much as 83% on some tests using Apache Benchmark. LittleProxy is still a young project, but it works well. 
+
+  LittleProxy is open source and used the Apache 2 license. If you would like to use LittleProxy under another license, please contact us at littleproxy at littleshoot.org or inquire on the forum.
+
+  To run LittleProxy, you need two things: Java and {{{http://http://maven.apache.org/}maven}}.
+
+  Enjoy, and please let us know if you have any issues over on the LittleProxy {{{http://groups.google.com/group/littleproxy}discussion group}}.
+
+* Quick Start - Run from Source
+  
+  You can either run LittleProxy directly from source or you can include the LittleProxy jar via maven or direct download.
+
+  To run from the source, do the following:
+
+  * $ svn co http://svn.littleshoot.org/svn/littleproxy/tags/littleproxy-0.3
+
+  * $ cd littleproxy-0.3
+
+  * $ ./run.bash &> out.txt &
+
+* Quick Start - Maven 
+
+  To include the LittleProxy jar in your maven project, you need to include the LittleShoot repository in your pom. This is because LittleProxy includes jars that are not included in the Maven central repositories, and we therefore can not add it to the central repositories ourselves. To include the LittleShoot repository, add the following to your pom.xml:
+
+---
+    <dependencies>
+       ...
+        <dependency>
+            <groupId>org.littleshoot</groupId>
+            <artifactId>littleproxy</artifactId>
+            <version>0.3</version>
+        </dependency>
+    </dependencies>
+
+    ...
+
+    <repositories>
+        ...
+        <repository>
+            <id>littleshoot</id>
+            <name>LittleShoot Repository</name>
+            <url>http://svn.littleshoot.org/maven</url>
+        </repository>
+    </repositories>
+---
+
+

@@ -1,0 +1,20 @@
+<!--<project xmlns="http://maven.apache.org/DECORATION/1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/DECORATION/1.0.0 http://maven.apache.org/xsd/decoration-1.0.0.xsd">
+-->
+<project name="LittleProxy HTTP Proxy">
+    <poweredBy>
+        <logo name="LittleShoot" href="http://www.littleshoot.org/"
+              img="http://dev.littleshoot.org:8084/download/attachments/131074/global.logo?version=1&amp;modificationDate=1256417571000"/>
+    </poweredBy>
+
+  <body>
+<!--
+    <menu name="Overview">
+      <item name="Introduction" href="index.html"/>
+    </menu>
+-->
+
+    <menu ref="reports"/>
+  </body>
+</project>
