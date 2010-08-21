@@ -14,17 +14,17 @@ LittleProxy
 
   To run from the source, do the following:
 
-  * $ svn co http://svn.littleshoot.org/svn/littleproxy/tags/littleproxy-0.3
-
-  * $ cd littleproxy-0.3
-
-  * $ ./run.bash &> out.txt &
++-----+
+  $ svn co http://svn.littleshoot.org/svn/littleproxy/tags/littleproxy-0.3
+  $ cd littleproxy-0.3
+  $ ./run.bash &> out.txt &
++-----+
 
 * Quick Start - Maven 
 
   To include the LittleProxy jar in your maven project, you need to include the LittleShoot repository in your pom. This is because LittleProxy includes jars that are not included in the Maven central repositories, and we therefore can not add it to the central repositories ourselves. To include the LittleShoot repository, add the following to your pom.xml:
 
----
++-----+
     <dependencies>
        ...
         <dependency>
@@ -44,6 +44,11 @@ LittleProxy
             <url>http://svn.littleshoot.org/maven</url>
         </repository>
     </repositories>
----
++-----+
 
+  Once you've included LittleProxy, you can start the server with the following:
 
++-----+
+final HttpProxyServer server = new DefaultHttpProxyServer(8080);
+server.start();
++-----+

@@ -3,12 +3,29 @@
     xsi:schemaLocation="http://maven.apache.org/DECORATION/1.0.0 http://maven.apache.org/xsd/decoration-1.0.0.xsd">
 -->
 <project name="LittleProxy HTTP Proxy">
+
     <poweredBy>
         <logo name="LittleShoot" href="http://www.littleshoot.org/"
               img="http://dev.littleshoot.org:8084/download/attachments/131074/global.logo?version=1&amp;modificationDate=1256417571000"/>
     </poweredBy>
 
   <body>
+  <head>
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-3025934-2']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+  </head>
+  
 <!--
     <menu name="Overview">
       <item name="Introduction" href="index.html"/>
@@ -16,5 +33,6 @@
 -->
 
     <menu ref="reports"/>
+
   </body>
 </project>

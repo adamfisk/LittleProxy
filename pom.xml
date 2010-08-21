@@ -24,7 +24,7 @@
 
     <licenses>
         <license>
-            <name>Apache License, Version 2.0</name>
+            <name>The Apache Software License, Version 2.0</name>
             <url>http://www.apache.org/licenses/LICENSE-2.0</url>
             </license>
         </licenses>
@@ -101,7 +101,7 @@
         </repository>
         <snapshotRepository>
             <id>littleshoot</id>
-            <url>scpexe://dev.littleshoot.org/var/maven-snapshots</url>
+            <url>scpexe://dev.littleshoot.org/var/maven</url>
         </snapshotRepository>
         <site>
             <id>littleshoot</id>
@@ -297,45 +297,11 @@
 
     <repositories>
         <repository>
-            <id>repo1</id>
-            <name>Maven Repository Switchboard</name>
-            <url>http://repo1.maven.org/maven2</url>
-        </repository>
-
-        <repository>
             <id>repository.jboss.org</id>
             <url>http://repository.jboss.org/maven2</url>
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>
         </repository>
-
-        <repository>
-            <id>oracleReleases</id>
-            <name>Oracle Released Java Packages</name>
-            <url>http://download.oracle.com/maven</url>
-            <layout>default</layout>
-        </repository>
-
-
-        <repository>
-            <id>sun</id>
-            <name>Sun Repository</name>
-            <url>http://download.java.net/maven/1</url>
-            <layout>legacy</layout>
-        </repository>
-
-        <repository>
-            <id>littleshoot</id>
-            <name>LittleShoot Repository</name>
-            <url>http://svn.littleshoot.org/maven</url>
-        </repository>
-
-        <repository>
-            <id>littleshoot-snapshots</id>
-            <name>LittleShoot Snapshot Repository</name>
-            <url>http://svn.littleshoot.org/maven</url>
-        </repository>
-
     </repositories>
 </project>
