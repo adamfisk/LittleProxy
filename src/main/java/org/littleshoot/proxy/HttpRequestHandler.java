@@ -473,7 +473,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 channel, cause);
         }
         else {
-            log.warn("Caught an exception on browser to proxy channel: "+
+            log.info("Caught an exception on browser to proxy channel: "+
                 channel, cause);
         }
         if (channel.isOpen()) {

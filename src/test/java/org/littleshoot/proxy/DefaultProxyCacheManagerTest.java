@@ -17,11 +17,13 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.HttpVersion;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
  * Test for the proxy cache manager.
  */
+@Ignore
 public class DefaultProxyCacheManagerTest {
 
     @Test public void testCaching() throws Exception {

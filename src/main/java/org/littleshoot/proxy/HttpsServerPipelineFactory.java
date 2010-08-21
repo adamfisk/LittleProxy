@@ -1,7 +1,5 @@
 package org.littleshoot.proxy;
 
-import static org.jboss.netty.channel.Channels.pipeline;
-
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
@@ -30,7 +28,7 @@ public class HttpsServerPipelineFactory implements ChannelPipelineFactory {
     }
 
     public ChannelPipeline getPipeline() throws Exception {
-        final ChannelPipeline pipeline = pipeline();
+        //final ChannelPipeline pipeline = pipeline();
 
         // Uncomment the following line if you want HTTPS
         /*

@@ -33,7 +33,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final CacheManager cacheManager = new CacheManager();
     
-    private final boolean CACHE_ENABLED = false;
+    private static final boolean CACHE_ENABLED = false;
     
     private final ExecutorService cacheExecutor = 
         Executors.newSingleThreadExecutor(new ThreadFactory() {

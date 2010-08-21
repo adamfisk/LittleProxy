@@ -16,7 +16,7 @@ public class HttpRequestHostMatcher implements HttpRequestMatcher {
      */
     public HttpRequestHostMatcher(final String host) {
         // We don't include the "http" because it could be https.
-        this.toCheck = new String("://"+host);
+        this.toCheck = "://" + host;
     }
 
     public boolean shouldFilterResponses(final HttpRequest httpRequest) {
