@@ -48,6 +48,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         new ConcurrentHashMap<String, ChannelFuture>();
     
     private volatile int messagesReceived = 0;
+    
+    private volatile int numWebConnections = 0;
     private final ProxyAuthorizationManager authorizationManager;
     
     /**
@@ -316,6 +318,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
         final Channel browserToProxyChannel) {
+        this.numWebConnections++;
         final String host;
         final int port;
         if (hostAndPort.contains(":")) {
@@ -394,10 +397,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     final HttpRelayingHandler handler;
                     if (shouldFilter) {
                         handler = new HttpRelayingHandler(browserToProxyChannel, 
-                            channelGroup, filter);
+                            channelGroup, filter, HttpRequestHandler.this);
                     } else {
                         handler = new HttpRelayingHandler(browserToProxyChannel, 
-                            channelGroup);
+                            channelGroup, HttpRequestHandler.this);
                     }
                     
                     final ProxyHttpRequestEncoder encoder = 
@@ -460,6 +463,19 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     future.getChannel().close();
                 }
             }
+        }
+    }
+    
+    public void onRelayChannelClose(final ChannelHandlerContext ctx, 
+        final ChannelStateEvent e, final Channel browserToProxyChannel) {
+        this.numWebConnections--;
+        if (this.numWebConnections == 0) {
+            log.info("Closing browser to proxy channel");
+            browserToProxyChannel.close();
+        }
+        else {
+            log.info("Not closing browser to proxy channel. Still "+
+                this.numWebConnections+" connections...");
         }
     }
 

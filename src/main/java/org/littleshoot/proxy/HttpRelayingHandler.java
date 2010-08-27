@@ -49,6 +49,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      */
     private HttpRequest currentHttpRequest;
 
+    private final HttpRequestHandler requestHandler;
+
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
      * to the browser.
@@ -57,8 +59,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param channelGroup Keeps track of channels to close on shutdown.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel, 
-        final ChannelGroup channelGroup) {
-        this (browserToProxyChannel, channelGroup, new NoOpHttpFilter());
+        final ChannelGroup channelGroup, 
+        final HttpRequestHandler requestHandler) {
+        this (browserToProxyChannel, channelGroup, new NoOpHttpFilter(),
+            requestHandler);
     }
 
     /**
@@ -70,10 +74,12 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param filter The HTTP filter.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel,
-        final ChannelGroup channelGroup, final HttpFilter filter) {
+        final ChannelGroup channelGroup, final HttpFilter filter,
+        final HttpRequestHandler requestHandler) {
         this.browserToProxyChannel = browserToProxyChannel;
         this.channelGroup = channelGroup;
         this.httpFilter = filter;
+        this.requestHandler = requestHandler;
     }
 
     @Override
@@ -189,13 +195,18 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         log.warn("Got closed event on proxy -> web connection: {}",
             e.getChannel());
         
-        log.warn("Closing browsr to proxy channel...");
+        log.warn("Closing browser to proxy channel: {}",browserToProxyChannel);
         // This is vital this take place here and only here. If we handle this
         // in other listeners, it's possible to get close events before
         // we actually receive the HTTP response, in which case the response
         // might never get back to the browser. It has to do with the order
-        // listeners are called in, but apparently the 
-        closeOnFlush(browserToProxyChannel);
+        // listeners are called in.
+        //closeOnFlush(browserToProxyChannel);
+        
+        // Doesn't seem like we should close the connection to the browser 
+        // here, as there can be multiple connections to external sites for
+        // a single connection from the browser.
+        this.requestHandler.onRelayChannelClose(ctx, e, browserToProxyChannel);
     }
 
     @Override
