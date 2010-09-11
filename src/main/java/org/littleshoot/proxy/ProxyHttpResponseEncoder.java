@@ -41,14 +41,14 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
             
             // The actual response is either a chunk or a "normal" response.
             final Object response = proxyResponse.getResponse();
-            log.info("Got response:\n{}", response);
             
             final ChannelBuffer encoded = 
                 (ChannelBuffer) super.encode(ctx, channel, response);
             
             // The buffer will be null when it's the last chunk, for example.
             if (encoded != null) {
-                this.cacheManager.cache(httpRequest, httpResponse, response, encoded);
+                this.cacheManager.cache(httpRequest, httpResponse, response, 
+                    encoded);
             }
             
             return encoded;
