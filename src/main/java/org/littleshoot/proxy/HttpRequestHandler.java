@@ -236,12 +236,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             }
             else {
                 log.info("Establishing new connection");
+                /*
                 final ChannelFutureListener closedCfl = new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture closed) 
                         throws Exception {
                         endpointsToChannelFutures.remove(hostAndPort);
                     }
                 };
+                */
                 final ChannelFuture cf = 
                     newChannelFuture(httpRequestCopy, inboundChannel);
                 endpointsToChannelFutures.put(hostAndPort, cf);
@@ -252,8 +254,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                         channelGroup.add(channel);
                         if (future.isSuccess()) {
                             log.info("Connected successfully to: {}", channel);
-                            channel.getCloseFuture().addListener(closedCfl);
-                            
                             log.info("Writing message on channel...");
                             final ChannelFuture wf = onConnect.onConnect(cf);
                             wf.addListener(new ChannelFutureListener() {
@@ -489,6 +489,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         if (numWebConnections != this.endpointsToChannelFutures.size()) {
             log.error("Something's amiss. We have "+numWebConnections+" and "+
                 this.endpointsToChannelFutures.size()+" connections stored");
+        }
+        else {
+            log.info("WEB CONNECTIONS COUNTS IN SYNC");
         }
     }
 
