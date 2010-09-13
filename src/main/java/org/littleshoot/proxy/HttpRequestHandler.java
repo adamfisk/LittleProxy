@@ -34,6 +34,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Class for handling all HTTP requests from the browser to the proxy.
+ * 
+ * Note this class only ever handles a single connection from the browser.
+ * The browser can and will, however, send requests to multiple hosts using
+ * that same connection, i.e. it will send a request to host B once a request
+ * to host A has completed.
  */
 public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
