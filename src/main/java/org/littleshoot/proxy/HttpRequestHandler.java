@@ -215,7 +215,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             final ChannelFuture curFuture = 
                 endpointsToChannelFutures.get(hostAndPort);
             if (curFuture != null) {
-                
+                log.info("Using exising connection...");
                 if (curFuture.getChannel().isConnected()) {
                     onConnect.onConnect(curFuture);
                 }
@@ -397,10 +397,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     final HttpRelayingHandler handler;
                     if (shouldFilter) {
                         handler = new HttpRelayingHandler(browserToProxyChannel, 
-                            channelGroup, filter, HttpRequestHandler.this);
+                            channelGroup, filter, HttpRequestHandler.this, hostAndPort);
                     } else {
                         handler = new HttpRelayingHandler(browserToProxyChannel, 
-                            channelGroup, HttpRequestHandler.this);
+                            channelGroup, HttpRequestHandler.this, hostAndPort);
                     }
                     
                     final ProxyHttpRequestEncoder encoder = 
@@ -463,11 +463,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     future.getChannel().close();
                 }
             }
+            this.endpointsToChannelFutures.clear();
         }
     }
     
     public void onRelayChannelClose(final ChannelHandlerContext ctx, 
-        final ChannelStateEvent e, final Channel browserToProxyChannel) {
+        final ChannelStateEvent e, final Channel browserToProxyChannel, 
+        final String key) {
         this.numWebConnections--;
         if (this.numWebConnections == 0) {
             log.info("Closing browser to proxy channel");
@@ -476,6 +478,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         else {
             log.info("Not closing browser to proxy channel. Still "+
                 this.numWebConnections+" connections...");
+        }
+        this.endpointsToChannelFutures.remove(key);
+        
+        if (numWebConnections != this.endpointsToChannelFutures.size()) {
+            log.error("Something's amiss. We have "+numWebConnections+" and "+
+                this.endpointsToChannelFutures.size()+" connections stored");
         }
     }
 

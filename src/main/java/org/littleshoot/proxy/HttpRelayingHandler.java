@@ -51,18 +51,21 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     private final HttpRequestHandler requestHandler;
 
+    private final String hostAndPort;
+
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
      * to the browser.
      * 
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
+     * @param hostAndPort Host and port we're relaying to.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel, 
         final ChannelGroup channelGroup, 
-        final HttpRequestHandler requestHandler) {
+        final HttpRequestHandler requestHandler, final String hostAndPort) {
         this (browserToProxyChannel, channelGroup, new NoOpHttpFilter(),
-            requestHandler);
+            requestHandler, hostAndPort);
     }
 
     /**
@@ -72,14 +75,16 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
      * @param filter The HTTP filter.
+     * @param hostAndPort Host and port we're relaying to.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel,
         final ChannelGroup channelGroup, final HttpFilter filter,
-        final HttpRequestHandler requestHandler) {
+        final HttpRequestHandler requestHandler, final String hostAndPort) {
         this.browserToProxyChannel = browserToProxyChannel;
         this.channelGroup = channelGroup;
         this.httpFilter = filter;
         this.requestHandler = requestHandler;
+        this.hostAndPort = hostAndPort;
     }
 
     @Override
@@ -206,7 +211,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         // Doesn't seem like we should close the connection to the browser 
         // here, as there can be multiple connections to external sites for
         // a single connection from the browser.
-        this.requestHandler.onRelayChannelClose(ctx, e, browserToProxyChannel);
+        this.requestHandler.onRelayChannelClose(ctx, e, browserToProxyChannel, 
+            this.hostAndPort);
     }
 
     @Override
