@@ -75,9 +75,15 @@
         </dependency>
 
         <dependency>
+            <groupId>NettyExtension</groupId>
+            <artifactId>NettyExtension</artifactId>
+            <version>1.1.5</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.jboss.netty</groupId>
             <artifactId>netty</artifactId>
-            <version>3.2.1.Final</version>
+            <version>3.2.2.Final</version>
         </dependency>
 
         <dependency>
@@ -303,5 +309,11 @@
                 <enabled>false</enabled>
             </snapshots>
         </repository>
+        <repository>
+            <id>openR66</id>
+            <name>OpenR66 Repository</name>
+            <url>http://openr66.free.fr/maven2</url>
+        </repository>
+
     </repositories>
 </project>
