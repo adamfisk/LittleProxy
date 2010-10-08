@@ -304,11 +304,21 @@
     <repositories>
         <repository>
             <id>repository.jboss.org</id>
+            <url>http://repository.jboss.org/nexus/content/groups/public</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+
+<!--
+        <repository>
+            <id>repository.jboss.org</id>
             <url>http://repository.jboss.org/maven2</url>
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>
         </repository>
+-->
         <repository>
             <id>openR66</id>
             <name>OpenR66 Repository</name>
