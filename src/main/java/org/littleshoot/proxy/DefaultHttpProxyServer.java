@@ -70,8 +70,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         });
     }
     
-
     public void start() {
+        start(false);
+    }
+    
+    public void start(final boolean localOnly) {
         log.info("Starting proxy on port: "+this.port);
         final ServerBootstrap bootstrap = new ServerBootstrap(
             new NioServerSocketChannelFactory(
@@ -82,7 +85,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             new HttpServerPipelineFactory(authenticationManager, 
                 this.allChannels, this.filters, this.chainProxyHostAndPort);
         bootstrap.setPipelineFactory(factory);
-        final Channel channel = bootstrap.bind(new InetSocketAddress(port));
+        
+        // Binding only to localhost can significantly improve the security of
+        // the proxy.
+        final InetSocketAddress isa;
+        if (localOnly) {
+            isa = new InetSocketAddress("127.0.0.1", port);
+        }
+        else {
+            isa = new InetSocketAddress(port);
+        }
+        final Channel channel = bootstrap.bind(isa);
         allChannels.add(channel);
         
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
