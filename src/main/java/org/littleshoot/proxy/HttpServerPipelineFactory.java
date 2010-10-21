@@ -99,7 +99,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
                 clientSocketChannelFactory.releaseExternalResources();
-                trafficShaper.releaseExternalResources();
+                if (trafficShaper != null) {
+                    trafficShaper.releaseExternalResources();
+                }
             }
         }));
     }
