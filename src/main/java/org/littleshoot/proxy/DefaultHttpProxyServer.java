@@ -2,6 +2,7 @@ package org.littleshoot.proxy;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,8 +22,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
     
-    private final Logger log = 
-        LoggerFactory.getLogger(DefaultHttpProxyServer.class);
+    private final Logger log = LoggerFactory.getLogger(getClass());
     
     private final ChannelGroup allChannels = 
         new DefaultChannelGroup("HTTP-Proxy-Server");
@@ -88,21 +88,28 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         
         // Binding only to localhost can significantly improve the security of
         // the proxy.
-        final InetSocketAddress isa;
+        InetSocketAddress isa;
         if (localOnly) {
             isa = new InetSocketAddress("127.0.0.1", port);
         }
         else {
-            isa = new InetSocketAddress(port);
+            try {
+                isa = new InetSocketAddress(NetworkUtils.getLocalHost(), port);
+            } catch (final UnknownHostException e) {
+                log.error("Could not get local host?", e);
+                isa = new InetSocketAddress(port);
+            }
         }
         final Channel channel = bootstrap.bind(isa);
         allChannels.add(channel);
         
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
+                log.info("Shutting down proxy");
                 final ChannelGroupFuture future = allChannels.close();
                 future.awaitUninterruptibly(120*1000);
                 bootstrap.releaseExternalResources();
+                log.info("Done shutting down proxy");
             }
         }));
         /*
