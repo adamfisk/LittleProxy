@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 
+import javax.net.ssl.SSLEngine;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.NumberUtils;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -18,6 +20,7 @@ import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
+import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.handler.traffic.GlobalTrafficShapingHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +47,15 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     
     private final GlobalTrafficShapingHandler trafficShaper;
 
+    private final boolean isSsl;
+    
+    public HttpServerPipelineFactory(
+        final ProxyAuthorizationManager authorizationManager, 
+        final ChannelGroup channelGroup, 
+        final Map<String, HttpFilter> filters) {
+        this(authorizationManager, channelGroup, filters, null, false);
+    }
+
     /**
      * Creates a new pipeline factory with the specified class for processing
      * proxy authentication.
@@ -53,16 +65,19 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
      * @param filters HTTP filters to apply.
      * @param chainProxyHostAndPort upstream proxy server host and port or 
      * <code>null</code> if none used.
+     * @param isSsl Whether or not to use SSL/TLS.
      */
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final Map<String, HttpFilter> filters,
-        final String chainProxyHostAndPort) {
+        final String chainProxyHostAndPort, final boolean isSsl) {
+        log.info("Creating server with SSL: {}", isSsl);
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.filters = filters;
         this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.isSsl = isSsl;
         
         final Properties props = new Properties();
         final File propsFile = new File("./littleproxy.properties");
@@ -123,21 +138,17 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         return -1;
     }
 
-    public HttpServerPipelineFactory(
-        final ProxyAuthorizationManager authorizationManager, 
-        final ChannelGroup channelGroup, 
-        final Map<String, HttpFilter> filters) {
-    	this(authorizationManager, channelGroup, filters, null);
-    }
-    
     public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = pipeline();
 
-        // Uncomment the following line if you want HTTPS
-        //SSLEngine engine = SecureChatSslContextFactory.getServerContext().createSSLEngine();
-        //engine.setUseClientMode(false);
-        //pipeline.addLast("ssl", new SslHandler(engine));
-        
+        log.info("Accessing pipeline");
+        if (this.isSsl) {
+            final SSLEngine engine = 
+                SslContextFactory.getServerContext().createSSLEngine();
+            engine.setUseClientMode(false);
+            pipeline.addLast("ssl", new SslHandler(engine));
+        }
+            
         // We want to allow longer request lines, headers, and chunks respectively.
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));

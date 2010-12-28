@@ -27,6 +27,7 @@ public class Launcher {
         
         System.out.println("About to start server on port: "+port);
         final HttpProxyServer server = new DefaultHttpProxyServer(port);
+        System.out.println("About to start...");
         server.start();
     }
 }

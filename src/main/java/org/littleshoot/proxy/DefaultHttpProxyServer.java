@@ -71,10 +71,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
     
     public void start() {
-        start(false);
+        start(false, true);
     }
     
-    public void start(final boolean localOnly) {
+    public void start(final boolean localOnly, final boolean anyAddress) {
         log.info("Starting proxy on port: "+this.port);
         final ServerBootstrap bootstrap = new ServerBootstrap(
             new NioServerSocketChannelFactory(
@@ -83,7 +83,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         final HttpServerPipelineFactory factory = 
             new HttpServerPipelineFactory(authenticationManager, 
-                this.allChannels, this.filters, this.chainProxyHostAndPort);
+                this.allChannels, this.filters, this.chainProxyHostAndPort, false);
         bootstrap.setPipelineFactory(factory);
         
         // Binding only to localhost can significantly improve the security of
@@ -92,7 +92,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         if (localOnly) {
             isa = new InetSocketAddress("127.0.0.1", port);
         }
-        else {
+        else if (anyAddress) {
+            isa = new InetSocketAddress(port);
+        } else {
             try {
                 isa = new InetSocketAddress(NetworkUtils.getLocalHost(), port);
             } catch (final UnknownHostException e) {
@@ -112,12 +114,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 log.info("Done shutting down proxy");
             }
         }));
+
         /*
         final ServerBootstrap sslBootstrap = new ServerBootstrap(
             new NioServerSocketChannelFactory(
                 Executors.newCachedThreadPool(),
                 Executors.newCachedThreadPool()));
-        sslBootstrap.setPipelineFactory(new HttpServerPipelineFactory());
+        sslBootstrap.setPipelineFactory(new HttpsServerPipelineFactory());
         sslBootstrap.bind(new InetSocketAddress("127.0.0.1", 8443));
         */
     }

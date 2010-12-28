@@ -16,8 +16,10 @@ public interface HttpProxyServer {
      * @param localOnly If true, the server will only allow connections from 
      * the local computer. This can significantly improve security in some 
      * cases.
+     * @param anyAddress Whether or not to bind to "any" address - 0.0.0.0.
+     * This is the default.
      */
-    void start(boolean localOnly);
+    void start(boolean localOnly, boolean anyAddress);
 
     /**
      * Adds a new handler for proxy authentication. Handlers are called in the
