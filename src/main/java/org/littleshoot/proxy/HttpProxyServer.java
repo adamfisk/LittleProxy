@@ -29,4 +29,5 @@ public interface HttpProxyServer {
      * @param pah The new authentication handler.
      */
     void addProxyAuthenticationHandler(ProxyAuthorizationHandler pah);
+    
 }

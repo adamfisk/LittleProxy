@@ -47,13 +47,13 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     
     private final GlobalTrafficShapingHandler trafficShaper;
 
-    private final boolean isSsl;
+    private final KeyStoreManager ksm;
     
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final Map<String, HttpFilter> filters) {
-        this(authorizationManager, channelGroup, filters, null, false);
+        this(authorizationManager, channelGroup, filters, null, null);
     }
 
     /**
@@ -71,13 +71,13 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final Map<String, HttpFilter> filters,
-        final String chainProxyHostAndPort, final boolean isSsl) {
-        log.info("Creating server with SSL: {}", isSsl);
+        final String chainProxyHostAndPort, final KeyStoreManager ksm) {
+        log.info("Creating server with keystore manager: {}", ksm);
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.filters = filters;
         this.chainProxyHostAndPort = chainProxyHostAndPort;
-        this.isSsl = isSsl;
+        this.ksm = ksm;
         
         final Properties props = new Properties();
         final File propsFile = new File("./littleproxy.properties");
@@ -142,14 +142,16 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         final ChannelPipeline pipeline = pipeline();
 
         log.info("Accessing pipeline");
-        if (this.isSsl) {
-            final SSLEngine engine = 
-                SslContextFactory.getServerContext().createSSLEngine();
+        if (this.ksm != null) {
+            log.info("Adding SSL handler");
+            final SslContextFactory scf = new SslContextFactory(this.ksm);
+            final SSLEngine engine = scf.getServerContext().createSSLEngine();
             engine.setUseClientMode(false);
             pipeline.addLast("ssl", new SslHandler(engine));
         }
             
-        // We want to allow longer request lines, headers, and chunks respectively.
+        // We want to allow longer request lines, headers, and chunks 
+        // respectively.
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
 

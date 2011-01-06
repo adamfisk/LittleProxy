@@ -36,6 +36,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     
     private final String chainProxyHostAndPort;
 
+    private final KeyStoreManager ksm;
+    
     /**
      * Creates a new proxy server.
      * 
@@ -47,7 +49,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     
     public DefaultHttpProxyServer(final int port, 
         final Map<String, HttpFilter> filters) {
-        this(port, filters, null);
+        this(port, filters, null, null);
     }
     
     /**
@@ -58,8 +60,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     public DefaultHttpProxyServer(final int port, 
         final Map<String, HttpFilter> filters,
-        final String chainProxyHostAndPort) {
+        final String chainProxyHostAndPort, final KeyStoreManager ksm) {
         this.port = port;
+        this.ksm = ksm;
         this.filters = Collections.unmodifiableMap(filters);
         this.chainProxyHostAndPort = chainProxyHostAndPort;
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
@@ -83,7 +86,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         final HttpServerPipelineFactory factory = 
             new HttpServerPipelineFactory(authenticationManager, 
-                this.allChannels, this.filters, this.chainProxyHostAndPort, false);
+                this.allChannels, this.filters, this.chainProxyHostAndPort, 
+                ksm);
         bootstrap.setPipelineFactory(factory);
         
         // Binding only to localhost can significantly improve the security of
@@ -128,5 +132,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public void addProxyAuthenticationHandler(
         final ProxyAuthorizationHandler pah) {
         this.authenticationManager.addHandler(pah);
+    }
+
+    public KeyStoreManager getKeyStoreManager() {
+        return this.ksm;
     }
 }

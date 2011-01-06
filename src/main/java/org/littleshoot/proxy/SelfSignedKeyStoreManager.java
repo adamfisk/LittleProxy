@@ -14,6 +14,10 @@ import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * KeyStore manager that automatically generates a self-signed certificate
+ * on startup if it doesn't already exit.
+ */
 public class SelfSignedKeyStoreManager implements KeyStoreManager {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -38,12 +42,6 @@ public class SelfSignedKeyStoreManager implements KeyStoreManager {
             return;
         }
         
-        log.info("Deleting keystore");
-        
-        // Note we use DSA instead of RSA because apparently only the JDK 
-        // has RSA available.
-        
-        // TODO: Switch to 8192
         nativeCall("keytool", "-genkey", "-alias", AL, "-keysize", 
             "4096", "-validity", "36500", "-keyalg", "RSA", "-dname", 
             "CN=littleproxy", "-keypass", PASS, "-storepass", 
@@ -99,6 +97,8 @@ public class SelfSignedKeyStoreManager implements KeyStoreManager {
     }
 
     public TrustManager[] getTrustManagers() {
+        // We don't use client authentication, so we should not need trust
+        // managers.
         return null;
     }
 
