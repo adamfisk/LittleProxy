@@ -30,7 +30,7 @@ public class SslLauncher {
         System.out.println("About to start SSL server on port: "+port);
         final HttpProxyServer server = new DefaultHttpProxyServer(port, 
             new HashMap<String, HttpFilter>(), null, 
-            new SelfSignedKeyStoreManager());
+            new SelfSignedKeyStoreManager(), null);
         System.out.println("About to start...");
         server.start();
     }

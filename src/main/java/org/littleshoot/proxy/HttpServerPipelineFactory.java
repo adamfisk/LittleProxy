@@ -48,13 +48,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     private final GlobalTrafficShapingHandler trafficShaper;
 
     private final KeyStoreManager ksm;
-    
-    public HttpServerPipelineFactory(
-        final ProxyAuthorizationManager authorizationManager, 
-        final ChannelGroup channelGroup, 
-        final Map<String, HttpFilter> filters) {
-        this(authorizationManager, channelGroup, filters, null, null);
-    }
+
+    private final HttpRequestFilter requestFilter;
 
     /**
      * Creates a new pipeline factory with the specified class for processing
@@ -71,13 +66,15 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final Map<String, HttpFilter> filters,
-        final String chainProxyHostAndPort, final KeyStoreManager ksm) {
+        final String chainProxyHostAndPort, final KeyStoreManager ksm,
+        final HttpRequestFilter requestFilter) {
         log.info("Creating server with keystore manager: {}", ksm);
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.filters = filters;
         this.chainProxyHostAndPort = chainProxyHostAndPort;
         this.ksm = ksm;
+        this.requestFilter = requestFilter;
         
         final Properties props = new Properties();
         final File propsFile = new File("./littleproxy.properties");
@@ -162,7 +159,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
             new HttpRequestHandler(this.cacheManager, authenticationManager, 
                 this.channelGroup, this.filters, 
                 this.clientSocketChannelFactory,
-                this.chainProxyHostAndPort));
+                this.chainProxyHostAndPort, this.requestFilter));
         return pipeline;
     }
 }

@@ -75,6 +75,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final Map<String, HttpFilter> filters;
     private final ClientSocketChannelFactory clientChannelFactory;
     private final ProxyCacheManager cacheManager;
+    private final HttpRequestFilter requestFilter;
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -89,19 +90,22 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
      * @param clientChannelFactory The common channel factory for clients.
      * @param chainProxyHostAndPort upstream proxy server host and port or null 
      * if none used.
+     * @param requestFilter An optional filter for HTTP requests.
      */
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final Map<String, HttpFilter> filters,
         final ClientSocketChannelFactory clientChannelFactory,
-        final String chainProxyHostAndPort) {
+        final String chainProxyHostAndPort, 
+        final HttpRequestFilter requestFilter) {
         this.cacheManager = cacheManager;
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.filters = filters;
         this.clientChannelFactory = clientChannelFactory;
         this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.requestFilter = requestFilter;
     }
 
     /**
@@ -122,7 +126,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         final Map<String, HttpFilter> filters,
         final ClientSocketChannelFactory clientChannelFactory) {
         this(cacheManager, authorizationManager, channelGroup, filters, 
-            clientChannelFactory, null);
+            clientChannelFactory, null, null);
     }
     
     @Override
@@ -190,6 +194,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         // accordingly
         final HttpRequest httpRequestCopy = ProxyUtils.copyHttpRequest(request, 
             this.chainProxyHostAndPort != null);
+        
+        if (this.requestFilter != null) {
+            this.requestFilter.filter(httpRequestCopy);
+        }
+        
         if (this.chainProxyHostAndPort != null) {
             this.hostAndPort = this.chainProxyHostAndPort;
         } else {
@@ -316,7 +325,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             ProxyUtils.writeResponse(browserToProxyChannel, statusLine, 
                 ProxyUtils.CONNECT_OK_HEADERS);
             
-            // TODO: Set this back to readable true?
             browserToProxyChannel.setReadable(true);
         }
     }
