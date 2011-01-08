@@ -5,7 +5,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.util.Arrays;
 
 import javax.net.ssl.TrustManager;
@@ -76,8 +75,7 @@ public class SelfSignedKeyStoreManager implements KeyStoreManager {
         return PASS.toCharArray();
     }
     
-    public void addBase64Cert(final URI uri, final String base64Cert) 
-        throws IOException {
+    public void addBase64Cert(final String alias, final String base64Cert) {
     }
 
     private String nativeCall(final String... commands) {

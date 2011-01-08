@@ -8,7 +8,7 @@ import javax.net.ssl.TrustManager;
 
 public interface KeyStoreManager {
 
-    void addBase64Cert(URI uri, String base64Cert) throws IOException;
+    void addBase64Cert(String alias, String base64Cert) throws IOException;
     
     String getBase64Cert();
     
@@ -21,7 +21,5 @@ public interface KeyStoreManager {
     TrustManager[] getTrustManagers();
 
     InputStream trustStoreAsInputStream();
-
-    void reset(String jid);
 
 }
