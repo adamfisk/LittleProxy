@@ -22,4 +22,6 @@ public interface KeyStoreManager {
 
     InputStream trustStoreAsInputStream();
 
+    void reset(String jid);
+
 }
