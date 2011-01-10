@@ -61,6 +61,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * 
      * @param port The port the server should run on.
      * @param filters HTTP filters to apply.
+     * @param chainProxyHostAndPort upstream proxy server host and port or <code>null</code> if none used.
+     * @param ksm KeyStore manager.
+     * @param requestFilter Request filtering implementation, on <code>null</code>.
      */
     public DefaultHttpProxyServer(final int port, 
         final Map<String, HttpFilter> filters,
