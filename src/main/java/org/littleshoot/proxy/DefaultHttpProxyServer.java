@@ -39,7 +39,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final KeyStoreManager ksm;
 
     private final HttpRequestFilter requestFilter;
-    
+
+    private Runnable stopper;
+
     /**
      * Creates a new proxy server.
      * 
@@ -111,16 +113,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
         final Channel channel = bootstrap.bind(isa);
         allChannels.add(channel);
-        
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+
+        stopper = new Runnable() {
             public void run() {
                 log.info("Shutting down proxy");
                 final ChannelGroupFuture future = allChannels.close();
-                future.awaitUninterruptibly(120*1000);
+                future.awaitUninterruptibly(120 * 1000);
                 bootstrap.releaseExternalResources();
                 log.info("Done shutting down proxy");
             }
-        }));
+        };
+        Runtime.getRuntime().addShutdownHook(new Thread(stopper));
 
         /*
         final ServerBootstrap sslBootstrap = new ServerBootstrap(
@@ -135,6 +138,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public void addProxyAuthenticationHandler(
         final ProxyAuthorizationHandler pah) {
         this.authenticationManager.addHandler(pah);
+    }
+
+    /** {@inheritDoc} */
+    public void stop () {
+        stopper.run();
     }
 
     public KeyStoreManager getKeyStoreManager() {

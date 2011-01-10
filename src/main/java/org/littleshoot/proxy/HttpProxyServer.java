@@ -22,6 +22,11 @@ public interface HttpProxyServer {
     void start(boolean localOnly, boolean anyAddress);
 
     /**
+     * Stop proxy server.
+     */
+    void stop();
+
+    /**
      * Adds a new handler for proxy authentication. Handlers are called in the
      * order they're added. If one handler accepts the user's credentials, it
      * passes them on to the next handler.
