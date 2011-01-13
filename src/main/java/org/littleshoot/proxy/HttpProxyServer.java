@@ -11,6 +11,11 @@ public interface HttpProxyServer {
     void start();
     
     /**
+     * Stops the server.
+     */
+    void stop();
+    
+    /**
      * Starts the server.
      * 
      * @param localOnly If true, the server will only allow connections from 

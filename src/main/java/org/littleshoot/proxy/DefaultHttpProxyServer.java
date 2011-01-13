@@ -39,6 +39,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final KeyStoreManager ksm;
 
     private final HttpRequestFilter requestFilter;
+
+    private final ServerBootstrap serverBootstrap;
     
     /**
      * Creates a new proxy server.
@@ -74,6 +76,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 log.error("Uncaught throwable", e);
             }
         });
+        
+        this.serverBootstrap = new ServerBootstrap(
+            new NioServerSocketChannelFactory(
+                Executors.newCachedThreadPool(),
+                Executors.newCachedThreadPool()));
     }
     
     public void start() {
@@ -82,16 +89,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     
     public void start(final boolean localOnly, final boolean anyAddress) {
         log.info("Starting proxy on port: "+this.port);
-        final ServerBootstrap bootstrap = new ServerBootstrap(
-            new NioServerSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()));
-
         final HttpServerPipelineFactory factory = 
             new HttpServerPipelineFactory(authenticationManager, 
                 this.allChannels, this.filters, this.chainProxyHostAndPort, 
                 ksm, this.requestFilter);
-        bootstrap.setPipelineFactory(factory);
+        serverBootstrap.setPipelineFactory(factory);
         
         // Binding only to localhost can significantly improve the security of
         // the proxy.
@@ -109,16 +111,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 isa = new InetSocketAddress(port);
             }
         }
-        final Channel channel = bootstrap.bind(isa);
+        final Channel channel = serverBootstrap.bind(isa);
         allChannels.add(channel);
         
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
-                log.info("Shutting down proxy");
-                final ChannelGroupFuture future = allChannels.close();
-                future.awaitUninterruptibly(120*1000);
-                bootstrap.releaseExternalResources();
-                log.info("Done shutting down proxy");
+                stop();
             }
         }));
 
@@ -131,6 +129,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         sslBootstrap.bind(new InetSocketAddress("127.0.0.1", 8443));
         */
     }
+    
+    public void stop() {
+        log.info("Shutting down proxy");
+        final ChannelGroupFuture future = allChannels.close();
+        future.awaitUninterruptibly(6*1000);
+        serverBootstrap.releaseExternalResources();
+        log.info("Done shutting down proxy");
+    }
 
     public void addProxyAuthenticationHandler(
         final ProxyAuthorizationHandler pah) {
@@ -140,4 +146,5 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public KeyStoreManager getKeyStoreManager() {
         return this.ksm;
     }
+
 }
