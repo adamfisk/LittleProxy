@@ -21,7 +21,6 @@ import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.ssl.SslHandler;
-import org.jboss.netty.handler.traffic.GlobalTrafficShapingHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +44,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     private final ProxyCacheManager cacheManager = 
         new DefaultProxyCacheManager();
     
-    private final GlobalTrafficShapingHandler trafficShaper;
+    //private final GlobalTrafficShapingHandler trafficShaper;
 
     private final KeyStoreManager ksm;
 
@@ -95,7 +94,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         }
 
         if (readThrottle == -1 && writeThrottle == -1) {
-            trafficShaper = null;
+            //trafficShaper = null;
         }
         else {
             log.info("Traffic shaping writes at {} bytes per second", 
@@ -103,17 +102,19 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
             log.info("Traffic shaping reads at {} bytes per second", 
                 readThrottle);
             // Last arg in milliseconds.
-            trafficShaper = 
-                new GlobalTrafficShapingHandler(Executors.newCachedThreadPool(), 
-                    writeThrottle, readThrottle, 1000); 
+            //trafficShaper = 
+                //new GlobalTrafficShapingHandler(Executors.newCachedThreadPool(), 
+                //    writeThrottle, readThrottle, 1000); 
         }
         
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
                 clientSocketChannelFactory.releaseExternalResources();
+                /*
                 if (trafficShaper != null) {
                     trafficShaper.releaseExternalResources();
                 }
+                */
             }
         }));
     }
@@ -152,9 +153,11 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
 
+        /*
         if (trafficShaper != null) {
             pipeline.addLast("GLOBAL_TRAFFIC_SHAPING", trafficShaper);
         }
+        */
         pipeline.addLast("handler", 
             new HttpRequestHandler(this.cacheManager, authenticationManager, 
                 this.channelGroup, this.filters, 
