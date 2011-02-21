@@ -35,14 +35,6 @@
         <url>https://adamfisk@github.com/adamfisk/LittleProxy.git</url>
     </scm>
 
-    <developers>
-        <developer>
-            <id>adamfisk</id>
-            <name>Adam Fisk</name>
-            <email>a@littleshoot.org</email>
-        </developer>
-    </developers>
-
     <parent>
         <groupId>org.sonatype.oss</groupId>
         <artifactId>oss-parent</artifactId>
