@@ -9,7 +9,7 @@
     <name>LittleProxy</name>
     <description>
         LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework. 
-        </description>
+    </description>
     <url>http://www.littleshoot.org</url>
 
     <properties>
@@ -20,20 +20,41 @@
     <organization>
         <name>LittleShoot</name>
         <url>http://www.littleshoot.org</url>
-        </organization>
+    </organization>
 
     <licenses>
         <license>
             <name>The Apache Software License, Version 2.0</name>
             <url>http://www.apache.org/licenses/LICENSE-2.0</url>
-            </license>
-        </licenses>
+        </license>
+    </licenses>
+
+    <scm>
+        <connection>scm:git:https://adamfisk@github.com/adamfisk/LittleProxy.git</connection>
+        <developerConnection>scm:git:https://adamfisk@github.com/adamfisk/LittleProxy.git</developerConnection>
+        <url>https://adamfisk@github.com/adamfisk/LittleProxy.git</url>
+    </scm>
+
+    <developers>
+        <developer>
+            <id>adamfisk</id>
+            <name>Adam Fisk</name>
+            <email>a@littleshoot.org</email>
+        </developer>
+    </developers>
+
+    <parent>
+        <groupId>org.sonatype.oss</groupId>
+        <artifactId>oss-parent</artifactId>
+        <version>6</version>
+    </parent>
+
     <inceptionYear>2009</inceptionYear>
 
     <issueManagement>
         <system>JIRA</system>
         <url>http://dev.littleshoot.org:8081/browse/LP</url>
-        </issueManagement>
+    </issueManagement>
 
     <dependencies>
 
@@ -102,6 +123,7 @@
 
     </dependencies>
 
+<!--
     <distributionManagement>
         <repository>
             <id>littleshoot</id>
@@ -123,9 +145,10 @@
         <tag>HEAD</tag>
         <url>http://svn.littleshoot.org</url>
     </scm>
+-->
 
     <prerequisites>
-        <maven>2.0.4</maven>
+        <maven>2.2.1</maven>
     </prerequisites>
 
     <build>
@@ -184,6 +207,20 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-site-plugin</artifactId>
                 <version>2.1.1</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
         </plugins>
