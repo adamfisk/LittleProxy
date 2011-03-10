@@ -365,69 +365,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             };
         }
         else {
-            cpf = new ChannelPipelineFactory() {
-                public ChannelPipeline getPipeline() throws Exception {
-                    // Create a default pipeline implementation.
-                    final ChannelPipeline pipeline = pipeline();
-                    
-                    // We always include the request and response decoders
-                    // regardless of whether or not this is a URL we're 
-                    // filtering responses for. The reason is that we need to
-                    // follow connection closing rules based on the response
-                    // headers and HTTP version. 
-                    //
-                    // We also importantly need to follow the cache directives
-                    // in the HTTP response.
-                    pipeline.addLast("decoder", new HttpResponseDecoder());
-                    
-                    log.info("Querying for host and port: {}", hostAndPort);
-                    final boolean shouldFilter;
-                    final HttpFilter filter = filters.get(hostAndPort);
-                    log.info("Using filter: {}", filter);
-                    if (filter == null) {
-                        log.info("Filter not found in: {}", filters);
-                        shouldFilter = false;
-                    }
-                    else { 
-                        shouldFilter = filter.shouldFilterResponses(httpRequest);
-                    }
-                    log.info("Filtering: "+shouldFilter);
-                    
-                    // We decompress and aggregate chunks for responses from 
-                    // sites we're applying rules to.
-                    if (shouldFilter) {
-                        pipeline.addLast("inflater", 
-                            new HttpContentDecompressor());
-                        pipeline.addLast("aggregator",            
-                            new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
-                    }
-                    
-                    // The trick here is we need to determine whether or not
-                    // to cache responses based on the full URI of the request.
-                    // This request encoder will only get the URI without the
-                    // host, so we just have to be aware of that and construct
-                    // the original.
-                    final HttpRelayingHandler handler;
-                    if (shouldFilter) {
-                        handler = new HttpRelayingHandler(browserToProxyChannel, 
-                            channelGroup, filter, HttpRequestHandler.this, hostAndPort);
-                    } else {
-                        handler = new HttpRelayingHandler(browserToProxyChannel, 
-                            channelGroup, HttpRequestHandler.this, hostAndPort);
-                    }
-                    
-                    final ProxyHttpRequestEncoder encoder = 
-                        new ProxyHttpRequestEncoder(handler);
-                    pipeline.addLast("encoder", encoder);
-                    pipeline.addLast("handler", handler);
-                    return pipeline;
-                }
-            };
+            cpf = newDefaultRelayPipeline(httpRequest, browserToProxyChannel);
         }
             
         // Set up the event pipeline factory.
         cb.setPipelineFactory(cpf);
         cb.setOption("connectTimeoutMillis", 40*1000);
+        
 
         // Start the connection attempt.
         log.info("Starting new connection to: "+hostAndPort);
@@ -436,6 +380,68 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         return future;
     }
     
+    private ChannelPipelineFactory newDefaultRelayPipeline(
+        final HttpRequest httpRequest, final Channel browserToProxyChannel) {
+        return new ChannelPipelineFactory() {
+            public ChannelPipeline getPipeline() throws Exception {
+                // Create a default pipeline implementation.
+                final ChannelPipeline pipeline = pipeline();
+                
+                // We always include the request and response decoders
+                // regardless of whether or not this is a URL we're 
+                // filtering responses for. The reason is that we need to
+                // follow connection closing rules based on the response
+                // headers and HTTP version. 
+                //
+                // We also importantly need to follow the cache directives
+                // in the HTTP response.
+                pipeline.addLast("decoder", new HttpResponseDecoder());
+                
+                log.info("Querying for host and port: {}", hostAndPort);
+                final boolean shouldFilter;
+                final HttpFilter filter = filters.get(hostAndPort);
+                log.info("Using filter: {}", filter);
+                if (filter == null) {
+                    log.info("Filter not found in: {}", filters);
+                    shouldFilter = false;
+                }
+                else { 
+                    shouldFilter = filter.shouldFilterResponses(httpRequest);
+                }
+                log.info("Filtering: "+shouldFilter);
+                
+                // We decompress and aggregate chunks for responses from 
+                // sites we're applying rules to.
+                if (shouldFilter) {
+                    pipeline.addLast("inflater", 
+                        new HttpContentDecompressor());
+                    pipeline.addLast("aggregator",            
+                        new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
+                }
+                
+                // The trick here is we need to determine whether or not
+                // to cache responses based on the full URI of the request.
+                // This request encoder will only get the URI without the
+                // host, so we just have to be aware of that and construct
+                // the original.
+                final HttpRelayingHandler handler;
+                if (shouldFilter) {
+                    handler = new HttpRelayingHandler(browserToProxyChannel, 
+                        channelGroup, filter, HttpRequestHandler.this, hostAndPort);
+                } else {
+                    handler = new HttpRelayingHandler(browserToProxyChannel, 
+                        channelGroup, HttpRequestHandler.this, hostAndPort);
+                }
+                
+                final ProxyHttpRequestEncoder encoder = 
+                    new ProxyHttpRequestEncoder(handler);
+                pipeline.addLast("encoder", encoder);
+                pipeline.addLast("handler", handler);
+                return pipeline;
+            }
+        };
+    }
+
     @Override
     public void channelOpen(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) throws Exception {
