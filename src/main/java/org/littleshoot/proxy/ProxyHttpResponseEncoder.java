@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import java.util.concurrent.Future;
+
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -17,6 +19,10 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final ProxyCacheManager cacheManager;
 
+    public ProxyHttpResponseEncoder() {
+        this(null);
+    }
+    
     /**
      * Creates a new HTTP response encoder that intercepts the encoding to 
      * include any relevant responses in the cache.
@@ -46,7 +52,7 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
                 (ChannelBuffer) super.encode(ctx, channel, response);
             
             // The buffer will be null when it's the last chunk, for example.
-            if (encoded != null) {
+            if (encoded != null && this.cacheManager != null) {
                 this.cacheManager.cache(httpRequest, httpResponse, response, 
                     encoded);
             }

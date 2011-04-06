@@ -191,7 +191,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         final ChannelStateEvent cse) throws Exception {
         final Channel ch = cse.getChannel();
         log.info("New channel opened from proxy to web: {}", ch);
-        this.channelGroup.add(ch);
+        if (this.channelGroup != null) {
+            this.channelGroup.add(ch);
+        }
     }
 
     @Override
