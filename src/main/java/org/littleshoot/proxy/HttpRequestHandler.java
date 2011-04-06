@@ -40,7 +40,8 @@ import org.slf4j.LoggerFactory;
  * that same connection, i.e. it will send a request to host B once a request
  * to host A has completed.
  */
-public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
+public class HttpRequestHandler extends SimpleChannelUpstreamHandler 
+    implements RelayListener {
 
     private final static Logger log = 
         LoggerFactory.getLogger(HttpRequestHandler.class);

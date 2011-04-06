@@ -49,7 +49,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      */
     private HttpRequest currentHttpRequest;
 
-    private final HttpRequestHandler requestHandler;
+    private final RelayListener relayListener;
 
     private final String hostAndPort;
 
@@ -63,9 +63,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel, 
         final ChannelGroup channelGroup, 
-        final HttpRequestHandler requestHandler, final String hostAndPort) {
+        final RelayListener relayListener, final String hostAndPort) {
         this (browserToProxyChannel, channelGroup, new NoOpHttpFilter(),
-            requestHandler, hostAndPort);
+            relayListener, hostAndPort);
     }
 
     /**
@@ -79,11 +79,11 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel,
         final ChannelGroup channelGroup, final HttpFilter filter,
-        final HttpRequestHandler requestHandler, final String hostAndPort) {
+        final RelayListener relayListener, final String hostAndPort) {
         this.browserToProxyChannel = browserToProxyChannel;
         this.channelGroup = channelGroup;
         this.httpFilter = filter;
-        this.requestHandler = requestHandler;
+        this.relayListener = relayListener;
         this.hostAndPort = hostAndPort;
     }
 
@@ -211,7 +211,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         // Doesn't seem like we should close the connection to the browser 
         // here, as there can be multiple connections to external sites for
         // a single connection from the browser.
-        this.requestHandler.onRelayChannelClose(ctx, e, browserToProxyChannel, 
+        this.relayListener.onRelayChannelClose(ctx, e, browserToProxyChannel, 
             this.hostAndPort);
     }
 
