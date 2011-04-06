@@ -1,7 +1,5 @@
 package org.littleshoot.proxy;
 
-import java.util.concurrent.Future;
-
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -19,6 +17,10 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final ProxyCacheManager cacheManager;
 
+    /**
+     * Creates a new HTTP response encoder that doesn't include responses in 
+     * the cache.
+     */
     public ProxyHttpResponseEncoder() {
         this(null);
     }
