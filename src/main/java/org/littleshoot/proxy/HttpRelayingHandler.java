@@ -145,6 +145,11 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // access control on local networks, likely related to redirects.
             if (!this.requestQueue.isEmpty()) {
                 this.currentHttpRequest = this.requestQueue.remove();
+                if (this.currentHttpRequest == null) {
+                    log.warn("Got null HTTP request object.");
+                }
+            } else {
+                log.info("Request queue is empty!");
             }
         } else {
             log.info("Processing a chunk");
