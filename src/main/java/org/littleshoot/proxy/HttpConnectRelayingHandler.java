@@ -56,7 +56,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
                 new ChannelFutureListener() {
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
-                    log.info("Finished writing data");
+                    log.info("Finished writing data on CONNECT channel");
                 }
             };
             relayChannel.write(msg).addListener(logListener);

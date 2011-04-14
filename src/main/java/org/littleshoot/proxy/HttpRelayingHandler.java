@@ -30,8 +30,7 @@ import org.slf4j.LoggerFactory;
  */
 public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     
-    private final Logger log = 
-        LoggerFactory.getLogger(HttpRelayingHandler.class);
+    private final Logger log = LoggerFactory.getLogger(getClass());
     
     private volatile boolean readingChunks;
     
