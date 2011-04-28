@@ -9,17 +9,22 @@ import java.io.InputStream;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import javax.net.ssl.SSLEngine;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.NumberUtils;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
+import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.ssl.SslHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +37,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
+    private static final boolean CACHE_ENABLED = false;
+    
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final Map<String, HttpFilter> filters;
@@ -41,8 +48,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         new NioClientSocketChannelFactory(
             Executors.newCachedThreadPool(),
             Executors.newCachedThreadPool());
-    private final ProxyCacheManager cacheManager = 
-        new DefaultProxyCacheManager();
+    private final ProxyCacheManager cacheManager;
     
     //private final GlobalTrafficShapingHandler trafficShaper;
 
@@ -74,6 +80,24 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         this.chainProxyHostAndPort = chainProxyHostAndPort;
         this.ksm = ksm;
         this.requestFilter = requestFilter;
+        
+        if (CACHE_ENABLED) {
+            cacheManager = new DefaultProxyCacheManager();
+        } else {
+            cacheManager = new ProxyCacheManager() {
+                
+                public boolean returnCacheHit(final HttpRequest request, 
+                    final Channel channel) {
+                    return false;
+                }
+                
+                public Future<String> cache(final HttpRequest originalRequest,
+                    final HttpResponse httpResponse, 
+                    final Object response, final ChannelBuffer encoded) {
+                    return null;
+                }
+            };
+        }
         
         final Properties props = new Properties();
         final File propsFile = new File("./littleproxy.properties");
