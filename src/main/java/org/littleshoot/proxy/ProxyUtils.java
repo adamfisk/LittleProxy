@@ -265,7 +265,9 @@ public class ProxyUtils {
             sb.append(name);
             sb.append(": ");
             sb.append(value);
+            sb.append("\n");
         }
+        LOG.debug("\n"+sb.toString());
     }
 
     /**
