@@ -5,4 +5,5 @@ log.txt
 *.project
 *.iml
 *.ipr
+*.iws
 target/
