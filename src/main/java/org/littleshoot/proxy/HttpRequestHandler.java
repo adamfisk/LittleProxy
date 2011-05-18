@@ -492,7 +492,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         this.numWebConnections--;
         if (this.numWebConnections == 0) {
             log.info("Closing browser to proxy channel");
-            closeOnFlush(browserToProxyChannel);
+            if (browserToProxyChannel.isOpen()) {
+                closeOnFlush(browserToProxyChannel);
+            }
         }
         else {
             log.info("Not closing browser to proxy channel. Still "+
