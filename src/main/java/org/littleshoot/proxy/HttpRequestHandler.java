@@ -47,8 +47,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         LoggerFactory.getLogger(HttpRequestHandler.class);
     private volatile boolean readingChunks;
     
-    private static int totalBrowserToProxyConnections = 0;
-    private int browserToProxyConnections = 0;
+    private static volatile int totalBrowserToProxyConnections = 0;
+    private volatile int browserToProxyConnections = 0;
     
     private final Map<String, ChannelFuture> endpointsToChannelFutures = 
         new ConcurrentHashMap<String, ChannelFuture>();
