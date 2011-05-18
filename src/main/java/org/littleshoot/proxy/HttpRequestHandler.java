@@ -483,8 +483,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     future.getChannel().close();
                 }
             }
-            this.endpointsToChannelFutures.clear();
-            this.numWebConnections = 0;
         }
     }
     
