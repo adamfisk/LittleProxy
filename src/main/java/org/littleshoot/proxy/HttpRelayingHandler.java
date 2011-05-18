@@ -206,10 +206,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent e) throws Exception {
-        log.warn("Got closed event on proxy -> web connection: {}",
+        log.info("Got closed event on proxy -> web connection: {}",
             e.getChannel());
         
-        log.warn("Closing browser to proxy channel: {}",browserToProxyChannel);
+        log.info("Closing browser to proxy channel: {}",browserToProxyChannel);
         // This is vital this take place here and only here. If we handle this
         // in other listeners, it's possible to get close events before
         // we actually receive the HTTP response, in which case the response

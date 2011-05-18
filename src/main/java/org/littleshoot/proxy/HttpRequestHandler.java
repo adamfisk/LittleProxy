@@ -462,7 +462,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) {
-        log.warn("Channel closed: {}", cse.getChannel());
+        log.info("Channel closed: {}", cse.getChannel());
         totalBrowserToProxyConnections--;
         browserToProxyConnections--;
         log.info("Now "+totalBrowserToProxyConnections+
@@ -473,7 +473,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // The following should always be the case with
         // @ChannelPipelineCoverage("one")
         if (browserToProxyConnections == 0) {
-            log.warn("Closing all proxy to web channels for this browser " +
+            log.info("Closing all proxy to web channels for this browser " +
                 "to proxy connection!!!");
             final Collection<ChannelFuture> futures = 
                 this.endpointsToChannelFutures.values();
