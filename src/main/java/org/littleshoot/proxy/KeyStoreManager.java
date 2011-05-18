@@ -2,7 +2,6 @@ package org.littleshoot.proxy;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 
 import javax.net.ssl.TrustManager;
 

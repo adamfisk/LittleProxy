@@ -92,7 +92,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         
         final Object messageToWrite;
         
-        final boolean flush;
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
             httpResponse = hr;
@@ -123,10 +122,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             if (response.isChunked()) {
                 log.info("Starting to read chunks");
                 readingChunks = true;
-                flush = false;
-            }
-            else {
-                flush = true;
             }
             final HttpResponse filtered = 
                 this.httpFilter.filterResponse(response);
@@ -155,10 +150,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             final HttpChunk chunk = (HttpChunk) e.getMessage();
             if (chunk.isLast()) {
                 readingChunks = false;
-                flush = true;
-            }
-            else {
-                flush = false;
             }
             messageToWrite = chunk;
         }
@@ -169,15 +160,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     new ProxyHttpResponse(this.currentHttpRequest, httpResponse, 
                         messageToWrite));
 
+            // This determines what to do when we've written all the data, such
+            // as closing the connection on Connection: Close and such.
             final ChannelFutureListener cfl = 
                 ProxyUtils.newWriteListener(this.currentHttpRequest,  
                     httpResponse, messageToWrite);
-            if (flush) {
-                browserToProxyChannel.write(
-                    ChannelBuffers.EMPTY_BUFFER).addListener(cfl);
-            } else {
-                future.addListener(cfl);
-            }
+            
+            future.addListener(cfl);
         }
         else {
             log.info("Channel not open. Connected? {}", 
