@@ -3,4 +3,6 @@ log.txt
 *.settings
 *.classpath
 *.project
+*.iml
+*.ipr
 target/
