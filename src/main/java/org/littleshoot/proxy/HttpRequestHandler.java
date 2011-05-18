@@ -401,12 +401,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 log.info("Querying for host and port: {}", hostAndPort);
                 final boolean shouldFilter;
                 final HttpFilter filter = filters.get(hostAndPort);
-                log.info("Using filter: {}", filter);
                 if (filter == null) {
                     log.info("Filter not found in: {}", filters);
                     shouldFilter = false;
                 }
-                else { 
+                else {
+                    log.info("Using filter: {}", filter);
                     shouldFilter = filter.shouldFilterResponses(httpRequest);
                 }
                 log.info("Filtering: "+shouldFilter);

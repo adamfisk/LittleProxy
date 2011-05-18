@@ -60,6 +60,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * Creates a new proxy server.
      * 
      * @param port The port the server should run on.
+     * @param requestFilter The filter for HTTP requests.
+     * @param responseFilters HTTP filters to apply.
+     */
+    public DefaultHttpProxyServer(final int port,
+        final HttpRequestFilter requestFilter,
+        final Map<String, HttpFilter> responseFilters) {
+        this(port, responseFilters, null, null, requestFilter);
+    }
+    
+    /**
+     * Creates a new proxy server.
+     * 
+     * @param port The port the server should run on.
      * @param filters HTTP filters to apply.
      */
     public DefaultHttpProxyServer(final int port, 
