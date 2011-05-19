@@ -105,6 +105,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
         // original buffer, so make a duplicate.
         
         // NOTE: This does not copy the actual bytes.
+        /*
         final ChannelBuffer copy = encoded.duplicate();
         
         final Callable<String> task = new Callable<String>() {
@@ -136,36 +137,36 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
                     log.info("Adding to response cache under URI: {}", uri);
                     cache.put(new Element(uri, cached));
                 }
-                /*
-                else if (response instanceof HttpChunk) {
-                    final Cache cache = 
-                        cacheManager.getCache(ProxyConstants.CHUNKS_CACHE);
-                    final CachedHttpChunks cacher;
-                    synchronized (cache) {
-                        final Element chunkedElem = cache.get(uri);
-                        if (chunkedElem != null) {
-                            cacher = 
-                                (CachedHttpChunks) chunkedElem.getObjectValue();
-                        }
-                        else {
-                            cacher = new DefaultCachedHttpChunks(
-                                cacheManager, httpRequest, cfl);
-                            cache.put(new Element(uri, cacher));
-                        }
-                    }
-                    log.info("Adding to chunk cache under URI: {}", uri);
-                    cacher.cache((HttpChunk)response, copy);
-                }
-                else {
-                    log.error("Unknown response type: {}", 
-                        response.getClass());
-                }
-                */
+//                else if (response instanceof HttpChunk) {
+//                    final Cache cache = 
+//                        cacheManager.getCache(ProxyConstants.CHUNKS_CACHE);
+//                    final CachedHttpChunks cacher;
+//                    synchronized (cache) {
+//                        final Element chunkedElem = cache.get(uri);
+//                        if (chunkedElem != null) {
+//                            cacher = 
+//                                (CachedHttpChunks) chunkedElem.getObjectValue();
+//                        }
+//                        else {
+//                            cacher = new DefaultCachedHttpChunks(
+//                                cacheManager, httpRequest, cfl);
+//                            cache.put(new Element(uri, cacher));
+//                        }
+//                    }
+//                    log.info("Adding to chunk cache under URI: {}", uri);
+//                    cacher.cache((HttpChunk)response, copy);
+//                }
+//                else {
+//                    log.error("Unknown response type: {}", 
+//                        response.getClass());
+//                }
                 return uri;
             }
         };
         log.info("Submitting task");
         return this.cacheExecutor.submit(task);
+        */
+        return null;
     }
     
     private boolean isCacheable(final HttpRequest httpRequest, 

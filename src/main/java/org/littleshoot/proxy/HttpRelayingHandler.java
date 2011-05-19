@@ -169,17 +169,32 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     new ProxyHttpResponse(this.currentHttpRequest, httpResponse, 
                         messageToWrite));
 
-            final ChannelFutureListener cfl = 
-                ProxyUtils.newWriteListener(this.currentHttpRequest,  
-                    httpResponse, messageToWrite);
             if (flush) {
                 // We need to flush in the case of the last chunk. It's a 
                 // little complicated, but it has to do with the last chunk
                 // being encoded to null.
-                browserToProxyChannel.write(
-                    ChannelBuffers.EMPTY_BUFFER).addListener(cfl);
+                //browserToProxyChannel.write(
+                //    ChannelBuffers.EMPTY_BUFFER).addListener(cfl);
+                browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER);
             } else {
-                future.addListener(cfl);
+                //future.addListener(cfl);
+            }
+            if (shouldCloseRemoteConnection(this.currentHttpRequest, 
+                httpResponse, messageToWrite)) {
+                log.info("Closing remote connection after writing to browser");
+                
+                // We close after the future has completed to make sure that
+                // all the response data is written to the browser. Note that
+                // in many cases a call to close the remote connection will
+                // ultimately result in the connection to the browser closing,
+                // particularly when there are no more remote connections
+                // associated with that browser connection.
+                future.addListener(new ChannelFutureListener() {
+                    public void operationComplete(final ChannelFuture cf) 
+                        throws Exception {
+                        e.getChannel().close();
+                    }
+                });
             }
         }
         else {
@@ -191,6 +206,60 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 e.getChannel().close();
             }
         }
+        
+        
+    }
+    
+    /**
+     * Determines if the remote connection should be closed based on the 
+     * request and response pair. If the request is HTTP 1.0 with no 
+     * keep-alive header, for example, the connection should be closed.
+     * 
+     * This in part determines if we should close the connection. Here's the  
+     * relevant section of RFC 2616:
+     * 
+     * "HTTP/1.1 defines the "close" connection option for the sender to 
+     * signal that the connection will be closed after completion of the 
+     * response. For example,
+     * 
+     * Connection: close
+     * 
+     * in either the request or the response header fields indicates that the 
+     * connection SHOULD NOT be considered `persistent' (section 8.1) after 
+     * the current request/response is complete."
+     */
+    private boolean shouldCloseRemoteConnection(final HttpRequest req, 
+        final HttpResponse res, final Object msg) {
+        if (res.isChunked()) {
+            // If the response is chunked, we want to return unless it's
+            // the last chunk. If it is the last chunk, then we want to pass
+            // through to the same close semantics we'd otherwise use.
+            if (msg != null) {
+                if (!ProxyUtils.isLastChunk(msg)) {
+                    log.info("Using no-op listener on middle chunk");
+                    return false;
+                }
+                else {
+                    log.info("Last chunk...using normal closing rules");
+                }
+            }
+        }
+        if (!HttpHeaders.isKeepAlive(req)) {
+            log.info("Using close listener since request is not keep alive:");
+            // Here we simply want to close the connection because the 
+            // browser itself has requested it be closed in the request.
+            return true;
+        }
+        if (!HttpHeaders.isKeepAlive(res)) {
+            log.info("Using close listener since response is not keep alive:");
+            // In this case, we want to honor the Connection: close header 
+            // from the remote server and close that connection. We don't
+            // necessarily want to close the connection to the browser, however
+            // as it's possible it has other connections open.
+            return true;
+        }
+        log.info("Using no-op listener...");
+        return false;
     }
     
     @Override
@@ -209,18 +278,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         log.info("Got closed event on proxy -> web connection: {}",
             e.getChannel());
         
-        log.info("Closing browser to proxy channel: {}",browserToProxyChannel);
-        // This is vital this take place here and only here. If we handle this
-        // in other listeners, it's possible to get close events before
-        // we actually receive the HTTP response, in which case the response
-        // might never get back to the browser. It has to do with the order
-        // listeners are called in.
-        //closeOnFlush(browserToProxyChannel);
-        
-        // Doesn't seem like we should close the connection to the browser 
+        // We shouldn't close the connection to the browser 
         // here, as there can be multiple connections to external sites for
         // a single connection from the browser.
-        this.relayListener.onRelayChannelClose(ctx, e, browserToProxyChannel, 
+        this.relayListener.onRelayChannelClose(browserToProxyChannel, 
             this.hostAndPort);
     }
 
@@ -231,24 +292,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             e.getChannel(), e.getCause());
         if (e.getChannel().isOpen()) {
             log.warn("Closing open connection");
-            closeOnFlush(e.getChannel());
+            ProxyUtils.closeOnFlush(e.getChannel());
         }
         else {
             // We've seen odd cases where channels seem to continually attempt
             // connections. Make sure we explicitly close the connection here.
             log.warn("Closing connection even though isOpen is false");
             e.getChannel().close();
-        }
-    }
-
-    /**
-     * Closes the specified channel after all queued write requests are flushed.
-     */
-    private void closeOnFlush(final Channel ch) {
-        log.info("Closing channel on flush: {}", ch);
-        if (ch.isConnected()) {
-            ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(
-                ChannelFutureListener.CLOSE);
         }
     }
 

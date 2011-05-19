@@ -7,10 +7,10 @@ import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -77,6 +77,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private final ClientSocketChannelFactory clientChannelFactory;
     private final ProxyCacheManager cacheManager;
     private final HttpRequestFilter requestFilter;
+    
+    private final AtomicBoolean browserChannelClosed = new AtomicBoolean(false);
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -486,14 +488,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
     
-    public void onRelayChannelClose(final ChannelHandlerContext ctx, 
-        final ChannelStateEvent e, final Channel browserToProxyChannel, 
+    public void onRelayChannelClose(final Channel browserToProxyChannel, 
         final String key) {
         this.numWebConnections--;
         if (this.numWebConnections == 0) {
-            log.info("Closing browser to proxy channel");
-            if (browserToProxyChannel.isOpen()) {
-                closeOnFlush(browserToProxyChannel);
+            if (!browserChannelClosed.getAndSet(true)) {
+                //log.warn("Closing browser to proxy channel");
+                ProxyUtils.closeOnFlush(browserToProxyChannel);
             }
         }
         else {
@@ -524,19 +525,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             log.info("Caught an exception on browser to proxy channel: "+
                 channel, cause);
         }
-        if (channel.isOpen()) {
-            closeOnFlush(channel);
-        }
-    }
-    
-    /**
-     * Closes the specified channel after all queued write requests are flushed.
-     */
-    private static void closeOnFlush(final Channel ch) {
-        log.warn("Closing on flush: {}", ch);
-        if (ch.isConnected()) {
-            ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(
-                ChannelFutureListener.CLOSE);
-        }
+        ProxyUtils.closeOnFlush(channel);
     }
 }

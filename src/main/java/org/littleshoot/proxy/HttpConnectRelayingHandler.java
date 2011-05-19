@@ -1,7 +1,6 @@
 package org.littleshoot.proxy;
 
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -93,19 +92,6 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
         final ExceptionEvent e) throws Exception {
         log.warn("Caught exception on proxy -> web connection: "+
             e.getChannel(), e.getCause());
-        if (e.getChannel().isOpen()) {
-            closeOnFlush(e.getChannel());
-        }
-    }
-
-    /**
-     * Closes the specified channel after all queued write requests are flushed.
-     */
-    private void closeOnFlush(final Channel ch) {
-        log.info("Closing channel on flush: {}", ch);
-        if (ch.isConnected()) {
-            ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(
-                ChannelFutureListener.CLOSE);
-        }
+        ProxyUtils.closeOnFlush(e.getChannel());
     }
 }

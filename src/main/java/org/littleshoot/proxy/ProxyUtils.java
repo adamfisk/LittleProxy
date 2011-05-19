@@ -280,107 +280,9 @@ public class ProxyUtils {
         final String value = msg.getHeader(name);
         LOG.debug(name + ": "+value);
     }
+    
 
-    /**
-     * Creates a write listener for the given HTTP response. This is the 
-     * listener that should be used after the response is written. If the
-     * request is HTTP 1.0 with no keep-alive header, for example, the 
-     * write listener would close the connection.
-     * 
-     * This in part determines if we should close the connection. Here's the  
-     * relevant section of RFC 2616:
-     * 
-     * "HTTP/1.1 defines the "close" connection option for the sender to 
-     * signal that the connection will be closed after completion of the 
-     * response. For example,
-     * 
-     * Connection: close
-     * 
-     * in either the request or the response header fields indicates that the 
-     * connection SHOULD NOT be considered `persistent' (section 8.1) after 
-     * the current request/response is complete."
-     * @param future 
-     * 
-     * @param httpRequest The original HTTP request. 
-     * @param httpResponse The HTTP response.
-     * @param msg The HTTP message. This will be identical to the 
-     * second argument except in the case of chunked responses, where this
-     * could be an HTTP chunk. 
-     */
-    public static void addListenerForResponse(
-        final ChannelFuture future, final HttpRequest httpRequest, 
-        final HttpResponse httpResponse, final Object msg) {
-        final ChannelFutureListener cfl = 
-            newWriteListener(httpRequest, httpResponse, msg);
-        if (cfl != ProxyUtils.NO_OP_LISTENER) {
-            future.addListener(cfl);
-        }
-    }
-
-    /**
-     * Adds a listener for the given response when we know all the response
-     * body data is complete.
-     * 
-     * @param future The future to add the listener to.
-     * @param httpRequest The original request.
-     * @param httpResponse The original response.
-     */
-    public static void addListenerForCompleteResponse(
-        final ChannelFuture future, final HttpRequest httpRequest, 
-        final HttpResponse httpResponse) {
-        if (!HttpHeaders.isKeepAlive(httpRequest)) {
-            LOG.info("Closing since request is not keep alive:");
-            ProxyUtils.printHeaders(httpRequest);
-            future.addListener(ChannelFutureListener.CLOSE);
-        }
-        if (!HttpHeaders.isKeepAlive(httpResponse)) {
-            LOG.info("Closing since response is not keep alive:");
-            ProxyUtils.printHeaders(httpResponse);
-            future.addListener(ChannelFutureListener.CLOSE);
-        }
-    }
-
-    /**
-     * Creates a new write listener for the given request and response pair.
-     * 
-     * @param httpRequest The HTTP request.
-     * @param httpResponse The HTTP response.
-     * @param msg The real message being written. This can be the HTTP message,
-     * and it can also be a chunk.
-     * @return The new listener.
-     */
-    public static ChannelFutureListener newWriteListener(
-        final HttpRequest httpRequest, final HttpResponse httpResponse, 
-        final Object msg) {
-        if (httpResponse.isChunked()) {
-            // If the response is chunked, we want to return unless it's
-            // the last chunk. If it is the last chunk, then we want to pass
-            // through to the same close semantics we'd otherwise use.
-            if (msg != null) {
-                if (!isLastChunk(msg)) {
-                    LOG.info("Using no-op listener on middle chunk");
-                    return ProxyUtils.NO_OP_LISTENER;
-                }
-                else {
-                    LOG.info("Last chunk...using normal closing rules");
-                }
-            }
-        }
-        if (!HttpHeaders.isKeepAlive(httpRequest)) {
-            LOG.info("Using close listener since request is not keep alive:");
-            ProxyUtils.printHeaders(httpRequest);
-            return ChannelFutureListener.CLOSE;
-        }
-        if (!HttpHeaders.isKeepAlive(httpResponse)) {
-            LOG.info("Using close listener since response is not keep alive:");
-            ProxyUtils.printHeaders(httpResponse);
-            return ChannelFutureListener.CLOSE;
-        }
-        LOG.info("Using no-op listener...");
-        return ProxyUtils.NO_OP_LISTENER;
-    }
-
-    private static boolean isLastChunk(final Object msg) {
+    static boolean isLastChunk(final Object msg) {
         if (msg instanceof HttpChunk) {
             final HttpChunk chunk = (HttpChunk) msg;
             return chunk.isLast();
@@ -388,7 +290,28 @@ public class ProxyUtils {
             return false;
         }
     }
+    
+    private static ChannelFutureListener CLOSE = new ChannelFutureListener() {
+        public void operationComplete(final ChannelFuture future) {
+            final Channel ch = future.getChannel();
+            if (ch.isOpen()) {
+                ch.close();
+            }
+        }
+    };
 
+    /**
+     * Closes the specified channel after all queued write requests are flushed.
+     * 
+     * @param ch The {@link Channel} to close.
+     */
+    public static void closeOnFlush(final Channel ch) {
+        LOG.info("Closing on flush: {}", ch);
+        if (ch.isOpen()) {
+            ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
+        }
+    }
+    
     /**
      * Parses the host and port an HTTP request is being sent to.
      * 
