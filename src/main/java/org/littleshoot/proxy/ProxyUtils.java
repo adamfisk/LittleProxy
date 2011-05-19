@@ -307,7 +307,7 @@ public class ProxyUtils {
      */
     public static void closeOnFlush(final Channel ch) {
         LOG.info("Closing on flush: {}", ch);
-        if (ch.isOpen()) {
+        if (ch.isConnected()) {
             ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
         }
     }
