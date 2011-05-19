@@ -236,7 +236,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // through to the same close semantics we'd otherwise use.
             if (msg != null) {
                 if (!ProxyUtils.isLastChunk(msg)) {
-                    log.info("Using no-op listener on middle chunk");
+                    log.info("Not closing on middle chunk");
                     return false;
                 }
                 else {
@@ -245,20 +245,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
         }
         if (!HttpHeaders.isKeepAlive(req)) {
-            log.info("Using close listener since request is not keep alive:");
+            log.info("Closing since request is not keep alive:");
             // Here we simply want to close the connection because the 
             // browser itself has requested it be closed in the request.
             return true;
         }
         if (!HttpHeaders.isKeepAlive(res)) {
-            log.info("Using close listener since response is not keep alive:");
+            log.info("Closing since response is not keep alive:");
             // In this case, we want to honor the Connection: close header 
             // from the remote server and close that connection. We don't
             // necessarily want to close the connection to the browser, however
             // as it's possible it has other connections open.
             return true;
         }
-        log.info("Using no-op listener...");
+        log.info("Not closing -- probably keep alive.");
         return false;
     }
     
