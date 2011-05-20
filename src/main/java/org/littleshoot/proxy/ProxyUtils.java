@@ -68,6 +68,7 @@ public class ProxyUtils {
         sb.append("\r\n");
         via = sb.toString();
         
+        hopByHopHeaders.add("proxy-connection");
         hopByHopHeaders.add("connection");
         hopByHopHeaders.add("keep-alive");
         hopByHopHeaders.add("proxy-authenticate");
@@ -431,15 +432,6 @@ public class ProxyUtils {
             LOG.info("Removed sdch and inserted: {}", noSdch);
         }
         
-        // Switch the de-facto standard "Proxy-Connection" header to 
-        // "Connection" when we pass it along to the remote host.
-        final String proxyConnectionKey = "Proxy-Connection";
-        if (copy.containsHeader(proxyConnectionKey)) {
-            final String header = copy.getHeader(proxyConnectionKey);
-            copy.removeHeader(proxyConnectionKey);
-            copy.setHeader("Connection", header);
-        }
-        
         ProxyUtils.addVia(copy);
         return copy;
     }
@@ -482,27 +474,27 @@ public class ProxyUtils {
     }
 
     /**
-     * Adds the Via header to specify that's the request has passed through
+     * Adds the Via header to specify that the message has passed through
      * the proxy.
      * 
-     * @param httpRequest The request.
+     * @param msg The HTTP message.
      */
-    public static void addVia(final HttpRequest httpRequest) {
+    public static void addVia(final HttpMessage msg) {
         final StringBuilder sb = new StringBuilder();
-        sb.append(httpRequest.getProtocolVersion().getMajorVersion());
+        sb.append(msg.getProtocolVersion().getMajorVersion());
         sb.append(".");
-        sb.append(httpRequest.getProtocolVersion().getMinorVersion());
+        sb.append(msg.getProtocolVersion().getMinorVersion());
         sb.append(".");
         sb.append(hostName);
         final List<String> vias; 
-        if (httpRequest.containsHeader(HttpHeaders.Names.VIA)) {
-            vias = httpRequest.getHeaders(HttpHeaders.Names.VIA);
+        if (msg.containsHeader(HttpHeaders.Names.VIA)) {
+            vias = msg.getHeaders(HttpHeaders.Names.VIA);
             vias.add(sb.toString());
         }
         else {
             vias = Arrays.asList(sb.toString());
         }
-        httpRequest.setHeader(HttpHeaders.Names.VIA, vias);
+        msg.setHeader(HttpHeaders.Names.VIA, vias);
     }
 
 }

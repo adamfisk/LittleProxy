@@ -17,7 +17,6 @@ import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpMessage;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
@@ -129,13 +128,15 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 flush = true;
             }
             ProxyUtils.stripHopByHopHeaders(response);
+            ProxyUtils.addVia(response);
             
             final HttpResponse filtered = 
                 this.httpFilter.filterResponse(response);
             messageToWrite = filtered;
             
+            log.info("Response status: {}", filtered.getStatus());
             log.info("Headers sent to browser: ");
-            ProxyUtils.printHeaders((HttpMessage) messageToWrite);
+            ProxyUtils.printHeaders(filtered);
             
             // An HTTP response is associated with a single request, so we
             // can pop the correct request off the queue.
@@ -220,8 +221,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 e.getChannel().close();
             }
         }
-        
-        
     }
     
     private boolean shouldCloseBrowserConnection(final HttpRequest req, 
@@ -232,7 +231,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // through to the same close semantics we'd otherwise use.
             if (msg != null) {
                 if (!ProxyUtils.isLastChunk(msg)) {
-                    log.info("Not closing on middle chunk");
+                    log.info("Not closing on middle chunk for {}", req.getUri());
                     return false;
                 }
                 else {
@@ -240,6 +239,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 }
             }
         }
+        
+        // Switch the de-facto standard "Proxy-Connection" header to 
+        // "Connection" when we pass it along to the remote host.
+        final String proxyConnectionKey = "Proxy-Connection";
+        if (req.containsHeader(proxyConnectionKey)) {
+            final String header = req.getHeader(proxyConnectionKey);
+            req.removeHeader(proxyConnectionKey);
+            if (req.getProtocolVersion() == HttpVersion.HTTP_1_1) {
+                log.info("Switching Proxy-Connection to Connection for " +
+                    "analyzing request for close");
+                req.setHeader("Connection", header);
+            }
+        }
+        
         if (!HttpHeaders.isKeepAlive(req)) {
             log.info("Closing since request is not keep alive:");
             // Here we simply want to close the connection because the 

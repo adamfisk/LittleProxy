@@ -39,7 +39,7 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
     protected Object encode(final ChannelHandlerContext ctx, 
         final Channel channel, final Object msg) throws Exception {
         if (msg instanceof ProxyHttpResponse) {
-            log.info("Processing proxy response!!");
+            //log.info("Processing proxy response!!");
             final ProxyHttpResponse proxyResponse = (ProxyHttpResponse) msg;
             
             // We need the original request and response objects to adequately

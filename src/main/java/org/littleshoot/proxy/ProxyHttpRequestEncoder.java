@@ -4,6 +4,8 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Request encoder for the proxy. This is necessary because we need to have 
@@ -12,6 +14,8 @@ import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
  */
 public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
 
+    private static final Logger LOG = 
+        LoggerFactory.getLogger(ProxyHttpRequestEncoder.class);
     private final HttpRelayingHandler relayingHandler;
     private final HttpRequestFilter requestFilter;
     private final String chainProxyHostAndPort;
@@ -40,7 +44,8 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
             // The relaying handler needs to know all the headers, including
             // hop-by-hop headers, of the original request, particularly
             // for determining whether or not to close the connection to the
-            // browser.
+            // browser, so we give it the original and modify the original
+            // just before writing it on the wire.
             final HttpRequest request = (HttpRequest) msg;
             this.relayingHandler.requestEncoded(request);
             
@@ -53,6 +58,8 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
             if (this.requestFilter != null) {
                 this.requestFilter.filter(httpRequestCopy);
             }
+            //LOG.info("Sending modified request headers:");
+            //ProxyUtils.printHeaders(httpRequestCopy);
             return super.encode(ctx, channel, httpRequestCopy);
         }
         return super.encode(ctx, channel, msg);

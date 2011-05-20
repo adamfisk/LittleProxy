@@ -29,6 +29,12 @@ import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
+import org.jboss.netty.handler.timeout.IdleState;
+import org.jboss.netty.handler.timeout.IdleStateAwareChannelHandler;
+import org.jboss.netty.handler.timeout.IdleStateEvent;
+import org.jboss.netty.handler.timeout.IdleStateHandler;
+import org.jboss.netty.util.HashedWheelTimer;
+import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +51,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
 
     private final static Logger log = 
         LoggerFactory.getLogger(HttpRequestHandler.class);
+    protected static final Timer timer = new HashedWheelTimer();
     private volatile boolean readingChunks;
     
     private static volatile int totalBrowserToProxyConnections = 0;
@@ -365,7 +372,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // Set up the event pipeline factory.
         cb.setPipelineFactory(cpf);
         cb.setOption("connectTimeoutMillis", 40*1000);
-        
 
         // Start the connection attempt.
         log.info("Starting new connection to: "+hostAndPort);
@@ -431,12 +437,47 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     new ProxyHttpRequestEncoder(handler, requestFilter, 
                         chainProxyHostAndPort);
                 pipeline.addLast("encoder", encoder);
+                
+                // We close idle connections to remote servers after the
+                // specified timeouts in seconds. If we're sending data, the
+                // write timeout should be reasonably low. If we're reading
+                // data, however, the read timeout is more relevant.
+                final int readTimeoutSeconds;
+                final int writeTimeoutSeconds;
+                if (httpRequest.getMethod().equals(HttpMethod.POST) ||
+                    httpRequest.getMethod().equals(HttpMethod.PUT)) {
+                    readTimeoutSeconds = 0;
+                    writeTimeoutSeconds = 40;
+                } else {
+                    readTimeoutSeconds = 40;
+                    writeTimeoutSeconds = 0;
+                }
+                pipeline.addLast("idle", 
+                    new IdleStateHandler(timer, readTimeoutSeconds, 
+                        writeTimeoutSeconds, 0));
+                pipeline.addLast("idleAware", new IdleAwareHandler());
                 pipeline.addLast("handler", handler);
                 return pipeline;
             }
         };
     }
 
+    /**
+     * This handles idle sockets.
+     */
+    public class IdleAwareHandler extends IdleStateAwareChannelHandler {
+
+        @Override
+        public void channelIdle(ChannelHandlerContext ctx, IdleStateEvent e) {
+            if (e.getState() == IdleState.READER_IDLE) {
+                log.info("Got reader idle -- closing");
+                e.getChannel().close();
+            } else if (e.getState() == IdleState.WRITER_IDLE) {
+                log.info("Got writer idle");
+            }
+        }
+    }
+    
     @Override
     public void channelOpen(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) throws Exception {
@@ -485,7 +526,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         this.numWebConnections--;
         if (this.numWebConnections == 0) {
             if (!browserChannelClosed.getAndSet(true)) {
-                //log.warn("Closing browser to proxy channel");
+                log.info("Closing browser to proxy channel");
                 ProxyUtils.closeOnFlush(browserToProxyChannel);
             }
         }
