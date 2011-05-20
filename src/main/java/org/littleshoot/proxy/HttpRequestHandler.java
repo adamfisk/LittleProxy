@@ -193,15 +193,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             return;
         }
         
-        // Check if we are running in proxy chain mode and modify request 
-        // accordingly
-        final HttpRequest httpRequestCopy = ProxyUtils.copyHttpRequest(request, 
-            this.chainProxyHostAndPort != null);
-        
-        if (this.requestFilter != null) {
-            this.requestFilter.filter(httpRequestCopy);
-        }
-        
         if (this.chainProxyHostAndPort != null) {
             this.hostAndPort = this.chainProxyHostAndPort;
         } else {
@@ -212,8 +203,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
-                if (httpRequestCopy.getMethod() != HttpMethod.CONNECT) {
-                    return cf.getChannel().write(httpRequestCopy);
+                if (request.getMethod() != HttpMethod.CONNECT) {
+                    return cf.getChannel().write(request);
                 }
                 else {
                     writeConnectResponse(ctx, request, cf.getChannel());
@@ -257,7 +248,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 };
                 */
                 final ChannelFuture cf = 
-                    newChannelFuture(httpRequestCopy, inboundChannel);
+                    newChannelFuture(request, inboundChannel);
                 endpointsToChannelFutures.put(hostAndPort, cf);
                 cf.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture future)
@@ -272,8 +263,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                                 public void operationComplete(final ChannelFuture wcf)
                                     throws Exception {
                                     log.info("Finished write: "+wcf+ " to: "+
-                                        httpRequestCopy.getMethod()+" "+
-                                        httpRequestCopy.getUri());
+                                        request.getMethod()+" "+
+                                        request.getUri());
                                 }
                             });
                         }
@@ -437,7 +428,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 }
                 
                 final ProxyHttpRequestEncoder encoder = 
-                    new ProxyHttpRequestEncoder(handler);
+                    new ProxyHttpRequestEncoder(handler, requestFilter, 
+                        chainProxyHostAndPort);
                 pipeline.addLast("encoder", encoder);
                 pipeline.addLast("handler", handler);
                 return pipeline;
@@ -508,7 +500,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 this.endpointsToChannelFutures.size()+" connections stored");
         }
         else {
-            log.info("WEB CONNECTIONS COUNTS IN SYNC");
+            log.info("WEB CONNECTIONS COUNTS IN SYNC..REMAINING "+
+                this.numWebConnections);
         }
     }
 

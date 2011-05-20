@@ -128,6 +128,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             else {
                 flush = true;
             }
+            ProxyUtils.stripHopByHopHeaders(response);
+            
             final HttpResponse filtered = 
                 this.httpFilter.filterResponse(response);
             messageToWrite = filtered;
@@ -196,6 +198,18 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     }
                 });
             }
+            
+            if (shouldCloseBrowserConnection(this.currentHttpRequest, 
+                httpResponse, messageToWrite)) {
+                log.info("Closing connection to browser after writes");
+                future.addListener(new ChannelFutureListener() {
+                    public void operationComplete(final ChannelFuture cf) 
+                        throws Exception {
+                        log.info("Closing browser connection on flush!!");
+                        ProxyUtils.closeOnFlush(browserToProxyChannel);
+                    }
+                });
+            }
         }
         else {
             log.info("Channel not open. Connected? {}", 
@@ -210,6 +224,31 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         
     }
     
+    private boolean shouldCloseBrowserConnection(final HttpRequest req, 
+        final HttpResponse res, final Object msg) {
+        if (res.isChunked()) {
+            // If the response is chunked, we want to return unless it's
+            // the last chunk. If it is the last chunk, then we want to pass
+            // through to the same close semantics we'd otherwise use.
+            if (msg != null) {
+                if (!ProxyUtils.isLastChunk(msg)) {
+                    log.info("Not closing on middle chunk");
+                    return false;
+                }
+                else {
+                    log.info("Last chunk...using normal closing rules");
+                }
+            }
+        }
+        if (!HttpHeaders.isKeepAlive(req)) {
+            log.info("Closing since request is not keep alive:");
+            // Here we simply want to close the connection because the 
+            // browser itself has requested it be closed in the request.
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Determines if the remote connection should be closed based on the 
      * request and response pair. If the request is HTTP 1.0 with no 
@@ -310,6 +349,12 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * because we ultimately need the request data to determine whether or not
      * we can cache responses. It's a queue because we're dealing with HTTP 1.1
      * persistent connections, and we need to match all requests with responses.
+     * 
+     * NOTE that this is the original, unmodified request in this case without
+     * hop-by-hop headers stripped and without HTTP request filters applied.
+     * It's the raw request we received from the client connection.
+     * 
+     * See ProxyHttpRequestEncoder.
      * 
      * @param request The HTTP request to add.
      */

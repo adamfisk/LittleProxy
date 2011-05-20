@@ -4,9 +4,10 @@ import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
-import java.util.LinkedList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -47,6 +48,8 @@ public class ProxyUtils {
      */
     public static final String PATTERN_RFC1036 = "EEEE, dd-MMM-yy HH:mm:ss zzz";
     
+    private static final Set<String> hopByHopHeaders = new HashSet<String>();
+    
     private static final String via;
     private static final String hostName;
     
@@ -64,6 +67,15 @@ public class ProxyUtils {
         sb.append(hostName);
         sb.append("\r\n");
         via = sb.toString();
+        
+        hopByHopHeaders.add("connection");
+        hopByHopHeaders.add("keep-alive");
+        hopByHopHeaders.add("proxy-authenticate");
+        hopByHopHeaders.add("proxy-authorization");
+        hopByHopHeaders.add("te");
+        hopByHopHeaders.add("trailers");
+        hopByHopHeaders.add("transfer-encoding");
+        hopByHopHeaders.add("upgrade");
     }
 
     /**
@@ -396,12 +408,21 @@ public class ProxyUtils {
             copy.setContent(originalContent);
         }
         
+        // We also need to follow 2616 section 13.5.1 End-to-end and 
+        // Hop-by-hop Headers
+        // The following HTTP/1.1 headers are hop-by-hop headers:
+        //   - Connection
+        //   - Keep-Alive
+        //   - Proxy-Authenticate
+        //   - Proxy-Authorization
+        //   - TE
+        //   - Trailers
+        //   - Transfer-Encoding
+        //   - Upgrade
+        
         LOG.info("Request copy method: {}", copy.getMethod());
-        final Set<String> headerNames = original.getHeaderNames();
-        for (final String name : headerNames) {
-            final List<String> values = original.getHeaders(name);
-            copy.setHeader(name, values);
-        }
+        copyHeaders(original, copy);
+
         final String ae = copy.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
         if (StringUtils.isNotBlank(ae)) {
             // Remove sdch from encodings we accept since we can't decode it.
@@ -423,6 +444,32 @@ public class ProxyUtils {
         return copy;
     }
     
+    private static void copyHeaders(final HttpMessage original, 
+        final HttpMessage copy) {
+        final Set<String> headerNames = original.getHeaderNames();
+        for (final String name : headerNames) {
+            if (!hopByHopHeaders.contains(name.toLowerCase())) {
+                final List<String> values = original.getHeaders(name);
+                copy.setHeader(name, values);
+            }
+        }
+    }
+
+    /**
+     * Removes all headers that should not be forwarded.
+     * See RFC 2616 13.5.1 End-to-end and Hop-by-hop Headers.
+     * 
+     * @param msg The message to strip headers from.
+     */
+    public static void stripHopByHopHeaders(final HttpMessage msg) {
+        final Set<String> headerNames = msg.getHeaderNames();
+        for (final String name : headerNames) {
+            if (hopByHopHeaders.contains(name.toLowerCase())) {
+                msg.removeHeader(name);
+            }
+        }
+    }
+
     /**
      * Creates a copy of an original HTTP request to void modifying it.
      * This variant will unconditionally strip the proxy-formatted request.
@@ -441,21 +488,21 @@ public class ProxyUtils {
      * @param httpRequest The request.
      */
     public static void addVia(final HttpRequest httpRequest) {
-        final List<String> vias; 
-        if (httpRequest.containsHeader(HttpHeaders.Names.VIA)) {
-            vias = httpRequest.getHeaders(HttpHeaders.Names.VIA);
-        }
-        else {
-            vias = new LinkedList<String>();
-        }
-        
         final StringBuilder sb = new StringBuilder();
         sb.append(httpRequest.getProtocolVersion().getMajorVersion());
         sb.append(".");
         sb.append(httpRequest.getProtocolVersion().getMinorVersion());
         sb.append(".");
         sb.append(hostName);
-        vias.add(sb.toString());
+        final List<String> vias; 
+        if (httpRequest.containsHeader(HttpHeaders.Names.VIA)) {
+            vias = httpRequest.getHeaders(HttpHeaders.Names.VIA);
+            vias.add(sb.toString());
+        }
+        else {
+            vias = Arrays.asList(sb.toString());
+        }
         httpRequest.setHeader(HttpHeaders.Names.VIA, vias);
     }
+
 }
