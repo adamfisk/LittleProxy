@@ -290,7 +290,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         final ExceptionEvent e) throws Exception {
         log.warn("Caught exception on proxy -> web connection: "+
             e.getChannel(), e.getCause());
-        if (e.getChannel().isOpen()) {
+        if (e.getChannel().isConnected()) {
             log.warn("Closing open connection");
             ProxyUtils.closeOnFlush(e.getChannel());
         }
