@@ -68,14 +68,17 @@ public class ProxyUtils {
         sb.append("\r\n");
         via = sb.toString();
         
-        hopByHopHeaders.add("proxy-connection");
+        //hopByHopHeaders.add("proxy-connection");
         hopByHopHeaders.add("connection");
         hopByHopHeaders.add("keep-alive");
         hopByHopHeaders.add("proxy-authenticate");
         hopByHopHeaders.add("proxy-authorization");
         hopByHopHeaders.add("te");
         hopByHopHeaders.add("trailers");
-        hopByHopHeaders.add("transfer-encoding");
+        
+        // We pass Transfer-Encoding along in both directions, as we don't
+        // choose to modify it.
+        //hopByHopHeaders.add("transfer-encoding");
         hopByHopHeaders.add("upgrade");
     }
 
@@ -430,6 +433,17 @@ public class ProxyUtils {
             final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
             copy.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
             LOG.info("Removed sdch and inserted: {}", noSdch);
+        }
+        
+        // Switch the de-facto standard "Proxy-Connection" header to 
+        // "Connection" when we pass it along to the remote host. This is 
+        // largely undocumented but seems to be what most browsers and servers
+        // expect.
+        final String proxyConnectionKey = "Proxy-Connection";
+        if (copy.containsHeader(proxyConnectionKey)) {
+            final String header = copy.getHeader(proxyConnectionKey);
+            copy.removeHeader(proxyConnectionKey);
+            copy.setHeader("Connection", header);
         }
         
         ProxyUtils.addVia(copy);

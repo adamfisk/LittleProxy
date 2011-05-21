@@ -53,11 +53,12 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
             // accordingly
             final HttpRequest httpRequestCopy = 
                 ProxyUtils.copyHttpRequest(request, 
-                this.chainProxyHostAndPort != null);
+                    this.chainProxyHostAndPort != null);
             
             if (this.requestFilter != null) {
                 this.requestFilter.filter(httpRequestCopy);
             }
+            LOG.info("Writing modified request: {}", httpRequestCopy);
             //LOG.info("Sending modified request headers:");
             //ProxyUtils.printHeaders(httpRequestCopy);
             return super.encode(ctx, channel, httpRequestCopy);

@@ -94,6 +94,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         final boolean flush;
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
+            log.info("Received raw response: {}", hr);
             httpResponse = hr;
             final HttpResponse response;
             
@@ -187,7 +188,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 log.info("Closing remote connection after writing to browser");
                 
                 // We close after the future has completed to make sure that
-                // all the response data is written to the browser. Note that
+                // all the response data is written to the browser -- 
+                // closing immediately could trigger a close to the browser 
+                // as well before all the data has been written. Note that
                 // in many cases a call to close the remote connection will
                 // ultimately result in the connection to the browser closing,
                 // particularly when there are no more remote connections
