@@ -128,16 +128,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             else {
                 flush = true;
             }
-            ProxyUtils.stripHopByHopHeaders(response);
-            ProxyUtils.addVia(response);
             
             final HttpResponse filtered = 
                 this.httpFilter.filterResponse(response);
             messageToWrite = filtered;
-            
-            log.info("Response status: {}", filtered.getStatus());
-            log.info("Headers sent to browser: ");
-            ProxyUtils.printHeaders(filtered);
             
             // An HTTP response is associated with a single request, so we
             // can pop the correct request off the queue.
@@ -167,9 +161,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             messageToWrite = chunk;
         }
         
-        if (browserToProxyChannel.isOpen()) {
+        if (browserToProxyChannel.isConnected()) {
             final ChannelFuture future = 
-                browserToProxyChannel.write(
+                this.browserToProxyChannel.write(
                     new ProxyHttpResponse(this.currentHttpRequest, httpResponse, 
                         messageToWrite));
 
@@ -182,6 +176,12 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER);
             } else {
                 //future.addListener(cfl);
+            }
+            
+            if (wroteFullResponse(httpResponse)) {
+                log.info("Notifying relay");
+                this.relayListener.onRelayHttpResponse(browserToProxyChannel, 
+                    this.hostAndPort, this.currentHttpRequest);
             }
             if (shouldCloseRemoteConnection(this.currentHttpRequest, 
                 httpResponse, messageToWrite)) {
@@ -226,6 +226,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         }
     }
     
+    private boolean wroteFullResponse(final HttpResponse res) {
+        if (res.isChunked()) {
+            return ProxyUtils.isLastChunk(res);
+        }
+        return true;
+    }
+
     private boolean shouldCloseBrowserConnection(final HttpRequest req, 
         final HttpResponse res, final Object msg) {
         if (res.isChunked()) {

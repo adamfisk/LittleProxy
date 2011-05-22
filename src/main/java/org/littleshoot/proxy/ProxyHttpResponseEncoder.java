@@ -50,6 +50,15 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
             // The actual response is either a chunk or a "normal" response.
             final Object response = proxyResponse.getResponse();
             
+            // We do this right before encoding because we want to deal with
+            // the hop-by-hop headers elsewhere in the proxy processing logic.
+            if (response instanceof HttpResponse) {
+                final HttpResponse hr = (HttpResponse) response;
+                ProxyUtils.stripHopByHopHeaders(hr);
+                ProxyUtils.addVia(hr);
+                log.info("Actual response going to browser: {}", hr);
+            }
+            
             final ChannelBuffer encoded = 
                 (ChannelBuffer) super.encode(ctx, channel, response);
             

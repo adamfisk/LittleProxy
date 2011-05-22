@@ -2,12 +2,22 @@ package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
+import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
+import javax.management.ObjectName;
 
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -47,7 +57,7 @@ import org.slf4j.LoggerFactory;
  * to host A has completed.
  */
 public class HttpRequestHandler extends SimpleChannelUpstreamHandler 
-    implements RelayListener {
+    implements RelayListener, ConnectionData {
 
     private final static Logger log = 
         LoggerFactory.getLogger(HttpRequestHandler.class);
@@ -63,7 +73,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private volatile int messagesReceived = 0;
     
     private volatile int numWebConnections = 0;
+    private volatile int unansweredRequestCount = 0;
+    
+    private volatile int requestsSent = 0;
+    
+    private volatile int responsesReceived = 0;
+    
     private final ProxyAuthorizationManager authorizationManager;
+    
+    private final Set<String> answeredRequests = new HashSet<String>();
+    private final Set<String> unansweredRequests = new HashSet<String>();
     
     /**
      * Note, we *can* receive requests for multiple different sites from the
@@ -86,38 +105,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private final HttpRequestFilter requestFilter;
     
     private final AtomicBoolean browserChannelClosed = new AtomicBoolean(false);
+    private volatile boolean receivedChannelClosed = false;
+    private final boolean useJmx;
     
-    /**
-     * Creates a new class for handling HTTP requests with the specified
-     * authentication manager.
-     * 
-     * @param cacheManager The manager for the cache. 
-     * @param authorizationManager The class that handles any 
-     * proxy authentication requirements.
-     * @param channelGroup The group of channels for keeping track of all
-     * channels we've opened.
-     * @param filters HTTP filtering rules.
-     * @param clientChannelFactory The common channel factory for clients.
-     * @param chainProxyHostAndPort upstream proxy server host and port or null 
-     * if none used.
-     * @param requestFilter An optional filter for HTTP requests.
-     */
-    public HttpRequestHandler(final ProxyCacheManager cacheManager, 
-        final ProxyAuthorizationManager authorizationManager, 
-        final ChannelGroup channelGroup, 
-        final Map<String, HttpFilter> filters,
-        final ClientSocketChannelFactory clientChannelFactory,
-        final String chainProxyHostAndPort, 
-        final HttpRequestFilter requestFilter) {
-        this.cacheManager = cacheManager;
-        this.authorizationManager = authorizationManager;
-        this.channelGroup = channelGroup;
-        this.filters = filters;
-        this.clientChannelFactory = clientChannelFactory;
-        this.chainProxyHostAndPort = chainProxyHostAndPort;
-        this.requestFilter = requestFilter;
-    }
-
     /**
      * Creates a new class for handling HTTP requests with the specified
      * authentication manager.
@@ -136,7 +126,69 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final Map<String, HttpFilter> filters,
         final ClientSocketChannelFactory clientChannelFactory) {
         this(cacheManager, authorizationManager, channelGroup, filters, 
-            clientChannelFactory, null, null);
+            clientChannelFactory, null, null, false);
+    }
+    
+    /**
+     * Creates a new class for handling HTTP requests with the specified
+     * authentication manager.
+     * 
+     * @param cacheManager The manager for the cache. 
+     * @param authorizationManager The class that handles any 
+     * proxy authentication requirements.
+     * @param channelGroup The group of channels for keeping track of all
+     * channels we've opened.
+     * @param filters HTTP filtering rules.
+     * @param clientChannelFactory The common channel factory for clients.
+     * @param chainProxyHostAndPort upstream proxy server host and port or null 
+     * if none used.
+     * @param requestFilter An optional filter for HTTP requests.
+     * @param useJmx Whether or not to expose debugging properties via JMX.
+     */
+    public HttpRequestHandler(final ProxyCacheManager cacheManager, 
+        final ProxyAuthorizationManager authorizationManager, 
+        final ChannelGroup channelGroup, 
+        final Map<String, HttpFilter> filters,
+        final ClientSocketChannelFactory clientChannelFactory,
+        final String chainProxyHostAndPort, 
+        final HttpRequestFilter requestFilter, final boolean useJmx) {
+        this.cacheManager = cacheManager;
+        this.authorizationManager = authorizationManager;
+        this.channelGroup = channelGroup;
+        this.filters = filters;
+        this.clientChannelFactory = clientChannelFactory;
+        this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.requestFilter = requestFilter;
+        this.useJmx = useJmx;
+        if (useJmx) {
+            setupJmx();
+        }
+    }
+
+
+    private void setupJmx() {
+        final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+        try {
+            final Class<? extends SimpleChannelUpstreamHandler> clazz = 
+                getClass();
+            final String pack = clazz.getPackage().getName();
+            final String oName =
+                pack+":type="+clazz.getSimpleName()+"-"+clazz.getSimpleName() + 
+                hashCode();
+            log.info("Registering MBean with name: {}", oName);
+            final ObjectName mxBeanName = new ObjectName(oName);
+            if(!mbs.isRegistered(mxBeanName)) {
+                mbs.registerMBean(this, mxBeanName);
+            }
+        } catch (final MalformedObjectNameException e) {
+            log.error("Could not set up JMX", e);
+        } catch (final InstanceAlreadyExistsException e) {
+            log.error("Could not set up JMX", e);
+        } catch (final MBeanRegistrationException e) {
+            log.error("Could not set up JMX", e);
+        } catch (final NotCompliantMBeanException e) {
+            log.error("Could not set up JMX", e);
+        }
     }
     
     @Override
@@ -211,7 +263,19 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
                 if (request.getMethod() != HttpMethod.CONNECT) {
-                    return cf.getChannel().write(request);
+                    final ChannelFuture writeFuture = cf.getChannel().write(request);
+                    writeFuture.addListener(new ChannelFutureListener() {
+                        
+                        public void operationComplete(final ChannelFuture future) 
+                            throws Exception {
+                            if (useJmx) {
+                                unansweredRequests.add(request.toString());
+                            }
+                            unansweredRequestCount++;
+                            requestsSent++;
+                        }
+                    });
+                    return writeFuture;
                 }
                 else {
                     writeConnectResponse(ctx, request, cf.getChannel());
@@ -473,7 +537,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 log.info("Got reader idle -- closing");
                 e.getChannel().close();
             } else if (e.getState() == IdleState.WRITER_IDLE) {
-                log.info("Got writer idle");
+                log.info("Got writer idle -- closing connection");
+                e.getChannel().close();
             }
         }
     }
@@ -523,8 +588,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     
     public void onRelayChannelClose(final Channel browserToProxyChannel, 
         final String key) {
+        this.receivedChannelClosed = true;
         this.numWebConnections--;
-        if (this.numWebConnections == 0) {
+        if (this.numWebConnections == 0 || this.unansweredRequestCount == 0) {
             if (!browserChannelClosed.getAndSet(true)) {
                 log.info("Closing browser to proxy channel");
                 ProxyUtils.closeOnFlush(browserToProxyChannel);
@@ -532,7 +598,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         else {
             log.info("Not closing browser to proxy channel. Still "+
-                this.numWebConnections+" connections...");
+                this.numWebConnections+" connections and awaiting "+
+                this.unansweredRequestCount + " responses");
         }
         this.endpointsToChannelFutures.remove(key);
         
@@ -543,6 +610,31 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         else {
             log.info("WEB CONNECTIONS COUNTS IN SYNC..REMAINING "+
                 this.numWebConnections);
+        }
+    }
+    
+
+    public void onRelayHttpResponse(final Channel browserToProxyChannel,
+        final String key, final HttpRequest httpRequest) {
+        if (this.useJmx) {
+            this.answeredRequests.add(httpRequest.toString());
+            this.unansweredRequests.remove(httpRequest.toString());
+        }
+        this.unansweredRequestCount--;
+        this.responsesReceived++;
+        // If we've received responses to all outstanding requests and one
+        // of those outgoing channels has been closed, we should close the
+        // connection to the browser.
+        if (this.unansweredRequestCount == 0 && this.receivedChannelClosed) {
+            if (!browserChannelClosed.getAndSet(true)) {
+                log.info("Closing browser to proxy channel on HTTP response");
+                ProxyUtils.closeOnFlush(browserToProxyChannel);
+            }
+        }
+        else {
+            log.info("Not closing browser to proxy channel. Still "+
+                "awaiting " + this.unansweredRequestCount+" responses..." +
+                "receivedChannelClosed="+this.receivedChannelClosed);
         }
     }
 
@@ -560,5 +652,33 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 channel, cause);
         }
         ProxyUtils.closeOnFlush(channel);
+    }
+
+    public int getClientConnections() {
+        return this.browserToProxyConnections;
+    }
+    
+    public int getTotalClientConnections() {
+        return totalBrowserToProxyConnections;
+    }
+
+    public int getOutgoingConnections() {
+        return numWebConnections;
+    }
+
+    public int getRequestsSent() {
+        return this.requestsSent;
+    }
+
+    public int getResponsesReceived() {
+        return this.responsesReceived;
+    }
+
+    public String getUnansweredRequests() {
+        return this.unansweredRequests.toString();
+    }
+
+    public String getAnsweredReqeusts() {
+        return this.answeredRequests.toString();
     }
 }

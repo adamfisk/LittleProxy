@@ -6,11 +6,18 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
+import javax.management.ObjectName;
 import javax.net.ssl.SSLEngine;
 
 import org.apache.commons.lang.StringUtils;
@@ -33,7 +40,8 @@ import org.slf4j.LoggerFactory;
  * Factory for creating pipelines for incoming requests to our listening
  * socket.
  */
-public class HttpServerPipelineFactory implements ChannelPipelineFactory {
+public class HttpServerPipelineFactory implements ChannelPipelineFactory, 
+    AllConnectionData {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
@@ -55,6 +63,10 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     private final KeyStoreManager ksm;
 
     private final HttpRequestFilter requestFilter;
+
+    private int numHandlers;
+
+    private boolean useJmx;
 
     /**
      * Creates a new pipeline factory with the specified class for processing
@@ -107,11 +119,17 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         try {
             final InputStream is = new FileInputStream(propsFile);
             props.load(is);
+            this.useJmx = extractBoolean(props, "jmx");
+            if (this.useJmx) {
+                setupJmx();
+            }
+            /*
             final boolean useThrottle = extractBoolean(props, "throttle");
             if (useThrottle) {
                 readThrottle = extractLong(props, "readThrottle");
                 writeThrottle = extractLong(props, "writeThrottle");
             }
+            */
         } catch (final IOException e) {
             log.info("Not using props file");
             // No problem -- just don't use 'em.
@@ -141,6 +159,30 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
                 */
             }
         }));
+    }
+    
+    private void setupJmx() {
+        final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+        try {
+            final Class<? extends AllConnectionData> clazz = getClass();
+            final String pack = clazz.getPackage().getName();
+            final String oName =
+                pack+":type="+clazz.getSimpleName()+"-"+clazz.getSimpleName() + 
+                hashCode();
+            log.info("Registering MBean with name: {}", oName);
+            final ObjectName mxBeanName = new ObjectName(oName);
+            if(!mbs.isRegistered(mxBeanName)) {
+                mbs.registerMBean(this, mxBeanName);
+            }
+        } catch (final MalformedObjectNameException e) {
+            log.error("Could not set up JMX", e);
+        } catch (final InstanceAlreadyExistsException e) {
+            log.error("Could not set up JMX", e);
+        } catch (final MBeanRegistrationException e) {
+            log.error("Could not set up JMX", e);
+        } catch (final NotCompliantMBeanException e) {
+            log.error("Could not set up JMX", e);
+        }
     }
     
     private boolean extractBoolean(final Properties props, final String key) {
@@ -186,7 +228,12 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
             new HttpRequestHandler(this.cacheManager, authenticationManager, 
                 this.channelGroup, this.filters, 
                 this.clientSocketChannelFactory,
-                this.chainProxyHostAndPort, this.requestFilter));
+                this.chainProxyHostAndPort, this.requestFilter, this.useJmx));
+        this.numHandlers++;
         return pipeline;
+    }
+
+    public int getNumRequestHandlers() {
+        return this.numHandlers;
     }
 }

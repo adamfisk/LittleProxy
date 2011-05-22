@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.handler.codec.http.HttpRequest;
 
 /**
  * Listener for events on the HTTP traffic relayer.
@@ -8,5 +9,8 @@ import org.jboss.netty.channel.Channel;
 public interface RelayListener {
 
     void onRelayChannelClose(Channel browserToProxyChannel, String hostAndPort);
+    
+    void onRelayHttpResponse(Channel browserToProxyChannel, String hostAndPort, 
+        HttpRequest httpRequest);
 
 }
