@@ -178,7 +178,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 //future.addListener(cfl);
             }
             
-            if (wroteFullResponse(httpResponse)) {
+            // If we've written the full response, we need to notify the 
+            // request handler. This is because sometimes the remote server
+            // will signify the end of an HTTP response body through closing
+            // the connection. Each incoming client connection can spawn 
+            // multiple external server connections, however, so each external 
+            // connection close can't necessarily be propagated to result
+            // in closing the client connection. In fact, that should only 
+            // happen if we're received responses to all outgoing requests or
+            // all other external connections are already closed. We notify
+            // the request handler of complete HTTP responses here.
+            // 
+            // Thanks to Emil Goicovici for identifying a bug in the initial
+            // logic for this.
+            if (wroteFullResponse(httpResponse, messageToWrite)) {
                 log.info("Notifying relay");
                 this.relayListener.onRelayHttpResponse(browserToProxyChannel, 
                     this.hostAndPort, this.currentHttpRequest);
@@ -226,9 +239,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         }
     }
     
-    private boolean wroteFullResponse(final HttpResponse res) {
+    private boolean wroteFullResponse(final HttpResponse res, 
+        final Object messageToWrite) {
         if (res.isChunked()) {
-            return ProxyUtils.isLastChunk(res);
+            return ProxyUtils.isLastChunk(messageToWrite);
         }
         return true;
     }
