@@ -56,7 +56,7 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
                 final HttpResponse hr = (HttpResponse) response;
                 ProxyUtils.stripHopByHopHeaders(hr);
                 ProxyUtils.addVia(hr);
-                log.info("Actual response going to browser: {}", hr);
+                //log.info("Actual response going to browser: {}", hr);
             }
             
             final ChannelBuffer encoded = 

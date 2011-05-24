@@ -433,12 +433,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             cpf = newDefaultRelayPipeline(httpRequest, browserToProxyChannel);
         }
             
-        // Set up the event pipeline factory.
         cb.setPipelineFactory(cpf);
         cb.setOption("connectTimeoutMillis", 40*1000);
-
-        // Start the connection attempt.
-        log.info("Starting new connection to: "+hostAndPort);
+        log.info("Starting new connection to: {}", hostAndPort);
         final ChannelFuture future = 
             cb.connect(new InetSocketAddress(host, port));
         return future;
@@ -459,7 +456,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 //
                 // We also importantly need to follow the cache directives
                 // in the HTTP response.
-                pipeline.addLast("decoder", new HttpResponseDecoder());
+                pipeline.addLast("decoder", 
+                    new HttpResponseDecoder(8192, 8192*2, 8192*2));
                 
                 log.info("Querying for host and port: {}", hostAndPort);
                 final boolean shouldFilter;

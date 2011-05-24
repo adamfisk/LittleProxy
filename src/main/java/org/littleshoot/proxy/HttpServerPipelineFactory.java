@@ -216,7 +216,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             
         // We want to allow longer request lines, headers, and chunks 
         // respectively.
-        pipeline.addLast("decoder", new HttpRequestDecoder());
+        pipeline.addLast("decoder", 
+            new HttpRequestDecoder(8192, 8192*2, 8192*2));
         pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
 
         /*

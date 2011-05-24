@@ -58,9 +58,7 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
             if (this.requestFilter != null) {
                 this.requestFilter.filter(httpRequestCopy);
             }
-            LOG.info("Writing modified request: {}", httpRequestCopy);
-            //LOG.info("Sending modified request headers:");
-            //ProxyUtils.printHeaders(httpRequestCopy);
+            //LOG.info("Writing modified request: {}", httpRequestCopy);
             return super.encode(ctx, channel, httpRequestCopy);
         }
         return super.encode(ctx, channel, msg);
