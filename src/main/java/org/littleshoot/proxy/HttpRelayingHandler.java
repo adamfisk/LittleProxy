@@ -173,7 +173,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 // being encoded to null.
                 //browserToProxyChannel.write(
                 //    ChannelBuffers.EMPTY_BUFFER).addListener(cfl);
-                browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER);
+                //browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER);
+                browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER).addListener(
+                    ProxyUtils.NO_OP_LISTENER);
             } else {
                 //future.addListener(cfl);
             }
