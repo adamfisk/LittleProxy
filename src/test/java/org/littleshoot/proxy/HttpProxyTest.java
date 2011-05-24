@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -13,10 +12,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.channels.Channels;
@@ -24,7 +21,6 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
@@ -37,50 +33,6 @@ import org.junit.Test;
  * Tests the default HTTP proxy.
  */
 public class HttpProxyTest {
-
-    @Test public void testWeirdResponseCase() throws Exception {
-        final String request = 
-            "GET /mlb/gamechannel?lid=32650&type=mlb&matchid= HTTP/1.1\r\n"+
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n"+
-            "Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\n"+
-            "Accept-Language: en-us,en;q=0.5\r\n"+
-            "Cookie: B=adk5t1p6tdur5&b=4&d=OehzP1tpYELG1h.uKoS64ehuesxAk57iCA374Q--&s=ju&i=q1klmQ4_CcPYdzXUNW.K; F=a=kmnKDBMMvTQIycYP0sfCJVsueqNpIyLprQ05BrKDQ_0mLSxyXp7VAPgVNgj.To1HPPMqXsU-&b=e6Us; YLS=v=1&p=1&n=9; Y=v=1&n=ah3jkgmjh7be3&l=058iat/o&p=m2b0auh453000400&jb=21|34|12&r=8k&lg=en-US&intl=us; PH=fn=DMrYik8BkXH3oFvaKw--&l=en-US; T=z=2tv1NB2BX6NBAS4Xv1i.6VcMzQyBjY2TjEyNTMxNzE-&a=YAE&sk=DAAU/ppY5H5I0h&ks=EAAoF_618djW3s10oqGOO6kKg--~E&d=c2wBTkRNMUFURXhPVFkxTWpRMk1EWS0BYQFZQUUBZwFETTdRS0pONzZBT0RKRjJHMzZJQkYyRzdJRQFvawFaVzAtAXRpcAF5a2dtdUMBenoBMnR2MU5CQTdF\r\n"+
-            "Host: sports.yahoo.com\r\n"+
-            "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:2.0) Gecko/20100101 Firefox/4.0\r\n"+
-            "Accept-Encoding: gzip, deflate\r\n"+
-            "Connection: Keep-Alive\r\n"+
-            "Via: 1.1.50-9-154-174.los.clearwire-wmx.net\r\n\r\n";
-        
-        final Socket sock = new Socket();
-        sock.connect(new InetSocketAddress("sports.yahoo.com", 80), 20000);
-        final InputStream is = sock.getInputStream();
-        final OutputStream os = sock.getOutputStream();
-        
-        os.write(request.getBytes());
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        copy(is, baos);
-    }
-
-    private static int copy(final InputStream is, final OutputStream os)
-            throws IOException {
-        if (is == null) {
-            throw new NullPointerException("null input stream.");
-        }
-        if (os == null) {
-            throw new NullPointerException("null output stream.");
-        }
-        final byte[] buffer = new byte[4096];
-        int count = 0;
-        int n = 0;
-        while (-1 != (n = is.read(buffer))) {
-            os.write(buffer, 0, n);
-            System.out.println("Read "+n+" bytes");
-            System.out.println(new String(buffer));
-            count += n;
-        }
-        System.out.println("Returning count "+count);
-        return count;
-    }
     
     @Test public void testDummy() {
         // Placeholder for now.
