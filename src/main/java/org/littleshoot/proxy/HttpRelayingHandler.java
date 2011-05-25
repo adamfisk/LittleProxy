@@ -190,13 +190,15 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // happen if we're received responses to all outgoing requests or
             // all other external connections are already closed. We notify
             // the request handler of complete HTTP responses here.
-            // 
-            // Thanks to Emil Goicovici for identifying a bug in the initial
-            // logic for this.
             if (wroteFullResponse(httpResponse, messageToWrite)) {
                 log.info("Notifying relay");
-                this.relayListener.onRelayHttpResponse(browserToProxyChannel, 
-                    this.hostAndPort, this.currentHttpRequest);
+                future.addListener(new ChannelFutureListener() {
+                    public void operationComplete(final ChannelFuture cf) 
+                        throws Exception {
+                        relayListener.onRelayHttpResponse(browserToProxyChannel, 
+                            hostAndPort, currentHttpRequest);
+                    }
+                });
             }
             if (shouldCloseRemoteConnection(this.currentHttpRequest, 
                 httpResponse, messageToWrite)) {
@@ -243,6 +245,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     
     private boolean wroteFullResponse(final HttpResponse res, 
         final Object messageToWrite) {
+        // Thanks to Emil Goicovici for identifying a bug in the initial
+        // logic for this.
         if (res.isChunked()) {
             return ProxyUtils.isLastChunk(messageToWrite);
         }
