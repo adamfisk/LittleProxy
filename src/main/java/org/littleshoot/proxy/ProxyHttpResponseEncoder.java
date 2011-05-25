@@ -16,6 +16,7 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final ProxyCacheManager cacheManager;
+    private final boolean transparent;
 
     /**
      * Creates a new HTTP response encoder that doesn't include responses in 
@@ -32,7 +33,30 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
      * @param cacheManager The class that manages the cache.
      */
     public ProxyHttpResponseEncoder(final ProxyCacheManager cacheManager) {
+        this(cacheManager, false);
+    }
+
+    /**
+     * Creates a new HTTP response encoder that intercepts the encoding to 
+     * include any relevant responses in the cache.
+     * 
+     * @param transparent Whether or not this should act as a transparent proxy.
+     */
+    public ProxyHttpResponseEncoder(final boolean transparent) {
+        this(null, transparent);
+    }
+    
+    /**
+     * Creates a new HTTP response encoder that intercepts the encoding to 
+     * include any relevant responses in the cache.
+     * 
+     * @param cacheManager The class that manages the cache.
+     * @param transparent Whether or not this should act as a transparent proxy.
+     */
+    public ProxyHttpResponseEncoder(final ProxyCacheManager cacheManager,
+        final boolean transparent) {
         this.cacheManager = cacheManager;
+        this.transparent = transparent;
     }
     
     @Override
@@ -52,11 +76,13 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
             
             // We do this right before encoding because we want to deal with
             // the hop-by-hop headers elsewhere in the proxy processing logic.
-            if (response instanceof HttpResponse) {
-                final HttpResponse hr = (HttpResponse) response;
-                ProxyUtils.stripHopByHopHeaders(hr);
-                ProxyUtils.addVia(hr);
-                //log.info("Actual response going to browser: {}", hr);
+            if (!this.transparent) {
+                if (response instanceof HttpResponse) {
+                    final HttpResponse hr = (HttpResponse) response;
+                    ProxyUtils.stripHopByHopHeaders(hr);
+                    ProxyUtils.addVia(hr);
+                    //log.info("Actual response going to browser: {}", hr);
+                }
             }
             
             final ChannelBuffer encoded = 
@@ -67,9 +93,17 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
                 this.cacheManager.cache(httpRequest, httpResponse, response, 
                     encoded);
             }
-            
             return encoded;
+            
+        } else if (msg instanceof HttpResponse) {
+            // We can get an HttpResponse when a third-party is custom 
+            // configured, for example.
+            if (!this.transparent) {
+                final HttpResponse hr = (HttpResponse) msg;
+                ProxyUtils.stripHopByHopHeaders(hr);
+                ProxyUtils.addVia(hr);
+            }
         }
-        return msg;
+        return super.encode(ctx, channel, msg);
     }
 }

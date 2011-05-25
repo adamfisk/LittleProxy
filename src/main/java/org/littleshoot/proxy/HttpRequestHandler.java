@@ -6,6 +6,7 @@ import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -107,6 +108,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private final AtomicBoolean browserChannelClosed = new AtomicBoolean(false);
     private volatile boolean receivedChannelClosed = false;
     private final boolean useJmx;
+    
+    /**
+     * Creates a new class for handling HTTP requests with no frills.
+     * 
+     * @param clientChannelFactory The common channel factory for clients.
+     */
+    public HttpRequestHandler(
+        final ClientSocketChannelFactory clientChannelFactory) {
+        this(null, null, null, new HashMap<String, HttpFilter> (), 
+            clientChannelFactory, null, null, false);
+    }
     
     /**
      * Creates a new class for handling HTTP requests with the specified
@@ -238,7 +250,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private void processMessage(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
         
-        if (this.cacheManager.returnCacheHit((HttpRequest)me.getMessage(), 
+        if (this.cacheManager != null &&
+            this.cacheManager.returnCacheHit((HttpRequest)me.getMessage(), 
             me.getChannel())) {
             log.info("Found cache hit! Cache wrote the response.");
             return;
@@ -247,7 +260,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final HttpRequest request = (HttpRequest) me.getMessage();
         
         log.info("Got request: {} on channel: "+me.getChannel(), request);
-        if (!this.authorizationManager.handleProxyAuthorization(request, ctx)) {
+        if (this.authorizationManager != null && 
+            !this.authorizationManager.handleProxyAuthorization(request, ctx)) {
             log.info("Not authorized!!");
             return;
         }
@@ -325,7 +339,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     public void operationComplete(final ChannelFuture future)
                         throws Exception {
                         final Channel channel = future.getChannel();
-                        channelGroup.add(channel);
+                        if (channelGroup != null) {
+                            channelGroup.add(channel);
+                        }
                         if (future.isSuccess()) {
                             log.info("Connected successfully to: {}", channel);
                             log.info("Writing message on channel...");
@@ -554,7 +570,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             " browser to proxy channels...");
         
         // We need to keep track of the channel so we can close it at the end.
-        this.channelGroup.add(inboundChannel);
+        if (this.channelGroup != null) {
+            this.channelGroup.add(inboundChannel);
+        }
     }
     
     @Override

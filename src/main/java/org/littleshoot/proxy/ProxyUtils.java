@@ -112,6 +112,12 @@ public class ProxyUtils {
         "Cache-Control: no-cache\r\n" +
         via +
         "\r\n";
+
+    public static final HttpRequestFilter PASS_THROUGH_REQUEST_FILTER = 
+        new HttpRequestFilter() {
+            public void filter(final HttpRequest httpRequest) {
+            }
+        };
     
     // Should never be constructed.
     private ProxyUtils() {

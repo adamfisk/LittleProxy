@@ -19,7 +19,19 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
     private final HttpRelayingHandler relayingHandler;
     private final HttpRequestFilter requestFilter;
     private final String chainProxyHostAndPort;
+    private final boolean transparent;
 
+    /**
+     * Creates a new request encoder.
+     * 
+     * @param handler The class that handles relaying all data along this 
+     * connection. We need this to synchronize caching rules for each request
+     * and response pair.
+     */
+    public ProxyHttpRequestEncoder(final HttpRelayingHandler handler) {
+        this(handler, null, null, false);
+    }
+    
     /**
      * Creates a new request encoder.
      * 
@@ -32,9 +44,28 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
     public ProxyHttpRequestEncoder(final HttpRelayingHandler handler, 
         final HttpRequestFilter requestFilter, 
         final String chainProxyHostAndPort) {
+        this(handler, requestFilter, chainProxyHostAndPort, false);
+    }
+    
+    /**
+     * Creates a new request encoder.
+     * 
+     * @param handler The class that handles relaying all data along this 
+     * connection. We need this to synchronize caching rules for each request
+     * and response pair.
+     * @param chainProxyHostAndPort The configured proxy chain host and port.
+     * @param requestFilter The filter for requests.
+     * @param transparent Whether or not this is an transparent proxy. 
+     * Transparent proxies don't add extra via headers or follow normal 
+     * proxy rules.
+     */
+    public ProxyHttpRequestEncoder(final HttpRelayingHandler handler, 
+        final HttpRequestFilter requestFilter, 
+        final String chainProxyHostAndPort, final boolean transparent) {
         this.relayingHandler = handler;
         this.requestFilter = requestFilter;
         this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.transparent = transparent;
     }
 
     @Override
@@ -50,16 +81,19 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
             this.relayingHandler.requestEncoded(request);
             
             // Check if we are running in proxy chain mode and modify request 
-            // accordingly
-            final HttpRequest httpRequestCopy = 
-                ProxyUtils.copyHttpRequest(request, 
+            // accordingly.
+            final HttpRequest toSend;
+            if (transparent) {
+                toSend = request;
+            } else {
+                toSend = ProxyUtils.copyHttpRequest(request, 
                     this.chainProxyHostAndPort != null);
-            
+            }
             if (this.requestFilter != null) {
-                this.requestFilter.filter(httpRequestCopy);
+                this.requestFilter.filter(toSend);
             }
             //LOG.info("Writing modified request: {}", httpRequestCopy);
-            return super.encode(ctx, channel, httpRequestCopy);
+            return super.encode(ctx, channel, toSend);
         }
         return super.encode(ctx, channel, msg);
     }
