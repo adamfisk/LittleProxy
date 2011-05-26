@@ -546,7 +546,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     public class IdleAwareHandler extends IdleStateAwareChannelHandler {
 
         @Override
-        public void channelIdle(ChannelHandlerContext ctx, IdleStateEvent e) {
+        public void channelIdle(final ChannelHandlerContext ctx, 
+            final IdleStateEvent e) {
             if (e.getState() == IdleState.READER_IDLE) {
                 log.info("Got reader idle -- closing");
                 e.getChannel().close();

@@ -91,7 +91,22 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         
         final Object messageToWrite;
         
-        final boolean flush;
+        // This boolean is a flag for whether or not to write a closing, empty
+        // "end" buffer after writing the response. We need to do this to 
+        // handle the way Netty creates HttpChunks from responses that aren't 
+        // in fact chunked from the remote server using 
+        // Transfer-Encoding: chunked. Netty turns these into pseudo-chunked
+        // responses in cases where the response would otherwise fill up too
+        // much memory or where the length of the response body is unknown.
+        // This is handy because it means we can start streaming response
+        // bodies back to the browser without reading the entire response.
+        // The problem is that in these pseudo-cases the last chunk is encoded
+        // to null, and this thwarts normal ChannelFutures from propagating
+        // operationComplete events on writes to appropriate channel listeners.
+        // We work around this by writing an empty buffer in those cases and
+        // using the empty buffer's future instead to handle any operations 
+        // we need to when responses are fully written back to clients.
+        final boolean writeEndBuffer;
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
             log.info("Received raw response: {}", hr);
@@ -123,10 +138,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             if (response.isChunked()) {
                 log.info("Starting to read chunks");
                 readingChunks = true;
-                flush = false;
+                writeEndBuffer = false;
             }
             else {
-                flush = true;
+                writeEndBuffer = true;
             }
             
             final HttpResponse filtered = 
@@ -153,31 +168,23 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             final HttpChunk chunk = (HttpChunk) e.getMessage();
             if (chunk.isLast()) {
                 readingChunks = false;
-                flush = true;
+                writeEndBuffer = true;
             }
             else {
-                flush = false;
+                writeEndBuffer = false;
             }
             messageToWrite = chunk;
         }
         
         if (browserToProxyChannel.isConnected()) {
-            final ChannelFuture future = 
+            ChannelFuture future = 
                 this.browserToProxyChannel.write(
                     new ProxyHttpResponse(this.currentHttpRequest, httpResponse, 
                         messageToWrite));
 
-            if (flush) {
-                // We need to flush in the case of the last chunk. It's a 
-                // little complicated, but it has to do with the last chunk
-                // being encoded to null.
-                //browserToProxyChannel.write(
-                //    ChannelBuffers.EMPTY_BUFFER).addListener(cfl);
-                //browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER);
-                browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER).addListener(
-                    ProxyUtils.NO_OP_LISTENER);
-            } else {
-                //future.addListener(cfl);
+            if (writeEndBuffer) {
+                // See the comment on this flag variable above.
+                future = browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER);
             }
             
             // If we've written the full response, we need to notify the 
@@ -189,9 +196,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // in closing the client connection. In fact, that should only 
             // happen if we're received responses to all outgoing requests or
             // all other external connections are already closed. We notify
-            // the request handler of complete HTTP responses here.
+            // the request handler of complete HTTP responses here to allow
+            // it to adhere to that logic.
             if (wroteFullResponse(httpResponse, messageToWrite)) {
-                log.info("Notifying relay");
+                log.debug("Notifying request handler of completed response.");
                 future.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
@@ -202,7 +210,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
             if (shouldCloseRemoteConnection(this.currentHttpRequest, 
                 httpResponse, messageToWrite)) {
-                log.info("Closing remote connection after writing to browser");
+                log.debug("Closing remote connection after writing to browser");
                 
                 // We close after the future has completed to make sure that
                 // all the response data is written to the browser -- 
@@ -222,7 +230,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             
             if (shouldCloseBrowserConnection(this.currentHttpRequest, 
                 httpResponse, messageToWrite)) {
-                log.info("Closing connection to browser after writes");
+                log.debug("Closing connection to browser after writes");
                 future.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
@@ -233,11 +241,12 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
         }
         else {
-            log.info("Channel not open. Connected? {}", 
+            log.debug("Channel not open. Connected? {}", 
                 browserToProxyChannel.isConnected());
             // This will undoubtedly happen anyway, but just in case.
             if (e.getChannel().isOpen()) {
-                log.warn("Closing channel to remote server");
+                log.warn("Closing channel to remote server -- received a " +
+                    "response after the browser connection is closed?");
                 e.getChannel().close();
             }
         }
