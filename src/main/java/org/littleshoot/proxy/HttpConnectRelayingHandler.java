@@ -21,8 +21,8 @@ import org.slf4j.LoggerFactory;
 @Sharable
 public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
     
-    private final Logger log = 
-        LoggerFactory.getLogger(HttpRelayingHandler.class);
+    private static final Logger LOG = 
+        LoggerFactory.getLogger(HttpConnectRelayingHandler.class);
     
     /**
      * The channel to relay to. This could be a connection from the browser
@@ -50,23 +50,21 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent e) throws Exception {
         final ChannelBuffer msg = (ChannelBuffer) e.getMessage();
-        if (relayChannel.isOpen()) {
+        if (relayChannel.isConnected()) {
             final ChannelFutureListener logListener = 
                 new ChannelFutureListener() {
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
-                    log.info("Finished writing data on CONNECT channel");
+                    LOG.debug("Finished writing data on CONNECT channel");
                 }
             };
             relayChannel.write(msg).addListener(logListener);
         }
         else {
-            log.info("Channel not open. Connected? {}", 
+            LOG.info("Channel not open. Connected? {}", 
                 relayChannel.isConnected());
             // This will undoubtedly happen anyway, but just in case.
-            if (e.getChannel().isOpen()) {
-                e.getChannel().close();
-            }
+            ProxyUtils.closeOnFlush(e.getChannel());
         }
     }
     
@@ -74,7 +72,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
     public void channelOpen(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) throws Exception {
         final Channel ch = cse.getChannel();
-        log.info("New channel opened from proxy to web: {}", ch);
+        LOG.info("New CONNECT channel opened from proxy to web: {}", ch);
         if (this.channelGroup != null) {
             this.channelGroup.add(ch);
         }
@@ -83,14 +81,15 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent e) throws Exception {
-        log.info("Got closed event on proxy -> web connection: "+e.getChannel());
-        //closeOnFlush(m_browserToProxyChannel);
+        LOG.info("Got closed event on proxy -> web connection: {}", 
+            e.getChannel());
+        ProxyUtils.closeOnFlush(this.relayChannel);
     }
 
     @Override
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
-        log.warn("Caught exception on proxy -> web connection: "+
+        LOG.warn("Caught exception on proxy -> web connection: "+
             e.getChannel(), e.getCause());
         ProxyUtils.closeOnFlush(e.getChannel());
     }
