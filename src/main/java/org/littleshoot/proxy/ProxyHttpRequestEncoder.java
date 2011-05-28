@@ -75,8 +75,8 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
             // The relaying handler needs to know all the headers, including
             // hop-by-hop headers, of the original request, particularly
             // for determining whether or not to close the connection to the
-            // browser, so we give it the original and modify the original
-            // just before writing it on the wire.
+            // browser, so we give it the original and copy the original
+            // to modify it just before writing it on the wire.
             final HttpRequest request = (HttpRequest) msg;
             this.relayingHandler.requestEncoded(request);
             

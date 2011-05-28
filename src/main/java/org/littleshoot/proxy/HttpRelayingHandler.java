@@ -373,7 +373,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         // here, as there can be multiple connections to external sites for
         // a single connection from the browser.
         this.relayListener.onRelayChannelClose(browserToProxyChannel, 
-            this.hostAndPort);
+            this.hostAndPort, this.requestQueue.size());
     }
 
     @Override
@@ -385,12 +385,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             log.warn("Closing open connection");
             ProxyUtils.closeOnFlush(e.getChannel());
         }
-        else {
-            // We've seen odd cases where channels seem to continually attempt
-            // connections. Make sure we explicitly close the connection here.
-            log.warn("Closing connection even though isOpen is false");
-            e.getChannel().close();
-        }
+        // This can happen if we couldn't make the initial connection due
+        // to something like an unresolved address, for example, or a timeout.
+        // There will not have been be any requests written on an unopened
+        // connection, so there should not be any further action to take here.
     }
 
     private final Queue<HttpRequest> requestQueue = 

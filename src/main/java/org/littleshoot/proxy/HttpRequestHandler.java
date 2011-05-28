@@ -36,8 +36,6 @@ import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.util.HashedWheelTimer;
-import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +52,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
 
     private final static Logger log = 
         LoggerFactory.getLogger(HttpRequestHandler.class);
-    protected static final Timer timer = new HashedWheelTimer();
     private volatile boolean readingChunks;
     
     private static volatile int totalBrowserToProxyConnections = 0;
@@ -388,6 +385,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             ctx.getPipeline().remove("decoder");
             ctx.getPipeline().remove("handler");
             
+            // Note there are two HttpConnectRelayingHandler for each HTTP
+            // CONNECT tunnel -- one writing to the browser, and one writing
+            // to the remote host.
             ctx.getPipeline().addLast("handler", 
                 new HttpConnectRelayingHandler(outgoingChannel, this.channelGroup));
             
@@ -493,9 +493,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
     
     public void onRelayChannelClose(final Channel browserToProxyChannel, 
-        final String key) {
+        final String key, final int unansweredRequestsOnChannel) {
         this.receivedChannelClosed = true;
         this.numWebConnections--;
+        
+        // The closed channel may have had outstanding requests we haven't 
+        // properly accounted for. The channel closing effectively marks those
+        // requests as "answered," potentially resulting in the closing of the
+        // client/browser connection here.
+        this.unansweredRequestCount -= unansweredRequestsOnChannel;
         if (this.numWebConnections == 0 || this.unansweredRequestCount == 0) {
             if (!browserChannelClosed.getAndSet(true)) {
                 log.info("Closing browser to proxy channel");
