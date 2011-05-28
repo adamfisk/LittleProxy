@@ -6,7 +6,6 @@ import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -35,15 +34,8 @@ import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpChunk;
-import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
-import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
-import org.jboss.netty.handler.timeout.IdleState;
-import org.jboss.netty.handler.timeout.IdleStateAwareChannelHandler;
-import org.jboss.netty.handler.timeout.IdleStateEvent;
-import org.jboss.netty.handler.timeout.IdleStateHandler;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
@@ -97,17 +89,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private final String chainProxyHostAndPort;
     private final ChannelGroup channelGroup;
 
-    /**
-     * {@link Map} of host name and port strings to filters to apply.
-     */
-    private final Map<String, HttpFilter> filters;
     private final ClientSocketChannelFactory clientChannelFactory;
     private final ProxyCacheManager cacheManager;
-    private final HttpRequestFilter requestFilter;
     
     private final AtomicBoolean browserChannelClosed = new AtomicBoolean(false);
     private volatile boolean receivedChannelClosed = false;
     private final boolean useJmx;
+    
+    private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
     
     /**
      * Creates a new class for handling HTTP requests with no frills.
@@ -115,9 +104,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * @param clientChannelFactory The common channel factory for clients.
      */
     public HttpRequestHandler(
-        final ClientSocketChannelFactory clientChannelFactory) {
-        this(null, null, null, new HashMap<String, HttpFilter> (), 
-            clientChannelFactory, null, null, false);
+        final ClientSocketChannelFactory clientChannelFactory,
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
+        this(null, null, null, clientChannelFactory, null, 
+            relayPipelineFactoryFactory, false);
     }
     
     /**
@@ -135,10 +125,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final Map<String, HttpFilter> filters,
-        final ClientSocketChannelFactory clientChannelFactory) {
-        this(cacheManager, authorizationManager, channelGroup, filters, 
-            clientChannelFactory, null, null, false);
+        final ClientSocketChannelFactory clientChannelFactory,
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
+        this(cacheManager, authorizationManager, channelGroup,
+            clientChannelFactory, null, relayPipelineFactoryFactory, false);
     }
     
     /**
@@ -160,17 +150,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final Map<String, HttpFilter> filters,
         final ClientSocketChannelFactory clientChannelFactory,
         final String chainProxyHostAndPort, 
-        final HttpRequestFilter requestFilter, final boolean useJmx) {
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
+        final boolean useJmx) {
         this.cacheManager = cacheManager;
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
-        this.filters = filters;
         this.clientChannelFactory = clientChannelFactory;
         this.chainProxyHostAndPort = chainProxyHostAndPort;
-        this.requestFilter = requestFilter;
+        this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
         this.useJmx = useJmx;
         if (useJmx) {
             setupJmx();
@@ -446,7 +435,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             };
         }
         else {
-            cpf = newDefaultRelayPipeline(httpRequest, browserToProxyChannel);
+            cpf = relayPipelineFactoryFactory.getRelayPipelineFactory(
+                httpRequest, browserToProxyChannel, this);
         }
             
         cb.setPipelineFactory(cpf);
@@ -455,107 +445,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final ChannelFuture future = 
             cb.connect(new InetSocketAddress(host, port));
         return future;
-    }
-    
-    private ChannelPipelineFactory newDefaultRelayPipeline(
-        final HttpRequest httpRequest, final Channel browserToProxyChannel) {
-        return new ChannelPipelineFactory() {
-            public ChannelPipeline getPipeline() throws Exception {
-                // Create a default pipeline implementation.
-                final ChannelPipeline pipeline = pipeline();
-                
-                // We always include the request and response decoders
-                // regardless of whether or not this is a URL we're 
-                // filtering responses for. The reason is that we need to
-                // follow connection closing rules based on the response
-                // headers and HTTP version. 
-                //
-                // We also importantly need to follow the cache directives
-                // in the HTTP response.
-                pipeline.addLast("decoder", 
-                    new HttpResponseDecoder(8192, 8192*2, 8192*2));
-                
-                log.info("Querying for host and port: {}", hostAndPort);
-                final boolean shouldFilter;
-                final HttpFilter filter = filters.get(hostAndPort);
-                if (filter == null) {
-                    log.info("Filter not found in: {}", filters);
-                    shouldFilter = false;
-                }
-                else {
-                    log.info("Using filter: {}", filter);
-                    shouldFilter = filter.shouldFilterResponses(httpRequest);
-                }
-                log.info("Filtering: "+shouldFilter);
-                
-                // We decompress and aggregate chunks for responses from 
-                // sites we're applying rules to.
-                if (shouldFilter) {
-                    pipeline.addLast("inflater", 
-                        new HttpContentDecompressor());
-                    pipeline.addLast("aggregator",            
-                        new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
-                }
-                
-                // The trick here is we need to determine whether or not
-                // to cache responses based on the full URI of the request.
-                // This request encoder will only get the URI without the
-                // host, so we just have to be aware of that and construct
-                // the original.
-                final HttpRelayingHandler handler;
-                if (shouldFilter) {
-                    handler = new HttpRelayingHandler(browserToProxyChannel, 
-                        channelGroup, filter, HttpRequestHandler.this, hostAndPort);
-                } else {
-                    handler = new HttpRelayingHandler(browserToProxyChannel, 
-                        channelGroup, HttpRequestHandler.this, hostAndPort);
-                }
-                
-                final ProxyHttpRequestEncoder encoder = 
-                    new ProxyHttpRequestEncoder(handler, requestFilter, 
-                        chainProxyHostAndPort);
-                pipeline.addLast("encoder", encoder);
-                
-                // We close idle connections to remote servers after the
-                // specified timeouts in seconds. If we're sending data, the
-                // write timeout should be reasonably low. If we're reading
-                // data, however, the read timeout is more relevant.
-                final int readTimeoutSeconds;
-                final int writeTimeoutSeconds;
-                if (httpRequest.getMethod().equals(HttpMethod.POST) ||
-                    httpRequest.getMethod().equals(HttpMethod.PUT)) {
-                    readTimeoutSeconds = 0;
-                    writeTimeoutSeconds = 40;
-                } else {
-                    readTimeoutSeconds = 40;
-                    writeTimeoutSeconds = 0;
-                }
-                pipeline.addLast("idle", 
-                    new IdleStateHandler(timer, readTimeoutSeconds, 
-                        writeTimeoutSeconds, 0));
-                pipeline.addLast("idleAware", new IdleAwareHandler());
-                pipeline.addLast("handler", handler);
-                return pipeline;
-            }
-        };
-    }
-
-    /**
-     * This handles idle sockets.
-     */
-    public class IdleAwareHandler extends IdleStateAwareChannelHandler {
-
-        @Override
-        public void channelIdle(final ChannelHandlerContext ctx, 
-            final IdleStateEvent e) {
-            if (e.getState() == IdleState.READER_IDLE) {
-                log.info("Got reader idle -- closing");
-                e.getChannel().close();
-            } else if (e.getState() == IdleState.WRITER_IDLE) {
-                log.info("Got writer idle -- closing connection");
-                e.getChannel().close();
-            }
-        }
     }
     
     @Override

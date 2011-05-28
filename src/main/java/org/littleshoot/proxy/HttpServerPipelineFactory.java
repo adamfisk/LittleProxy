@@ -7,7 +7,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -43,13 +42,13 @@ import org.slf4j.LoggerFactory;
 public class HttpServerPipelineFactory implements ChannelPipelineFactory, 
     AllConnectionData {
     
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private static final Logger log = 
+        LoggerFactory.getLogger(HttpServerPipelineFactory.class);
     
     private static final boolean CACHE_ENABLED = false;
     
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
-    private final Map<String, HttpFilter> filters;
     private final String chainProxyHostAndPort;
     
     private final ClientSocketChannelFactory clientSocketChannelFactory =
@@ -62,11 +61,11 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
 
     private final KeyStoreManager ksm;
 
-    private final HttpRequestFilter requestFilter;
-
     private int numHandlers;
 
     private boolean useJmx;
+    
+    private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
 
     /**
      * Creates a new pipeline factory with the specified class for processing
@@ -82,16 +81,16 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final Map<String, HttpFilter> filters,
         final String chainProxyHostAndPort, final KeyStoreManager ksm,
-        final HttpRequestFilter requestFilter) {
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
+    	
+    	this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
+    	
         log.info("Creating server with keystore manager: {}", ksm);
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
-        this.filters = filters;
         this.chainProxyHostAndPort = chainProxyHostAndPort;
         this.ksm = ksm;
-        this.requestFilter = requestFilter;
         
         if (CACHE_ENABLED) {
             cacheManager = new DefaultProxyCacheManager();
@@ -201,8 +200,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         }
         return -1;
     }
-
-    public ChannelPipeline getPipeline() throws Exception {
+    
+	public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = pipeline();
 
         log.info("Accessing pipeline");
@@ -219,17 +218,17 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         pipeline.addLast("decoder", 
             new HttpRequestDecoder(8192, 8192*2, 8192*2));
         pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
-
-        /*
+        
+        
+		/*
         if (trafficShaper != null) {
             pipeline.addLast("GLOBAL_TRAFFIC_SHAPING", trafficShaper);
         }
         */
         pipeline.addLast("handler", 
             new HttpRequestHandler(this.cacheManager, authenticationManager, 
-                this.channelGroup, this.filters, 
-                this.clientSocketChannelFactory,
-                this.chainProxyHostAndPort, this.requestFilter, this.useJmx));
+                this.channelGroup, this.clientSocketChannelFactory,
+                this.chainProxyHostAndPort, relayPipelineFactoryFactory, this.useJmx));
         this.numHandlers++;
         return pipeline;
     }
