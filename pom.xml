@@ -53,7 +53,7 @@
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
-            <version>1.4</version>
+            <version>1.5</version>
         </dependency>
 
         <dependency>
@@ -65,7 +65,7 @@
         <dependency>
             <groupId>commons-lang</groupId>
             <artifactId>commons-lang</artifactId>
-            <version>2.4</version>
+            <version>2.6</version>
         </dependency>
 
         <dependency>
@@ -114,30 +114,6 @@
         </dependency>
 
     </dependencies>
-
-<!--
-    <distributionManagement>
-        <repository>
-            <id>littleshoot</id>
-            <url>scpexe://dev.littleshoot.org/var/maven</url>
-        </repository>
-        <snapshotRepository>
-            <id>littleshoot</id>
-            <url>scpexe://dev.littleshoot.org/var/maven</url>
-        </snapshotRepository>
-        <site>
-            <id>littleshoot</id>
-            <url>scpexe://dev.littleshoot.org/var/www/html/littleproxy</url>
-        </site>
-    </distributionManagement>
-
-    <scm>
-        <connection>scm:svn:https://svn.littleshoot.org/svn/littleproxy</connection>
-        <developerConnection>scm:svn:https://svn.littleshoot.org/svn/littleproxy</developerConnection>
-        <tag>HEAD</tag>
-        <url>http://svn.littleshoot.org</url>
-    </scm>
--->
 
     <prerequisites>
         <maven>2.2.1</maven>
@@ -332,22 +308,4 @@
         </developer>
     </developers>
 
-    <repositories>
-        <repository>
-            <id>repository.jboss.org</id>
-            <url>http://repository.jboss.org/nexus/content/groups/public</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-
-<!--
-        <repository>
-            <id>openR66</id>
-            <name>OpenR66 Repository</name>
-            <url>http://openr66.free.fr/maven2</url>
-        </repository>
--->
-
-    </repositories>
 </project>
