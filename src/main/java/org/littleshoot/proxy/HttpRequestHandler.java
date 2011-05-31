@@ -240,16 +240,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private void processMessage(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
         
+        final Channel inboundChannel = me.getChannel();
         if (this.cacheManager != null &&
             this.cacheManager.returnCacheHit((HttpRequest)me.getMessage(), 
-            me.getChannel())) {
+            inboundChannel)) {
             log.info("Found cache hit! Cache wrote the response.");
             return;
         }
         this.unansweredRequestCount++;
         final HttpRequest request = (HttpRequest) me.getMessage();
         
-        log.info("Got request: {} on channel: "+me.getChannel(), request);
+        log.info("Got request: {} on channel: "+inboundChannel, request);
         if (this.authorizationManager != null && 
             !this.authorizationManager.handleProxyAuthorization(request, ctx)) {
             log.info("Not authorized!!");
@@ -261,8 +262,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         } else {
             this.hostAndPort = ProxyUtils.parseHostAndPort(request);
         }
-        
-        final Channel inboundChannel = me.getChannel();
         
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
@@ -346,12 +345,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         else {
                             log.info("Could not connect to "+hostAndPort, 
                                 future.getCause());
-                            if (browserToProxyConnections == 1) {
-                                log.warn("Closing browser to proxy channel " +
-                                    "after not connecting to: {}", hostAndPort);
-                                me.getChannel().close();
-                                externalHostsToChannelFutures.remove(hostAndPort);
-                            }
+                            
+                            // We call the relay channel closed event handler
+                            // with one associated unanswered request.
+                            onRelayChannelClose(inboundChannel, hostAndPort, 1, 
+                                true);
                         }
                     }
                 });
