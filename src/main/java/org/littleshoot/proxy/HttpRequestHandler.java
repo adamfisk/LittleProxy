@@ -7,7 +7,9 @@ import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,8 +59,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private static volatile int totalBrowserToProxyConnections = 0;
     private volatile int browserToProxyConnections = 0;
     
-    private final Map<String, ChannelFuture> externalHostsToChannelFutures = 
-        new ConcurrentHashMap<String, ChannelFuture>();
+    private final Map<String, Queue<ChannelFuture>> externalHostsToChannelFutures = 
+        new ConcurrentHashMap<String, Queue<ChannelFuture>>();
     
     private volatile int messagesReceived = 0;
     
@@ -72,6 +74,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     
     private final Set<String> answeredRequests = new HashSet<String>();
     private final Set<String> unansweredRequests = new HashSet<String>();
+
+    private ChannelFuture currentChannelFuture;
+    
+    /**
+     * This is just for debugging.
+     */
+    private final Queue<HttpRequest> requests = 
+        new LinkedList<HttpRequest>();
+    
     
     /**
      * Note, we *can* receive requests for multiple different sites from the
@@ -171,7 +182,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             final String pack = clazz.getPackage().getName();
             final String oName =
                 pack+":type="+clazz.getSimpleName()+"-"+clazz.getSimpleName() + 
-                hashCode();
+                "-"+hashCode();
             log.info("Registering MBean with name: {}", oName);
             final ObjectName mxBeanName = new ObjectName(oName);
             if(!mbs.isRegistered(mxBeanName)) {
@@ -217,28 +228,29 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         if (chunk.isLast()) {
             this.readingChunks = false;
         }
-        final ChannelFuture cf = 
-            externalHostsToChannelFutures.get(hostAndPort);
         
         // We don't necessarily know the channel is connected yet!! This can
         // happen if the client sends a chunk directly after the initial 
         // request.
-        if (cf.getChannel().isConnected()) {
-            cf.getChannel().write(chunk);
+        if (this.currentChannelFuture.getChannel().isConnected()) {
+            this.currentChannelFuture.getChannel().write(chunk);
         }
         else {
-            cf.addListener(new ChannelFutureListener() {
+            this.currentChannelFuture.addListener(new ChannelFutureListener() {
                 
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
-                    cf.getChannel().write(chunk);
+                    currentChannelFuture.getChannel().write(chunk);
                 }
             });
         }
     }
-
+    
     private void processMessage(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
+        
+        final HttpRequest request = (HttpRequest) me.getMessage();
+        //requests.add(request);
         
         final Channel inboundChannel = me.getChannel();
         if (this.cacheManager != null &&
@@ -248,7 +260,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             return;
         }
         this.unansweredRequestCount++;
-        final HttpRequest request = (HttpRequest) me.getMessage();
         
         log.info("Got request: {} on channel: "+inboundChannel, request);
         if (this.authorizationManager != null && 
@@ -288,90 +299,106 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      
         final OnConnect onConnect = new OnConnect();
         
-        // We synchronize to avoid creating duplicate connections to the
-        // same host, which we shouldn't for a single connection from the
-        // browser. Note the synchronization here is short-lived, however,
-        // due to the asynchronous connection establishment.
-        synchronized (externalHostsToChannelFutures) {
-            final ChannelFuture curFuture = getChannelFuture();
-            if (curFuture != null) {
-                log.info("Using exising connection...");
-                if (curFuture.getChannel().isConnected()) {
-                    onConnect.onConnect(curFuture);
-                }
-                else {
-                    final ChannelFutureListener cfl = new ChannelFutureListener() {
-                        public void operationComplete(final ChannelFuture future)
-                            throws Exception {
-                            onConnect.onConnect(curFuture);
-                        }
-                    };
-                    curFuture.addListener(cfl);
-                }
+        final ChannelFuture curFuture = getChannelFuture();
+        if (curFuture != null) {
+            log.info("Using existing connection...");
+            this.currentChannelFuture = curFuture;
+            if (curFuture.getChannel().isConnected()) {
+                onConnect.onConnect(curFuture);
             }
             else {
-                log.info("Establishing new connection");
-                /*
-                final ChannelFutureListener closedCfl = new ChannelFutureListener() {
-                    public void operationComplete(final ChannelFuture closed) 
-                        throws Exception {
-                        endpointsToChannelFutures.remove(hostAndPort);
-                    }
-                };
-                */
-                final ChannelFuture cf = 
-                    newChannelFuture(request, inboundChannel);
-                externalHostsToChannelFutures.put(hostAndPort, cf);
-                cf.addListener(new ChannelFutureListener() {
+                final ChannelFutureListener cfl = new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture future)
                         throws Exception {
-                        final Channel channel = future.getChannel();
-                        if (channelGroup != null) {
-                            channelGroup.add(channel);
-                        }
-                        if (future.isSuccess()) {
-                            log.info("Connected successfully to: {}", channel);
-                            log.info("Writing message on channel...");
-                            final ChannelFuture wf = onConnect.onConnect(cf);
-                            wf.addListener(new ChannelFutureListener() {
-                                public void operationComplete(final ChannelFuture wcf)
-                                    throws Exception {
-                                    log.info("Finished write: "+wcf+ " to: "+
-                                        request.getMethod()+" "+
-                                        request.getUri());
-                                }
-                            });
-                        }
-                        else {
-                            log.info("Could not connect to "+hostAndPort, 
-                                future.getCause());
-                            
-                            // We call the relay channel closed event handler
-                            // with one associated unanswered request.
-                            onRelayChannelClose(inboundChannel, hostAndPort, 1, 
-                                true);
-                        }
+                        onConnect.onConnect(curFuture);
                     }
-                });
+                };
+                curFuture.addListener(cfl);
             }
+        }
+        else {
+            log.info("Establishing new connection");
+            final ChannelFuture cf = 
+                newChannelFuture(request, inboundChannel);
+            cf.addListener(new ChannelFutureListener() {
+                public void operationComplete(final ChannelFuture future)
+                    throws Exception {
+                    final Channel channel = future.getChannel();
+                    if (channelGroup != null) {
+                        channelGroup.add(channel);
+                    }
+                    if (future.isSuccess()) {
+                        log.info("Connected successfully to: {}", channel);
+                        log.info("Writing message on channel...");
+                        final ChannelFuture wf = onConnect.onConnect(cf);
+                        wf.addListener(new ChannelFutureListener() {
+                            public void operationComplete(final ChannelFuture wcf)
+                                throws Exception {
+                                log.info("Finished write: "+wcf+ " to: "+
+                                    request.getMethod()+" "+
+                                    request.getUri());
+                            }
+                        });
+                    }
+                    else {
+                        log.info("Could not connect to "+hostAndPort, 
+                            future.getCause());
+                        
+                        // We call the relay channel closed event handler
+                        // with one associated unanswered request.
+                        onRelayChannelClose(inboundChannel, hostAndPort, 1, 
+                            true);
+                    }
+                }
+            });
         }
             
         if (request.isChunked()) {
             readingChunks = true;
         }
     }
+    
+    
+    public void onChannelAvailable(final String hostAndPortKey, 
+        final ChannelFuture cf) {
+        
+        synchronized (this.externalHostsToChannelFutures) {
+            final Queue<ChannelFuture> futures = 
+                this.externalHostsToChannelFutures.get(hostAndPort);
+            
+            final Queue<ChannelFuture> toUse;
+            if (futures == null) {
+                toUse = new LinkedList<ChannelFuture>();
+                this.externalHostsToChannelFutures.put(hostAndPort, toUse);
+            } else {
+                toUse = futures;
+            }
+            toUse.add(cf);
+        }
+    }
 
     private ChannelFuture getChannelFuture() {
-        final ChannelFuture cf = externalHostsToChannelFutures.get(hostAndPort);
-        if (cf != null && cf.isSuccess() && 
-            !cf.getChannel().isConnected()) {
-            // In this case, the future successfully connected at one
-            // time, but we're no longer connected. We need to remove the
-            // channel and open a new one.
-            removeProxyToWebConnection(hostAndPort);
-            return null;
+        synchronized (this.externalHostsToChannelFutures) {
+            final Queue<ChannelFuture> futures = 
+                this.externalHostsToChannelFutures.get(hostAndPort);
+            if (futures == null) {
+                return null;
+            }
+            if (futures.isEmpty()) {
+                return null;
+            }
+            final ChannelFuture cf = futures.remove();
+
+            if (cf != null && cf.isSuccess() && 
+                !cf.getChannel().isConnected()) {
+                // In this case, the future successfully connected at one
+                // time, but we're no longer connected. We need to remove the
+                // channel and open a new one.
+                removeProxyToWebConnection(hostAndPort);
+                return null;
+            }
+            return cf;
         }
-        return cf;
     }
 
     private void writeConnectResponse(final ChannelHandlerContext ctx, 
@@ -493,12 +520,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         if (browserToProxyConnections == 0) {
             log.info("Closing all proxy to web channels for this browser " +
                 "to proxy connection!!!");
-            final Collection<ChannelFuture> futures = 
+            final Collection<Queue<ChannelFuture>> allFutures = 
                 this.externalHostsToChannelFutures.values();
-            for (final ChannelFuture future : futures) {
-                final Channel ch = future.getChannel();
-                if (ch.isOpen()) {
-                    future.getChannel().close();
+            for (final Queue<ChannelFuture> futures : allFutures) {
+                for (final ChannelFuture future : futures) {
+                    final Channel ch = future.getChannel();
+                    if (ch.isOpen()) {
+                        future.getChannel().close();
+                    }
                 }
             }
         }
@@ -607,6 +636,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
 
     public String getAnsweredReqeusts() {
         return this.answeredRequests.toString();
+    }
+
+    public String getRequests() {
+        final StringBuilder sb = new StringBuilder();
+        for (final HttpRequest hr : requests) {
+            final String uri = hr.getUri();
+            sb.append(uri);
+            sb.append("\n");
+        }
+        return sb.toString();
     }
 
 }

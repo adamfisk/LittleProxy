@@ -33,6 +33,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
     private final Map<String, HttpFilter> filters;
     private final HttpRequestFilter requestFilter;
     private String chainProxyHostAndPort;
+    private final boolean filtersOff;
 
     
     public DefaultRelayPipelineFactory(final String hostAndPort, 
@@ -50,6 +51,8 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         this.filters = filters;
         this.requestFilter = requestFilter;
         this.chainProxyHostAndPort = chainProxyHostAndPort;
+        
+        this.filtersOff = filters.isEmpty();
     }
     
 
@@ -68,18 +71,24 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("decoder", 
             new HttpResponseDecoder(8192, 8192*2, 8192*2));
         
-        LOG.info("Querying for host and port: {}", hostAndPort);
+        LOG.debug("Querying for host and port: {}", hostAndPort);
         final boolean shouldFilter;
-        final HttpFilter filter = filters.get(hostAndPort);
-        if (filter == null) {
-            LOG.info("Filter not found in: {}", filters);
+        final HttpFilter filter;
+        if (filtersOff) {
             shouldFilter = false;
+            filter = null;
+        } else {
+            filter = filters.get(hostAndPort);
+            if (filter == null) {
+                LOG.info("Filter not found in: {}", filters);
+                shouldFilter = false;
+            }
+            else {
+                LOG.debug("Using filter: {}", filter);
+                shouldFilter = filter.shouldFilterResponses(httpRequest);
+            }
+            LOG.debug("Filtering: "+shouldFilter);
         }
-        else {
-            LOG.info("Using filter: {}", filter);
-            shouldFilter = filter.shouldFilterResponses(httpRequest);
-        }
-        LOG.info("Filtering: "+shouldFilter);
         
         // We decompress and aggregate chunks for responses from 
         // sites we're applying rules to.

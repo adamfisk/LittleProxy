@@ -19,4 +19,6 @@ public interface ConnectionData {
     
     String getAnsweredReqeusts();
     
+    String getRequests();
+    
 }

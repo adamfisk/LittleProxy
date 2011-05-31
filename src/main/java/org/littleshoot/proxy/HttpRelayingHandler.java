@@ -10,6 +10,7 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
+import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
@@ -89,7 +90,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     @Override
     public void messageReceived(final ChannelHandlerContext ctx, 
-        final MessageEvent e) throws Exception {
+        final MessageEvent me) throws Exception {
         
         final Object messageToWrite;
         
@@ -111,7 +112,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         final boolean writeEndBuffer;
         
         if (!readingChunks) {
-            final HttpResponse hr = (HttpResponse) e.getMessage();
+            final HttpResponse hr = (HttpResponse) me.getMessage();
             log.info("Received raw response: {}", hr);
             
             // We need to make a copy here because the response will be 
@@ -175,7 +176,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
         } else {
             log.info("Processing a chunk");
-            final HttpChunk chunk = (HttpChunk) e.getMessage();
+            final HttpChunk chunk = (HttpChunk) me.getMessage();
             if (chunk.isLast()) {
                 readingChunks = false;
                 writeEndBuffer = true;
@@ -196,6 +197,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             final boolean closePending =
                 shouldCloseBrowserConnection(this.currentHttpRequest, 
                     originalHttpResponse, messageToWrite);
+            
+            final boolean wroteFullResponse =
+                wroteFullResponse(originalHttpResponse, messageToWrite);
             
             if (closeRemote && closeEndsResponseBody(originalHttpResponse)) {
                 this.closeEndsResponseBody = true;
@@ -222,7 +226,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // all other external connections are already closed. We notify
             // the request handler of complete HTTP responses here to allow
             // it to adhere to that logic.
-            if (wroteFullResponse(originalHttpResponse, messageToWrite)) {
+            if (wroteFullResponse) {
                 log.debug("Notifying request handler of completed response.");
                 future.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture cf) 
@@ -247,7 +251,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 future.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
-                        e.getChannel().close();
+                        if (me.getChannel().isConnected()) {
+                            me.getChannel().close();
+                        }
                     }
                 });
             }
@@ -262,15 +268,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     }
                 });
             }
+            if (wroteFullResponse && (!closePending && !closeRemote)) {
+                log.debug("Making remote channel available for requests");
+                this.relayListener.onChannelAvailable(hostAndPort,
+                    Channels.succeededFuture(me.getChannel()));
+            }
         }
         else {
             log.debug("Channel not open. Connected? {}", 
                 browserToProxyChannel.isConnected());
             // This will undoubtedly happen anyway, but just in case.
-            if (e.getChannel().isOpen()) {
+            if (me.getChannel().isConnected()) {
                 log.warn("Closing channel to remote server -- received a " +
                     "response after the browser connection is closed?");
-                e.getChannel().close();
+                me.getChannel().close();
             }
         }
         log.info("Finished processing message");
