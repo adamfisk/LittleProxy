@@ -57,12 +57,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private static volatile int totalBrowserToProxyConnections = 0;
     private volatile int browserToProxyConnections = 0;
     
-    private final Map<String, ChannelFuture> endpointsToChannelFutures = 
+    private final Map<String, ChannelFuture> externalHostsToChannelFutures = 
         new ConcurrentHashMap<String, ChannelFuture>();
     
     private volatile int messagesReceived = 0;
     
-    private volatile int numWebConnections = 0;
     private volatile int unansweredRequestCount = 0;
     
     private volatile int requestsSent = 0;
@@ -192,6 +191,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     @Override
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
+        if (browserChannelClosed.get()) {
+            log.info("Ignoring message since the connection to the browser " +
+                "is about to close");
+            return;
+        }
         messagesReceived++;
         log.info("Received "+messagesReceived+" total messages");
         if (!readingChunks) {
@@ -214,7 +218,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             this.readingChunks = false;
         }
         final ChannelFuture cf = 
-            endpointsToChannelFutures.get(hostAndPort);
+            externalHostsToChannelFutures.get(hostAndPort);
         
         // We don't necessarily know the channel is connected yet!! This can
         // happen if the client sends a chunk directly after the initial 
@@ -242,7 +246,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             log.info("Found cache hit! Cache wrote the response.");
             return;
         }
-        
+        this.unansweredRequestCount++;
         final HttpRequest request = (HttpRequest) me.getMessage();
         
         log.info("Got request: {} on channel: "+me.getChannel(), request);
@@ -271,7 +275,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                             if (useJmx) {
                                 unansweredRequests.add(request.toString());
                             }
-                            unansweredRequestCount++;
                             requestsSent++;
                         }
                     });
@@ -290,9 +293,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // same host, which we shouldn't for a single connection from the
         // browser. Note the synchronization here is short-lived, however,
         // due to the asynchronous connection establishment.
-        synchronized (endpointsToChannelFutures) {
-            final ChannelFuture curFuture = 
-                endpointsToChannelFutures.get(hostAndPort);
+        synchronized (externalHostsToChannelFutures) {
+            final ChannelFuture curFuture = getChannelFuture();
             if (curFuture != null) {
                 log.info("Using exising connection...");
                 if (curFuture.getChannel().isConnected()) {
@@ -320,7 +322,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 */
                 final ChannelFuture cf = 
                     newChannelFuture(request, inboundChannel);
-                endpointsToChannelFutures.put(hostAndPort, cf);
+                externalHostsToChannelFutures.put(hostAndPort, cf);
                 cf.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture future)
                         throws Exception {
@@ -348,7 +350,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                                 log.warn("Closing browser to proxy channel " +
                                     "after not connecting to: {}", hostAndPort);
                                 me.getChannel().close();
-                                endpointsToChannelFutures.remove(hostAndPort);
+                                externalHostsToChannelFutures.remove(hostAndPort);
                             }
                         }
                     }
@@ -359,6 +361,19 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         if (request.isChunked()) {
             readingChunks = true;
         }
+    }
+
+    private ChannelFuture getChannelFuture() {
+        final ChannelFuture cf = externalHostsToChannelFutures.get(hostAndPort);
+        if (cf != null && cf.isSuccess() && 
+            !cf.getChannel().isConnected()) {
+            // In this case, the future successfully connected at one
+            // time, but we're no longer connected. We need to remove the
+            // channel and open a new one.
+            removeProxyToWebConnection(hostAndPort);
+            return null;
+        }
+        return cf;
     }
 
     private void writeConnectResponse(final ChannelHandlerContext ctx, 
@@ -401,7 +416,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
         final Channel browserToProxyChannel) {
-        this.numWebConnections++;
         final String host;
         final int port;
         if (hostAndPort.contains(":")) {
@@ -482,7 +496,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             log.info("Closing all proxy to web channels for this browser " +
                 "to proxy connection!!!");
             final Collection<ChannelFuture> futures = 
-                this.endpointsToChannelFutures.values();
+                this.externalHostsToChannelFutures.values();
             for (final ChannelFuture future : futures) {
                 final Channel ch = future.getChannel();
                 if (ch.isOpen()) {
@@ -493,16 +507,24 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
     
     public void onRelayChannelClose(final Channel browserToProxyChannel, 
-        final String key, final int unansweredRequestsOnChannel) {
-        this.receivedChannelClosed = true;
-        this.numWebConnections--;
+        final String key, final int unansweredRequestsOnChannel,
+        final boolean closedEndsResponseBody) {
+        if (closedEndsResponseBody) {
+            log.info("Close ends response body");
+            this.receivedChannelClosed = true;
+        }
+        log.info("this.receivedChannelClosed: "+this.receivedChannelClosed);
+        removeProxyToWebConnection(key);
         
         // The closed channel may have had outstanding requests we haven't 
         // properly accounted for. The channel closing effectively marks those
-        // requests as "answered," potentially resulting in the closing of the
-        // client/browser connection here.
+        // requests as "answered" when the responses didn't contain any other
+        // markers for complete responses, such as Content-Length or the the
+        // last chunk of a chunked encoding. All of this potentially results 
+        // in the closing of the client/browser connection here.
         this.unansweredRequestCount -= unansweredRequestsOnChannel;
-        if (this.numWebConnections == 0 || this.unansweredRequestCount == 0) {
+        if (this.receivedChannelClosed && 
+            (this.externalHostsToChannelFutures.isEmpty() || this.unansweredRequestCount == 0)) {
             if (!browserChannelClosed.getAndSet(true)) {
                 log.info("Closing browser to proxy channel");
                 ProxyUtils.closeOnFlush(browserToProxyChannel);
@@ -510,21 +532,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         else {
             log.info("Not closing browser to proxy channel. Still "+
-                this.numWebConnections+" connections and awaiting "+
+                this.externalHostsToChannelFutures.size()+" connections and awaiting "+
                 this.unansweredRequestCount + " responses");
-        }
-        this.endpointsToChannelFutures.remove(key);
-        
-        if (numWebConnections != this.endpointsToChannelFutures.size()) {
-            log.error("Something's amiss. We have "+numWebConnections+" and "+
-                this.endpointsToChannelFutures.size()+" connections stored");
-        }
-        else {
-            log.info("WEB CONNECTIONS COUNTS IN SYNC..REMAINING "+
-                this.numWebConnections);
         }
     }
     
+
+    private void removeProxyToWebConnection(final String key) {
+        // It's probably already been removed at this point, but just in case.
+        this.externalHostsToChannelFutures.remove(key);
+    }
 
     public void onRelayHttpResponse(final Channel browserToProxyChannel,
         final String key, final HttpRequest httpRequest) {
@@ -549,7 +566,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 "receivedChannelClosed="+this.receivedChannelClosed);
         }
     }
-
+    
     @Override
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
@@ -575,7 +592,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     public int getOutgoingConnections() {
-        return numWebConnections;
+        return this.externalHostsToChannelFutures.size();
     }
 
     public int getRequestsSent() {
@@ -593,4 +610,5 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     public String getAnsweredReqeusts() {
         return this.answeredRequests.toString();
     }
+
 }

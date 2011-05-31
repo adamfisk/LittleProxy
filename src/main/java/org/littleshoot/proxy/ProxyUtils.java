@@ -230,6 +230,9 @@ public class ProxyUtils {
             copy.setHeader(name, values);
         }
         copy.setContent(original.getContent());
+        if (original.isChunked()) {
+            copy.setChunked(true);
+        }
         return copy;
     }
 

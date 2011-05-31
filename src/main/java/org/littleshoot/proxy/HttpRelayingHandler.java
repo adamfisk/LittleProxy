@@ -39,7 +39,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     private final HttpFilter httpFilter;
 
-    private HttpResponse httpResponse;
+    private HttpResponse originalHttpResponse;
 
     /**
      * The current, most recent HTTP request we're processing. This changes
@@ -50,6 +50,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     private final RelayListener relayListener;
 
     private final String hostAndPort;
+
+    private boolean closeEndsResponseBody;
 
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
@@ -65,7 +67,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         this (browserToProxyChannel, channelGroup, new NoOpHttpFilter(),
             relayListener, hostAndPort);
     }
-
+    
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
      * to the browser.
@@ -107,10 +109,18 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         // using the empty buffer's future instead to handle any operations 
         // we need to when responses are fully written back to clients.
         final boolean writeEndBuffer;
+        
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) e.getMessage();
             log.info("Received raw response: {}", hr);
-            httpResponse = hr;
+            
+            // We need to make a copy here because the response will be 
+            // modified in various ways before we need to do things like
+            // analyze response headers for whether or not to close the 
+            // connection (which may not happen for awhile for large, chunked
+            // responses, for example).
+            originalHttpResponse = ProxyUtils.copyMutableResponseFields(hr, 
+                new DefaultHttpResponse(hr.getProtocolVersion(), hr.getStatus()));
             final HttpResponse response;
             
             // Double check the Transfer-Encoding, since it gets tricky.
@@ -177,9 +187,23 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         }
         
         if (browserToProxyChannel.isConnected()) {
+            // We need to determine whether or not to close connections based
+            // on the HTTP request and response *before* the response has 
+            // been modified for sending to the browser.
+            final boolean closeRemote = 
+                shouldCloseRemoteConnection(this.currentHttpRequest, 
+                    originalHttpResponse, messageToWrite);
+            final boolean closePending =
+                shouldCloseBrowserConnection(this.currentHttpRequest, 
+                    originalHttpResponse, messageToWrite);
+            
+            if (closeRemote && closeEndsResponseBody(originalHttpResponse)) {
+                this.closeEndsResponseBody = true;
+            }
+                
             ChannelFuture future = 
                 this.browserToProxyChannel.write(
-                    new ProxyHttpResponse(this.currentHttpRequest, httpResponse, 
+                    new ProxyHttpResponse(this.currentHttpRequest, originalHttpResponse, 
                         messageToWrite));
 
             if (writeEndBuffer) {
@@ -198,7 +222,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // all other external connections are already closed. We notify
             // the request handler of complete HTTP responses here to allow
             // it to adhere to that logic.
-            if (wroteFullResponse(httpResponse, messageToWrite)) {
+            if (wroteFullResponse(originalHttpResponse, messageToWrite)) {
                 log.debug("Notifying request handler of completed response.");
                 future.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture cf) 
@@ -208,9 +232,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     }
                 });
             }
-            if (shouldCloseRemoteConnection(this.currentHttpRequest, 
-                httpResponse, messageToWrite)) {
+            if (closeRemote) {
                 log.debug("Closing remote connection after writing to browser");
+                
                 
                 // We close after the future has completed to make sure that
                 // all the response data is written to the browser -- 
@@ -228,8 +252,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 });
             }
             
-            if (shouldCloseBrowserConnection(this.currentHttpRequest, 
-                httpResponse, messageToWrite)) {
+            if (closePending) {
                 log.debug("Closing connection to browser after writes");
                 future.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture cf) 
@@ -250,13 +273,31 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 e.getChannel().close();
             }
         }
+        log.info("Finished processing message");
     }
     
+    private boolean closeEndsResponseBody(final HttpResponse res) {
+        final String cl = res.getHeader(HttpHeaders.Names.CONTENT_LENGTH);
+        if (StringUtils.isNotBlank(cl)) {
+            return false;
+        }
+        final String te = res.getHeader(HttpHeaders.Names.TRANSFER_ENCODING);
+        if (StringUtils.isNotBlank(te) && 
+            te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED))  {
+            return false;
+        }
+        return true;
+    }
+
     private boolean wroteFullResponse(final HttpResponse res, 
         final Object messageToWrite) {
         // Thanks to Emil Goicovici for identifying a bug in the initial
         // logic for this.
         if (res.isChunked()) {
+            if (messageToWrite instanceof HttpResponse) {
+                
+                return false;
+            }
             return ProxyUtils.isLastChunk(messageToWrite);
         }
         return true;
@@ -298,6 +339,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // browser itself has requested it be closed in the request.
             return true;
         }
+        log.info("Not closing browser/client to proxy connection " +
+            "for request: {}", req);
         return false;
     }
 
@@ -336,20 +379,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
         }
         if (!HttpHeaders.isKeepAlive(req)) {
-            log.info("Closing since request is not keep alive:");
+            log.info("Closing since request is not keep alive:{}, ", req);
             // Here we simply want to close the connection because the 
             // browser itself has requested it be closed in the request.
             return true;
         }
         if (!HttpHeaders.isKeepAlive(res)) {
-            log.info("Closing since response is not keep alive:");
+            log.info("Closing since response is not keep alive:{}", res);
             // In this case, we want to honor the Connection: close header 
             // from the remote server and close that connection. We don't
             // necessarily want to close the connection to the browser, however
             // as it's possible it has other connections open.
             return true;
         }
-        log.info("Not closing -- probably keep alive.");
+        log.info("Not closing -- response probably keep alive for:\n{}", res);
         return false;
     }
     
@@ -372,8 +415,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         // We shouldn't close the connection to the browser 
         // here, as there can be multiple connections to external sites for
         // a single connection from the browser.
+        final int unansweredRequests = this.requestQueue.size();
+        log.info("Unanswered requests: {}", unansweredRequests);
         this.relayListener.onRelayChannelClose(browserToProxyChannel, 
-            this.hostAndPort, this.requestQueue.size());
+            this.hostAndPort, unansweredRequests, this.closeEndsResponseBody);
     }
 
     @Override
@@ -411,4 +456,5 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     public void requestEncoded(final HttpRequest request) {
         this.requestQueue.add(request);
     }
+    
 }
