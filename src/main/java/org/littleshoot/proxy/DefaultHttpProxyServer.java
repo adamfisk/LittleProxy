@@ -103,8 +103,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public void start(final boolean localOnly, final boolean anyAddress) {
         log.info("Starting proxy on port: "+this.port);
         final HttpServerPipelineFactory factory = 
-            new HttpServerPipelineFactory(authenticationManager, this.allChannels, this.chainProxyHostAndPort, this.ksm, 
-                new DefaultRelayPipelineFactoryFactory(chainProxyHostAndPort, filters, requestFilter, this.allChannels));
+            new HttpServerPipelineFactory(authenticationManager, 
+                this.allChannels, this.chainProxyHostAndPort, this.ksm, 
+                new DefaultRelayPipelineFactoryFactory(chainProxyHostAndPort, 
+                    filters, requestFilter, this.allChannels));
         serverBootstrap.setPipelineFactory(factory);
         
         // Binding only to localhost can significantly improve the security of

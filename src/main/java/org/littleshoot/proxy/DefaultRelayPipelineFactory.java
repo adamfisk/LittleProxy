@@ -52,7 +52,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         this.requestFilter = requestFilter;
         this.chainProxyHostAndPort = chainProxyHostAndPort;
         
-        this.filtersOff = filters.isEmpty();
+        this.filtersOff = filters == null || filters.isEmpty();
     }
     
 
