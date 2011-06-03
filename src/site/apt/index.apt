@@ -15,22 +15,21 @@ LittleProxy
   To run from the source, do the following:
 
 +-----+
-  $ svn co http://svn.littleshoot.org/svn/littleproxy/tags/littleproxy-0.3
-  $ cd littleproxy-0.3
+  $ git clone git://github.com/adamfisk/LittleProxy.git 
+  $ cd LittleProxy
   $ ./run.bash &> out.txt &
 +-----+
 
 * Quick Start - Maven 
 
-  To include the LittleProxy jar in your maven project, you need to include the LittleShoot repository in your pom. This is because LittleProxy includes jars that are not included in the Maven central repositories, and we therefore can not add it to the central repositories ourselves. To include the LittleShoot repository, add the following to your pom.xml:
-
+  To include the LittleProxy jar in your maven project, simply add it as a dependency, as shown below. LittleProxy releases are synced with the Maven Central Repository.
 +-----+
     <dependencies>
        ...
         <dependency>
             <groupId>org.littleshoot</groupId>
             <artifactId>littleproxy</artifactId>
-            <version>0.3</version>
+            <version>0.4</version>
         </dependency>
     </dependencies>
 
@@ -46,9 +45,49 @@ LittleProxy
     </repositories>
 +-----+
 
+  If you want to run SNAPSHOT versions of LittleProxy for any reason, you need to add the Sonatype Nexus Snapshot repository. Along with the LittleProxy snapshot dependency, you would do that as follows:
++-----+
+    <dependencies>
+       ...
+        <dependency>
+            <groupId>org.littleshoot</groupId>
+            <artifactId>littleproxy</artifactId>
+            <version>0.5-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+    ...
+
+    <repositories>
+        ...
+        <repository>
+            <id>sonatype-nexus-snapshots</id>
+            <name>Sonatype Nexus Snapshots</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
++-----+
+
+
   Once you've included LittleProxy, you can start the server with the following:
 
 +-----+
 final HttpProxyServer server = new DefaultHttpProxyServer(8080);
 server.start();
 +-----+
+
+There are lots of filters and such you can also add to LittleProxy. If you run into any issues, please add them to GitHub at 
+
+{{https://github.com/adamfisk/LittleProxy/issues}}
+
+If you have any other questions, please visit our forum here:
+
+{{https://groups.google.com/forum/#!forum/littleproxy}}
+
+

@@ -258,6 +258,7 @@
             </plugin>
 
             <!-- SCM activity report -->
+<!--
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>changelog-maven-plugin</artifactId>
@@ -274,8 +275,8 @@
                         </reports>
                     </reportSet>
                 </reportSets>
-
             </plugin>
+-->
 
             <!-- Javadoc report -->
             <plugin>
