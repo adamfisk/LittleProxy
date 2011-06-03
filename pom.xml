@@ -27,6 +27,21 @@
         </license>
     </licenses>
 
+    <mailingLists>
+        <mailingList>
+            <archive>http://groups.google.com/group/littleproxy</archive>
+            <name>littleproxy</name>
+            <post>littleproxy@googlegroups.com</post>
+            <subscribe>http://groups.google.com/group/littleproxy</subscribe>
+            <unsubscribe>littleproxy+unsubscribe@googlegroups.com</unsubscribe>
+        </mailingList>
+    </mailingLists>
+
+    <issueManagement>
+        <system>github</system>
+        <url>https://github.com/adamfisk/LittleProxy/issues</url>
+    </issueManagement>
+
     <scm>
         <connection>scm:git:https://adamfisk@github.com/adamfisk/LittleProxy.git</connection>
         <developerConnection>scm:git:https://adamfisk@github.com/adamfisk/LittleProxy.git</developerConnection>
@@ -40,11 +55,6 @@
     </parent>
 
     <inceptionYear>2009</inceptionYear>
-
-    <issueManagement>
-        <system>JIRA</system>
-        <url>http://dev.littleshoot.org:8081/browse/LP</url>
-    </issueManagement>
 
     <dependencies>
 
@@ -172,7 +182,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-site-plugin</artifactId>
-                <version>2.1.1</version>
+                <version>2.2</version>
             </plugin>
 
             <plugin>

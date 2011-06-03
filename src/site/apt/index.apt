@@ -23,6 +23,7 @@ LittleProxy
 * Quick Start - Maven 
 
   To include the LittleProxy jar in your maven project, simply add it as a dependency, as shown below. LittleProxy releases are synced with the Maven Central Repository.
+
 +-----+
     <dependencies>
        ...
@@ -46,6 +47,7 @@ LittleProxy
 +-----+
 
   If you want to run SNAPSHOT versions of LittleProxy for any reason, you need to add the Sonatype Nexus Snapshot repository. Along with the LittleProxy snapshot dependency, you would do that as follows:
+
 +-----+
     <dependencies>
        ...
@@ -82,11 +84,12 @@ final HttpProxyServer server = new DefaultHttpProxyServer(8080);
 server.start();
 +-----+
 
-There are lots of filters and such you can also add to LittleProxy. If you run into any issues, please add them to GitHub at 
+
+  There are lots of filters and such you can also add to LittleProxy. If you run into any issues, please add them to GitHub at 
 
 {{https://github.com/adamfisk/LittleProxy/issues}}
 
-If you have any other questions, please visit our forum here:
+  If you have any other questions, please visit our forum here:
 
 {{https://groups.google.com/forum/#!forum/littleproxy}}
 
