@@ -9,7 +9,7 @@ public interface KeyStoreManager {
 
     void addBase64Cert(String alias, String base64Cert) throws IOException;
     
-    String getBase64Cert();
+    //String getBase64Cert();
     
     InputStream keyStoreAsInputStream();
     
