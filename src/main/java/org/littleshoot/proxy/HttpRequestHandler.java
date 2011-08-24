@@ -204,7 +204,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         messagesReceived++;
         log.info("Received "+messagesReceived+" total messages");
         if (!readingChunks) {
-            processMessage(ctx, me);
+            processRequest(ctx, me);
         } 
         else {
             processChunk(ctx, me);
@@ -240,11 +240,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
     
-    private void processMessage(final ChannelHandlerContext ctx, 
+    private void processRequest(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
         
         final HttpRequest request = (HttpRequest) me.getMessage();
-        //requests.add(request);
         
         final Channel inboundChannel = me.getChannel();
         if (this.cacheManager != null &&
