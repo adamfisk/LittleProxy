@@ -155,9 +155,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 writeEndBuffer = true;
             }
             
-            final HttpResponse filtered = 
-                this.httpFilter.filterResponse(response);
-            messageToWrite = filtered;
+            messageToWrite = this.httpFilter.filterResponse(response);
             
             // An HTTP response is associated with a single request, so we
             // can pop the correct request off the queue.
