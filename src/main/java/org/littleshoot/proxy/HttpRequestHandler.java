@@ -38,6 +38,7 @@ import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,13 +77,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private final Set<String> unansweredRequests = new HashSet<String>();
 
     private ChannelFuture currentChannelFuture;
-    
-    /**
-     * This is just for debugging.
-     */
-    private final Queue<HttpRequest> requests = 
-        new LinkedList<HttpRequest>();
-    
     
     /**
      * Note, we *can* receive requests for multiple different sites from the
@@ -409,6 +403,22 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // TODO: We should really only allow access on 443, but this breaks
         // what a lot of browsers do in practice.
         //if (port != 443) {
+        
+        if (chainProxyHostAndPort != null) {
+            // forward the CONNECT request to the upstream proxy server which will return a HTTP response
+            outgoingChannel.getPipeline().addBefore("handler", "encoder", new HttpRequestEncoder());
+            outgoingChannel.write(httpRequest).addListener(new ChannelFutureListener() {
+                public void operationComplete(final ChannelFuture future)
+                    throws Exception {
+                    outgoingChannel.getPipeline().remove("encoder");
+                }
+            });
+        } else {
+            final String statusLine = "HTTP/1.1 200 Connection established\r\n";
+            ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
+                ProxyUtils.CONNECT_OK_HEADERS);
+        }
+        
         if (port < 0) {
             log.warn("Connecting on port other than 443!!");
             final String statusLine = "HTTP/1.1 502 Proxy Error\r\n";
@@ -637,15 +647,4 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     public String getAnsweredReqeusts() {
         return this.answeredRequests.toString();
     }
-
-    public String getRequests() {
-        final StringBuilder sb = new StringBuilder();
-        for (final HttpRequest hr : requests) {
-            final String uri = hr.getUri();
-            sb.append(uri);
-            sb.append("\n");
-        }
-        return sb.toString();
-    }
-
 }

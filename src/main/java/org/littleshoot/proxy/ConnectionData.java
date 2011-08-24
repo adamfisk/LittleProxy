@@ -2,6 +2,9 @@ package org.littleshoot.proxy;
 
 import javax.management.MXBean;
 
+/**
+ * Interface for JMX data on a single connection.
+ */
 @MXBean(true)
 public interface ConnectionData {
     
@@ -18,7 +21,5 @@ public interface ConnectionData {
     String getUnansweredRequests();
     
     String getAnsweredReqeusts();
-    
-    String getRequests();
     
 }
