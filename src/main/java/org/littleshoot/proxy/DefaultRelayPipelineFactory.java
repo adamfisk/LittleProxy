@@ -86,17 +86,16 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
             else {
                 LOG.debug("Using filter: {}", filter);
                 shouldFilter = filter.shouldFilterResponses(httpRequest);
+                // We decompress and aggregate chunks for responses from 
+                // sites we're applying rules to.
+                if (shouldFilter) {
+                    pipeline.addLast("inflater", 
+                        new HttpContentDecompressor());
+                    pipeline.addLast("aggregator",            
+                        new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
+                }
             }
             LOG.debug("Filtering: "+shouldFilter);
-        }
-        
-        // We decompress and aggregate chunks for responses from 
-        // sites we're applying rules to.
-        if (shouldFilter) {
-            pipeline.addLast("inflater", 
-                new HttpContentDecompressor());
-            pipeline.addLast("aggregator",            
-                new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
         }
         
         // The trick here is we need to determine whether or not
