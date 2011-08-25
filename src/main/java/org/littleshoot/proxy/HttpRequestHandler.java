@@ -402,7 +402,35 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // TODO: We should really only allow access on 443, but this breaks
         // what a lot of browsers do in practice.
         //if (port != 443) {
+        if (port < 0) {
+            log.warn("Connecting on port other than 443!!");
+            final String statusLine = "HTTP/1.1 502 Proxy Error\r\n";
+            ProxyUtils.writeResponse(browserToProxyChannel, statusLine, 
+                ProxyUtils.PROXY_ERROR_HEADERS);
+            ProxyUtils.closeOnFlush(browserToProxyChannel);
+        }
+        else {
+            browserToProxyChannel.setReadable(false);
+            
+            // We need to modify both the pipeline encoders and decoders for the
+            // browser to proxy channel -- the outgoing channel already has
+            // the correct handlers and such set at this point.
+            ctx.getPipeline().remove("encoder");
+            ctx.getPipeline().remove("decoder");
+            ctx.getPipeline().remove("handler");
+            
+            // Note there are two HttpConnectRelayingHandler for each HTTP
+            // CONNECT tunnel -- one writing to the browser, and one writing
+            // to the remote host.
+            ctx.getPipeline().addLast("handler", 
+                new HttpConnectRelayingHandler(outgoingChannel, this.channelGroup));
+        }
         
+        // This is sneaky -- thanks to Emil Goicovici from the list --
+        // We temporarily add in a request encoder if we're chaining, allowing
+        // us to forward along the HTTP CONNECT request. We then remove that
+        // encoder as soon as it's written since past that point we simply
+        // want to relay all data.
         if (chainProxyHostAndPort != null) {
             // forward the CONNECT request to the upstream proxy server which will return a HTTP response
             outgoingChannel.getPipeline().addBefore("handler", "encoder", new HttpRequestEncoder());
@@ -418,34 +446,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 ProxyUtils.CONNECT_OK_HEADERS);
         }
         
-        if (port < 0) {
-            log.warn("Connecting on port other than 443!!");
-            final String statusLine = "HTTP/1.1 502 Proxy Error\r\n";
-            ProxyUtils.writeResponse(browserToProxyChannel, statusLine, 
-                ProxyUtils.PROXY_ERROR_HEADERS);
-        }
-        else {
-            browserToProxyChannel.setReadable(false);
-            
-            // We need to modify both the pipeline encoders and decoders for the
-            // browser to proxy channel *and* the encoders and decoders for the
-            // proxy to external site channel.
-            ctx.getPipeline().remove("encoder");
-            ctx.getPipeline().remove("decoder");
-            ctx.getPipeline().remove("handler");
-            
-            // Note there are two HttpConnectRelayingHandler for each HTTP
-            // CONNECT tunnel -- one writing to the browser, and one writing
-            // to the remote host.
-            ctx.getPipeline().addLast("handler", 
-                new HttpConnectRelayingHandler(outgoingChannel, this.channelGroup));
-            
-            final String statusLine = "HTTP/1.1 200 Connection established\r\n";
-            ProxyUtils.writeResponse(browserToProxyChannel, statusLine, 
-                ProxyUtils.CONNECT_OK_HEADERS);
-            
-            browserToProxyChannel.setReadable(true);
-        }
+        browserToProxyChannel.setReadable(true);
     }
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
