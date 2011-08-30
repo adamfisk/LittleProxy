@@ -3,6 +3,7 @@ package org.littleshoot.proxy;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
@@ -12,6 +13,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -26,6 +29,7 @@ import org.jboss.netty.handler.codec.http.HttpMessage;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -519,5 +523,72 @@ public class ProxyUtils {
         }
         msg.setHeader(HttpHeaders.Names.VIA, vias);
     }
+    
+    /**
+     * Detect Charset Encoding of a HttpResponse
+     * based on Headers and Meta Tags
+     * 
+     * @param http The HTTP Response.
+     */
+    public static Charset detectCharset(HttpResponse http) {
+
+		Charset charset = null; // Return null charset if charset detected in Response have no support
+
+		Charset headerCharset = CharsetUtil.ISO_8859_1; // Default charset for detection is latin-1
+
+		if (http.getHeader("Content-Type") != null) { // If has Content-Type header, try to detect charset from it
+
+			String header_pattern = "^\\s*?.*?\\s*?charset\\s*?=\\s*?(.*?)$"; // How to find charset in header
+
+			Pattern pattern = Pattern.compile(header_pattern);                 // Set Pattern Matcher to
+			Matcher matcher = pattern.matcher(http.getHeader("Content-Type")); // find charset in header
+
+			if (matcher.find()) { // If there is a charset definition
+
+				String charsetName = matcher.group(1); // Get string charset name
+
+				if (Charset.isSupported(charsetName)) { // If charset is supported by java
+					charset = Charset.forName(charsetName); // Set current charset to that
+					headerCharset = Charset.forName(charsetName); // Set the header charset to that
+				}
+			}
+		}
+
+		String html = http.getContent().toString(headerCharset); // Try to decode response content with header charset
+
+		String meta_pattern = "<meta\\s+.*? content\\s*?=\\s*?\\\"\\s*?text/html;\\s*?charset\\s*?=\\s*?(.*?)\\\"\\s*?/*?>"; // How to find charset in html4 meta tags
+		Pattern pattern = Pattern.compile(meta_pattern); // Set Pattern Matcher to
+		Matcher matcher = pattern.matcher(html);         // find meta tag charset in html
+		if (matcher.find()) { // If there is a charset in meta tag
+			String charsetName = matcher.group(1); // Get string charset name
+			if (Charset.isSupported(charsetName)) { // If charset is supported by java
+				charset = Charset.forName(charsetName); // Set current charset to that
+			}
+		}
+
+		meta_pattern = "<meta\\s+.*?charset\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 meta tag
+
+		pattern = Pattern.compile(meta_pattern); // Set Pattern Matcher to
+		matcher = pattern.matcher(html);         // find meta tag charset in html
+		if (matcher.find()) { // If there is a charset in meta tag
+			String charsetName = matcher.group(1); // Get string charset name
+			if (Charset.isSupported(charsetName)) { // If charset is supported by java
+				charset = Charset.forName(charsetName); // Set current charset to that
+			}
+		}
+
+		meta_pattern = "<meta\\s+.*?name=\\\"charset\\\"\\s*?content\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 variant meta tag
+
+		pattern = Pattern.compile(meta_pattern); // Set Pattern Matcher to
+		matcher = pattern.matcher(html);         // find meta charset in html
+		if (matcher.find()) { // If there is a charset in meta tag
+			String charsetName = matcher.group(1); // Get string charset name
+			if (Charset.isSupported(charsetName)) { // If charset is supported by java
+				charset = Charset.forName(charsetName); // Set current charset to that
+			}
+		}
+
+		return charset;
+	}
 
 }
