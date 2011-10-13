@@ -17,7 +17,8 @@ public class DefaultRelayPipelineFactoryFactory
 
     public DefaultRelayPipelineFactoryFactory(
         final String chainProxyHostAndPort, 
-        final Map<String, HttpFilter> filters, HttpRequestFilter requestFilter, 
+        final Map<String, HttpFilter> filters, 
+        final HttpRequestFilter requestFilter, 
         final ChannelGroup channelGroup) {
         this.chainProxyHostAndPort = chainProxyHostAndPort;
         this.filters = filters;

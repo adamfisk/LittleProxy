@@ -105,9 +105,11 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         // the original.
         final HttpRelayingHandler handler;
         if (shouldFilter) {
+            LOG.info("Creating relay handler with filter");
             handler = new HttpRelayingHandler(browserToProxyChannel, 
                 channelGroup, filter, relayListener, hostAndPort);
         } else {
+            LOG.info("Creating non-filtering relay handler");
             handler = new HttpRelayingHandler(browserToProxyChannel, 
                 channelGroup, relayListener, hostAndPort);
         }
