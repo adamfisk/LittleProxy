@@ -51,9 +51,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this(port, new HashMap<String, HttpFilter>());
     }
     
+    /**
+     * Creates a new proxy server.
+     * 
+     * @param port The port the server should run on.
+     * @param responseFilters The {@link Map} of request domains to match 
+     * with associated {@link HttpFilter}s for filtering responses to 
+     * those requests.
+     */
     public DefaultHttpProxyServer(final int port, 
-        final Map<String, HttpFilter> filters) {
-        this(port, filters, null, null, null);
+        final Map<String, HttpFilter> responseFilters) {
+        this(port, responseFilters, null, null, null);
     }
     
     /**
@@ -73,16 +81,23 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * Creates a new proxy server.
      * 
      * @param port The port the server should run on.
-     * @param filters HTTP filters to apply.
+     * @param responseFilters The {@link Map} of request domains to match 
+     * with associated {@link HttpFilter}s for filtering responses to 
+     * those requests.
+     * @param chainProxyHostAndPort The proxy to send requests to if chaining
+     * proxies. Typically <code>null</code>.
+     * @param ksm The key manager if running the proxy over SSL.
+     * @param requestFilter Optional filter for modifying incoming requests.
+     * Often <code>null</code>.
      */
     public DefaultHttpProxyServer(final int port, 
-        final Map<String, HttpFilter> filters,
+        final Map<String, HttpFilter> responseFilters,
         final String chainProxyHostAndPort, final KeyStoreManager ksm,
         final HttpRequestFilter requestFilter) {
         this.port = port;
         this.ksm = ksm;
         this.requestFilter = requestFilter;
-        this.filters = Collections.unmodifiableMap(filters);
+        this.filters = Collections.unmodifiableMap(responseFilters);
         this.chainProxyHostAndPort = chainProxyHostAndPort;
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
             public void uncaughtException(final Thread t, final Throwable e) {
