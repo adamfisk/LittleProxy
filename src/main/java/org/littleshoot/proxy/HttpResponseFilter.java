@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
 /**
@@ -8,11 +9,13 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 public interface HttpResponseFilter {
 
     /**
-     * Processes the response.
+     * Filters the response. The implementor can of course choose to return the
+     * response unmodified.
      * 
+     * @param request The request associated with the response.
      * @param response The response to process.
      * @param hostAndPort The host and port the response came from.
      * @return The processed response, possibly modified.
      */
-    HttpResponse filterResponse(HttpResponse response);
+    HttpResponse filterResponse(HttpRequest request, HttpResponse response);
 }

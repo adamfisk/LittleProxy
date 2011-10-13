@@ -40,8 +40,9 @@ public class DefaultHttpFilter implements HttpFilter {
         return true;
     }
 
-    public HttpResponse filterResponse(final HttpResponse response) {
-        return responseFilter.filterResponse(response);
+    public HttpResponse filterResponse(final HttpRequest request, 
+        final HttpResponse response) {
+        return responseFilter.filterResponse(request, response);
     }
     
     public int getMaxResponseSize() {

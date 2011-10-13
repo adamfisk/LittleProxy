@@ -8,11 +8,12 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
  */
 public class NoOpHttpFilter implements HttpFilter {
 
-    public boolean shouldFilterResponses(HttpRequest httpRequest) {
+    public boolean shouldFilterResponses(final HttpRequest httpRequest) {
         return false;
     }
 
-    public HttpResponse filterResponse(HttpResponse response) {
+    public HttpResponse filterResponse(final HttpRequest httpRequest, 
+        final HttpResponse response) {
         return response;
     }
 

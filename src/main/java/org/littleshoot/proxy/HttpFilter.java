@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
 /**
@@ -13,7 +14,7 @@ public interface HttpFilter extends HttpRequestMatcher {
      * @param response The response to filter.
      * @return The filtered response.
      */
-    HttpResponse filterResponse(HttpResponse response);
+    HttpResponse filterResponse(HttpRequest httpRequest, HttpResponse response);
 
     /**
      * Returns the maximum response size to expect in bytes for this filter.

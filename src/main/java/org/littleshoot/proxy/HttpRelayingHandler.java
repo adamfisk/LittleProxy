@@ -155,8 +155,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 writeEndBuffer = true;
             }
             
-            messageToWrite = this.httpFilter.filterResponse(response);
-            
             // An HTTP response is associated with a single request, so we
             // can pop the correct request off the queue.
             // 
@@ -172,6 +170,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             } else {
                 log.info("Request queue is empty!");
             }
+            messageToWrite = 
+                this.httpFilter.filterResponse(this.currentHttpRequest, response);
         } else {
             log.info("Processing a chunk");
             final HttpChunk chunk = (HttpChunk) me.getMessage();
