@@ -106,7 +106,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             new HttpServerPipelineFactory(authenticationManager, 
                 this.allChannels, this.chainProxyHostAndPort, this.ksm, 
                 new DefaultRelayPipelineFactoryFactory(chainProxyHostAndPort, 
-                    filters, requestFilter, this.allChannels));
+                    filters, this.requestFilter, this.allChannels));
         serverBootstrap.setPipelineFactory(factory);
         
         // Binding only to localhost can significantly improve the security of
