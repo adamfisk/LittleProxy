@@ -540,7 +540,7 @@ public class ProxyUtils {
 
 			String header_pattern = "^\\s*?.*?\\s*?charset\\s*?=\\s*?(.*?)$"; // How to find charset in header
 
-			Pattern pattern = Pattern.compile(header_pattern);                 // Set Pattern Matcher to
+			Pattern pattern = Pattern.compile(header_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
 			Matcher matcher = pattern.matcher(http.getHeader("Content-Type")); // find charset in header
 
 			if (matcher.find()) { // If there is a charset definition
@@ -557,7 +557,7 @@ public class ProxyUtils {
 		String html = http.getContent().toString(headerCharset); // Try to decode response content with header charset
 
 		String meta_pattern = "<meta\\s+.*? content\\s*?=\\s*?\\\"\\s*?text/html;\\s*?charset\\s*?=\\s*?(.*?)\\\"\\s*?/*?>"; // How to find charset in html4 meta tags
-		Pattern pattern = Pattern.compile(meta_pattern); // Set Pattern Matcher to
+		Pattern pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
 		Matcher matcher = pattern.matcher(html);         // find meta tag charset in html
 		if (matcher.find()) { // If there is a charset in meta tag
 			String charsetName = matcher.group(1); // Get string charset name
@@ -568,7 +568,7 @@ public class ProxyUtils {
 
 		meta_pattern = "<meta\\s+.*?charset\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 meta tag
 
-		pattern = Pattern.compile(meta_pattern); // Set Pattern Matcher to
+		pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
 		matcher = pattern.matcher(html);         // find meta tag charset in html
 		if (matcher.find()) { // If there is a charset in meta tag
 			String charsetName = matcher.group(1); // Get string charset name
@@ -579,7 +579,7 @@ public class ProxyUtils {
 
 		meta_pattern = "<meta\\s+.*?name=\\\"charset\\\"\\s*?content\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 variant meta tag
 
-		pattern = Pattern.compile(meta_pattern); // Set Pattern Matcher to
+		pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
 		matcher = pattern.matcher(html);         // find meta charset in html
 		if (matcher.find()) { // If there is a charset in meta tag
 			String charsetName = matcher.group(1); // Get string charset name
