@@ -87,7 +87,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * external connection to send HTTP chunks to.
      */
     private String hostAndPort;
-    private final String chainProxyHostAndPort;
+    private final ChainProxyManager chainProxyManager;
     private final ChannelGroup channelGroup;
 
     private final ClientSocketChannelFactory clientChannelFactory;
@@ -143,7 +143,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * channels we've opened.
      * @param filters HTTP filtering rules.
      * @param clientChannelFactory The common channel factory for clients.
-     * @param chainProxyHostAndPort upstream proxy server host and port or null 
+     * @param chainProxyManager upstream proxy server host and port or null 
      * if none used.
      * @param requestFilter An optional filter for HTTP requests.
      * @param useJmx Whether or not to expose debugging properties via JMX.
@@ -152,14 +152,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final ClientSocketChannelFactory clientChannelFactory,
-        final String chainProxyHostAndPort, 
+        final ChainProxyManager chainProxyManager, 
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
         final boolean useJmx) {
         this.cacheManager = cacheManager;
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.clientChannelFactory = clientChannelFactory;
-        this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.chainProxyManager = chainProxyManager;
         this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
         this.useJmx = useJmx;
         if (useJmx) {
@@ -261,9 +261,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             return;
         }
         
-        if (this.chainProxyHostAndPort != null) {
-            this.hostAndPort = this.chainProxyHostAndPort;
-        } else {
+        this.hostAndPort = null;
+        if (this.chainProxyManager != null) {
+            this.hostAndPort = this.chainProxyManager.getChainProxy(request);
+        }
+        
+        if (this.hostAndPort == null) {
             this.hostAndPort = ProxyUtils.parseHostAndPort(request);
         }
         
@@ -431,7 +434,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // us to forward along the HTTP CONNECT request. We then remove that
         // encoder as soon as it's written since past that point we simply
         // want to relay all data.
-        if (chainProxyHostAndPort != null) {
+        final String chainProxy = chainProxyManager.getChainProxy(httpRequest);
+        if (chainProxy != null) {
             // forward the CONNECT request to the upstream proxy server which will return a HTTP response
             outgoingChannel.getPipeline().addBefore("handler", "encoder", new HttpRequestEncoder());
             outgoingChannel.write(httpRequest).addListener(new ChannelFutureListener() {

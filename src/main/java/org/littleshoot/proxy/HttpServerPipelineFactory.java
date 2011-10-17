@@ -49,7 +49,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
-    private final String chainProxyHostAndPort;
+    private final ChainProxyManager chainProxyManager;
     
     private final ClientSocketChannelFactory clientSocketChannelFactory =
         new NioClientSocketChannelFactory(
@@ -74,14 +74,14 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
      * @param authorizationManager The manager for proxy authentication.
      * @param channelGroup The group that keeps track of open channels.
      * @param filters HTTP filters to apply.
-     * @param chainProxyHostAndPort upstream proxy server host and port or 
+     * @param chainProxyManager upstream proxy server host and port or 
      * <code>null</code> if none used.
      * @param isSsl Whether or not to use SSL/TLS.
      */
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final String chainProxyHostAndPort, final KeyStoreManager ksm,
+        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
     	
     	this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
@@ -89,7 +89,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         log.info("Creating server with keystore manager: {}", ksm);
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
-        this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.chainProxyManager = chainProxyManager;
         this.ksm = ksm;
         
         if (CACHE_ENABLED) {
@@ -201,7 +201,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         return -1;
     }
     
-	public ChannelPipeline getPipeline() throws Exception {
+    public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = pipeline();
 
         log.info("Accessing pipeline");
@@ -228,7 +228,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         pipeline.addLast("handler", 
             new HttpRequestHandler(this.cacheManager, authenticationManager, 
                 this.channelGroup, this.clientSocketChannelFactory,
-                this.chainProxyHostAndPort, relayPipelineFactoryFactory, this.useJmx));
+                this.chainProxyManager, relayPipelineFactoryFactory, this.useJmx));
         this.numHandlers++;
         return pipeline;
     }

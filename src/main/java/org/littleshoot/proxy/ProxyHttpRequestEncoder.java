@@ -18,7 +18,7 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
         LoggerFactory.getLogger(ProxyHttpRequestEncoder.class);
     private final HttpRelayingHandler relayingHandler;
     private final HttpRequestFilter requestFilter;
-    private final String chainProxyHostAndPort;
+    private final ChainProxyManager chainProxyManager;
     private final boolean transparent;
 
     /**
@@ -38,13 +38,13 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
      * @param handler The class that handles relaying all data along this 
      * connection. We need this to synchronize caching rules for each request
      * and response pair.
-     * @param chainProxyHostAndPort The configured proxy chain host and port.
+     * @param chainProxyManager The configured proxy chain host and port.
      * @param requestFilter The filter for requests.
      */
     public ProxyHttpRequestEncoder(final HttpRelayingHandler handler, 
         final HttpRequestFilter requestFilter, 
-        final String chainProxyHostAndPort) {
-        this(handler, requestFilter, chainProxyHostAndPort, false);
+        final ChainProxyManager chainProxyManager) {
+        this(handler, requestFilter, chainProxyManager, false);
     }
     
     /**
@@ -53,7 +53,7 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
      * @param handler The class that handles relaying all data along this 
      * connection. We need this to synchronize caching rules for each request
      * and response pair.
-     * @param chainProxyHostAndPort The configured proxy chain host and port.
+     * @param chainProxyManager The configured proxy chain host and port.
      * @param requestFilter The filter for requests.
      * @param transparent Whether or not this is an transparent proxy. 
      * Transparent proxies don't add extra via headers or follow normal 
@@ -61,10 +61,12 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
      */
     public ProxyHttpRequestEncoder(final HttpRelayingHandler handler, 
         final HttpRequestFilter requestFilter, 
-        final String chainProxyHostAndPort, final boolean transparent) {
+        final ChainProxyManager chainProxyManager,
+        final boolean transparent) {
+	
         this.relayingHandler = handler;
         this.requestFilter = requestFilter;
-        this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.chainProxyManager = chainProxyManager;
         this.transparent = transparent;
     }
 
@@ -87,7 +89,7 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
                 toSend = request;
             } else {
                 toSend = ProxyUtils.copyHttpRequest(request, 
-                    this.chainProxyHostAndPort != null);
+                    this.chainProxyManager != null);
             }
             if (this.requestFilter != null) {
                 this.requestFilter.filter(toSend);
