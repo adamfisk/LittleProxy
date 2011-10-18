@@ -13,5 +13,12 @@ public interface ChainProxyManager {
      * @return The Chain Proxy with Host and Port.
      */
     String getChainProxy(HttpRequest httpRequest);
+    
+    
+    /**
+     * Callback to report proxy problems
+     * @param hostAndPort host and port of the proxy
+     */
+    void onCommunicationError(String hostAndPort);
 
 }

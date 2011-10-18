@@ -78,15 +78,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
 
     private ChannelFuture currentChannelFuture;
     
-    /**
-     * Note, we *can* receive requests for multiple different sites from the
-     * same connection from the browser, so the host and port most certainly
-     * does change.
-     * 
-     * Why do we need to store it? We need it to lookup the appropriate 
-     * external connection to send HTTP chunks to.
-     */
-    private String hostAndPort;
     private final ChainProxyManager chainProxyManager;
     private final ChannelGroup channelGroup;
 
@@ -261,13 +252,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             return;
         }
         
-        this.hostAndPort = null;
+        String hostAndPort = null;
         if (this.chainProxyManager != null) {
-            this.hostAndPort = this.chainProxyManager.getChainProxy(request);
+            hostAndPort = this.chainProxyManager.getChainProxy(request);
         }
         
-        if (this.hostAndPort == null) {
-            this.hostAndPort = ProxyUtils.parseHostAndPort(request);
+        if (hostAndPort == null) {
+            hostAndPort = ProxyUtils.parseHostAndPort(request);
         }
         
         final class OnConnect {
@@ -295,7 +286,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      
         final OnConnect onConnect = new OnConnect();
         
-        final ChannelFuture curFuture = getChannelFuture();
+        final ChannelFuture curFuture = getChannelFuture(hostAndPort);
         if (curFuture != null) {
             log.info("Using existing connection...");
             this.currentChannelFuture = curFuture;
@@ -315,8 +306,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         else {
             log.info("Establishing new connection");
             final ChannelFuture cf = 
-                newChannelFuture(request, inboundChannel);
-            cf.addListener(new ChannelFutureListener() {
+                newChannelFuture(request, inboundChannel, hostAndPort);
+            
+            final class LocalChannelFutureListener implements ChannelFutureListener {
+                private String hostAndPort;
+                
+                LocalChannelFutureListener(String hostAndPort) {
+                    this.hostAndPort = hostAndPort;
+                }
+            
                 public void operationComplete(final ChannelFuture future)
                     throws Exception {
                     final Channel channel = future.getChannel();
@@ -337,16 +335,35 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         });
                     }
                     else {
-                        log.info("Could not connect to "+hostAndPort, 
+                        log.info("Could not connect to " + hostAndPort, 
                             future.getCause());
                         
-                        // We call the relay channel closed event handler
-                        // with one associated unanswered request.
-                        onRelayChannelClose(inboundChannel, hostAndPort, 1, 
-                            true);
+                        final String nextHostAndPort;
+                        if (chainProxyManager == null) {
+                            nextHostAndPort = hostAndPort;
+                        }
+                        else {
+                            chainProxyManager.onCommunicationError(hostAndPort);
+                            nextHostAndPort = chainProxyManager.getChainProxy(request);
+                        }
+                        
+                        if (hostAndPort.equals(nextHostAndPort)) {
+                            // We call the relay channel closed event handler
+                            // with one associated unanswered request.
+                            onRelayChannelClose(inboundChannel, hostAndPort, 1,
+                                true);
+                        }
+                        else {
+                            // TODO I am not sure about this
+                            removeProxyToWebConnection(hostAndPort);
+                            // try again with differen hostAndPort
+                            processRequest(ctx, me);
+                        }
                     }
                 }
-            });
+            }
+            
+            cf.addListener(new LocalChannelFutureListener(hostAndPort));
         }
             
         if (request.isChunked()) {
@@ -360,12 +377,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         
         synchronized (this.externalHostsToChannelFutures) {
             final Queue<ChannelFuture> futures = 
-                this.externalHostsToChannelFutures.get(hostAndPort);
+                this.externalHostsToChannelFutures.get(hostAndPortKey);
             
             final Queue<ChannelFuture> toUse;
             if (futures == null) {
                 toUse = new LinkedList<ChannelFuture>();
-                this.externalHostsToChannelFutures.put(hostAndPort, toUse);
+                this.externalHostsToChannelFutures.put(hostAndPortKey, toUse);
             } else {
                 toUse = futures;
             }
@@ -373,7 +390,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
 
-    private ChannelFuture getChannelFuture() {
+    private ChannelFuture getChannelFuture(String hostAndPort) {
         synchronized (this.externalHostsToChannelFutures) {
             final Queue<ChannelFuture> futures = 
                 this.externalHostsToChannelFutures.get(hostAndPort);
@@ -454,7 +471,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
-        final Channel browserToProxyChannel) {
+        final Channel browserToProxyChannel, String hostAndPort) {
         final String host;
         final int port;
         if (hostAndPort.contains(":")) {
