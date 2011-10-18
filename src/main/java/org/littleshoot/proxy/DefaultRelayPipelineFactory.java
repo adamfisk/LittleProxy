@@ -116,7 +116,8 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         
         final ProxyHttpRequestEncoder encoder = 
             new ProxyHttpRequestEncoder(handler, requestFilter, 
-                chainProxyManager);
+                chainProxyManager != null
+                && chainProxyManager.getChainProxy(httpRequest) != null);
         pipeline.addLast("encoder", encoder);
         
         // We close idle connections to remote servers after the

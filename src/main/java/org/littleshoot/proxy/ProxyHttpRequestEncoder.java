@@ -18,7 +18,7 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
         LoggerFactory.getLogger(ProxyHttpRequestEncoder.class);
     private final HttpRelayingHandler relayingHandler;
     private final HttpRequestFilter requestFilter;
-    private final ChainProxyManager chainProxyManager;
+    private final boolean keepProxyFormat;
     private final boolean transparent;
 
     /**
@@ -29,7 +29,7 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
      * and response pair.
      */
     public ProxyHttpRequestEncoder(final HttpRelayingHandler handler) {
-        this(handler, null, null, false);
+        this(handler, null, false, false);
     }
     
     /**
@@ -38,13 +38,13 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
      * @param handler The class that handles relaying all data along this 
      * connection. We need this to synchronize caching rules for each request
      * and response pair.
-     * @param chainProxyManager The configured proxy chain host and port.
+     * @param keepProxyFormat keep proxy-formatted URI (used in chaining)
      * @param requestFilter The filter for requests.
      */
     public ProxyHttpRequestEncoder(final HttpRelayingHandler handler, 
         final HttpRequestFilter requestFilter, 
-        final ChainProxyManager chainProxyManager) {
-        this(handler, requestFilter, chainProxyManager, false);
+        final boolean keepProxyFormat) {
+        this(handler, requestFilter, keepProxyFormat, false);
     }
     
     /**
@@ -53,7 +53,7 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
      * @param handler The class that handles relaying all data along this 
      * connection. We need this to synchronize caching rules for each request
      * and response pair.
-     * @param chainProxyManager The configured proxy chain host and port.
+     * @param keepProxyFormat keep proxy-formatted URI (used in chaining)
      * @param requestFilter The filter for requests.
      * @param transparent Whether or not this is an transparent proxy. 
      * Transparent proxies don't add extra via headers or follow normal 
@@ -61,12 +61,12 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
      */
     public ProxyHttpRequestEncoder(final HttpRelayingHandler handler, 
         final HttpRequestFilter requestFilter, 
-        final ChainProxyManager chainProxyManager,
+        final boolean keepProxyFormat,
         final boolean transparent) {
 	
         this.relayingHandler = handler;
         this.requestFilter = requestFilter;
-        this.chainProxyManager = chainProxyManager;
+        this.keepProxyFormat = keepProxyFormat;
         this.transparent = transparent;
     }
 
@@ -88,8 +88,7 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
             if (transparent) {
                 toSend = request;
             } else {
-                toSend = ProxyUtils.copyHttpRequest(request, 
-                    this.chainProxyManager != null);
+                toSend = ProxyUtils.copyHttpRequest(request, keepProxyFormat);
             }
             if (this.requestFilter != null) {
                 this.requestFilter.filter(toSend);
