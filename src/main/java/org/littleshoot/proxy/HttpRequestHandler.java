@@ -13,6 +13,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.MBeanRegistrationException;
@@ -57,19 +58,25 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         LoggerFactory.getLogger(HttpRequestHandler.class);
     private volatile boolean readingChunks;
     
-    private static volatile int totalBrowserToProxyConnections = 0;
-    private volatile int browserToProxyConnections = 0;
+    private static final AtomicInteger totalBrowserToProxyConnections = 
+        new AtomicInteger(0);
+    private final AtomicInteger browserToProxyConnections = 
+        new AtomicInteger(0);
     
     private final Map<String, Queue<ChannelFuture>> externalHostsToChannelFutures = 
         new ConcurrentHashMap<String, Queue<ChannelFuture>>();
     
-    private volatile int messagesReceived = 0;
+    private final AtomicInteger messagesReceived = 
+        new AtomicInteger(0);
     
-    private volatile int unansweredRequestCount = 0;
+    private final AtomicInteger unansweredRequestCount = 
+        new AtomicInteger(0);
     
-    private volatile int requestsSent = 0;
+    private final AtomicInteger requestsSent = 
+        new AtomicInteger(0);
     
-    private volatile int responsesReceived = 0;
+    private final AtomicInteger responsesReceived = 
+        new AtomicInteger(0);
     
     private final ProxyAuthorizationManager authorizationManager;
     
@@ -201,7 +208,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 "is about to close");
             return;
         }
-        messagesReceived++;
+        messagesReceived.incrementAndGet();
         log.info("Received "+messagesReceived+" total messages");
         if (!readingChunks) {
             processRequest(ctx, me);
@@ -252,7 +259,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             log.info("Found cache hit! Cache wrote the response.");
             return;
         }
-        this.unansweredRequestCount++;
+        this.unansweredRequestCount.incrementAndGet();
         
         log.info("Got request: {} on channel: "+inboundChannel, request);
         if (this.authorizationManager != null && 
@@ -278,7 +285,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                             if (useJmx) {
                                 unansweredRequests.add(request.toString());
                             }
-                            requestsSent++;
+                            requestsSent.incrementAndGet();
                         }
                     });
                     return writeFuture;
@@ -501,8 +508,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final ChannelStateEvent cse) throws Exception {
         final Channel inboundChannel = cse.getChannel();
         log.info("New channel opened: {}", inboundChannel);
-        totalBrowserToProxyConnections++;
-        browserToProxyConnections++;
+        totalBrowserToProxyConnections.incrementAndGet();
+        browserToProxyConnections.incrementAndGet();
         log.info("Now "+totalBrowserToProxyConnections+
             " browser to proxy channels...");
         log.info("Now this class has "+browserToProxyConnections+
@@ -518,8 +525,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) {
         log.info("Channel closed: {}", cse.getChannel());
-        totalBrowserToProxyConnections--;
-        browserToProxyConnections--;
+        totalBrowserToProxyConnections.decrementAndGet();
+        browserToProxyConnections.decrementAndGet();
         log.info("Now "+totalBrowserToProxyConnections+
             " total browser to proxy channels...");
         log.info("Now this class has "+browserToProxyConnections+
@@ -527,7 +534,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         
         // The following should always be the case with
         // @ChannelPipelineCoverage("one")
-        if (browserToProxyConnections == 0) {
+        if (browserToProxyConnections.get() == 0) {
             log.info("Closing all proxy to web channels for this browser " +
                 "to proxy connection!!!");
             final Collection<Queue<ChannelFuture>> allFutures = 
@@ -559,9 +566,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // markers for complete responses, such as Content-Length or the the
         // last chunk of a chunked encoding. All of this potentially results 
         // in the closing of the client/browser connection here.
-        this.unansweredRequestCount -= unansweredRequestsOnChannel;
+        this.unansweredRequestCount.set(
+            this.unansweredRequestCount.get() - unansweredRequestsOnChannel);
+        //this.unansweredRequestCount -= unansweredRequestsOnChannel;
         if (this.receivedChannelClosed && 
-            (this.externalHostsToChannelFutures.isEmpty() || this.unansweredRequestCount == 0)) {
+            (this.externalHostsToChannelFutures.isEmpty() || 
+             this.unansweredRequestCount.get() == 0)) {
             if (!browserChannelClosed.getAndSet(true)) {
                 log.info("Closing browser to proxy channel");
                 ProxyUtils.closeOnFlush(browserToProxyChannel);
@@ -586,12 +596,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             this.answeredRequests.add(httpRequest.toString());
             this.unansweredRequests.remove(httpRequest.toString());
         }
-        this.unansweredRequestCount--;
-        this.responsesReceived++;
+        this.unansweredRequestCount.decrementAndGet();
+        this.responsesReceived.incrementAndGet();
         // If we've received responses to all outstanding requests and one
         // of those outgoing channels has been closed, we should close the
         // connection to the browser.
-        if (this.unansweredRequestCount == 0 && this.receivedChannelClosed) {
+        if (this.unansweredRequestCount.get() == 0 && this.receivedChannelClosed) {
             if (!browserChannelClosed.getAndSet(true)) {
                 log.info("Closing browser to proxy channel on HTTP response");
                 ProxyUtils.closeOnFlush(browserToProxyChannel);
@@ -621,11 +631,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     public int getClientConnections() {
-        return this.browserToProxyConnections;
+        return this.browserToProxyConnections.get();
     }
     
     public int getTotalClientConnections() {
-        return totalBrowserToProxyConnections;
+        return totalBrowserToProxyConnections.get();
     }
 
     public int getOutgoingConnections() {
@@ -633,11 +643,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     public int getRequestsSent() {
-        return this.requestsSent;
+        return this.requestsSent.get();
     }
 
     public int getResponsesReceived() {
-        return this.responsesReceived;
+        return this.responsesReceived.get();
     }
 
     public String getUnansweredRequests() {
