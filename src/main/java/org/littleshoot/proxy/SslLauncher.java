@@ -1,6 +1,5 @@
 package org.littleshoot.proxy;
 
-import java.util.HashMap;
 
 
 /**
@@ -28,8 +27,13 @@ public class SslLauncher {
         }
         
         System.out.println("About to start SSL server on port: "+port);
+        final HttpResponseFilters responseFilters = new HttpResponseFilters() {
+            public HttpFilter getFilter(final String hostAndPort) {
+                return null;
+            }
+        };
         final HttpProxyServer server = new DefaultHttpProxyServer(port, 
-            new HashMap<String, HttpFilter>(), null, 
+            responseFilters, null, 
             new SelfSignedKeyStoreManager(), null);
         System.out.println("About to start...");
         server.start();

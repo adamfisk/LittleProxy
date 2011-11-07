@@ -458,17 +458,23 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // us to forward along the HTTP CONNECT request. We then remove that
         // encoder as soon as it's written since past that point we simply
         // want to relay all data.
-        final String chainProxy = chainProxyManager.getChainProxy(httpRequest);
-        if (chainProxy != null) {
-            // forward the CONNECT request to the upstream proxy server which will return a HTTP response
-            outgoingChannel.getPipeline().addBefore("handler", "encoder", new HttpRequestEncoder());
-            outgoingChannel.write(httpRequest).addListener(new ChannelFutureListener() {
-                public void operationComplete(final ChannelFuture future)
-                    throws Exception {
-                    outgoingChannel.getPipeline().remove("encoder");
-                }
-            });
-        } else {
+        String chainProxy = null;
+        if (chainProxyManager != null) {
+            chainProxy = chainProxyManager.getChainProxy(httpRequest);
+            if (chainProxy != null) {
+                // forward the CONNECT request to the upstream proxy server 
+                // which will return a HTTP response
+                outgoingChannel.getPipeline().addBefore("handler", "encoder", 
+                    new HttpRequestEncoder());
+                outgoingChannel.write(httpRequest).addListener(new ChannelFutureListener() {
+                    public void operationComplete(final ChannelFuture future)
+                        throws Exception {
+                        outgoingChannel.getPipeline().remove("encoder");
+                    }
+                });
+            }
+        }
+        if (chainProxy == null) {
             final String statusLine = "HTTP/1.1 200 Connection established\r\n";
             ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
                 ProxyUtils.CONNECT_OK_HEADERS);

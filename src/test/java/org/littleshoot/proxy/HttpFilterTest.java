@@ -5,9 +5,7 @@ import static org.junit.Assert.assertEquals;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,8 +29,6 @@ public class HttpFilterTest {
 
     @Test public void testFiltering() throws Exception {
         final int port = 8923;
-        final Map<String, HttpFilter> responseFilters = 
-            new HashMap<String, HttpFilter>();
         
         final AtomicInteger shouldFilterCalls = new AtomicInteger(0);
         final AtomicInteger filterCalls = new AtomicInteger(0);
@@ -62,7 +58,15 @@ public class HttpFilterTest {
                 return response;
             }
         };
-        responseFilters.put("www.google.com", filter);
+        final HttpResponseFilters responseFilters = 
+            new HttpResponseFilters() {
+                public HttpFilter getFilter(final String hostAndPort) {
+                    if (hostAndPort.equals("www.google.com")) {
+                        return filter;
+                    }
+                    return null;
+                }
+            };
         final HttpProxyServer server = 
             new DefaultHttpProxyServer(port, responseFilters);
         server.start();

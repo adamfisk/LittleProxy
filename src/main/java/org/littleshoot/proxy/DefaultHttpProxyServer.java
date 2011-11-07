@@ -3,8 +3,6 @@ package org.littleshoot.proxy;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
@@ -32,8 +30,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ProxyAuthorizationManager authenticationManager =
         new DefaultProxyAuthorizationManager();
 
-    private final Map<String, HttpFilter> filters;
-    
     private final ChainProxyManager chainProxyManager;
 
     private final KeyStoreManager ksm;
@@ -41,6 +37,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final HttpRequestFilter requestFilter;
 
     private final ServerBootstrap serverBootstrap;
+
+    private final HttpResponseFilters responseFilters;
     
     /**
      * Creates a new proxy server.
@@ -48,7 +46,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param port The port the server should run on.
      */
     public DefaultHttpProxyServer(final int port) {
-        this(port, new HashMap<String, HttpFilter>());
+        this(port, new HttpResponseFilters() {
+            public HttpFilter getFilter(String hostAndPort) {
+                return null;
+            }
+        });
     }
     
     /**
@@ -60,7 +62,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * those requests.
      */
     public DefaultHttpProxyServer(final int port, 
-        final Map<String, HttpFilter> responseFilters) {
+        final HttpResponseFilters responseFilters) {
         this(port, responseFilters, null, null, null);
     }
     
@@ -73,7 +75,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     public DefaultHttpProxyServer(final int port,
         final HttpRequestFilter requestFilter,
-        final Map<String, HttpFilter> responseFilters) {
+        final HttpResponseFilters responseFilters) {
         this(port, responseFilters, null, null, requestFilter);
     }
     
@@ -91,13 +93,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * Often <code>null</code>.
      */
     public DefaultHttpProxyServer(final int port, 
-        final Map<String, HttpFilter> responseFilters,
+        final HttpResponseFilters responseFilters,
         final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
         final HttpRequestFilter requestFilter) {
         this.port = port;
+        this.responseFilters = responseFilters;
         this.ksm = ksm;
         this.requestFilter = requestFilter;
-        this.filters = Collections.unmodifiableMap(responseFilters);
         this.chainProxyManager = chainProxyManager;
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
             public void uncaughtException(final Thread t, final Throwable e) {
@@ -121,7 +123,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             new HttpServerPipelineFactory(authenticationManager, 
                 this.allChannels, this.chainProxyManager, this.ksm, 
                 new DefaultRelayPipelineFactoryFactory(chainProxyManager, 
-                    filters, this.requestFilter, this.allChannels));
+                    this.responseFilters, this.requestFilter, 
+                    this.allChannels));
         serverBootstrap.setPipelineFactory(factory);
         
         // Binding only to localhost can significantly improve the security of

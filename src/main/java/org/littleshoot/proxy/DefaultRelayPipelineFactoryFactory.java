@@ -1,7 +1,5 @@
 package org.littleshoot.proxy;
 
-import java.util.Map;
-
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
@@ -11,17 +9,17 @@ public class DefaultRelayPipelineFactoryFactory
     implements RelayPipelineFactoryFactory {
     
     private ChainProxyManager chainProxyManager;
-    private Map<String, HttpFilter> filters;
     private ChannelGroup channelGroup;
     private HttpRequestFilter requestFilter;
+    private final HttpResponseFilters responseFilters;
 
     public DefaultRelayPipelineFactoryFactory(
         final ChainProxyManager chainProxyManager, 
-        final Map<String, HttpFilter> filters, 
+        final HttpResponseFilters responseFilters, 
         final HttpRequestFilter requestFilter, 
         final ChannelGroup channelGroup) {
         this.chainProxyManager = chainProxyManager;
-        this.filters = filters;
+        this.responseFilters = responseFilters;
         this.channelGroup = channelGroup;
         this.requestFilter = requestFilter;
     }
@@ -37,7 +35,7 @@ public class DefaultRelayPipelineFactoryFactory
         }
         
         return new DefaultRelayPipelineFactory(hostAndPort, httpRequest, 
-            relayListener, browserToProxyChannel, channelGroup, filters, 
+            relayListener, browserToProxyChannel, channelGroup, responseFilters, 
             requestFilter, chainProxyManager);
     }
     

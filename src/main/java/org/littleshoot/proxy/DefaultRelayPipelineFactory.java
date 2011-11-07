@@ -2,8 +2,6 @@ package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
-import java.util.Map;
-
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -30,16 +28,17 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
     private final Channel browserToProxyChannel;
 
     private final ChannelGroup channelGroup;
-    private final Map<String, HttpFilter> filters;
     private final HttpRequestFilter requestFilter;
     private ChainProxyManager chainProxyManager;
     private final boolean filtersOff;
+    private final HttpResponseFilters responseFilters;
 
     
     public DefaultRelayPipelineFactory(final String hostAndPort, 
         final HttpRequest httpRequest, final RelayListener relayListener, 
         final Channel browserToProxyChannel,
-        final ChannelGroup channelGroup, final Map<String, HttpFilter> filters, 
+        final ChannelGroup channelGroup, 
+        final HttpResponseFilters responseFilters, 
         final HttpRequestFilter requestFilter, 
         final ChainProxyManager chainProxyManager) {
         this.hostAndPort = hostAndPort;
@@ -48,11 +47,11 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         this.browserToProxyChannel = browserToProxyChannel;
         
         this.channelGroup = channelGroup;
-        this.filters = filters;
+        this.responseFilters = responseFilters;
         this.requestFilter = requestFilter;
         this.chainProxyManager = chainProxyManager;
         
-        this.filtersOff = filters == null || filters.isEmpty();
+        this.filtersOff = responseFilters == null;
     }
     
 
@@ -78,9 +77,9 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
             shouldFilter = false;
             filter = null;
         } else {
-            filter = filters.get(hostAndPort);
+            filter = responseFilters.getFilter(hostAndPort);
             if (filter == null) {
-                LOG.info("Filter not found in: {}", filters);
+                LOG.info("No filter found");
                 shouldFilter = false;
             }
             else {
