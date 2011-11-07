@@ -85,16 +85,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
 
     private ChannelFuture currentChannelFuture;
     
-    /**
-     * Note, we *can* receive requests for multiple different sites from the
-     * same connection from the browser, so the host and port most certainly
-     * does change.
-     * 
-     * Why do we need to store it? We need it to lookup the appropriate 
-     * external connection to send HTTP chunks to.
-     */
-    private String hostAndPort;
-    private final String chainProxyHostAndPort;
+    private final ChainProxyManager chainProxyManager;
     private final ChannelGroup channelGroup;
 
     private final ClientSocketChannelFactory clientChannelFactory;
@@ -150,7 +141,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * channels we've opened.
      * @param filters HTTP filtering rules.
      * @param clientChannelFactory The common channel factory for clients.
-     * @param chainProxyHostAndPort upstream proxy server host and port or null 
+     * @param chainProxyManager upstream proxy server host and port or null 
      * if none used.
      * @param requestFilter An optional filter for HTTP requests.
      * @param useJmx Whether or not to expose debugging properties via JMX.
@@ -159,14 +150,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final ClientSocketChannelFactory clientChannelFactory,
-        final String chainProxyHostAndPort, 
+        final ChainProxyManager chainProxyManager, 
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
         final boolean useJmx) {
         this.cacheManager = cacheManager;
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.clientChannelFactory = clientChannelFactory;
-        this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.chainProxyManager = chainProxyManager;
         this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
         this.useJmx = useJmx;
         if (useJmx) {
@@ -268,10 +259,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             return;
         }
         
-        if (this.chainProxyHostAndPort != null) {
-            this.hostAndPort = this.chainProxyHostAndPort;
-        } else {
-            this.hostAndPort = ProxyUtils.parseHostAndPort(request);
+        String hostAndPort = null;
+        if (this.chainProxyManager != null) {
+            hostAndPort = this.chainProxyManager.getChainProxy(request);
+        }
+        
+        if (hostAndPort == null) {
+            hostAndPort = ProxyUtils.parseHostAndPort(request);
         }
         
         final class OnConnect {
@@ -299,7 +293,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      
         final OnConnect onConnect = new OnConnect();
         
-        final ChannelFuture curFuture = getChannelFuture();
+        final ChannelFuture curFuture = getChannelFuture(hostAndPort);
         if (curFuture != null) {
             log.info("Using existing connection...");
             this.currentChannelFuture = curFuture;
@@ -319,8 +313,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         else {
             log.info("Establishing new connection");
             final ChannelFuture cf = 
-                newChannelFuture(request, inboundChannel);
-            cf.addListener(new ChannelFutureListener() {
+                newChannelFuture(request, inboundChannel, hostAndPort);
+            
+            final class LocalChannelFutureListener implements ChannelFutureListener {
+                private String hostAndPort;
+                
+                LocalChannelFutureListener(String hostAndPort) {
+                    this.hostAndPort = hostAndPort;
+                }
+            
                 public void operationComplete(final ChannelFuture future)
                     throws Exception {
                     final Channel channel = future.getChannel();
@@ -341,16 +342,35 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         });
                     }
                     else {
-                        log.info("Could not connect to "+hostAndPort, 
+                        log.info("Could not connect to " + hostAndPort, 
                             future.getCause());
                         
-                        // We call the relay channel closed event handler
-                        // with one associated unanswered request.
-                        onRelayChannelClose(inboundChannel, hostAndPort, 1, 
-                            true);
+                        final String nextHostAndPort;
+                        if (chainProxyManager == null) {
+                            nextHostAndPort = hostAndPort;
+                        }
+                        else {
+                            chainProxyManager.onCommunicationError(hostAndPort);
+                            nextHostAndPort = chainProxyManager.getChainProxy(request);
+                        }
+                        
+                        if (hostAndPort.equals(nextHostAndPort)) {
+                            // We call the relay channel closed event handler
+                            // with one associated unanswered request.
+                            onRelayChannelClose(inboundChannel, hostAndPort, 1,
+                                true);
+                        }
+                        else {
+                            // TODO I am not sure about this
+                            removeProxyToWebConnection(hostAndPort);
+                            // try again with differen hostAndPort
+                            processRequest(ctx, me);
+                        }
                     }
                 }
-            });
+            }
+            
+            cf.addListener(new LocalChannelFutureListener(hostAndPort));
         }
             
         if (request.isChunked()) {
@@ -364,12 +384,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         
         synchronized (this.externalHostsToChannelFutures) {
             final Queue<ChannelFuture> futures = 
-                this.externalHostsToChannelFutures.get(hostAndPort);
+                this.externalHostsToChannelFutures.get(hostAndPortKey);
             
             final Queue<ChannelFuture> toUse;
             if (futures == null) {
                 toUse = new LinkedList<ChannelFuture>();
-                this.externalHostsToChannelFutures.put(hostAndPort, toUse);
+                this.externalHostsToChannelFutures.put(hostAndPortKey, toUse);
             } else {
                 toUse = futures;
             }
@@ -377,7 +397,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
 
-    private ChannelFuture getChannelFuture() {
+    private ChannelFuture getChannelFuture(String hostAndPort) {
         synchronized (this.externalHostsToChannelFutures) {
             final Queue<ChannelFuture> futures = 
                 this.externalHostsToChannelFutures.get(hostAndPort);
@@ -438,7 +458,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // us to forward along the HTTP CONNECT request. We then remove that
         // encoder as soon as it's written since past that point we simply
         // want to relay all data.
-        if (chainProxyHostAndPort != null) {
+        final String chainProxy = chainProxyManager.getChainProxy(httpRequest);
+        if (chainProxy != null) {
             // forward the CONNECT request to the upstream proxy server which will return a HTTP response
             outgoingChannel.getPipeline().addBefore("handler", "encoder", new HttpRequestEncoder());
             outgoingChannel.write(httpRequest).addListener(new ChannelFutureListener() {
@@ -457,7 +478,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
-        final Channel browserToProxyChannel) {
+        final Channel browserToProxyChannel, String hostAndPort) {
         final String host;
         final int port;
         if (hostAndPort.contains(":")) {

@@ -32,7 +32,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
     private final ChannelGroup channelGroup;
     private final Map<String, HttpFilter> filters;
     private final HttpRequestFilter requestFilter;
-    private String chainProxyHostAndPort;
+    private ChainProxyManager chainProxyManager;
     private final boolean filtersOff;
 
     
@@ -41,7 +41,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         final Channel browserToProxyChannel,
         final ChannelGroup channelGroup, final Map<String, HttpFilter> filters, 
         final HttpRequestFilter requestFilter, 
-        final String chainProxyHostAndPort) {
+        final ChainProxyManager chainProxyManager) {
         this.hostAndPort = hostAndPort;
         this.httpRequest = httpRequest;
         this.relayListener = relayListener;
@@ -50,7 +50,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         this.channelGroup = channelGroup;
         this.filters = filters;
         this.requestFilter = requestFilter;
-        this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.chainProxyManager = chainProxyManager;
         
         this.filtersOff = filters == null || filters.isEmpty();
     }
@@ -116,7 +116,8 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         
         final ProxyHttpRequestEncoder encoder = 
             new ProxyHttpRequestEncoder(handler, requestFilter, 
-                chainProxyHostAndPort);
+                chainProxyManager != null
+                && chainProxyManager.getChainProxy(httpRequest) != null);
         pipeline.addLast("encoder", encoder);
         
         // We close idle connections to remote servers after the
