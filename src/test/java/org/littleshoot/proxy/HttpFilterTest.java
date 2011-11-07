@@ -10,7 +10,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
@@ -22,8 +21,8 @@ import org.apache.http.util.EntityUtils;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.junit.Test;
-import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class HttpFilterTest {
@@ -85,7 +84,7 @@ public class HttpFilterTest {
         final DefaultHttpClient http = new DefaultHttpClient();
         final HttpHost proxy = new HttpHost("127.0.0.1", port);
         http.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
-        HttpGet get = new HttpGet(url1);
+        final HttpGet get = new HttpGet(url1);
         org.apache.http.HttpResponse hr = http.execute(get);
         HttpEntity responseEntity = hr.getEntity();
         EntityUtils.consume(responseEntity);
@@ -93,13 +92,15 @@ public class HttpFilterTest {
         assertEquals(1, associatedRequests.size());
         assertEquals(1, shouldFilterCalls.get());
         assertEquals(1, filterCalls.get());
-        get = new HttpGet(url2);
         
-        hr = http.execute(get);
+        // We just open a second connection here since reusing the original 
+        // connection is inconsistent.
+        final HttpGet get2 = new HttpGet(url2);
+        hr = http.execute(get2);
         responseEntity = hr.getEntity();
         EntityUtils.consume(responseEntity);
         
-        assertEquals(1, shouldFilterCalls.get());
+        assertEquals(2, shouldFilterCalls.get());
         assertEquals(2, filterCalls.get());
         assertEquals(2, associatedRequests.size());
         
