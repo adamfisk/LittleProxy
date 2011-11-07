@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.littleshoot</groupId>
     <artifactId>littleproxy</artifactId>
-    <packaging>jar</packaging>
+    <packaging>bundle</packaging>
     <version>0.5-SNAPSHOT</version>
     <name>LittleProxy</name>
     <description>
@@ -208,6 +208,18 @@
             </plugin>
 -->
 
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <extensions>true</extensions>
+        <configuration>
+          <instructions>
+            <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
+            <Export-Package>org.littleshoot.proxy</Export-Package>
+          </instructions>
+        </configuration>
+      </plugin>
+    
         </plugins>
     </build>
 

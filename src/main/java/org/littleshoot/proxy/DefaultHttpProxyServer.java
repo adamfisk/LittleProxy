@@ -34,7 +34,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private final Map<String, HttpFilter> filters;
     
-    private final String chainProxyHostAndPort;
+    private final ChainProxyManager chainProxyManager;
 
     private final KeyStoreManager ksm;
 
@@ -84,7 +84,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param responseFilters The {@link Map} of request domains to match 
      * with associated {@link HttpFilter}s for filtering responses to 
      * those requests.
-     * @param chainProxyHostAndPort The proxy to send requests to if chaining
+     * @param chainProxyManager The proxy to send requests to if chaining
      * proxies. Typically <code>null</code>.
      * @param ksm The key manager if running the proxy over SSL.
      * @param requestFilter Optional filter for modifying incoming requests.
@@ -92,13 +92,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     public DefaultHttpProxyServer(final int port, 
         final Map<String, HttpFilter> responseFilters,
-        final String chainProxyHostAndPort, final KeyStoreManager ksm,
+        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
         final HttpRequestFilter requestFilter) {
         this.port = port;
         this.ksm = ksm;
         this.requestFilter = requestFilter;
         this.filters = Collections.unmodifiableMap(responseFilters);
-        this.chainProxyHostAndPort = chainProxyHostAndPort;
+        this.chainProxyManager = chainProxyManager;
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
             public void uncaughtException(final Thread t, final Throwable e) {
                 log.error("Uncaught throwable", e);
@@ -119,8 +119,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         log.info("Starting proxy on port: "+this.port);
         final HttpServerPipelineFactory factory = 
             new HttpServerPipelineFactory(authenticationManager, 
-                this.allChannels, this.chainProxyHostAndPort, this.ksm, 
-                new DefaultRelayPipelineFactoryFactory(chainProxyHostAndPort, 
+                this.allChannels, this.chainProxyManager, this.ksm, 
+                new DefaultRelayPipelineFactoryFactory(chainProxyManager, 
                     filters, this.requestFilter, this.allChannels));
         serverBootstrap.setPipelineFactory(factory);
         
