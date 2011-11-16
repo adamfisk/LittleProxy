@@ -46,26 +46,27 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         LoggerFactory.getLogger(HttpServerPipelineFactory.class);
     
     private static final boolean CACHE_ENABLED = false;
+    protected static final String LITTLE_PROXY_PROPERTIES = "littleproxy.properties";
     
-    private final ProxyAuthorizationManager authenticationManager;
-    private final ChannelGroup channelGroup;
-    private final ChainProxyManager chainProxyManager;
+    protected final ProxyAuthorizationManager authenticationManager;
+    protected final ChannelGroup channelGroup;
+    protected final ChainProxyManager chainProxyManager;
     
-    private final ClientSocketChannelFactory clientSocketChannelFactory =
+    protected final ClientSocketChannelFactory clientSocketChannelFactory =
         new NioClientSocketChannelFactory(
             Executors.newCachedThreadPool(),
             Executors.newCachedThreadPool());
-    private final ProxyCacheManager cacheManager;
+    protected final ProxyCacheManager cacheManager;
     
-    //private final GlobalTrafficShapingHandler trafficShaper;
+    //protected final GlobalTrafficShapingHandler trafficShaper;
 
-    private final KeyStoreManager ksm;
+    protected final KeyStoreManager ksm;
 
-    private int numHandlers;
+    protected int numHandlers;
 
-    private boolean useJmx;
+    protected boolean useJmx;
     
-    private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
+    protected final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
 
     /**
      * Creates a new pipeline factory with the specified class for processing
@@ -111,7 +112,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         }
         
         final Properties props = new Properties();
-        final File propsFile = new File("./littleproxy.properties");
+        final File propsFile = new File("./" + LITTLE_PROXY_PROPERTIES);
         
         long readThrottle = -1;
         long writeThrottle = -1;
@@ -130,7 +131,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             }
             */
         } catch (final IOException e) {
-            log.info("Not using props file");
+            log.info("Not using props file {}", LITTLE_PROXY_PROPERTIES);
             // No problem -- just don't use 'em.
         }
 
@@ -192,7 +193,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         return false;
     }
 
-    private long extractLong(Properties props, String key) {
+    protected long extractLong(Properties props, String key) {
         final String readThrottleString = props.getProperty(key);
         if (StringUtils.isNotBlank(readThrottleString) &&
             NumberUtils.isNumber(readThrottleString)) {
@@ -225,12 +226,15 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             pipeline.addLast("GLOBAL_TRAFFIC_SHAPING", trafficShaper);
         }
         */
-        pipeline.addLast("handler", 
-            new HttpRequestHandler(this.cacheManager, authenticationManager, 
-                this.channelGroup, this.clientSocketChannelFactory,
-                this.chainProxyManager, relayPipelineFactoryFactory, this.useJmx));
+        pipeline.addLast("handler", getHttpRequestHandler());
         this.numHandlers++;
         return pipeline;
+    }
+
+    protected HttpRequestHandler getHttpRequestHandler() {
+        return new HttpRequestHandler(this.cacheManager, authenticationManager,
+               this.channelGroup, this.clientSocketChannelFactory,
+               this.chainProxyManager, relayPipelineFactoryFactory, this.useJmx);
     }
 
     public int getNumRequestHandlers() {
