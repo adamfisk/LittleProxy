@@ -29,9 +29,9 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
      * to the proxy or it could be a connection from the proxy to an external
      * site.
      */
-    private final Channel relayChannel;
+    protected final Channel relayChannel;
 
-    private final ChannelGroup channelGroup;
+    protected final ChannelGroup channelGroup;
 
     /**
      * Creates a new {@link HttpConnectRelayingHandler} with the specified 

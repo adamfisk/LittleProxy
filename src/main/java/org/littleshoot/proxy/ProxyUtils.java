@@ -54,23 +54,19 @@ public class ProxyUtils {
     
     private static final Set<String> hopByHopHeaders = new HashSet<String>();
     
-    private static final String via;
-    private static final String hostName;
+    private static String via;
+    private static String viaDetails;
+    private static final String DEFAULT_VIA_VERSION = "1.1";
     
     static {
         try {
             final InetAddress localAddress = InetAddress.getLocalHost();
-            hostName = localAddress.getHostName();
+            setViaDetails(localAddress.getHostName());
         }
         catch (final UnknownHostException e) {
             LOG.error("Could not lookup host", e);
             throw new IllegalStateException("Could not determine host!", e);
         }
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Via: 1.1 ");
-        sb.append(hostName);
-        sb.append("\r\n");
-        via = sb.toString();
         
         //hopByHopHeaders.add("proxy-connection");
         hopByHopHeaders.add("connection");
@@ -85,7 +81,7 @@ public class ProxyUtils {
         //hopByHopHeaders.add("transfer-encoding");
         hopByHopHeaders.add("upgrade");
     }
-
+    
     /**
      * Utility class for a no-op {@link ChannelFutureListener}.
      */
@@ -511,8 +507,8 @@ public class ProxyUtils {
         sb.append(msg.getProtocolVersion().getMajorVersion());
         sb.append(".");
         sb.append(msg.getProtocolVersion().getMinorVersion());
-        sb.append(".");
-        sb.append(hostName);
+        sb.append(" ");
+        sb.append(viaDetails);
         final List<String> vias; 
         if (msg.containsHeader(HttpHeaders.Names.VIA)) {
             vias = msg.getHeaders(HttpHeaders.Names.VIA);
@@ -590,5 +586,21 @@ public class ProxyUtils {
 
 		return charset;
 	}
+    
+    public static String getViaDetails() {
+    	return viaDetails;
+    }
+    
+    public static void setViaDetails(String details) {
+    	viaDetails = details;
+    	
+    	final StringBuilder sb = new StringBuilder();
+        sb.append("Via: ");
+        sb.append(DEFAULT_VIA_VERSION);
+        sb.append(" ");
+        sb.append(details);
+        sb.append("\r\n");
+        via = sb.toString();
+    }
 
 }

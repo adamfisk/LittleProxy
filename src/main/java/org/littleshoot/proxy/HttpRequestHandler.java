@@ -96,6 +96,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private final boolean useJmx;
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
+    protected ChannelPipelineFactory cpf;
     
     /**
      * Creates a new class for handling HTTP requests with no frills.
@@ -237,8 +238,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             });
         }
     }
+
+    protected void callbackProxyOnConnect(final ChannelFuture cf, final ChannelHandlerContext ctx, final HttpRequest request) {
+    }
+
+    protected void callbackProxyOnResponse(final ChannelFuture cf, final ChannelHandlerContext ctx, final HttpRequest request) {
+    }
     
-    private void processRequest(final ChannelHandlerContext ctx, 
+    protected void processRequest(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
         
         final HttpRequest request = (HttpRequest) me.getMessage();
@@ -265,11 +272,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         
         if (hostAndPort == null) {
-            hostAndPort = ProxyUtils.parseHostAndPort(request);
+            hostAndPort = getHostAndPort(request);
         }
         
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
+                callbackProxyOnConnect(cf, ctx, request);
                 if (request.getMethod() != HttpMethod.CONNECT) {
                     final ChannelFuture writeFuture = cf.getChannel().write(request);
                     writeFuture.addListener(new ChannelFutureListener() {
@@ -313,7 +321,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         else {
             log.info("Establishing new connection");
             final ChannelFuture cf = 
-                newChannelFuture(request, inboundChannel, hostAndPort);
+                newChannelFuture(request, inboundChannel, hostAndPort, ctx);
             
             final class LocalChannelFutureListener implements ChannelFutureListener {
                 private String hostAndPort;
@@ -377,7 +385,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             readingChunks = true;
         }
     }
-    
+
+	protected String getHostAndPort(final HttpRequest request) {
+		return ProxyUtils.parseHostAndPort(request);
+	}
     
     public void onChannelAvailable(final String hostAndPortKey, 
         final ChannelFuture cf) {
@@ -421,7 +432,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
 
-    private void writeConnectResponse(final ChannelHandlerContext ctx, 
+    protected void writeConnectResponse(final ChannelHandlerContext ctx, 
         final HttpRequest httpRequest, final Channel outgoingChannel) {
         final int port = ProxyUtils.parsePort(httpRequest);
         final Channel browserToProxyChannel = ctx.getChannel();
@@ -484,7 +495,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
-        final Channel browserToProxyChannel, String hostAndPort) {
+        final Channel browserToProxyChannel, String hostAndPort, final ChannelHandlerContext ctx) {
         final String host;
         final int port;
         if (hostAndPort.contains(":")) {
@@ -501,7 +512,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // Configure the client.
         final ClientBootstrap cb = new ClientBootstrap(clientChannelFactory);
         
-        final ChannelPipelineFactory cpf;
+        cpf = null;
         if (httpRequest.getMethod() == HttpMethod.CONNECT) {
             // In the case of CONNECT, we just want to relay all data in both 
             // directions. We SHOULD make sure this is traffic on a reasonable
@@ -519,7 +530,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         else {
             cpf = relayPipelineFactoryFactory.getRelayPipelineFactory(
-                httpRequest, browserToProxyChannel, this);
+                httpRequest, browserToProxyChannel, this, ctx, hostAndPort);
         }
             
         cb.setPipelineFactory(cpf);

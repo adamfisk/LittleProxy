@@ -22,16 +22,16 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         LoggerFactory.getLogger(DefaultRelayPipelineFactory.class);
     private static final Timer TIMER = new HashedWheelTimer();
     
-    private final String hostAndPort;
-    private final HttpRequest httpRequest;
-    private final RelayListener relayListener;
-    private final Channel browserToProxyChannel;
+    protected final String hostAndPort;
+    protected final HttpRequest httpRequest;
+    protected final RelayListener relayListener;
+    protected final Channel browserToProxyChannel;
 
-    private final ChannelGroup channelGroup;
-    private final HttpRequestFilter requestFilter;
-    private ChainProxyManager chainProxyManager;
-    private final boolean filtersOff;
-    private final HttpResponseFilters responseFilters;
+    protected final ChannelGroup channelGroup;
+    protected final HttpRequestFilter requestFilter;
+    protected ChainProxyManager chainProxyManager;
+    protected final boolean filtersOff;
+    protected final HttpResponseFilters responseFilters;
 
     
     public DefaultRelayPipelineFactory(final String hostAndPort, 
@@ -102,21 +102,9 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         // This request encoder will only get the URI without the
         // host, so we just have to be aware of that and construct
         // the original.
-        final HttpRelayingHandler handler;
-        if (shouldFilter) {
-            LOG.info("Creating relay handler with filter");
-            handler = new HttpRelayingHandler(browserToProxyChannel, 
-                channelGroup, filter, relayListener, hostAndPort);
-        } else {
-            LOG.info("Creating non-filtering relay handler");
-            handler = new HttpRelayingHandler(browserToProxyChannel, 
-                channelGroup, relayListener, hostAndPort);
-        }
+        final HttpRelayingHandler handler = createHandler(shouldFilter, filter);
         
-        final ProxyHttpRequestEncoder encoder = 
-            new ProxyHttpRequestEncoder(handler, requestFilter, 
-                chainProxyManager != null
-                && chainProxyManager.getChainProxy(httpRequest) != null);
+        final ProxyHttpRequestEncoder encoder = createRequestEncoder(handler);
         pipeline.addLast("encoder", encoder);
         
         // We close idle connections to remote servers after the
@@ -139,5 +127,27 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("idleAware", new IdleAwareHandler());
         pipeline.addLast("handler", handler);
         return pipeline;
+    }
+
+    protected ProxyHttpRequestEncoder createRequestEncoder(
+              final HttpRelayingHandler handler) {
+        return new ProxyHttpRequestEncoder(handler, requestFilter,
+                   chainProxyManager != null
+                   && chainProxyManager.getChainProxy(httpRequest) != null);
+    }
+
+    protected HttpRelayingHandler createHandler(final boolean shouldFilter,
+              final HttpFilter filter) {
+        final HttpRelayingHandler handler;
+        if (shouldFilter) {
+            LOG.info("Creating relay handler with filter");
+            handler = new HttpRelayingHandler(browserToProxyChannel,
+                      channelGroup, filter, relayListener, hostAndPort);
+        } else {
+            LOG.info("Creating non-filtering relay handler");
+            handler = new HttpRelayingHandler(browserToProxyChannel,
+                      channelGroup, relayListener, hostAndPort);
+        }
+        return handler;
     }
 }

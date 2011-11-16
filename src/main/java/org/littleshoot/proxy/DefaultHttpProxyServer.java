@@ -22,23 +22,23 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
-    private final ChannelGroup allChannels = 
+    protected final ChannelGroup allChannels = 
         new DefaultChannelGroup("HTTP-Proxy-Server");
             
-    private final int port;
+    protected final int port;
     
-    private final ProxyAuthorizationManager authenticationManager =
+    protected final ProxyAuthorizationManager authenticationManager =
         new DefaultProxyAuthorizationManager();
 
-    private final ChainProxyManager chainProxyManager;
+    protected final ChainProxyManager chainProxyManager;
 
-    private final KeyStoreManager ksm;
+    protected final KeyStoreManager ksm;
 
-    private final HttpRequestFilter requestFilter;
+    protected final HttpRequestFilter requestFilter;
 
-    private final ServerBootstrap serverBootstrap;
+    protected final ServerBootstrap serverBootstrap;
 
-    private final HttpResponseFilters responseFilters;
+    protected final HttpResponseFilters responseFilters;
     
     /**
      * Creates a new proxy server.
@@ -112,6 +112,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 Executors.newCachedThreadPool(),
                 Executors.newCachedThreadPool()));
     }
+
+    protected HttpServerPipelineFactory getChannelPipelineFactory() {
+        return new HttpServerPipelineFactory(authenticationManager,
+                this.allChannels, this.chainProxyManager, this.ksm,
+                new DefaultRelayPipelineFactoryFactory(chainProxyManager,
+                    this.responseFilters, this.requestFilter,
+                    this.allChannels));
+    }
     
     public void start() {
         start(false, true);
@@ -119,12 +127,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     
     public void start(final boolean localOnly, final boolean anyAddress) {
         log.info("Starting proxy on port: "+this.port);
-        final HttpServerPipelineFactory factory = 
-            new HttpServerPipelineFactory(authenticationManager, 
-                this.allChannels, this.chainProxyManager, this.ksm, 
-                new DefaultRelayPipelineFactoryFactory(chainProxyManager, 
-                    this.responseFilters, this.requestFilter, 
-                    this.allChannels));
+        final HttpServerPipelineFactory factory = getChannelPipelineFactory();
         serverBootstrap.setPipelineFactory(factory);
         
         // Binding only to localhost can significantly improve the security of

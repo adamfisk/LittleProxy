@@ -32,27 +32,27 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
-    private volatile boolean readingChunks;
+    protected volatile boolean readingChunks;
     
-    private final Channel browserToProxyChannel;
+    protected final Channel browserToProxyChannel;
 
-    private final ChannelGroup channelGroup;
+    protected final ChannelGroup channelGroup;
 
-    private final HttpFilter httpFilter;
+    protected final HttpFilter httpFilter;
 
-    private HttpResponse originalHttpResponse;
+    protected HttpResponse originalHttpResponse;
 
     /**
      * The current, most recent HTTP request we're processing. This changes
      * as multiple requests come in on the same persistent HTTP 1.1 connection.
      */
-    private HttpRequest currentHttpRequest;
+    protected HttpRequest currentHttpRequest;
 
-    private final RelayListener relayListener;
+    protected final RelayListener relayListener;
 
-    private final String hostAndPort;
+    protected final String hostAndPort;
 
-    private boolean closeEndsResponseBody;
+    protected boolean closeEndsResponseBody;
 
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
@@ -86,6 +86,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         this.httpFilter = filter;
         this.relayListener = relayListener;
         this.hostAndPort = hostAndPort;
+    }
+
+    protected void callbackOnProxyResponse(final ChannelHandlerContext ctx, final HttpResponse hr,
+    		final HttpRequest curRequest) {
+    }
+
+    protected void callbackOnUserResponse(final ChannelHandlerContext ctx, final MessageEvent me) {
     }
 
     @Override
@@ -170,6 +177,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             } else {
                 log.info("Request queue is empty!");
             }
+            callbackOnProxyResponse(ctx, hr, currentHttpRequest);
             messageToWrite = 
                 this.httpFilter.filterResponse(this.currentHttpRequest, response);
         } else {
@@ -226,6 +234,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // it to adhere to that logic.
             if (wroteFullResponse) {
                 log.debug("Notifying request handler of completed response.");
+                callbackOnUserResponse(ctx, me);
                 future.addListener(new ChannelFutureListener() {
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
@@ -275,6 +284,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         else {
             log.debug("Channel not open. Connected? {}", 
                 browserToProxyChannel.isConnected());
+            
+            callbackOnUserResponse(ctx, me);
+            
             // This will undoubtedly happen anyway, but just in case.
             if (me.getChannel().isConnected()) {
                 log.warn("Closing channel to remote server -- received a " +
@@ -445,7 +457,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         // connection, so there should not be any further action to take here.
     }
 
-    private final Queue<HttpRequest> requestQueue = 
+    protected final Queue<HttpRequest> requestQueue = 
         new LinkedList<HttpRequest>();
     
     /**

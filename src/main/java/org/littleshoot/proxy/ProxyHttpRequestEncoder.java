@@ -16,10 +16,10 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
 
     private static final Logger LOG = 
         LoggerFactory.getLogger(ProxyHttpRequestEncoder.class);
-    private final HttpRelayingHandler relayingHandler;
-    private final HttpRequestFilter requestFilter;
-    private final boolean keepProxyFormat;
-    private final boolean transparent;
+    protected final HttpRelayingHandler relayingHandler;
+    protected final HttpRequestFilter requestFilter;
+    protected final boolean keepProxyFormat;
+    protected final boolean transparent;
 
     /**
      * Creates a new request encoder.
