@@ -29,7 +29,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
 
     private final ChannelGroup channelGroup;
     private final HttpRequestFilter requestFilter;
-    private ChainProxyManager chainProxyManager;
+    private final ChainProxyManager chainProxyManager;
     private final boolean filtersOff;
     private final HttpResponseFilters responseFilters;
 

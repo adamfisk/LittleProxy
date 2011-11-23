@@ -8,9 +8,9 @@ import org.jboss.netty.handler.codec.http.HttpRequest;
 public class DefaultRelayPipelineFactoryFactory 
     implements RelayPipelineFactoryFactory {
     
-    private ChainProxyManager chainProxyManager;
-    private ChannelGroup channelGroup;
-    private HttpRequestFilter requestFilter;
+    private final ChainProxyManager chainProxyManager;
+    private final ChannelGroup channelGroup;
+    private final HttpRequestFilter requestFilter;
     private final HttpResponseFilters responseFilters;
 
     public DefaultRelayPipelineFactoryFactory(

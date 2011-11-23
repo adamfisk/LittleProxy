@@ -316,9 +316,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 newChannelFuture(request, inboundChannel, hostAndPort);
             
             final class LocalChannelFutureListener implements ChannelFutureListener {
-                private String hostAndPort;
                 
-                LocalChannelFutureListener(String hostAndPort) {
+                private final String hostAndPort;
+
+                LocalChannelFutureListener(final String hostAndPort) {
                     this.hostAndPort = hostAndPort;
                 }
             
