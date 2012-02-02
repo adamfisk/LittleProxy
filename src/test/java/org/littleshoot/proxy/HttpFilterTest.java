@@ -90,8 +90,7 @@ public class HttpFilterTest {
         http.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
         final HttpGet get = new HttpGet(url1);
         org.apache.http.HttpResponse hr = http.execute(get);
-        HttpEntity responseEntity = hr.getEntity();
-        EntityUtils.consume(responseEntity);
+        HttpEntity responseEntity = getResponse(url1);
 
         assertEquals(1, associatedRequests.size());
         assertEquals(1, shouldFilterCalls.get());
@@ -99,10 +98,8 @@ public class HttpFilterTest {
         
         // We just open a second connection here since reusing the original 
         // connection is inconsistent.
-        final HttpGet get2 = new HttpGet(url2);
-        hr = http.execute(get2);
-        responseEntity = hr.getEntity();
-        EntityUtils.consume(responseEntity);
+        responseEntity = getResponse(url2);
+
         
         assertEquals(2, shouldFilterCalls.get());
         assertEquals(2, filterCalls.get());
@@ -116,5 +113,14 @@ public class HttpFilterTest {
         assertEquals(url1, first.getUri());
         assertEquals(url2, second.getUri());
         http.getConnectionManager().shutdown();
+    }
+
+    private HttpEntity getResponse(final String url2) throws Exception {
+        final DefaultHttpClient http2 = new DefaultHttpClient();
+        final HttpGet get2 = new HttpGet(url2);
+        final org.apache.http.HttpResponse hr = http2.execute(get2);
+        final HttpEntity responseEntity = hr.getEntity();
+        EntityUtils.consume(responseEntity);
+        return responseEntity;
     }
 }
