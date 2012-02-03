@@ -36,7 +36,8 @@ public class AddressFactory {
             } catch (final IOException e) {
                 LOG.info("Could not resolve address for: "+host, e);
             } catch (final DNSSECException e) {
-                LOG.info("Could not resolve address for: "+host, e);
+                LOG.warn("DNSSEC error. Bad signature?", e);
+                throw new Error("DNSSEC error. Bad signature?", e);
             }
         }
         return new InetSocketAddress(host, port);
