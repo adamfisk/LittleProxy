@@ -3,7 +3,6 @@ package org.littleshoot.proxy;
 import static org.jboss.netty.channel.Channels.pipeline;
 
 import java.lang.management.ManagementFactory;
-import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -40,6 +39,7 @@ import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
+import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -527,7 +527,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         cb.setOption("connectTimeoutMillis", 40*1000);
         log.info("Starting new connection to: {}", hostAndPort);
         final ChannelFuture future = 
-            cb.connect(AddressFactory.newInetSocketAddress(host, port));
+            cb.connect(VerifiedAddressFactory.newInetSocketAddress(host, port, 
+                LittleProxyConfig.isUseDnsSec()));
         return future;
     }
     
