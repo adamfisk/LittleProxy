@@ -591,4 +591,35 @@ public class ProxyUtils {
 		return charset;
 	}
 
+    /**
+     * Returns <code>true</code> if the specified string is either "true" or
+     * "on" ignoring case.
+     * 
+     * @param val The string in question.
+     * @return <code>true</code> if the specified string is either "true" or
+     * "on" ignoring case, otherwise <code>false</code>.
+     */
+    public static boolean isTrue(final String val) {
+        return checkTrueOrFalse(val, "true", "on");
+    }
+
+    /**
+     * Returns <code>true</code> if the specified string is either "false" or
+     * "off" ignoring case.
+     * 
+     * @param val The string in question.
+     * @return <code>true</code> if the specified string is either "false" or
+     * "off" ignoring case, otherwise <code>false</code>.
+     */
+    public static boolean isFalse(final String val) {
+        return checkTrueOrFalse(val, "false", "off");
+    }
+
+    private static boolean checkTrueOrFalse(final String val, 
+        final String str1, final String str2) {
+        final String str = val.trim();
+        return StringUtils.isNotBlank(str) && 
+            (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
+    }
+
 }

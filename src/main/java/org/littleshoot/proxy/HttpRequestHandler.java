@@ -398,7 +398,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
 
-    private ChannelFuture getChannelFuture(String hostAndPort) {
+    private ChannelFuture getChannelFuture(final String hostAndPort) {
         synchronized (this.externalHostsToChannelFutures) {
             final Queue<ChannelFuture> futures = 
                 this.externalHostsToChannelFutures.get(hostAndPort);
@@ -527,7 +527,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         cb.setOption("connectTimeoutMillis", 40*1000);
         log.info("Starting new connection to: {}", hostAndPort);
         final ChannelFuture future = 
-            cb.connect(new InetSocketAddress(host, port));
+            cb.connect(AddressFactory.newInetSocketAddress(host, port));
         return future;
     }
     
