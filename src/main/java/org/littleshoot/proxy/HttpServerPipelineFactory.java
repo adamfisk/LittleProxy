@@ -32,6 +32,9 @@ import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.ssl.SslHandler;
+import org.jboss.netty.handler.timeout.IdleStateHandler;
+import org.jboss.netty.util.HashedWheelTimer;
+import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +69,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     private boolean useJmx;
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
+    
+    private static final Timer TIMER = new HashedWheelTimer();
 
     /**
      * Creates a new pipeline factory with the specified class for processing
@@ -225,6 +230,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             pipeline.addLast("GLOBAL_TRAFFIC_SHAPING", trafficShaper);
         }
         */
+        
+        pipeline.addLast("idle", new IdleStateHandler(TIMER, 60, 60, 0));
+        pipeline.addLast("idleAware", new IdleAwareHandler());
         pipeline.addLast("handler", 
             new HttpRequestHandler(this.cacheManager, authenticationManager, 
                 this.channelGroup, this.clientSocketChannelFactory,
