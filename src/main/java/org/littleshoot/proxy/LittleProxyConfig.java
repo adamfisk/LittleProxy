@@ -1,10 +1,10 @@
 package org.littleshoot.proxy;
 
 /**
- * Simple class for storing LittleProxy configuration. We cheat here and make
+ * Simple class for storing configuration. We cheat here and make
  * this all static to avoid the overhead of integrating dependency 
  * injection that could collide with versions of libraries programs including
- * LittleProxy are using.
+ * this library are using.
  */
 public class LittleProxyConfig {
 

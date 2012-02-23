@@ -348,7 +348,16 @@ public class ProxyUtils {
      * @return The host and port string.
      */
     public static String parseHostAndPort(final HttpRequest httpRequest) {
-        final String uri = httpRequest.getUri();
+        return parseHostAndPort(httpRequest.getUri());
+    }
+    
+    /**
+     * Parses the host and port an HTTP request is being sent to.
+     * 
+     * @param httpRequest The request.
+     * @return The host and port string.
+     */
+    public static String parseHostAndPort(final String uri) {
         final String tempUri;
         if (!uri.startsWith("http")) {
             // Browsers particularly seem to send requests in this form when
@@ -368,6 +377,20 @@ public class ProxyUtils {
             hostAndPort = tempUri;
         }
         return hostAndPort;
+    }
+    
+    public static String parseHost(final HttpRequest request) {
+        return parseHost(request.getUri());
+    }
+    
+    public static String parseHost(final String request) {
+        final String hostAndPort = 
+            ProxyUtils.parseHostAndPort(request);
+        if (hostAndPort.contains(":")) {
+            return StringUtils.substringBefore(hostAndPort, ":");
+        } else {
+            return hostAndPort;
+        }
     }
     
     /**

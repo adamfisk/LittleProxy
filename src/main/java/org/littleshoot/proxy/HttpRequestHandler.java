@@ -3,6 +3,7 @@ package org.littleshoot.proxy;
 import static org.jboss.netty.channel.Channels.pipeline;
 
 import java.lang.management.ManagementFactory;
+import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -312,8 +313,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         else {
             log.info("Establishing new connection");
-            final ChannelFuture cf = 
-                newChannelFuture(request, inboundChannel, hostAndPort);
+            final ChannelFuture cf;
+            try {
+                cf = newChannelFuture(request, inboundChannel, hostAndPort);
+            } catch (final UnknownHostException e) {
+                log.warn("Could not resolve host?", e);
+                return;
+            }
             
             final class LocalChannelFutureListener implements ChannelFutureListener {
                 
@@ -485,7 +491,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
-        final Channel browserToProxyChannel, String hostAndPort) {
+        final Channel browserToProxyChannel, String hostAndPort) 
+        throws UnknownHostException {
         final String host;
         final int port;
         if (hostAndPort.contains(":")) {
@@ -526,10 +533,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         cb.setPipelineFactory(cpf);
         cb.setOption("connectTimeoutMillis", 40*1000);
         log.info("Starting new connection to: {}", hostAndPort);
-        final ChannelFuture future = 
-            cb.connect(VerifiedAddressFactory.newInetSocketAddress(host, port, 
-                LittleProxyConfig.isUseDnsSec()));
-        return future;
+        return cb.connect(VerifiedAddressFactory.newInetSocketAddress(host, port, 
+            LittleProxyConfig.isUseDnsSec()));
     }
     
     @Override

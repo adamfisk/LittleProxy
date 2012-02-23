@@ -73,7 +73,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param requestFilter The filter for HTTP requests.
      */
     public DefaultHttpProxyServer(final int port, 
-        final RegexHttpRequestFilter requestFilter) {
+        final HttpRequestFilter requestFilter) {
         this(port, requestFilter, new HttpResponseFilters() {
             public HttpFilter getFilter(String hostAndPort) {
                 return null;
