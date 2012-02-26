@@ -231,8 +231,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         }
         */
         
-        pipeline.addLast("idle", new IdleStateHandler(TIMER, 60, 60, 0));
-        pipeline.addLast("idleAware", new IdleAwareHandler());
+        pipeline.addLast("idle", new IdleStateHandler(TIMER, 0, 0, 60));
+        pipeline.addLast("idleAware", new IdleAwareHandler("Client-Pipeline"));
         pipeline.addLast("handler", 
             new HttpRequestHandler(this.cacheManager, authenticationManager, 
                 this.channelGroup, this.clientSocketChannelFactory,
