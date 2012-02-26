@@ -14,15 +14,26 @@ public class IdleAwareHandler extends IdleStateAwareChannelHandler {
 
     private static final Logger log = 
         LoggerFactory.getLogger(IdleAwareHandler.class);
+    private final String handlerName;
+    
+    public IdleAwareHandler(final String handlerName) {
+        this.handlerName = handlerName;
+    }
 
     @Override
-    public void channelIdle(ChannelHandlerContext ctx, IdleStateEvent e) {
+    public void channelIdle(final ChannelHandlerContext ctx, 
+        final IdleStateEvent e) {
         if (e.getState() == IdleState.READER_IDLE) {
-            log.info("Got reader idle -- closing");
+            log.info("Got reader idle -- closing -- "+this);
             e.getChannel().close();
         } else if (e.getState() == IdleState.WRITER_IDLE) {
-            log.info("Got writer idle -- closing connection");
+            log.info("Got writer idle -- closing connection -- "+this);
             e.getChannel().close();
         }
+    }
+    
+    @Override
+    public String toString() {
+        return "IdleAwareHandler [handlerName=" + handlerName + "]";
     }
 }
