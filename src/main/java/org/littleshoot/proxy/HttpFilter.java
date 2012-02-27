@@ -11,10 +11,11 @@ public interface HttpFilter extends HttpRequestMatcher {
     /**
      * Filters the HTTP response.
      * 
+     * @param request The HTTP request associated with the response.
      * @param response The response to filter.
      * @return The filtered response.
      */
-    HttpResponse filterResponse(HttpRequest httpRequest, HttpResponse response);
+    HttpResponse filterResponse(HttpRequest request, HttpResponse response);
 
     /**
      * Returns the maximum response size to expect in bytes for this filter.

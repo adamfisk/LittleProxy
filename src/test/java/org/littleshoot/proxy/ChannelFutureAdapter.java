@@ -94,4 +94,9 @@ public class ChannelFutureAdapter implements ChannelFuture {
         return false;
     }
 
+    public ChannelFuture rethrowIfFailed() throws Exception {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
 }

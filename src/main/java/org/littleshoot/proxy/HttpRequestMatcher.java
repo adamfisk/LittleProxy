@@ -15,5 +15,6 @@ public interface HttpRequestMatcher {
      * @return <code>true</code> if we should apply this set of rules, 
      * otherwise <code>false</code>.
      */
-    boolean shouldFilterResponses(HttpRequest httpRequest);
+    boolean filterResponses(HttpRequest httpRequest);
+    
 }

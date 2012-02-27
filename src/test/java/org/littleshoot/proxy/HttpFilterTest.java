@@ -38,7 +38,7 @@ public class HttpFilterTest {
         final String url2 = "http://www.google.com/testing";
         final HttpFilter filter = new HttpFilter() {
             
-            public boolean shouldFilterResponses(final HttpRequest httpRequest) {
+            public boolean filterResponses(final HttpRequest httpRequest) {
                 shouldFilterCalls.incrementAndGet();
                 return true;
             }

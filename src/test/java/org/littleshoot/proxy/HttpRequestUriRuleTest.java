@@ -22,7 +22,7 @@ public class HttpRequestUriRuleTest {
             new HttpRequestPathMatcher("/search");
         
         assertTrue("Rule should have matches request", 
-            matcher.shouldFilterResponses(new HttpRequest() {
+            matcher.filterResponses(new HttpRequest() {
 
             public HttpMethod getMethod() {
                 // TODO Auto-generated method stub

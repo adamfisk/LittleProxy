@@ -84,7 +84,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
             }
             else {
                 LOG.debug("Using filter: {}", filter);
-                shouldFilter = filter.shouldFilterResponses(httpRequest);
+                shouldFilter = filter.filterResponses(httpRequest);
                 // We decompress and aggregate chunks for responses from 
                 // sites we're applying rules to.
                 if (shouldFilter) {
@@ -136,7 +136,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         pipeline.addLast("idle", 
             new IdleStateHandler(TIMER, readTimeoutSeconds, 
                 writeTimeoutSeconds, 0));
-        pipeline.addLast("idleAware", new IdleAwareHandler());
+        pipeline.addLast("idleAware", new IdleAwareHandler("Relay-Handler"));
         pipeline.addLast("handler", handler);
         return pipeline;
     }

@@ -31,9 +31,9 @@ public class DefaultHttpFilter implements HttpFilter {
         this.requestMatchers = Arrays.asList(requestRules);
     }
 
-    public boolean shouldFilterResponses(final HttpRequest httpRequest) {
+    public boolean filterResponses(final HttpRequest httpRequest) {
         for (final HttpRequestMatcher rule : requestMatchers) {
-            if (!rule.shouldFilterResponses(httpRequest)) {
+            if (!rule.filterResponses(httpRequest)) {
                 return false;
             }
         }
