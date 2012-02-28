@@ -314,6 +314,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         else {
             log.info("Establishing new connection");
             final ChannelFuture cf;
+            ctx.getChannel().setReadable(false);
             try {
                 cf = newChannelFuture(request, inboundChannel, hostAndPort);
             } catch (final UnknownHostException e) {
@@ -345,8 +346,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                                 log.info("Finished write: "+wcf+ " to: "+
                                     request.getMethod()+" "+
                                     request.getUri());
+                                
+                                ctx.getChannel().setReadable(true);
                             }
                         });
+                        currentChannelFuture = wf;
                     }
                     else {
                         log.info("Could not connect to " + hostAndPort, 
@@ -370,7 +374,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         else {
                             // TODO I am not sure about this
                             removeProxyToWebConnection(hostAndPort);
-                            // try again with differen hostAndPort
+                            // try again with different hostAndPort
                             processRequest(ctx, me);
                         }
                     }
