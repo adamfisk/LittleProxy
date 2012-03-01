@@ -439,7 +439,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         final boolean warn;
         if (cause != null) {
             final String msg = cause.getMessage();
-            if (msg.contains("Connection reset by peer")) {
+            if (msg != null && msg.contains("Connection reset by peer")) {
                 warn = false;
             } else {
                 warn = true;
