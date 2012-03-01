@@ -123,20 +123,23 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         // specified timeouts in seconds. If we're sending data, the
         // write timeout should be reasonably low. If we're reading
         // data, however, the read timeout is more relevant.
-        final int readTimeoutSeconds;
-        final int writeTimeoutSeconds;
-        if (httpRequest.getMethod().equals(HttpMethod.POST) ||
-            httpRequest.getMethod().equals(HttpMethod.PUT)) {
-            readTimeoutSeconds = 0;
-            writeTimeoutSeconds = 40;
-        } else {
-            readTimeoutSeconds = 40;
-            writeTimeoutSeconds = 0;
+        final HttpMethod method = httpRequest.getMethod();
+        if (!method.equals(HttpMethod.CONNECT)) {
+            final int readTimeoutSeconds;
+            final int writeTimeoutSeconds;
+            if (method.equals(HttpMethod.POST) ||
+                method.equals(HttpMethod.PUT)) {
+                readTimeoutSeconds = 0;
+                writeTimeoutSeconds = 70;
+            } else {
+                readTimeoutSeconds = 70;
+                writeTimeoutSeconds = 0;
+            }
+            pipeline.addLast("idle", 
+                new IdleStateHandler(TIMER, readTimeoutSeconds, 
+                    writeTimeoutSeconds, 0));
+            pipeline.addLast("idleAware", new IdleAwareHandler("Relay-Handler"));
         }
-        pipeline.addLast("idle", 
-            new IdleStateHandler(TIMER, readTimeoutSeconds, 
-                writeTimeoutSeconds, 0));
-        pipeline.addLast("idleAware", new IdleAwareHandler("Relay-Handler"));
         pipeline.addLast("handler", handler);
         return pipeline;
     }
