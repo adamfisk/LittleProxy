@@ -124,6 +124,9 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         // write timeout should be reasonably low. If we're reading
         // data, however, the read timeout is more relevant.
         final HttpMethod method = httpRequest.getMethod();
+        
+        // Could be any protocol if it's connect, so hard to say what the 
+        // timeout should be, if any.
         if (!method.equals(HttpMethod.CONNECT)) {
             final int readTimeoutSeconds;
             final int writeTimeoutSeconds;
