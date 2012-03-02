@@ -230,13 +230,15 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             pipeline.addLast("GLOBAL_TRAFFIC_SHAPING", trafficShaper);
         }
         */
+
+        HttpRequestHandler httpRequestHandler = new HttpRequestHandler(this.cacheManager, authenticationManager,
+            this.channelGroup, this.clientSocketChannelFactory,
+            this.chainProxyManager, relayPipelineFactoryFactory, this.useJmx);
         
         pipeline.addLast("idle", new IdleStateHandler(TIMER, 0, 0, 70));
-        pipeline.addLast("idleAware", new IdleAwareHandler("Client-Pipeline"));
-        pipeline.addLast("handler", 
-            new HttpRequestHandler(this.cacheManager, authenticationManager, 
-                this.channelGroup, this.clientSocketChannelFactory,
-                this.chainProxyManager, relayPipelineFactoryFactory, this.useJmx));
+        //pipeline.addLast("idleAware", new IdleAwareHandler("Client-Pipeline"));
+        pipeline.addLast("idleAware", new IdleRequestHandler(httpRequestHandler));
+        pipeline.addLast("handler", httpRequestHandler);
         this.numHandlers++;
         return pipeline;
     }
