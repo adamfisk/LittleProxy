@@ -84,6 +84,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private final Set<String> answeredRequests = new HashSet<String>();
     private final Set<String> unansweredRequests = new HashSet<String>();
 
+    private final Set<HttpRequest> unansweredHttpRequests = new HashSet<HttpRequest>();
+
     private ChannelFuture currentChannelFuture;
     
     private final ChainProxyManager chainProxyManager;
@@ -280,6 +282,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                             if (useJmx) {
                                 unansweredRequests.add(request.toString());
                             }
+                            unansweredHttpRequests.add(request);
                             requestsSent.incrementAndGet();
                         }
                     });
@@ -634,6 +637,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             this.answeredRequests.add(httpRequest.toString());
             this.unansweredRequests.remove(httpRequest.toString());
         }
+        this.unansweredHttpRequests.remove(httpRequest);
         this.unansweredRequestCount.decrementAndGet();
         this.responsesReceived.incrementAndGet();
         // If we've received responses to all outstanding requests and one
@@ -690,6 +694,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
 
     public String getUnansweredRequests() {
         return this.unansweredRequests.toString();
+    }
+
+    public Set<HttpRequest> getUnansweredHttpRequests() {
+      return unansweredHttpRequests;
     }
 
     public String getAnsweredReqeusts() {
