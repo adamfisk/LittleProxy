@@ -8,6 +8,7 @@ import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
+import org.jboss.netty.handler.codec.http.HttpMessage;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
@@ -67,8 +68,18 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         //
         // We also importantly need to follow the cache directives
         // in the HTTP response.
-        pipeline.addLast("decoder", 
-            new HttpResponseDecoder(8192, 8192*2, 8192*2));
+        final HttpResponseDecoder decoder;
+        if(httpRequest.getMethod() == HttpMethod.HEAD) {
+            decoder = new HttpResponseDecoder(8192, 8192*2, 8192*2) {
+                @Override
+                protected boolean isContentAlwaysEmpty(final HttpMessage msg) {
+                    return true;
+                }
+            };
+        } else {
+            decoder = new HttpResponseDecoder(8192, 8192*2, 8192*2);
+        }
+        pipeline.addLast("decoder", decoder);
         
         LOG.debug("Querying for host and port: {}", hostAndPort);
         final boolean shouldFilter;
