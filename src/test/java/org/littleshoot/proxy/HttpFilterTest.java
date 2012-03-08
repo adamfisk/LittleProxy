@@ -19,34 +19,42 @@ import org.apache.http.util.EntityUtils;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.junit.Test;
+import org.mortbay.jetty.Request;
+import org.mortbay.jetty.Server;
+import org.mortbay.jetty.handler.AbstractHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 public class HttpFilterTest {
-    
+
+    private static final int PROXY_PORT = 8923;
+    private static final int WEB_SERVER_PORT = 8924;
+
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     @Test public void testFiltering() throws Exception {
-        final int port = 8923;
-        
+
         final AtomicInteger shouldFilterCalls = new AtomicInteger(0);
         final AtomicInteger filterCalls = new AtomicInteger(0);
         final Queue<HttpRequest> associatedRequests = new LinkedList<HttpRequest>();
-        
-        final String url1 = "http://www.google.com";
-        final String url2 = "http://www.google.com/testing";
+
+        final String url1 = "http://localhost:8924";
+        final String url2 = "http://localhost:8924/testing";
         final HttpFilter filter = new HttpFilter() {
-            
+
             public boolean filterResponses(final HttpRequest httpRequest) {
                 shouldFilterCalls.incrementAndGet();
                 return true;
             }
-            
+
             public int getMaxResponseSize() {
                 return 1024 * 1024;
             }
-            
+
             public HttpResponse filterResponse(final HttpRequest httpRequest,
                 final HttpResponse response) {
                 filterCalls.incrementAndGet();
@@ -61,17 +69,17 @@ public class HttpFilterTest {
         final HttpResponseFilters responseFilters = 
             new HttpResponseFilters() {
                 public HttpFilter getFilter(final String hostAndPort) {
-                    if (hostAndPort.equals("www.google.com")) {
+                    if (hostAndPort.equals("localhost:8924")) {
                         return filter;
                     }
                     return null;
                 }
             };
-        final HttpProxyServer server = 
-            new DefaultHttpProxyServer(port, responseFilters);
+        final HttpProxyServer server =
+            new DefaultHttpProxyServer(PROXY_PORT, responseFilters);
         server.start();
         boolean connected = false;
-        final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", port);
+        final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", PROXY_PORT);
         while (!connected) {
             final Socket sock = new Socket();
             try {
@@ -84,13 +92,12 @@ public class HttpFilterTest {
             }
             Thread.sleep(50);
         }
-        
-        final DefaultHttpClient http = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", port);
-        http.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
-        final HttpGet get = new HttpGet(url1);
-        org.apache.http.HttpResponse hr = http.execute(get);
-        HttpEntity responseEntity = getResponse(url1);
+
+        final Server webServer = new Server(WEB_SERVER_PORT);
+        webServer.addHandler(new SimpleHandler());
+        webServer.start();
+
+        getResponse(url1);
 
         assertEquals(1, associatedRequests.size());
         assertEquals(1, shouldFilterCalls.get());
@@ -98,7 +105,7 @@ public class HttpFilterTest {
         
         // We just open a second connection here since reusing the original 
         // connection is inconsistent.
-        responseEntity = getResponse(url2);
+        getResponse(url2);
 
         
         assertEquals(2, shouldFilterCalls.get());
@@ -112,15 +119,27 @@ public class HttpFilterTest {
         // actually should have been.
         assertEquals(url1, first.getUri());
         assertEquals(url2, second.getUri());
-        http.getConnectionManager().shutdown();
+
+        webServer.stop();
     }
 
     private HttpEntity getResponse(final String url2) throws Exception {
         final DefaultHttpClient http2 = new DefaultHttpClient();
+        final HttpHost proxy = new HttpHost("127.0.0.1", PROXY_PORT, "http");
+        http2.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
         final HttpGet get2 = new HttpGet(url2);
         final org.apache.http.HttpResponse hr = http2.execute(get2);
         final HttpEntity responseEntity = hr.getEntity();
         EntityUtils.consume(responseEntity);
+        http2.getConnectionManager().shutdown();
         return responseEntity;
+    }
+
+    private static class SimpleHandler extends AbstractHandler {
+        public void handle(String target, HttpServletRequest request, HttpServletResponse response, int dispatch) throws IOException, ServletException {
+            response.setStatus(HttpServletResponse.SC_OK);
+            ((Request) request).setHandled(true);
+
+        }
     }
 }
