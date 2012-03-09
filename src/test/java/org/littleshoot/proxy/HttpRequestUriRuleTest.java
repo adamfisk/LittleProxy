@@ -22,6 +22,15 @@ public class HttpRequestUriRuleTest {
             matcher.filterResponses(httpRequest));
     }
 
+    @Test public void testIsNotMatching() throws Exception {
+        final HttpRequestPathMatcher matcher =
+                new HttpRequestPathMatcher("/webhp");
+
+        final HttpRequest httpRequest = createRequest("/search?hl=en&source=hp&q=bop&aq=f&aqi=g10&aql=&oq=");
+
+        assertFalse("Rule should have matches request", matcher.filterResponses(httpRequest));
+    }
+
     private HttpRequest createRequest(String uri) {
         final HttpRequest httpRequest = mock(HttpRequest.class);
         when(httpRequest.getUri()).thenReturn(uri);
