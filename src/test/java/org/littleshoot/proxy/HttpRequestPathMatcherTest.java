@@ -10,7 +10,7 @@ import org.junit.Test;
 /**
  * Test for HTTP request URI rules.
  */
-public class HttpRequestUriRuleTest {
+public class HttpRequestPathMatcherTest {
 
     @Test public void testMatching() throws Exception {
         final HttpRequestPathMatcher matcher = 
