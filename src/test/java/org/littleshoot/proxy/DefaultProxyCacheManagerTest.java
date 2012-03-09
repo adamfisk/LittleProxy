@@ -1,13 +1,18 @@
 package org.littleshoot.proxy;
 
 import static org.junit.Assert.*;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.DefaultChannelConfig;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
@@ -40,7 +45,12 @@ public class DefaultProxyCacheManagerTest {
             }
         };
         final PubEncoder encoder = new PubEncoder();
-        Channel channel = new ChannelAdapter();
+
+        //TODO:  The test is @Ignored so this mocks are not tested
+        final Channel channel = mock(Channel.class);
+        when(channel.getConfig()).thenReturn(new DefaultChannelConfig());
+        when(channel.write(any())).thenReturn(mock(ChannelFuture.class));
+
         final ChannelBuffer encoded = (ChannelBuffer) encoder.pubEncode(null, channel, httpResponse);
         final Future<String> future = cm.cache(httpRequest, httpResponse, httpResponse, encoded);
         
