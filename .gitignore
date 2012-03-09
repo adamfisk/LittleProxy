@@ -8,3 +8,4 @@ log.txt
 *.iws
 *.DS_Store
 target/
+.idea/
