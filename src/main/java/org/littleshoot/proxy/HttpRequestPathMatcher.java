@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
  */
 public class HttpRequestPathMatcher implements HttpRequestMatcher {
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
     private final String path;
     
     /**
