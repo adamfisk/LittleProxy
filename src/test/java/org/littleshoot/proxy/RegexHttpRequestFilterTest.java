@@ -1,102 +1,91 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.*;
-
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
+import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.junit.Test;
 
+import java.net.URISyntaxException;
+
+import static org.jboss.netty.handler.codec.http.HttpMethod.GET;
+import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_0;
+import static org.littleshoot.proxy.RegexHttpRequestFilter.*;
+import static org.mockito.Mockito.*;
+
 
 public class RegexHttpRequestFilterTest {
-    
-    @Test public void testHost() throws Exception {
-        final AtomicInteger count = new AtomicInteger();
-        final HttpRequestFilter delegate = new HttpRequestFilter() {
-            
-            public void filter(final HttpRequest httpRequest) {
-                synchronized (count) {
-                    count.incrementAndGet();
-                    count.notifyAll();
-                }
-            }
-        };
-        final RegexHttpRequestFilter filter = 
-            RegexHttpRequestFilter.newHostFilter(".*google.com", delegate);
-        testHostRegex(filter, 2, count);
-    }
-    
-    @Test public void testPath() throws Exception {
-        final AtomicInteger count = new AtomicInteger();
-        final HttpRequestFilter delegate = new HttpRequestFilter() {
-            
-            public void filter(final HttpRequest httpRequest) {
-                synchronized (count) {
-                    count.incrementAndGet();
-                    count.notifyAll();
-                }
-            }
-        };
-        RegexHttpRequestFilter filter = 
-            RegexHttpRequestFilter.newPathFilter("/testing", delegate);
-        testHostRegex(filter, 1, count);
-        
-        count.set(0);
-        filter = RegexHttpRequestFilter.newPathFilter("/test.*", delegate);
-        testHostRegex(filter, 2, count);
-    }
-    
-    @Test public void testHostAndPath() throws Exception {
-        final AtomicInteger count = new AtomicInteger();
-        final HttpRequestFilter delegate = new HttpRequestFilter() {
-            
-            public void filter(final HttpRequest httpRequest) {
-                synchronized (count) {
-                    count.incrementAndGet();
-                    count.notifyAll();
-                }
-            }
-        };
-        final RegexHttpRequestFilter filter = 
-            RegexHttpRequestFilter.newHostAndPathFilter(".*.google.com", 
-                "/testing", delegate);
-        testHostRegex(filter, 1, count);
-    }
-    
-    private void testHostRegex(final RegexHttpRequestFilter filter, 
-        final int expected, final AtomicInteger count) throws Exception {
 
-        
-        final int port = 7777;
-        final DefaultHttpProxyServer server = 
-            new DefaultHttpProxyServer(port, filter);
-        server.start();
-        
-        final String url1 = "http://www.google.com/testing";
-        final String url2 = "http://www.google.com/test";
-        
-        final DefaultHttpClient http = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", port);
-        http.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
-        HttpGet get = new HttpGet(url1);
-        HttpResponse hr = http.execute(get);
-        HttpEntity responseEntity = hr.getEntity();
-        EntityUtils.consume(responseEntity);
-        
-        get = new HttpGet(url2);
-        hr = http.execute(get);
-        responseEntity = hr.getEntity();
-        EntityUtils.consume(responseEntity);
+    private final HttpRequestFilter delegate = mock(HttpRequestFilter.class);
+    private RegexHttpRequestFilter filter;
 
-        // Only one of the requests should have 
-        assertEquals(expected, count.get());
-        server.stop();
+    @Test public void testHostWhenMatchDomain() throws Exception {
+        filter = newHostFilter(".*google.com", delegate);
+
+        match("http://google.com/testing");
     }
+
+    @Test public void testHostWhenMatchSubdomain() throws Exception {
+        filter = newHostFilter(".*google.com", delegate);
+
+        match("http://www.google.com/testing");
+    }
+
+    @Test public void testHostWhenDonNotMatch() throws Exception {
+        filter = newHostFilter(".*google.com", delegate);
+
+        doNotMatch("http://example.com/testing");
+    }
+
+    @Test public void testPathWhenExactMatch() throws Exception {
+        filter = newPathFilter("/testing", delegate);
+
+        match("http://google.com/testing");
+    }
+
+
+    @Test public void testPathWhenMatchPattern() throws Exception {
+        filter = newPathFilter("/test.*", delegate);
+
+        match("http://google.com/testing");
+    }
+
+    @Test public void testPathWhenDoNotMatch() throws Exception {
+        filter = newPathFilter("/testing", delegate);
+
+        doNotMatch("http://google.com/test");
+    }
+
+    @Test public void testHostAndPathWhenMatch() throws Exception {
+        filter = newHostAndPathFilter(".*.google.com", "/testing", delegate);
+
+        match("http://www.google.com/testing");
+    }
+
+
+    @Test public void testHostAndPathWhenDoNotMatch() throws Exception {
+        filter = newHostAndPathFilter(".*.google.com", "/testing", delegate);
+
+        doNotMatch("http://www.google.com/test");
+    }
+
+
+    private void match(String uri) throws URISyntaxException {
+        final HttpRequest request = createRequest(uri);
+        filter.filter(request);
+
+        verify(delegate).filter(request);
+    }
+
+    private void doNotMatch(String uri) throws URISyntaxException {
+        final HttpRequest request = createRequest(uri);
+        filter.filter(request);
+
+        verify(delegate, never()).filter(request);
+    }
+
+    private HttpRequest createRequest(String url) {
+        final HttpRequest request = new DefaultHttpRequest(HTTP_1_0, GET, ProxyUtils.stripHost(url));
+        request.setHeader("Host", ProxyUtils.parseHost(url));
+        return request;
+    }
+
 }
