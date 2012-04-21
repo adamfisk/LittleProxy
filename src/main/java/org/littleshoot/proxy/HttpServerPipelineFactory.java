@@ -232,7 +232,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         }
         */
 
-        final SimpleChannelUpstreamHandler httpRequestHandler = 
+        final HttpRequestHandler httpRequestHandler = 
             new HttpRequestHandler(this.cacheManager, authenticationManager,
             this.channelGroup, this.clientSocketChannelFactory,
             this.chainProxyManager, relayPipelineFactoryFactory, this.useJmx);
