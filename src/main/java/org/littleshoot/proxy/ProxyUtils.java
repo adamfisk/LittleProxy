@@ -11,12 +11,14 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.math.NumberUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -520,7 +522,7 @@ public class ProxyUtils {
      * @return The request copy.
      */
     public static HttpRequest copyHttpRequest(final HttpRequest original) {
-    	return copyHttpRequest(original, false);
+        return copyHttpRequest(original, false);
     }
 
     /**
@@ -555,64 +557,64 @@ public class ProxyUtils {
      */
     public static Charset detectCharset(HttpResponse http) {
 
-		Charset charset = null; // Return null charset if charset detected in Response have no support
+        Charset charset = null; // Return null charset if charset detected in Response have no support
 
-		Charset headerCharset = CharsetUtil.ISO_8859_1; // Default charset for detection is latin-1
+        Charset headerCharset = CharsetUtil.ISO_8859_1; // Default charset for detection is latin-1
 
-		if (http.getHeader("Content-Type") != null) { // If has Content-Type header, try to detect charset from it
+        if (http.getHeader("Content-Type") != null) { // If has Content-Type header, try to detect charset from it
 
-			String header_pattern = "^\\s*?.*?\\s*?charset\\s*?=\\s*?(.*?)$"; // How to find charset in header
+            String header_pattern = "^\\s*?.*?\\s*?charset\\s*?=\\s*?(.*?)$"; // How to find charset in header
 
-			Pattern pattern = Pattern.compile(header_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-			Matcher matcher = pattern.matcher(http.getHeader("Content-Type")); // find charset in header
+            Pattern pattern = Pattern.compile(header_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
+            Matcher matcher = pattern.matcher(http.getHeader("Content-Type")); // find charset in header
 
-			if (matcher.find()) { // If there is a charset definition
+            if (matcher.find()) { // If there is a charset definition
 
-				String charsetName = matcher.group(1); // Get string charset name
+                String charsetName = matcher.group(1); // Get string charset name
 
-				if (Charset.isSupported(charsetName)) { // If charset is supported by java
-					charset = Charset.forName(charsetName); // Set current charset to that
-					headerCharset = Charset.forName(charsetName); // Set the header charset to that
-				}
-			}
-		}
+                if (Charset.isSupported(charsetName)) { // If charset is supported by java
+                    charset = Charset.forName(charsetName); // Set current charset to that
+                    headerCharset = Charset.forName(charsetName); // Set the header charset to that
+                }
+            }
+        }
 
-		String html = http.getContent().toString(headerCharset); // Try to decode response content with header charset
+        String html = http.getContent().toString(headerCharset); // Try to decode response content with header charset
 
-		String meta_pattern = "<meta\\s+.*? content\\s*?=\\s*?\\\"\\s*?text/html;\\s*?charset\\s*?=\\s*?(.*?)\\\"\\s*?/*?>"; // How to find charset in html4 meta tags
-		Pattern pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-		Matcher matcher = pattern.matcher(html);         // find meta tag charset in html
-		if (matcher.find()) { // If there is a charset in meta tag
-			String charsetName = matcher.group(1); // Get string charset name
-			if (Charset.isSupported(charsetName)) { // If charset is supported by java
-				charset = Charset.forName(charsetName); // Set current charset to that
-			}
-		}
+        String meta_pattern = "<meta\\s+.*? content\\s*?=\\s*?\\\"\\s*?text/html;\\s*?charset\\s*?=\\s*?(.*?)\\\"\\s*?/*?>"; // How to find charset in html4 meta tags
+        Pattern pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
+        Matcher matcher = pattern.matcher(html);         // find meta tag charset in html
+        if (matcher.find()) { // If there is a charset in meta tag
+            String charsetName = matcher.group(1); // Get string charset name
+            if (Charset.isSupported(charsetName)) { // If charset is supported by java
+                charset = Charset.forName(charsetName); // Set current charset to that
+            }
+        }
 
-		meta_pattern = "<meta\\s+.*?charset\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 meta tag
+        meta_pattern = "<meta\\s+.*?charset\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 meta tag
 
-		pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-		matcher = pattern.matcher(html);         // find meta tag charset in html
-		if (matcher.find()) { // If there is a charset in meta tag
-			String charsetName = matcher.group(1); // Get string charset name
-			if (Charset.isSupported(charsetName)) { // If charset is supported by java
-				charset = Charset.forName(charsetName); // Set current charset to that
-			}
-		}
+        pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
+        matcher = pattern.matcher(html);         // find meta tag charset in html
+        if (matcher.find()) { // If there is a charset in meta tag
+            String charsetName = matcher.group(1); // Get string charset name
+            if (Charset.isSupported(charsetName)) { // If charset is supported by java
+                charset = Charset.forName(charsetName); // Set current charset to that
+            }
+        }
 
-		meta_pattern = "<meta\\s+.*?name=\\\"charset\\\"\\s*?content\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 variant meta tag
+        meta_pattern = "<meta\\s+.*?name=\\\"charset\\\"\\s*?content\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 variant meta tag
 
-		pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-		matcher = pattern.matcher(html);         // find meta charset in html
-		if (matcher.find()) { // If there is a charset in meta tag
-			String charsetName = matcher.group(1); // Get string charset name
-			if (Charset.isSupported(charsetName)) { // If charset is supported by java
-				charset = Charset.forName(charsetName); // Set current charset to that
-			}
-		}
+        pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
+        matcher = pattern.matcher(html);         // find meta charset in html
+        if (matcher.find()) { // If there is a charset in meta tag
+            String charsetName = matcher.group(1); // Get string charset name
+            if (Charset.isSupported(charsetName)) { // If charset is supported by java
+                charset = Charset.forName(charsetName); // Set current charset to that
+            }
+        }
 
-		return charset;
-	}
+        return charset;
+    }
 
     /**
      * Returns <code>true</code> if the specified string is either "true" or
@@ -644,5 +646,24 @@ public class ProxyUtils {
         return StringUtils.isNotBlank(str) && 
             (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
     }
+    
+    public static boolean extractBooleanDefaultFalse(
+        final Properties props, final String key) {
+        final String throttle = props.getProperty(key);
+        if (StringUtils.isNotBlank(throttle)) {
+            return throttle.trim().equalsIgnoreCase("true");
+        }
+        return false;
+    }
+
+    public static long extractLong(final Properties props, final String key) {
+        final String readThrottleString = props.getProperty(key);
+        if (StringUtils.isNotBlank(readThrottleString) &&
+            NumberUtils.isNumber(readThrottleString)) {
+            return Long.parseLong(readThrottleString);
+        }
+        return -1;
+    }
+    
 
 }

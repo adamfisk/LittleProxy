@@ -96,7 +96,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     
     private final AtomicBoolean browserChannelClosed = new AtomicBoolean(false);
     private volatile boolean receivedChannelClosed = false;
-    private final boolean useJmx;
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
     
@@ -109,7 +108,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final ClientSocketChannelFactory clientChannelFactory,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
         this(null, null, null, clientChannelFactory, null, 
-            relayPipelineFactoryFactory, false);
+            relayPipelineFactoryFactory);
     }
     
     /**
@@ -130,7 +129,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final ClientSocketChannelFactory clientChannelFactory,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
         this(cacheManager, authorizationManager, channelGroup,
-            clientChannelFactory, null, relayPipelineFactoryFactory, false);
+            clientChannelFactory, null, relayPipelineFactoryFactory);
     }
     
     /**
@@ -147,23 +146,20 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * @param chainProxyManager upstream proxy server host and port or null 
      * if none used.
      * @param requestFilter An optional filter for HTTP requests.
-     * @param useJmx Whether or not to expose debugging properties via JMX.
      */
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final ClientSocketChannelFactory clientChannelFactory,
         final ChainProxyManager chainProxyManager, 
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
-        final boolean useJmx) {
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
         this.cacheManager = cacheManager;
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.clientChannelFactory = clientChannelFactory;
         this.chainProxyManager = chainProxyManager;
         this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
-        this.useJmx = useJmx;
-        if (useJmx) {
+        if (LittleProxyConfig.isUseJmx()) {
             setupJmx();
         }
     }
@@ -279,7 +275,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         
                         public void operationComplete(final ChannelFuture future) 
                             throws Exception {
-                            if (useJmx) {
+                            if (LittleProxyConfig.isUseJmx()) {
                                 unansweredRequests.add(request.toString());
                             }
                             unansweredHttpRequests.add(request);
@@ -633,7 +629,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
 
     public void onRelayHttpResponse(final Channel browserToProxyChannel,
         final String key, final HttpRequest httpRequest) {
-        if (this.useJmx) {
+        if (LittleProxyConfig.isUseJmx()) {
             this.answeredRequests.add(httpRequest.toString());
             this.unansweredRequests.remove(httpRequest.toString());
         }

@@ -2,12 +2,7 @@ package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.lang.management.ManagementFactory;
-import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
@@ -19,8 +14,6 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.net.ssl.SSLEngine;
 
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.math.NumberUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -66,7 +59,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
 
     private int numHandlers;
 
-    private boolean useJmx;
+    //private boolean useJmx;
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
     
@@ -115,52 +108,13 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             };
         }
         
-        final Properties props = new Properties();
-        final File propsFile = new File("./littleproxy.properties");
-        
-        long readThrottle = -1;
-        long writeThrottle = -1;
-        try {
-            final InputStream is = new FileInputStream(propsFile);
-            props.load(is);
-            this.useJmx = extractBoolean(props, "jmx");
-            if (this.useJmx) {
-                setupJmx();
-            }
-            /*
-            final boolean useThrottle = extractBoolean(props, "throttle");
-            if (useThrottle) {
-                readThrottle = extractLong(props, "readThrottle");
-                writeThrottle = extractLong(props, "writeThrottle");
-            }
-            */
-        } catch (final IOException e) {
-            log.info("Not using props file");
-            // No problem -- just don't use 'em.
-        }
-
-        if (readThrottle == -1 && writeThrottle == -1) {
-            //trafficShaper = null;
-        }
-        else {
-            log.info("Traffic shaping writes at {} bytes per second", 
-                writeThrottle);
-            log.info("Traffic shaping reads at {} bytes per second", 
-                readThrottle);
-            // Last arg in milliseconds.
-            //trafficShaper = 
-                //new GlobalTrafficShapingHandler(Executors.newCachedThreadPool(), 
-                //    writeThrottle, readThrottle, 1000); 
+        if (LittleProxyConfig.isUseJmx()) {
+            setupJmx();
         }
         
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
                 clientSocketChannelFactory.releaseExternalResources();
-                /*
-                if (trafficShaper != null) {
-                    trafficShaper.releaseExternalResources();
-                }
-                */
             }
         }));
     }
@@ -187,23 +141,6 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         } catch (final NotCompliantMBeanException e) {
             log.error("Could not set up JMX", e);
         }
-    }
-    
-    private boolean extractBoolean(final Properties props, final String key) {
-        final String throttle = props.getProperty(key);
-        if (StringUtils.isNotBlank(throttle)) {
-            return throttle.trim().equalsIgnoreCase("true");
-        }
-        return false;
-    }
-
-    private long extractLong(Properties props, String key) {
-        final String readThrottleString = props.getProperty(key);
-        if (StringUtils.isNotBlank(readThrottleString) &&
-            NumberUtils.isNumber(readThrottleString)) {
-            return Long.parseLong(readThrottleString);
-        }
-        return -1;
     }
     
     public ChannelPipeline getPipeline() throws Exception {
@@ -234,7 +171,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         final HttpRequestHandler httpRequestHandler = 
             new HttpRequestHandler(this.cacheManager, authenticationManager,
             this.channelGroup, this.clientSocketChannelFactory,
-            this.chainProxyManager, relayPipelineFactoryFactory, this.useJmx);
+            this.chainProxyManager, relayPipelineFactoryFactory);
         
         pipeline.addLast("idle", new IdleStateHandler(TIMER, 0, 0, 70));
         //pipeline.addLast("idleAware", new IdleAwareHandler("Client-Pipeline"));

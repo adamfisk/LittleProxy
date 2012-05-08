@@ -1,5 +1,15 @@
 package org.littleshoot.proxy;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Simple class for storing configuration. We cheat here and make
  * this all static to avoid the overhead of integrating dependency 
@@ -8,7 +18,34 @@ package org.littleshoot.proxy;
  */
 public class LittleProxyConfig {
 
-    private static boolean useDnsSec = false;
+    private static final Logger LOG = 
+        LoggerFactory.getLogger(LittleProxyConfig.class);
+    
+    private static final Properties props = new Properties();
+    
+    static {
+        
+        final File propsFile = new File("./littleproxy.properties");
+        
+        if (propsFile.isFile()) {
+            InputStream is = null;
+            try {
+                is = new FileInputStream(propsFile);
+                props.load(is);
+            } catch (final IOException e) {
+                LOG.warn("Could not load props file?", e);
+            } finally {
+                IOUtils.closeQuietly(is);
+            }
+        }
+    }
+    
+    
+    private static boolean useDnsSec = 
+        ProxyUtils.extractBooleanDefaultFalse(props, "dnssec");
+    
+    private static boolean useJmx = 
+        ProxyUtils.extractBooleanDefaultFalse(props, "jmx");
     
     private LittleProxyConfig(){}
 
@@ -30,5 +67,24 @@ public class LittleProxyConfig {
      */
     public static boolean isUseDnsSec() {
         return useDnsSec;
+    }
+
+    /**
+     * Whether or not to use JMX -- defaults to false.
+     * 
+     * @param useJmx Whether or not to use JMX.
+     */
+    public static void setUseJmx(boolean useJmx) {
+        LittleProxyConfig.useJmx = useJmx;
+    }
+
+    /**
+     * Returns whether or not JMX is turned on.
+     * 
+     * @return <code>true</code> if JMX is turned on, otherwise 
+     * <code>false</code>.
+     */
+    public static boolean isUseJmx() {
+        return useJmx;
     }
 }
