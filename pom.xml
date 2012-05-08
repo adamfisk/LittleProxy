@@ -171,6 +171,87 @@
         </extensions>
         <plugins>
 
+      <plugin>
+        <groupId>com.github.github</groupId>
+        <artifactId>site-maven-plugin</artifactId>
+        <version>0.6</version>
+        <configuration>
+          <message>Building site for ${project.version}</message>
+          <repositoryName>LittleProxy</repositoryName>
+          <repositoryOwner>adamfisk</repositoryOwner>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>site</goal>
+            </goals>
+            <phase>site</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+        <version>3.0</version>
+        <configuration>
+          <reportPlugins>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-project-info-reports-plugin</artifactId>
+              <version>2.2</version>
+              <configuration>
+                <dependencyDetailsEnabled>true</dependencyDetailsEnabled>
+                <dependencyLocationsEnabled>true</dependencyLocationsEnabled>
+              </configuration>
+            </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-javadoc-plugin</artifactId>
+              <version>2.7</version>
+            </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-surefire-report-plugin</artifactId>
+              <version>2.6</version>
+            </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-checkstyle-plugin</artifactId>
+              <version>2.6</version>
+            </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-changelog-plugin</artifactId>
+              <version>2.2</version>
+            </plugin>
+            <plugin>
+              <groupId>org.codehaus.mojo</groupId>
+              <artifactId>findbugs-maven-plugin</artifactId>
+              <version>2.4.0</version>
+              <configuration>
+                <!-- Optional directory to put findbugs xml report -->
+              </configuration>
+            </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-jxr-plugin</artifactId>
+              <version>2.3</version>
+            </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-pmd-plugin</artifactId>
+              <version>2.7.1</version>
+              <configuration>
+                <linkXref>true</linkXref>
+                <sourceEncoding>utf-8</sourceEncoding>
+                <minimumTokens>100</minimumTokens>
+                <targetJdk>1.5</targetJdk>
+              </configuration>
+            </plugin>
+          </reportPlugins>
+        </configuration>
+      </plugin>
+
             <!-- Compiling with java 1.5 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
