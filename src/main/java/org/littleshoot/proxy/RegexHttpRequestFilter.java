@@ -36,7 +36,7 @@ public class RegexHttpRequestFilter implements HttpRequestFilter {
      * Creates a new filter that filters on the request path.
      * 
      * @param pathRegex The regular expression for matching the path.
-     * @param filter The filter to delegate to if the host matches.
+     * @param filter The filter to delegate to if the path matches.
      * @return The filter.
      */
     public static RegexHttpRequestFilter newPathFilter(final String pathRegex,
