@@ -356,6 +356,7 @@ public class ProxyUtils {
     /**
      * Parses the host and port an HTTP request is being sent to.
      * 
+     * @param uri The URI.
      * @return The host and port string.
      */
     public static String parseHostAndPort(final String uri) {
@@ -553,6 +554,7 @@ public class ProxyUtils {
      * based on Headers and Meta Tags
      * 
      * @param http The HTTP Response.
+     * @return Returns the detected charset.
      */
     public static Charset detectCharset(HttpResponse http) {
 
