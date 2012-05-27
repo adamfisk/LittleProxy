@@ -273,7 +273,6 @@ public class ProxyUtils {
                 ChannelBuffers.copiedBuffer(fullResponse.getBytes("UTF-8"));
             channel.write(buf);
             channel.setReadable(true);
-            return;
         }
         catch (final UnsupportedEncodingException e) {
             // Never.
