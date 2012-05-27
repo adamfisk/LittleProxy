@@ -60,6 +60,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * 
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
+     * @param relayListener The relay listener.
      * @param hostAndPort Host and port we're relaying to.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel, 
@@ -76,6 +77,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param browserToProxyChannel The browser connection.
      * @param channelGroup Keeps track of channels to close on shutdown.
      * @param filter The HTTP filter.
+     * @param relayListener The relay listener.
      * @param hostAndPort Host and port we're relaying to.
      */
     public HttpRelayingHandler(final Channel browserToProxyChannel,
@@ -370,6 +372,11 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * in either the request or the response header fields indicates that the 
      * connection SHOULD NOT be considered `persistent' (section 8.1) after 
      * the current request/response is complete."
+     *
+     * @param req The request.
+     * @param res The response.
+     * @param msg The message.
+     * @return Returns true if the connection should close.
      */
     private boolean shouldCloseRemoteConnection(final HttpRequest req, 
         final HttpResponse res, final Object msg) {
