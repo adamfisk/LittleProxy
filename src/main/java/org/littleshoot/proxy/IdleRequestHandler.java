@@ -40,7 +40,7 @@ public class IdleRequestHandler extends IdleAwareHandler {
                 message.append(unansweredRequest.getUri());
                 String referrer = unansweredRequest.getHeader("Referer");
                 if (!StringUtils.isBlank(referrer)) {
-                    // Capure the referrer so that slow resources can be tracked
+                    // Capture the referrer so that slow resources can be tracked
                     // to a page
                     message.append(" from ").append(referrer);
                 }

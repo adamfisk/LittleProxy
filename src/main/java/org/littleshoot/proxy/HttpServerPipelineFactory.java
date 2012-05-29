@@ -71,10 +71,10 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
      * 
      * @param authorizationManager The manager for proxy authentication.
      * @param channelGroup The group that keeps track of open channels.
-     * @param filters HTTP filters to apply.
-     * @param chainProxyManager upstream proxy server host and port or 
+     * @param chainProxyManager upstream proxy server host and port or
      * <code>null</code> if none used.
-     * @param isSsl Whether or not to use SSL/TLS.
+     * @param ksm The KeyStore manager.
+     * @param relayPipelineFactoryFactory The relay pipeline factory factory.
      */
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 

@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * KeyStore manager that automatically generates a self-signed certificate
- * on startup if it doesn't already exit.
+ * on startup if it doesn't already exist.
  */
 public class SelfSignedKeyStoreManager implements KeyStoreManager {
     

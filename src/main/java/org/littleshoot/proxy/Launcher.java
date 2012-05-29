@@ -99,6 +99,5 @@ public class Launcher {
     
         final HelpFormatter formatter = new HelpFormatter();
         formatter.printHelp("littleproxy", options);
-        return;
     }
 }
