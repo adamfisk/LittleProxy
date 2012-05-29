@@ -120,8 +120,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * proxy authentication requirements.
      * @param channelGroup The group of channels for keeping track of all
      * channels we've opened.
-     * @param filters HTTP filtering rules.
      * @param clientChannelFactory The common channel factory for clients.
+     * @param relayPipelineFactoryFactory The relay pipeline factory.
      */
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
@@ -141,11 +141,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * proxy authentication requirements.
      * @param channelGroup The group of channels for keeping track of all
      * channels we've opened.
-     * @param filters HTTP filtering rules.
      * @param clientChannelFactory The common channel factory for clients.
      * @param chainProxyManager upstream proxy server host and port or null 
      * if none used.
-     * @param requestFilter An optional filter for HTTP requests.
+     * @param relayPipelineFactoryFactory The relay pipeline factory.
      */
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 

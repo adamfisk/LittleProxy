@@ -43,7 +43,7 @@ public class DefaultProxyCacheManagerTest {
             public Object pubEncode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
                 return encode(ctx, channel, msg);
             }
-        };
+        }
         final PubEncoder encoder = new PubEncoder();
 
         //TODO:  The test is @Ignored so this mocks are not tested

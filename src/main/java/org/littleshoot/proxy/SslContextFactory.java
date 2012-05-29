@@ -18,8 +18,8 @@ public class SslContextFactory {
             algorithm = "SunX509";
         }
 
-        SSLContext serverContext = null;
-        SSLContext clientContext = null;
+        SSLContext serverContext;
+        SSLContext clientContext;
         try {
             final KeyStore ks = KeyStore.getInstance("JKS");
             //ks.load(new FileInputStream("keystore.jks"), "changeit".toCharArray());
