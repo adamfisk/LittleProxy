@@ -33,10 +33,10 @@ public class RegexHttpRequestFilter implements HttpRequestFilter {
     }
     
     /**
-     * Creates a new filter that filters on the request host.
+     * Creates a new filter that filters on the request path.
      * 
-     * @param hostRegex The regular expression for matching the host.
-     * @param filter The filter to delegate to if the host matches.
+     * @param pathRegex The regular expression for matching the path.
+     * @param filter The filter to delegate to if the path matches.
      * @return The filter.
      */
     public static RegexHttpRequestFilter newPathFilter(final String pathRegex,
@@ -64,7 +64,6 @@ public class RegexHttpRequestFilter implements HttpRequestFilter {
      * @param hostRegex The regular expression for matching the host.
      * @param pathRegex The regular expression for matching the path.
      * @param filter The filter to delegate to if the host matches.
-     * @return The filter.
      */
     private RegexHttpRequestFilter(final String hostRegex, 
         final String pathRegex, final HttpRequestFilter filter) {

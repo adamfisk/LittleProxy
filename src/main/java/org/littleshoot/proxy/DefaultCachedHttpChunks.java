@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Class that keep track of the cached HTTP chunks for a single HTTP response.
+ * Class that keeps track of the cached HTTP chunks for a single HTTP response.
  */
 public class DefaultCachedHttpChunks implements CachedHttpChunks {
 

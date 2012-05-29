@@ -14,7 +14,6 @@ public interface HttpResponseFilter {
      * 
      * @param request The request associated with the response.
      * @param response The response to process.
-     * @param hostAndPort The host and port the response came from.
      * @return The processed response, possibly modified.
      */
     HttpResponse filterResponse(HttpRequest request, HttpResponse response);
