@@ -25,8 +25,8 @@ public class PublicIpsOnlyRequestFilter implements HttpRequestFilter {
                 // We do this for security reasons -- we don't
                 // want to allow proxies to inadvertantly expose
                 // internal network services.
-                log.warn("Request for non-public resource: "+
-                    request.getUri());
+                log.warn("Request for non-public resource: {} \n full request: {}",
+                    request.getUri(), request);
                 throw new UnsupportedOperationException(
                     "Not a public address: "+ia);
             }
