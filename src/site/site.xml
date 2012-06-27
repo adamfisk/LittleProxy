@@ -1,38 +1,20 @@
-<!--<project xmlns="http://maven.apache.org/DECORATION/1.0.0"
+<project xmlns="http://maven.apache.org/DECORATION/1.0.0"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/DECORATION/1.0.0 http://maven.apache.org/xsd/decoration-1.0.0.xsd">
--->
-<project name="LittleProxy HTTP Proxy">
-
-    <poweredBy>
-        <logo name="LittleShoot" href="http://www.littleshoot.org/"
-              img="http://dev.littleshoot.org:8084/download/attachments/131074/global.logo?version=1&amp;modificationDate=1256417571000"/>
-    </poweredBy>
-
   <body>
-  <head>
-<script type="text/javascript">
-
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-3025934-2']);
-  _gaq.push(['_trackPageview']);
-
-  (function() {
-    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
-    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
-  })();
-
-</script>
-  </head>
-  
-<!--
     <menu name="Overview">
-      <item name="Introduction" href="index.html"/>
+      <item name="Source Repository" href="source-repository.html"/>
+      <item name="Issue Tracking" href="issue-tracking.html"/>
+      <item name="Dependencies" href="dependencies.html"/>
+      <item name="JavaDocs" href="apidocs/index.html"/>
+      <item name="Test JavaDocs" href="testapidocs/index.html"/>
+      <item name="Test Report" href="surefire-report.html"/>
+      <item name="Checkstyle" href="checkstyle.html"/>
+      <item name="Change Log" href="changelog.html"/>
+      <item name="Find Bugs Report" href="findbugs.html"/>
+      <item name="PMD Report" href="pmd.html"/>
+      <item name="CPD Report" href="cpd.html"/>
+      <item name="File Activity" href="file-activity.html"/>
     </menu>
--->
-
-    <menu ref="reports"/>
-
   </body>
 </project>

@@ -381,6 +381,10 @@ public class ProxyUtils {
     }
     
     public static String parseHost(final HttpRequest request) {
+        final String host = request.getHeader(HttpHeaders.Names.HOST);
+        if (StringUtils.isNotBlank(host)) {
+            return host;
+        }
         return parseHost(request.getUri());
     }
     

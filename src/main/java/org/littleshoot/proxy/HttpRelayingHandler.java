@@ -277,10 +277,22 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         else {
             log.debug("Channel not open. Connected? {}", 
                 browserToProxyChannel.isConnected());
-            // This will undoubtedly happen anyway, but just in case.
             if (me.getChannel().isConnected()) {
-                log.warn("Closing channel to remote server -- received a " +
-                    "response after the browser connection is closed?");
+                // This can happen with thing like Google's auto-suggest, for
+                // example -- when the user presses backspace, the browser 
+                // seems to close the connection for that request, sometimes
+                // before the response has come through -- i.e. cases where
+                // the browser knows it doesn't care about the response
+                // anymore.
+                
+                // Can also happen when the user browses to another page
+                // before a page has completely loaded -- lots of cases really.
+                log.info("Closing channel to remote server -- received a " +
+                    "response after the browser connection is closed? " +
+                    "Current request:\n{}\nResponse:\n{}", 
+                    this.currentHttpRequest, me.getMessage());
+                
+                // This will undoubtedly happen anyway, but just in case.
                 me.getChannel().close();
             }
         }
