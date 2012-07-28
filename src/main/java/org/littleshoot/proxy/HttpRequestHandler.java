@@ -84,9 +84,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private final Set<String> answeredRequests = new HashSet<String>();
     private final Set<String> unansweredRequests = new HashSet<String>();
 
-    private final Set<HttpRequest> unansweredHttpRequests = new HashSet<HttpRequest>();
+    private final Set<HttpRequest> unansweredHttpRequests = 
+        new HashSet<HttpRequest>();
 
     private ChannelFuture currentChannelFuture;
+    
+    /**
+     * This lock is necessary for when a second chunk arrives in a request
+     * before we've even created the current channel future.
+     */
+    private final Object channelFutureLock = new Object();
     
     private final ChainProxyManager chainProxyManager;
     private final ChannelGroup channelGroup;
@@ -219,9 +226,25 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             this.readingChunks = false;
         }
         
+        // It's possible to receive a chunk before a channel future has even
+        // been set.
+        if (this.currentChannelFuture == null) {
+            log.error("NO CHANNEL FUTURE!!");
+            synchronized (this.channelFutureLock) {
+                if (this.currentChannelFuture == null) {
+                    try {
+                        channelFutureLock.wait(4000);
+                    } catch (final InterruptedException e) {
+                        log.info("Interrupted!!", e);
+                    }
+                }
+            }
+        }
+        
         // We don't necessarily know the channel is connected yet!! This can
         // happen if the client sends a chunk directly after the initial 
         // request.
+
         if (this.currentChannelFuture.getChannel().isConnected()) {
             this.currentChannelFuture.getChannel().write(chunk);
         }
@@ -295,6 +318,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final ChannelFuture curFuture = getChannelFuture(hostAndPort);
         if (curFuture != null) {
             log.info("Using existing connection...");
+            
+            // We don't notify here because the current channel future will not
+            // have been null before this assignment.
+            if (this.currentChannelFuture == null) {
+                log.error("Should not be null here");
+            }
             this.currentChannelFuture = curFuture;
             if (curFuture.getChannel().isConnected()) {
                 onConnect.onConnect(curFuture);
@@ -349,6 +378,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                             }
                         });
                         currentChannelFuture = wf;
+                        synchronized(channelFutureLock) {
+                            channelFutureLock.notifyAll();
+                        }
                     }
                     else {
                         log.info("Could not connect to " + hostAndPort, 

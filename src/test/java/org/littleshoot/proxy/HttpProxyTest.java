@@ -24,6 +24,14 @@ import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.codec.http.HttpVersion;
@@ -86,6 +94,40 @@ public class HttpProxyTest {
         
         System.out.println("ALL PASSED!!");
         }
+
+    @Test
+    public void testProxyWithApacheHttpClientChunkedRequests() throws Exception {
+        System.out.println("starting proxy");
+        startHttpProxy();
+        System.out.println("started proxy");
+
+        // Give the proxy a second to start...
+        Thread.sleep(2000);
+
+        String baseResponse = httpPostWithApacheClient(false);
+        String proxyResponse = httpPostWithApacheClient(true);
+        assertEquals(baseResponse, proxyResponse);
+    }
+
+    private String httpPostWithApacheClient(boolean isProxy) throws IOException {
+        DefaultHttpClient httpclient = new DefaultHttpClient();
+        try {
+            if (isProxy) {
+                HttpHost proxy = new HttpHost("127.0.0.1", 8080);
+                httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
+            }
+            HttpPost httppost = new HttpPost("http://opsgenie.com/status/ping");
+            StringEntity entity = new StringEntity("adsf", "UTF-8");
+            entity.setChunked(true);
+            httppost.setEntity(entity);
+
+            HttpResponse response = httpclient.execute(httppost);
+            HttpEntity resEntity = response.getEntity();
+            return EntityUtils.toString(resEntity);
+        } finally {
+            httpclient.getConnectionManager().shutdown();
+        }
+    }
     
     private byte[] rawResponse(final String url, final int port, 
         final boolean simulateProxy, final HttpVersion httpVersion) 
