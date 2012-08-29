@@ -8,15 +8,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 
-import net.sf.ehcache.Cache;
-import net.sf.ehcache.CacheManager;
-import net.sf.ehcache.Element;
-
 import org.apache.commons.lang.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
@@ -29,8 +23,8 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultProxyCacheManager implements ProxyCacheManager {
 
+    
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final CacheManager cacheManager = new CacheManager();
     
     private static final boolean CACHE_ENABLED = false;
     
@@ -46,9 +40,17 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
             }
         });
     
-    /**
-     * Creates a new cache manager.
-     */
+    public DefaultProxyCacheManager(){} 
+    public boolean returnCacheHit(HttpRequest request, Channel channel) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+    
+    /*
+     * 
+
+    private final CacheManager cacheManager = new CacheManager();
+    
     public DefaultProxyCacheManager() {
         this.cacheManager.addCache(ProxyConstants.CACHE);
         this.cacheManager.addCache(ProxyConstants.CHUNKS_CACHE);
@@ -70,6 +72,9 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
             log.info("Wrote response from cache!!");
             return true;
         }
+        */
+        
+        
         /*
         final Cache chunkedCache = 
             this.cacheManager.getCache(ProxyConstants.CHUNKS_CACHE);
@@ -93,8 +98,10 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
             log.info("No matching element for: {}", uri);
         }
         */
+    /*
         return false;
     }
+    */
     
     public Future<String> cache(final HttpRequest httpRequest, 
         final HttpResponse httpResponse, final Object response, 

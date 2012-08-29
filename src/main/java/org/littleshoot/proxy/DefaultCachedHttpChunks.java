@@ -1,9 +1,5 @@
 package org.littleshoot.proxy;
 
-import net.sf.ehcache.Cache;
-import net.sf.ehcache.CacheManager;
-import net.sf.ehcache.Element;
-
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
@@ -18,6 +14,22 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultCachedHttpChunks implements CachedHttpChunks {
 
+    public boolean isComplete() {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    public boolean writeAllChunks(Channel channel) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    public void cache(HttpChunk chunk, ChannelBuffer encoded) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    /*
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final CacheManager cacheManager;
     private volatile int chunkCount = 0;
@@ -25,14 +37,6 @@ public class DefaultCachedHttpChunks implements CachedHttpChunks {
     private volatile boolean complete = false;
     private final ChannelFutureListener writeListener;
 
-    /**
-     * Creates a new class for caching HTTP chunks for a single response.
-     * 
-     * @param cacheManager The class that manages the cache.
-     * @param httpRequest The original request.
-     * @param writeListener The class for listening to write events
-     * that takes appropriate actions such as closing the connection.
-     */
     public DefaultCachedHttpChunks(final CacheManager cacheManager, 
         final HttpRequest httpRequest, 
         final ChannelFutureListener writeListener) {
@@ -87,5 +91,5 @@ public class DefaultCachedHttpChunks implements CachedHttpChunks {
         cf.addListener(this.writeListener);
         return true;
     }
-
+    */
 }

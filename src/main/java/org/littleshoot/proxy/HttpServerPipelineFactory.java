@@ -41,6 +41,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     private static final Logger log = 
         LoggerFactory.getLogger(HttpServerPipelineFactory.class);
     
+    // Please note that caching is not currently supported. This is left
+    // as placeholder for a future implementation.
     private static final boolean CACHE_ENABLED = false;
     
     private final ProxyAuthorizationManager authenticationManager;
@@ -90,6 +92,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         this.chainProxyManager = chainProxyManager;
         this.ksm = ksm;
         
+        // Please note that caching is not currently supported. This is left
+        // as placeholder for a future implementation.
         if (CACHE_ENABLED) {
             cacheManager = new DefaultProxyCacheManager();
         } else {
