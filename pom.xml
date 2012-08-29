@@ -103,6 +103,12 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>2.25.0</version>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>log4j</groupId>
@@ -111,11 +117,13 @@
             <optional>true</optional>
         </dependency>
 
+<!--
         <dependency>
             <groupId>net.sf.ehcache</groupId>
             <artifactId>ehcache-core</artifactId>
             <version>2.2.0</version>
         </dependency>
+-->
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
