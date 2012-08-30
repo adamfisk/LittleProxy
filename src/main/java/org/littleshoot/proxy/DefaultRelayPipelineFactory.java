@@ -13,6 +13,7 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
 import org.jboss.netty.handler.timeout.IdleStateHandler;
+import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,13 +36,15 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
     private final boolean filtersOff;
     private final HttpResponseFilters responseFilters;
 
+    private final Timer timer;
+
     public DefaultRelayPipelineFactory(final String hostAndPort, 
         final HttpRequest httpRequest, final RelayListener relayListener, 
         final Channel browserToProxyChannel,
         final ChannelGroup channelGroup, 
         final HttpResponseFilters responseFilters, 
         final HttpRequestFilter requestFilter, 
-        final ChainProxyManager chainProxyManager) {
+        final ChainProxyManager chainProxyManager, final Timer timer) {
         this.hostAndPort = hostAndPort;
         this.httpRequest = httpRequest;
         this.relayListener = relayListener;
@@ -51,6 +54,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         this.responseFilters = responseFilters;
         this.requestFilter = requestFilter;
         this.chainProxyManager = chainProxyManager;
+        this.timer = timer;
         
         this.filtersOff = responseFilters == null;
     }
@@ -150,7 +154,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
                 writeTimeoutSeconds = 0;
             }
             pipeline.addLast("idle", 
-                new IdleStateHandler(LittleProxyConstants.TIMER, 
+                new IdleStateHandler(this.timer, 
                     readTimeoutSeconds, writeTimeoutSeconds, 0));
             pipeline.addLast("idleAware", new IdleAwareHandler("Relay-Handler"));
         }

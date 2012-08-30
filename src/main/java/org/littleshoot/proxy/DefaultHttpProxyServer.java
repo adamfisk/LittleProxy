@@ -3,14 +3,23 @@ package org.littleshoot.proxy;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFactory;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
+import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
+import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.util.HashedWheelTimer;
+import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +47,30 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ServerBootstrap serverBootstrap;
 
     private final HttpResponseFilters responseFilters;
+    
+    /**
+     * This entire server instance needs to use a single timer.
+     */
+    private final Timer timer = new HashedWheelTimer();
+    
+    /**
+     * This entire server instance needs to use a single factory for server
+     * channels.
+     */
+    private final ChannelFactory serverChannelFactory = 
+        new NioServerSocketChannelFactory(
+            Executors.newCachedThreadPool(),
+            Executors.newCachedThreadPool());
+    
+    /**
+     * This entire server instance needs to use a single factory for client
+     * channels.
+     */
+    private ClientSocketChannelFactory clientChannelFactory = 
+        new NioClientSocketChannelFactory(
+            Executors.newCachedThreadPool(),
+            Executors.newCachedThreadPool());
+
     
     /**
      * Creates a new proxy server.
@@ -122,7 +155,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         });
         
         this.serverBootstrap = 
-            new ServerBootstrap(LittleProxyConstants.SERVER_CHANNEL_FACTORY);
+            new ServerBootstrap(serverChannelFactory);
     }
     
     public void start() {
@@ -137,7 +170,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 this.allChannels, this.chainProxyManager, this.ksm, 
                 new DefaultRelayPipelineFactoryFactory(chainProxyManager, 
                     this.responseFilters, this.requestFilter, 
-                    this.allChannels));
+                    this.allChannels, timer), timer, this.clientChannelFactory);
         serverBootstrap.setPipelineFactory(factory);
         
         // Binding only to localhost can significantly improve the security of
@@ -184,12 +217,27 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             return;
         }
         stopped.set(true);
-        serverBootstrap.releaseExternalResources();
+        
+        log.info("Closing all channels...");
+        
+        // See http://static.netty.io/3.5/guide/#start.12
+        
         final ChannelGroupFuture future = allChannels.close();
         future.awaitUninterruptibly(10*1000);
-        LittleProxyConstants.TIMER.stop();
-        LittleProxyConstants.SERVER_CHANNEL_FACTORY.releaseExternalResources();
-        LittleProxyConstants.CLIENT_CHANNEL_FACTORY.releaseExternalResources();
+        
+        if (!future.isCompleteSuccess()) {
+            final Iterator<ChannelFuture> iter = future.iterator();
+            while (iter.hasNext()) {
+                final ChannelFuture cf = iter.next();
+                if (!cf.isSuccess()) {
+                    log.warn("Cause of failure for {} is {}", cf.getChannel(), cf.getCause());
+                }
+            }
+        }
+        log.info("Stopping timer");
+        timer.stop();
+        serverChannelFactory.releaseExternalResources();
+        clientChannelFactory.releaseExternalResources();
         
         log.info("Done shutting down proxy");
     }

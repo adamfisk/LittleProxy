@@ -18,11 +18,13 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.handler.timeout.IdleStateHandler;
+import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,6 +55,10 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     //private boolean useJmx;
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
+
+    private final Timer timer;
+
+    private ClientSocketChannelFactory clientChannelFactory;
     
     /**
      * Creates a new pipeline factory with the specified class for processing
@@ -64,14 +70,20 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
      * <code>null</code> if none used.
      * @param ksm The KeyStore manager.
      * @param relayPipelineFactoryFactory The relay pipeline factory factory.
+     * @param timer The global timer. 
+     * @param clientChannelFactory The factory for creating outgoing channels
+     * to external sites.
      */
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
+        final Timer timer, final ClientSocketChannelFactory clientChannelFactory) {
         
         this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
+        this.timer = timer;
+        this.clientChannelFactory = clientChannelFactory;
         
         log.info("Creating server with keystore manager: {}", ksm);
         this.authenticationManager = authorizationManager;
@@ -156,10 +168,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         final HttpRequestHandler httpRequestHandler = 
             new HttpRequestHandler(this.cacheManager, authenticationManager,
             this.channelGroup, this.chainProxyManager, 
-            relayPipelineFactoryFactory);
+            relayPipelineFactoryFactory, this.clientChannelFactory);
         
-        pipeline.addLast("idle", 
-            new IdleStateHandler(LittleProxyConstants.TIMER, 0, 0, 70));
+        pipeline.addLast("idle", new IdleStateHandler(this.timer, 0, 0, 70));
         //pipeline.addLast("idleAware", new IdleAwareHandler("Client-Pipeline"));
         pipeline.addLast("idleAware", new IdleRequestHandler(httpRequestHandler));
         pipeline.addLast("handler", httpRequestHandler);

@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.concurrent.TimeUnit;
 
@@ -18,6 +19,8 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.remote.CapabilityType;
 import org.openqa.selenium.remote.DesiredCapabilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * End to end test making sure the proxy is able to service simple HTTP 
@@ -26,6 +29,8 @@ import org.openqa.selenium.remote.DesiredCapabilities;
  */
 public class EndToEndStoppingTest {
 
+    private final Logger log = LoggerFactory.getLogger(getClass());
+    
     /**
      * This is a quick test from nasis that exhibits different behavior from
      * unit tests because unit tests call System.exit(). The stop method should
@@ -85,7 +90,11 @@ public class EndToEndStoppingTest {
             new HttpHost("localhost", PROXY_PORT));
         response = client.execute(get);
         assertEquals(200, response.getStatusLine().getStatusCode());
+        
+        log.info("Consuming entity");
         EntityUtils.consume(response.getEntity());
+        
+        log.info("Stopping proxy");
         proxy.stop();
     }
     

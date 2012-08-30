@@ -35,6 +35,7 @@ import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
@@ -103,16 +104,21 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private volatile boolean receivedChannelClosed = false;
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
+    private ClientSocketChannelFactory clientChannelFactory;
     
     /**
      * Creates a new class for handling HTTP requests with no frills.
      * 
-     * @param clientChannelFactory The common channel factory for clients.
+     * @param relayPipelineFactoryFactory The factory for creating factories
+     * for channels to relay data from external sites back to clients.
+     * @param clientChannelFactory The factory for creating outgoing channels
+     * to external sites.
      */
     public HttpRequestHandler(
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
+        final ClientSocketChannelFactory clientChannelFactory) {
         this(null, null, null, null, 
-            relayPipelineFactoryFactory);
+            relayPipelineFactoryFactory, clientChannelFactory);
     }
     
     /**
@@ -124,14 +130,18 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * proxy authentication requirements.
      * @param channelGroup The group of channels for keeping track of all
      * channels we've opened.
-     * @param relayPipelineFactoryFactory The relay pipeline factory.
+     * @param relayPipelineFactoryFactory The factory for creating factories
+     * for channels to relay data from external sites back to clients.
+     * @param clientChannelFactory The factory for creating outgoing channels
+     * to external sites.
      */
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
+        final ClientSocketChannelFactory clientChannelFactory) {
         this(cacheManager, authorizationManager, channelGroup,
-            null, relayPipelineFactoryFactory);
+            null, relayPipelineFactoryFactory, clientChannelFactory);
     }
     
     /**
@@ -146,13 +156,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * @param chainProxyManager upstream proxy server host and port or null 
      * if none used.
      * @param relayPipelineFactoryFactory The relay pipeline factory.
+     * @param clientChannelFactory The factory for creating outgoing channels
+     * to external sites.
      */
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, 
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
+        final ClientSocketChannelFactory clientChannelFactory) {
         log.info("Creating new request handler...");
+        this.clientChannelFactory = clientChannelFactory;
         this.cacheManager = cacheManager;
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
@@ -534,7 +548,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         
         // Configure the client.
         final ClientBootstrap cb = 
-            new ClientBootstrap(LittleProxyConstants.CLIENT_CHANNEL_FACTORY);
+            new ClientBootstrap(this.clientChannelFactory);
         
         final ChannelPipelineFactory cpf;
         if (httpRequest.getMethod() == HttpMethod.CONNECT) {
@@ -640,7 +654,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         else {
             log.info("Not closing browser to proxy channel. Received channel " +
-                "closed is "+this.receivedChannelClosed+" and still {} " +
+                "closed is "+this.receivedChannelClosed+" and we have {} " +
                 "connections and awaiting {} responses", 
                 this.externalHostsToChannelFutures.size(), 
                 this.unansweredRequestCount );
