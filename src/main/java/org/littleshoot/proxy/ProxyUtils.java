@@ -129,6 +129,9 @@ public class ProxyUtils {
     private ProxyUtils() {
     }
     
+    // Schemes are case-insensitive: http://tools.ietf.org/html/rfc3986#section-3.1
+    private static Pattern HTTP_PREFIX  = Pattern.compile("http.*",  Pattern.CASE_INSENSITIVE);
+    private static Pattern HTTPS_PREFIX = Pattern.compile("https.*", Pattern.CASE_INSENSITIVE);
 
     /**
      * Strips the host from a URI string. This will turn "http://host.com/path"
@@ -138,7 +141,7 @@ public class ProxyUtils {
      * @return A string with the URI stripped.
      */
     public static String stripHost(final String uri) {
-        if (!uri.startsWith("http")) {
+        if (!HTTP_PREFIX.matcher(uri).matches()) {
             // It's likely a URI path, not the full URI (i.e. the host is 
             // already stripped).
             return uri;
@@ -162,7 +165,7 @@ public class ProxyUtils {
         final String host = httpRequest.getHeader(HttpHeaders.Names.HOST);
         final String uri = httpRequest.getUri();
         final String path;
-        if (uri.startsWith("http")) {
+        if (HTTP_PREFIX.matcher(uri).matches()) {
             path = stripHost(uri);
         }
         else {
@@ -360,7 +363,7 @@ public class ProxyUtils {
      */
     public static String parseHostAndPort(final String uri) {
         final String tempUri;
-        if (!uri.startsWith("http")) {
+        if (!HTTP_PREFIX.matcher(uri).matches()) {
             // Browsers particularly seem to send requests in this form when
             // they use CONNECT.
             tempUri = uri;
@@ -412,10 +415,10 @@ public class ProxyUtils {
             final String portStr = StringUtils.substringAfter(uri, ":"); 
             return Integer.parseInt(portStr);
         }
-        else if (uri.startsWith("http")) {
+        else if (HTTP_PREFIX.matcher(uri).matches()) {
             return 80;
         }
-        else if (uri.startsWith("https")) {
+        else if (HTTPS_PREFIX.matcher(uri).matches()) {
             return 443;
         }
         else {
