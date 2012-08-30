@@ -35,7 +35,6 @@ import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
@@ -98,7 +97,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     private final ChainProxyManager chainProxyManager;
     private final ChannelGroup channelGroup;
 
-    private final ClientSocketChannelFactory clientChannelFactory;
     private final ProxyCacheManager cacheManager;
     
     private final AtomicBoolean browserChannelClosed = new AtomicBoolean(false);
@@ -112,9 +110,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * @param clientChannelFactory The common channel factory for clients.
      */
     public HttpRequestHandler(
-        final ClientSocketChannelFactory clientChannelFactory,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
-        this(null, null, null, clientChannelFactory, null, 
+        this(null, null, null, null, 
             relayPipelineFactoryFactory);
     }
     
@@ -127,16 +124,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * proxy authentication requirements.
      * @param channelGroup The group of channels for keeping track of all
      * channels we've opened.
-     * @param clientChannelFactory The common channel factory for clients.
      * @param relayPipelineFactoryFactory The relay pipeline factory.
      */
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final ClientSocketChannelFactory clientChannelFactory,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
         this(cacheManager, authorizationManager, channelGroup,
-            clientChannelFactory, null, relayPipelineFactoryFactory);
+            null, relayPipelineFactoryFactory);
     }
     
     /**
@@ -148,7 +143,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * proxy authentication requirements.
      * @param channelGroup The group of channels for keeping track of all
      * channels we've opened.
-     * @param clientChannelFactory The common channel factory for clients.
      * @param chainProxyManager upstream proxy server host and port or null 
      * if none used.
      * @param relayPipelineFactoryFactory The relay pipeline factory.
@@ -156,13 +150,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final ClientSocketChannelFactory clientChannelFactory,
         final ChainProxyManager chainProxyManager, 
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
+        log.info("Creating new request handler...");
         this.cacheManager = cacheManager;
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
-        this.clientChannelFactory = clientChannelFactory;
         this.chainProxyManager = chainProxyManager;
         this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
         if (LittleProxyConfig.isUseJmx()) {
@@ -210,12 +203,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             processRequest(ctx, me);
         } 
         else {
-            processChunk(ctx, me);
+            processChunk(me);
         }
     }
 
-    private void processChunk(final ChannelHandlerContext ctx, 
-        final MessageEvent me) {
+    private void processChunk(final MessageEvent me) {
         log.info("Processing chunk...");
         final HttpChunk chunk = (HttpChunk) me.getMessage();
         
@@ -351,10 +343,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             
             final class LocalChannelFutureListener implements ChannelFutureListener {
                 
-                private final String hostAndPort;
+                private final String copiedHostAndPort;
 
-                LocalChannelFutureListener(final String hostAndPort) {
-                    this.hostAndPort = hostAndPort;
+                LocalChannelFutureListener(final String copiedHostAndPort) {
+                    this.copiedHostAndPort = copiedHostAndPort;
                 }
             
                 public void operationComplete(final ChannelFuture future)
@@ -383,27 +375,27 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         }
                     }
                     else {
-                        log.info("Could not connect to " + hostAndPort, 
+                        log.info("Could not connect to " + copiedHostAndPort, 
                             future.getCause());
                         
                         final String nextHostAndPort;
                         if (chainProxyManager == null) {
-                            nextHostAndPort = hostAndPort;
+                            nextHostAndPort = copiedHostAndPort;
                         }
                         else {
-                            chainProxyManager.onCommunicationError(hostAndPort);
+                            chainProxyManager.onCommunicationError(copiedHostAndPort);
                             nextHostAndPort = chainProxyManager.getChainProxy(request);
                         }
                         
-                        if (hostAndPort.equals(nextHostAndPort)) {
+                        if (copiedHostAndPort.equals(nextHostAndPort)) {
                             // We call the relay channel closed event handler
                             // with one associated unanswered request.
-                            onRelayChannelClose(inboundChannel, hostAndPort, 1,
+                            onRelayChannelClose(inboundChannel, copiedHostAndPort, 1,
                                 true);
                         }
                         else {
                             // TODO I am not sure about this
-                            removeProxyToWebConnection(hostAndPort);
+                            removeProxyToWebConnection(copiedHostAndPort);
                             // try again with different hostAndPort
                             processRequest(ctx, me);
                         }
@@ -541,7 +533,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         
         // Configure the client.
-        final ClientBootstrap cb = new ClientBootstrap(clientChannelFactory);
+        final ClientBootstrap cb = 
+            new ClientBootstrap(LittleProxyConstants.CLIENT_CHANNEL_FACTORY);
         
         final ChannelPipelineFactory cpf;
         if (httpRequest.getMethod() == HttpMethod.CONNECT) {
@@ -646,9 +639,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             }
         }
         else {
-            log.info("Not closing browser to proxy channel. Still "+
-                this.externalHostsToChannelFutures.size()+" connections and awaiting "+
-                this.unansweredRequestCount + " responses");
+            log.info("Not closing browser to proxy channel. Received channel " +
+                "closed is "+this.receivedChannelClosed+" and still {} " +
+                "connections and awaiting {} responses", 
+                this.externalHostsToChannelFutures.size(), 
+                this.unansweredRequestCount );
         }
     }
     

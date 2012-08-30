@@ -4,14 +4,13 @@ import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Map;
-import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
-import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -122,10 +121,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             }
         });
         
-        this.serverBootstrap = new ServerBootstrap(
-            new NioServerSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()));
+        this.serverBootstrap = 
+            new ServerBootstrap(LittleProxyConstants.SERVER_CHANNEL_FACTORY);
     }
     
     public void start() {
@@ -134,6 +131,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     
     public void start(final boolean localOnly, final boolean anyAddress) {
         log.info("Starting proxy on port: "+this.port);
+        this.stopped.set(false);
         final HttpServerPipelineFactory factory = 
             new HttpServerPipelineFactory(authenticationManager, 
                 this.allChannels, this.chainProxyManager, this.ksm, 
@@ -177,11 +175,22 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         */
     }
     
+    private final AtomicBoolean stopped = new AtomicBoolean(false);
+    
     public void stop() {
         log.info("Shutting down proxy");
-        final ChannelGroupFuture future = allChannels.close();
-        future.awaitUninterruptibly(6*1000);
+        if (stopped.get()) {
+            log.info("Already stopped");
+            return;
+        }
+        stopped.set(true);
         serverBootstrap.releaseExternalResources();
+        final ChannelGroupFuture future = allChannels.close();
+        future.awaitUninterruptibly(10*1000);
+        LittleProxyConstants.TIMER.stop();
+        LittleProxyConstants.SERVER_CHANNEL_FACTORY.releaseExternalResources();
+        LittleProxyConstants.CLIENT_CHANNEL_FACTORY.releaseExternalResources();
+        
         log.info("Done shutting down proxy");
     }
 

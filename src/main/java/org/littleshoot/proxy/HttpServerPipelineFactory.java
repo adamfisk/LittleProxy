@@ -3,7 +3,6 @@ package org.littleshoot.proxy;
 import static org.jboss.netty.channel.Channels.pipeline;
 
 import java.lang.management.ManagementFactory;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import javax.management.InstanceAlreadyExistsException;
@@ -19,15 +18,11 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
-import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.handler.timeout.IdleStateHandler;
-import org.jboss.netty.util.HashedWheelTimer;
-import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,15 +43,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final ChainProxyManager chainProxyManager;
-    
-    private final ClientSocketChannelFactory clientSocketChannelFactory =
-        new NioClientSocketChannelFactory(
-            Executors.newCachedThreadPool(),
-            Executors.newCachedThreadPool());
+
     private final ProxyCacheManager cacheManager;
     
-    //private final GlobalTrafficShapingHandler trafficShaper;
-
     private final KeyStoreManager ksm;
 
     private int numHandlers;
@@ -65,8 +54,6 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
     
-    private static final Timer TIMER = new HashedWheelTimer();
-
     /**
      * Creates a new pipeline factory with the specified class for processing
      * proxy authentication.
@@ -83,9 +70,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory) {
-    	
-    	this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
-    	
+        
+        this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
+        
         log.info("Creating server with keystore manager: {}", ksm);
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
@@ -115,12 +102,6 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         if (LittleProxyConfig.isUseJmx()) {
             setupJmx();
         }
-        
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            public void run() {
-                clientSocketChannelFactory.releaseExternalResources();
-            }
-        }));
     }
     
     private void setupJmx() {
@@ -166,7 +147,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
         
         
-		/*
+        /*
         if (trafficShaper != null) {
             pipeline.addLast("GLOBAL_TRAFFIC_SHAPING", trafficShaper);
         }
@@ -174,10 +155,11 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
 
         final HttpRequestHandler httpRequestHandler = 
             new HttpRequestHandler(this.cacheManager, authenticationManager,
-            this.channelGroup, this.clientSocketChannelFactory,
-            this.chainProxyManager, relayPipelineFactoryFactory);
+            this.channelGroup, this.chainProxyManager, 
+            relayPipelineFactoryFactory);
         
-        pipeline.addLast("idle", new IdleStateHandler(TIMER, 0, 0, 70));
+        pipeline.addLast("idle", 
+            new IdleStateHandler(LittleProxyConstants.TIMER, 0, 0, 70));
         //pipeline.addLast("idleAware", new IdleAwareHandler("Client-Pipeline"));
         pipeline.addLast("idleAware", new IdleRequestHandler(httpRequestHandler));
         pipeline.addLast("handler", httpRequestHandler);

@@ -13,15 +13,16 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
 import org.jboss.netty.handler.timeout.IdleStateHandler;
-import org.jboss.netty.util.HashedWheelTimer;
-import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Factory for creating channels for relaying data from external servers to
+ * clients.
+ */
 public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
     private static final Logger LOG = 
         LoggerFactory.getLogger(DefaultRelayPipelineFactory.class);
-    private static final Timer TIMER = new HashedWheelTimer();
     
     private final String hostAndPort;
     private final HttpRequest httpRequest;
@@ -34,7 +35,6 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
     private final boolean filtersOff;
     private final HttpResponseFilters responseFilters;
 
-    
     public DefaultRelayPipelineFactory(final String hostAndPort, 
         final HttpRequest httpRequest, final RelayListener relayListener, 
         final Channel browserToProxyChannel,
@@ -150,8 +150,8 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
                 writeTimeoutSeconds = 0;
             }
             pipeline.addLast("idle", 
-                new IdleStateHandler(TIMER, readTimeoutSeconds, 
-                    writeTimeoutSeconds, 0));
+                new IdleStateHandler(LittleProxyConstants.TIMER, 
+                    readTimeoutSeconds, writeTimeoutSeconds, 0));
             pipeline.addLast("idleAware", new IdleAwareHandler("Relay-Handler"));
         }
         pipeline.addLast("handler", handler);

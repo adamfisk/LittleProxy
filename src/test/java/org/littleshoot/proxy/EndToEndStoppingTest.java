@@ -21,11 +21,45 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 
 /**
  * End to end test making sure the proxy is able to service simple HTTP 
- * requests and stop at the end. Made into a unit test from isopov's 
- * contribution at: https://github.com/adamfisk/LittleProxy/issues/36
+ * requests and stop at the end. Made into a unit test from isopov and nasis's
+ * contributions at: https://github.com/adamfisk/LittleProxy/issues/36
  */
 public class EndToEndStoppingTest {
 
+    /**
+     * This is a quick test from nasis that exhibits different behavior from
+     * unit tests because unit tests call System.exit(). The stop method should
+     * stop all non-daemon threads and should cause the JVM to exit without
+     * explicitly calling System.exit(), which running as an application
+     * properly tests.
+     */
+    public static void main(final String[] args) throws Exception {
+        int port = 9090;
+        HttpProxyServer proxyServer = new DefaultHttpProxyServer(port);
+        proxyServer.start();
+
+        Proxy proxy = new Proxy();
+        proxy.setProxyType(Proxy.ProxyType.MANUAL);
+        String proxyStr = String.format("localhost:%d", port);
+        proxy.setHttpProxy(proxyStr);
+        proxy.setSslProxy(proxyStr);
+
+        DesiredCapabilities capability = DesiredCapabilities.firefox();
+        capability.setCapability(CapabilityType.PROXY, proxy);
+
+        String urlString = "http://www.yahoo.com/";
+        WebDriver driver = new FirefoxDriver(capability);
+        driver.manage().timeouts().pageLoadTimeout(30, TimeUnit.SECONDS);
+
+        driver.get(urlString);
+
+        driver.close();
+        System.out.println("Driver closed");
+
+        proxyServer.stop();
+        System.out.println("Proxy stopped");
+    }
+    
     @Test
     public void testWithHttpClient() throws Exception {
         
