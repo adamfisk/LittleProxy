@@ -58,7 +58,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
 
     private final Timer timer;
 
-    private ClientSocketChannelFactory clientChannelFactory;
+    private final ClientSocketChannelFactory clientChannelFactory;
     
     /**
      * Creates a new pipeline factory with the specified class for processing
@@ -70,7 +70,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
      * <code>null</code> if none used.
      * @param ksm The KeyStore manager.
      * @param relayPipelineFactoryFactory The relay pipeline factory factory.
-     * @param timer The global timer. 
+     * @param timer The global timer for timing out idle connections. 
      * @param clientChannelFactory The factory for creating outgoing channels
      * to external sites.
      */

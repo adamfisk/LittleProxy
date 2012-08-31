@@ -10,12 +10,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
+import org.jboss.netty.channel.socket.ServerSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.util.HashedWheelTimer;
@@ -51,25 +51,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     /**
      * This entire server instance needs to use a single timer.
      */
-    private final Timer timer = new HashedWheelTimer();
+    private final Timer timer;
     
     /**
      * This entire server instance needs to use a single factory for server
      * channels.
      */
-    private final ChannelFactory serverChannelFactory = 
-        new NioServerSocketChannelFactory(
-            Executors.newCachedThreadPool(),
-            Executors.newCachedThreadPool());
+    private final ServerSocketChannelFactory serverChannelFactory;
     
     /**
      * This entire server instance needs to use a single factory for client
      * channels.
      */
-    private ClientSocketChannelFactory clientChannelFactory = 
-        new NioClientSocketChannelFactory(
-            Executors.newCachedThreadPool(),
-            Executors.newCachedThreadPool());
+    private final ClientSocketChannelFactory clientChannelFactory;
 
     
     /**
@@ -95,7 +89,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     public DefaultHttpProxyServer(final int port, 
         final HttpResponseFilters responseFilters) {
-        this(port, responseFilters, null, null, null);
+        this(port, responseFilters, null, null, null, 
+            new NioClientSocketChannelFactory(
+                Executors.newCachedThreadPool(),
+                Executors.newCachedThreadPool()), 
+            new HashedWheelTimer(),
+            new NioServerSocketChannelFactory(
+                Executors.newCachedThreadPool(),
+                Executors.newCachedThreadPool()));
     }
     
     /**
@@ -123,7 +124,38 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public DefaultHttpProxyServer(final int port,
         final HttpRequestFilter requestFilter,
         final HttpResponseFilters responseFilters) {
-        this(port, responseFilters, null, null, requestFilter);
+        this(port, responseFilters, null, null, requestFilter,
+            new NioClientSocketChannelFactory(
+                Executors.newCachedThreadPool(),
+                Executors.newCachedThreadPool()), 
+            new HashedWheelTimer(),
+            new NioServerSocketChannelFactory(
+                Executors.newCachedThreadPool(),
+                Executors.newCachedThreadPool()));
+    }
+    
+    /**
+     * 
+     * @param port The port the server should run on.
+     * @param requestFilter Optional filter for modifying incoming requests.
+     * Often <code>null</code>.
+     * @param clientChannelFactory The factory for creating outgoing channels
+     * to external sites.
+     * @param timer The global timer for timing out idle connections.
+     * @param serverChannelFactory The factory for creating listening channels
+     * for incoming connections.
+     */
+    public DefaultHttpProxyServer(final int port, 
+        final HttpRequestFilter requestFilter,
+        final ClientSocketChannelFactory clientChannelFactory, 
+        final Timer timer,
+        final ServerSocketChannelFactory serverChannelFactory) {
+        this(port, new HttpResponseFilters() {
+            public HttpFilter getFilter(String hostAndPort) {
+                return null;
+            }
+        }, null, null, requestFilter, clientChannelFactory, timer, 
+        serverChannelFactory);
     }
     
     /**
@@ -143,11 +175,50 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final HttpResponseFilters responseFilters,
         final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
         final HttpRequestFilter requestFilter) {
+        this(port, responseFilters, chainProxyManager, ksm, requestFilter,
+            new NioClientSocketChannelFactory(
+                Executors.newCachedThreadPool(),
+                Executors.newCachedThreadPool()), 
+            new HashedWheelTimer(),
+            new NioServerSocketChannelFactory(
+                Executors.newCachedThreadPool(),
+                Executors.newCachedThreadPool()));
+    }
+    
+    /**
+     * Creates a new proxy server.
+     * 
+     * @param port The port the server should run on.
+     * @param responseFilters The {@link Map} of request domains to match 
+     * with associated {@link HttpFilter}s for filtering responses to 
+     * those requests.
+     * @param chainProxyManager The proxy to send requests to if chaining
+     * proxies. Typically <code>null</code>.
+     * @param ksm The key manager if running the proxy over SSL.
+     * @param requestFilter Optional filter for modifying incoming requests.
+     * Often <code>null</code>.
+     * 
+     * @param clientChannelFactory The factory for creating outgoing channels
+     * to external sites.
+     * @param timer The global timer for timing out idle connections.
+     * @param serverChannelFactory The factory for creating listening channels
+     * for incoming connections.
+     */
+    public DefaultHttpProxyServer(final int port, 
+        final HttpResponseFilters responseFilters,
+        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
+        final HttpRequestFilter requestFilter,
+        final ClientSocketChannelFactory clientChannelFactory, 
+        final Timer timer,
+        final ServerSocketChannelFactory serverChannelFactory) {
         this.port = port;
         this.responseFilters = responseFilters;
         this.ksm = ksm;
         this.requestFilter = requestFilter;
         this.chainProxyManager = chainProxyManager;
+        this.clientChannelFactory = clientChannelFactory;
+        this.timer = timer;
+        this.serverChannelFactory = serverChannelFactory;
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
             public void uncaughtException(final Thread t, final Throwable e) {
                 log.error("Uncaught throwable", e);
@@ -157,7 +228,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.serverBootstrap = 
             new ServerBootstrap(serverChannelFactory);
     }
-    
+
     public void start() {
         start(false, true);
     }
