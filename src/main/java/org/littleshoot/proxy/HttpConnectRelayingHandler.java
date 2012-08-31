@@ -42,6 +42,13 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
      */
     public HttpConnectRelayingHandler(final Channel relayChannel, 
         final ChannelGroup channelGroup) {
+        // Fail fast if these are null.
+        if (relayChannel == null) {
+            throw new NullPointerException("Relay channel is null!");
+        }
+        if (channelGroup == null) {
+            throw new NullPointerException("Channel group is null!!");
+        }
         this.relayChannel = relayChannel;
         this.channelGroup = channelGroup;
     }
@@ -73,9 +80,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
         final ChannelStateEvent cse) throws Exception {
         final Channel ch = cse.getChannel();
         LOG.info("New CONNECT channel opened from proxy to web: {}", ch);
-        if (this.channelGroup != null) {
-            this.channelGroup.add(ch);
-        }
+        this.channelGroup.add(ch);
     }
 
     @Override
