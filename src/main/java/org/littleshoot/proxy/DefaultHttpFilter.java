@@ -46,7 +46,7 @@ public class DefaultHttpFilter implements HttpFilter {
     }
     
     public int getMaxResponseSize() {
-        return 1024 * 200;
+        return 1024 * 1000;
     }
 
     @Override
