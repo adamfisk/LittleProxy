@@ -14,6 +14,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.channels.Channels;
@@ -27,49 +28,50 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
+import org.eclipse.jetty.util.log.Log;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tests the default HTTP proxy.
  */
 public class HttpProxyTest {
-    
-    @Test public void testDummy() {
-        // Placeholder for now.
-    }
+
+    private final Logger log = LoggerFactory.getLogger(getClass());
     
     /**
      * Tests the proxy both with chunking and without to make sure it's working
      * identically with both.
-     * 
+     *
      * @throws Exception If any unexpected error occurs.
      */
     public void testProxyChunkAndNo() throws Exception {
         System.out.println("starting proxy");
-        startHttpProxy();
+        final HttpProxyServer server = startHttpProxy();
         System.out.println("started proxy");
-        
-        // Give the proxy a second to start...
-        Thread.sleep(2000);
 
         final byte[] baseResponse = rawResponse("i.i.com.com", 80, true, HttpVersion.HTTP_1_0);
         final byte[] proxyResponse = rawResponse("127.0.0.1", 8080, false, HttpVersion.HTTP_1_1);
         final ChannelBuffer wrappedBase = ChannelBuffers.wrappedBuffer(baseResponse);
         final ChannelBuffer wrappedProxy = ChannelBuffers.wrappedBuffer(proxyResponse);
-        
+
         assertEquals("Lengths not equal", wrappedBase.capacity(), wrappedProxy.capacity());
         assertEquals("Not equal:\n"+
             ChannelBuffers.hexDump(wrappedBase)+"\n\n\n"+
             ChannelBuffers.hexDump(wrappedProxy), wrappedBase, wrappedProxy);
-        
+
         final ByteArrayInputStream baseBais = new ByteArrayInputStream(baseResponse);
         //final String baseStr = IOUtils.toString(new GZIPInputStream(baseBais));
         final String baseStr = IOUtils.toString(baseBais);
@@ -79,7 +81,7 @@ public class HttpProxyTest {
         baseFileWriter.write(baseStr);
         baseFileWriter.close();
         //System.out.println("RESPONSE:\n"+baseStr);
-        
+
         final ByteArrayInputStream proxyBais = new ByteArrayInputStream(proxyResponse);
         //final String proxyStr = IOUtils.toString(new GZIPInputStream(proxyBais));
         final String proxyStr = IOUtils.toString(proxyBais);
@@ -91,36 +93,76 @@ public class HttpProxyTest {
         //System.out.println("RESPONSE:\n"+proxyStr);
         
         assertEquals("Decoded proxy string does not equal expected", baseStr, proxyStr);
-        
-        System.out.println("ALL PASSED!!");
-        }
+        server.stop();
+    }
 
     @Test
     public void testProxyWithApacheHttpClientChunkedRequests() throws Exception {
         System.out.println("starting proxy");
-        startHttpProxy();
+        final HttpProxyServer server = startHttpProxy();
         System.out.println("started proxy");
-
-        // Give the proxy a second to start...
-        Thread.sleep(2000);
 
         String baseResponse = httpPostWithApacheClient(false);
         String proxyResponse = httpPostWithApacheClient(true);
         assertEquals(baseResponse, proxyResponse);
+        server.stop();
+    }
+
+    @Test
+    public void testProxyAuthorizationWithPostRequests() throws Exception{
+        String username = "user1";
+        String password = "pass1";
+
+        System.out.println("starting proxy");
+        final HttpProxyServer server = 
+                startHttpProxyWithCredentials(username, password);
+        System.out.println("started proxy");
+
+        String baseResponse = httpPostWithApacheClient(false);
+        String proxyResponse = httpPostWithApacheClient(true, username, password);
+        assertEquals(baseResponse, proxyResponse);
+        server.stop();
+    }
+    
+    @Test
+    public void testProxyAuthorizationWithGetRequests() throws Exception{
+        String username = "user1";
+        String password = "pass1";
+
+        System.out.println("starting proxy");
+        final HttpProxyServer server = 
+            startHttpProxyWithCredentials(username, password);
+        System.out.println("started proxy");
+
+        String baseResponse = httpGetWithApacheClient(false);
+        String proxyResponse = httpGetWithApacheClient(true, username, password);
+        assertEquals(baseResponse, proxyResponse);
+        server.stop();
     }
 
     private String httpPostWithApacheClient(boolean isProxy) throws IOException {
+        return httpPostWithApacheClient(isProxy, null, null);
+    }
+    
+    private String httpPostWithApacheClient(boolean isProxy, String username, 
+        String password) throws IOException {
         DefaultHttpClient httpclient = new DefaultHttpClient();
         try {
             if (isProxy) {
                 HttpHost proxy = new HttpHost("127.0.0.1", 8080);
                 httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
+                if(username != null && password != null){
+                    httpclient.getCredentialsProvider().setCredentials(new AuthScope("127.0.0.1", 8080), 
+                        new UsernamePasswordCredentials(username, password));
+                }
             }
+            
+            
             HttpPost httppost = new HttpPost("http://opsgenie.com/status/ping");
             StringEntity entity = new StringEntity("adsf", "UTF-8");
             entity.setChunked(true);
             httppost.setEntity(entity);
-
+            
             HttpResponse response = httpclient.execute(httppost);
             HttpEntity resEntity = response.getEntity();
             return EntityUtils.toString(resEntity);
@@ -129,8 +171,35 @@ public class HttpProxyTest {
         }
     }
     
-    private byte[] rawResponse(final String url, final int port, 
-        final boolean simulateProxy, final HttpVersion httpVersion) 
+    private String httpGetWithApacheClient(boolean isProxy) throws IOException {
+        return httpGetWithApacheClient(isProxy, null, null);
+    }
+    
+    private String httpGetWithApacheClient(boolean isProxy, String username, 
+        String password) throws IOException {
+        DefaultHttpClient httpclient = new DefaultHttpClient();
+        try {
+            if (isProxy) {
+                HttpHost proxy = new HttpHost("127.0.0.1", 8080);
+                httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
+                if(username != null && password != null){
+                    httpclient.getCredentialsProvider().setCredentials(new AuthScope("127.0.0.1", 8080), 
+                        new UsernamePasswordCredentials(username, password));
+                }
+            }
+            
+            HttpGet httppost = new HttpGet("http://opsgenie.com/status/ping");
+
+            HttpResponse response = httpclient.execute(httppost);
+            HttpEntity resEntity = response.getEntity();
+            return EntityUtils.toString(resEntity);
+        } finally {
+            httpclient.getConnectionManager().shutdown();
+        }
+    }
+
+    private byte[] rawResponse(final String url, final int port,
+        final boolean simulateProxy, final HttpVersion httpVersion)
         throws UnknownHostException, IOException {
         //final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", 8080);
         final Socket sock = new Socket(url, port);
@@ -151,7 +220,7 @@ public class HttpProxyTest {
         writeHeader(writer, "Accept-Encoding: gzip,deflate\r\n");
         writeHeader(writer, "Accept-Language: en-us,en;q=0.5\r\n");
         //writeHeader(writer, "Cookie: XCLGFbrowser=Cg8ILkmHQruNAAAAeAs; globid=1.1WJrGuYpPuQP4SL3\r\n");
-        
+
         //writeHeader(writer, "Cookie: [XCLGFbrowser=Cg8ILkmHQruNAAAAeAs; globid=1.1WJrGuYpPuQP4SL3]\r\n");
         //writeHeader(writer, "Host: i.i.com.com\r\n");
         writeHeader(writer, "Host: www.google.com\r\n");
@@ -171,7 +240,7 @@ public class HttpProxyTest {
         }
         writeHeader(writer, "\r\n");
         writer.flush();
-        
+
         System.out.println("READING RESPONSE HEADERS");
         final Map<String, String> headers = new HashMap<String, String>();
         StringBuilder curLine = new StringBuilder();
@@ -191,7 +260,7 @@ public class HttpProxyTest {
                     if (!headerLine.startsWith("HTTP"))
                         {
                         headers.put(
-                            StringUtils.substringBefore(headerLine, ":").trim(), 
+                            StringUtils.substringBefore(headerLine, ":").trim(),
                             StringUtils.substringAfter(headerLine, ":").trim());
                         }
                     else {
@@ -222,17 +291,17 @@ public class HttpProxyTest {
                 curLine.append(curChar);
             }
         }
-        
+
         final File file = new File("chunked_test_file");
         file.deleteOnExit();
         if (file.isFile()) file.delete();
-        final FileChannel fc = 
+        final FileChannel fc =
             new FileOutputStream(file).getChannel();
-        
+
         final ReadableByteChannel src = Channels.newChannel(is);
-        
+
         final int limit;
-        if (headers.containsKey("Content-Length") && 
+        if (headers.containsKey("Content-Length") &&
             !headers.containsKey("Transfer-Encoding")) {
             limit = Integer.parseInt(headers.get("Content-Length").trim());
         }
@@ -249,7 +318,7 @@ public class HttpProxyTest {
         else {
             throw new RuntimeException("Weird headers. Can't determin length in "+headers);
         }
-        
+
         int remaining = limit;
         System.out.println("Reading body of length: "+limit);
         while (remaining > 0) {
@@ -260,7 +329,7 @@ public class HttpProxyTest {
         }
         System.out.println("CLOSING CHANNEL");
         fc.close();
-        
+
         System.out.println("READ BODY!");
         return IOUtils.toByteArray(new FileInputStream(file));
     }
@@ -331,40 +400,56 @@ public class HttpProxyTest {
                 lastCr = false;
                 curLine.append(curChar);
             }
-            
+
         }
-        
+
         throw new IOException("Reached count with current read: "+curLine.toString());
     }
 
-    private void writeHeader(final Writer writer, final String header) 
+    private void writeHeader(final Writer writer, final String header)
         throws IOException {
         System.out.print("WRITING HEADER: "+header);
         writer.write(header);
     }
 
-    private void startHttpProxy() {
+    private HttpProxyServer startHttpProxyWithCredentials(final String userName, 
+        final String password) {
+        final HttpProxyServer server = new DefaultHttpProxyServer(8080);
+        server.addProxyAuthenticationHandler(new ProxyAuthorizationHandler() {
+            public boolean authenticate(String u, String p) {
+                return userName.equals(u) && password.equals(p);
+            }
+        });
+        server.start();
+        checkServer(8080);
+        return server;
+    }
+
+    private HttpProxyServer startHttpProxy() {
         final HttpProxyServer server = new DefaultHttpProxyServer(8080);
         server.start();
-        /*
-        // Configure the server.
-        final ServerBootstrap bootstrap = new ServerBootstrap(
-            new NioServerSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()));
         
-        final ProxyAuthorizationManager pam = 
-            new DefaultProxyAuthorizationManager();
-        
-        final ChannelGroup group = 
-            new DefaultChannelGroup("HTTP-Proxy-Server");
-        
-        // Set up the event pipeline factory.
-        bootstrap.setPipelineFactory(new HttpServerPipelineFactory(pam, group));
+        checkServer(8080);
+        return server;
+    }
+    
 
-        // Bind and start to accept incoming connections.
-        bootstrap.bind(new InetSocketAddress(8080));
-        */
+    private void checkServer(final int port) {
+        int tries = 1;
+        while (true) {
+            final Socket sock = new Socket();
+            try {
+                sock.connect(new InetSocketAddress(port), 50);
+                sock.close();
+                log.info("CONNECTED IN {} ms", tries*100);
+                break;
+            } catch (IOException e) {
+            }
+            tries++;
+            if (tries > 200) {
+                throw new Error("Server didn't come up?");
+            }
+        }
     }
 }
 

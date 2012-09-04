@@ -1,13 +1,14 @@
 package org.littleshoot.proxy;
 
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,25 +22,26 @@ import org.slf4j.LoggerFactory;
 public class DefaultProxyAuthorizationManager implements
     ProxyAuthorizationManager {
 
-    private final Logger m_log = LoggerFactory.getLogger(getClass());
-    private final Collection<ProxyAuthorizationHandler> m_handlers =
-        new LinkedList<ProxyAuthorizationHandler>();
+    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final Collection<ProxyAuthorizationHandler> handlers =
+        new ArrayList<ProxyAuthorizationHandler>();
     
     public void addHandler(final ProxyAuthorizationHandler pah) {
-        this.m_handlers.add(pah);
+        this.handlers.add(pah);
     }
 
     public boolean handleProxyAuthorization(final HttpRequest request,
         final ChannelHandlerContext ctx) {
-        if (!request.containsHeader("Proxy-Authorization")) {
-            if (!m_handlers.isEmpty()) {
+        if (!request.containsHeader(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
+            if (!handlers.isEmpty()) {
                 rejectRequest(ctx);
                 return false;
             }
             return true;
         }
         
-        final List<String> values = request.getHeaders("Proxy-Authorization");
+        final List<String> values = 
+            request.getHeaders(HttpHeaders.Names.PROXY_AUTHORIZATION);
         final String fullValue = values.iterator().next();
         final String value =
             StringUtils.substringAfter(fullValue, "Basic ").trim();
@@ -48,7 +50,7 @@ public class DefaultProxyAuthorizationManager implements
             final String decodedString = new String(decodedValue, "UTF-8");
             final String userName = StringUtils.substringBefore(decodedString, ":");
             final String password = StringUtils.substringAfter(decodedString, ":");
-            for (final ProxyAuthorizationHandler handler : this.m_handlers) {
+            for (final ProxyAuthorizationHandler handler : this.handlers) {
                 if (!handler.authenticate(userName, password)) {
                     rejectRequest(ctx);
                     return false;
@@ -56,20 +58,21 @@ public class DefaultProxyAuthorizationManager implements
             }
         }
         catch (final UnsupportedEncodingException e) {
-            m_log.error("Could not decode?", e);
+            log.error("Could not decode?", e);
         }
         
-        m_log.info("Got proxy authorization!");
+        log.info("Got proxy authorization!");
         // We need to remove the header before sending the request on.
         final String authentication = 
-            request.getHeader("Proxy-Authorization");
-        m_log.info(authentication);
-        request.removeHeader("Proxy-Authorization");
+            request.getHeader(HttpHeaders.Names.PROXY_AUTHORIZATION);
+        log.info(authentication);
+        request.removeHeader(HttpHeaders.Names.PROXY_AUTHORIZATION);
         return true;
     }
 
     private void rejectRequest(final ChannelHandlerContext ctx) {
-        final String statusLine = "HTTP/1.1 407 Proxy Authentication Required\r\n";
+        final String statusLine = 
+            "HTTP/1.1 407 Proxy Authentication Required\r\n";
         final String headers = 
             "Date: "+ProxyUtils.httpDate()+"\r\n"+
             "Proxy-Authenticate: Basic realm=\"Restricted Files\"\r\n"+
@@ -90,7 +93,7 @@ public class DefaultProxyAuthorizationManager implements
             "browser doesn't understand how to supply\n"+
             "the credentials required.</p>\n"+
             "</body></html>\n";
-        m_log.info("Content-Length is really: "+responseBody.length());
+        log.info("Content-Length is really: "+responseBody.length());
         ProxyUtils.writeResponse(ctx.getChannel(), statusLine, headers, responseBody);
     }
 }

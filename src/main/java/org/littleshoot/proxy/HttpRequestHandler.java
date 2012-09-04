@@ -105,6 +105,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
     private ClientSocketChannelFactory clientChannelFactory;
+    private boolean currentRequestIsChunkedProxyAuthenticationRequired;
     
     /**
      * Creates a new class for handling HTTP requests with no frills.
@@ -212,7 +213,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             return;
         }
         messagesReceived.incrementAndGet();
-        log.info("Received "+messagesReceived+" total messages");
+        log.debug("Received "+messagesReceived+" total messages");
         if (!readingChunks) {
             processRequest(ctx, me);
         } 
@@ -233,15 +234,41 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         
         // It's possible to receive a chunk before a channel future has even
-        // been set.
+        // been set. It's also possible for this to happen for requests that
+        // require proxy authentication.
         if (this.currentChannelFuture == null) {
-            log.error("NO CHANNEL FUTURE!!");
-            synchronized (this.channelFutureLock) {
-                if (this.currentChannelFuture == null) {
-                    try {
-                        channelFutureLock.wait(4000);
-                    } catch (final InterruptedException e) {
-                        log.info("Interrupted!!", e);
+            // First deal with the case where a proxy authentication manager
+            // is active and we've received an HTTP POST requiring 
+            // authentication. In that scenario, we've returned a 
+            // 407 Proxy Authentication Required response, but we still need
+            // to handle any incoming chunks from the original request. We
+            // basically just drop them on the floor because the client will
+            // issue a new POST request with the appropriate credentials 
+            // (assuming they have them) and associated chunks in the new 
+            // request body.
+            if (currentRequestIsChunkedProxyAuthenticationRequired) {
+                if (chunk.isLast()) {
+                    log.info("Received last chunk -- setting proxy auth " +
+                        "chunking to false");
+                    this.currentRequestIsChunkedProxyAuthenticationRequired = 
+                         false;
+                }
+                log.info("Ignoring chunk with chunked post requiring proxy " +
+                    "authentication");
+                return;
+            } else {
+                // Note this can happen quite often in tests when requests are
+                // arriving very quickly on the same JVM but is less likely
+                // to occur in deployed servers.
+                log.error("NO CHANNEL FUTURE!!");
+                synchronized (this.channelFutureLock) {
+                    if (this.currentChannelFuture == null) {
+                        try {
+                            log.debug("Waiting for channel future!");
+                            channelFutureLock.wait(4000);
+                        } catch (final InterruptedException e) {
+                            log.info("Interrupted!!", e);
+                        }
                     }
                 }
             }
@@ -283,7 +310,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         if (this.authorizationManager != null && 
             !this.authorizationManager.handleProxyAuthorization(request, ctx)) {
             log.info("Not authorized!!");
+            // We need to do a few things here. First, if the request is 
+            // chunked, we need to make sure we read the full request/POST
+            // message body.
+            if (request.isChunked()) {
+                this.currentRequestIsChunkedProxyAuthenticationRequired = true;
+                readingChunks = true;
+            }
             return;
+        } else {
+            this.currentRequestIsChunkedProxyAuthenticationRequired = false;
         }
         
         String hostAndPort = null;

@@ -468,7 +468,7 @@ public class ProxyUtils {
         //   - Transfer-Encoding
         //   - Upgrade
         
-        LOG.info("Request copy method: {}", copy.getMethod());
+        LOG.debug("Request copy method: {}", copy.getMethod());
         copyHeaders(original, copy);
 
         final String ae = copy.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
@@ -476,7 +476,7 @@ public class ProxyUtils {
             // Remove sdch from encodings we accept since we can't decode it.
             final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
             copy.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
-            LOG.info("Removed sdch and inserted: {}", noSdch);
+            LOG.debug("Removed sdch and inserted: {}", noSdch);
         }
         
         // Switch the de-facto standard "Proxy-Connection" header to 
