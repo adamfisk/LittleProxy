@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
@@ -23,8 +24,6 @@ import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 /**
  * HTTP proxy server.
@@ -328,14 +327,28 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     
     private static Executor newClientThreadPool() {
         return Executors.newCachedThreadPool(
-            new ThreadFactoryBuilder().setNameFormat(
-                "LittleProxy-NioClientSocketChannelFactory-Thread-%d").build());
+            new ThreadFactory() {
+                
+                private int num = 0;
+                public Thread newThread(final Runnable r) {
+                    final Thread t = new Thread(r, 
+                        "LittleProxy-NioClientSocketChannelFactory-Thread-"+num++);
+                    return t;
+                }
+            });
     }
     
     private static Executor newServerThreadPool() {
         return Executors.newCachedThreadPool(
-            new ThreadFactoryBuilder().setNameFormat(
-                "LittleProxy-NioServerSocketChannelFactory-Thread-%d").build());
+            new ThreadFactory() {
+                
+                private int num = 0;
+                public Thread newThread(final Runnable r) {
+                    final Thread t = new Thread(r, 
+                        "LittleProxy-NioServerSocketChannelFactory-Thread-"+num++);
+                    return t;
+                }
+            });
     }
 
 }
