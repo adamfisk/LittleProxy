@@ -2,7 +2,7 @@ package org.littleshoot.proxy;
 
 import java.util.Set;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.timeout.IdleStateEvent;
