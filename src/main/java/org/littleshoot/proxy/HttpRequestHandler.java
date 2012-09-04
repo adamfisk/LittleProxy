@@ -293,6 +293,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         
         if (hostAndPort == null) {
             hostAndPort = ProxyUtils.parseHostAndPort(request);
+            if (StringUtils.isBlank(hostAndPort)) {
+                // Fail fast if we get a fishy host and port
+                log.warn("No host and port found in {}", request.getUri());
+                inboundChannel.close();
+                return;
+            }
         }
         
         final class OnConnect {
