@@ -5,6 +5,7 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -22,6 +23,8 @@ import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 /**
  * HTTP proxy server.
@@ -91,14 +94,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final HttpResponseFilters responseFilters) {
         this(port, responseFilters, null, null, null, 
             new NioClientSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()), 
+                newClientThreadPool(),
+                newClientThreadPool()), 
             new HashedWheelTimer(),
             new NioServerSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()));
+                newServerThreadPool(),
+                newServerThreadPool()));
     }
-    
+
     /**
      * Creates a new proxy server.
      * 
@@ -126,12 +129,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final HttpResponseFilters responseFilters) {
         this(port, responseFilters, null, null, requestFilter,
             new NioClientSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()), 
+                    newClientThreadPool(),
+                    newClientThreadPool()), 
             new HashedWheelTimer(),
             new NioServerSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()));
+                newServerThreadPool(),
+                newServerThreadPool()));
     }
     
     /**
@@ -177,12 +180,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final HttpRequestFilter requestFilter) {
         this(port, responseFilters, chainProxyManager, ksm, requestFilter,
             new NioClientSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()), 
+                    newClientThreadPool(),
+                    newClientThreadPool()), 
             new HashedWheelTimer(),
             new NioServerSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()));
+                newServerThreadPool(),
+                newServerThreadPool()));
     }
     
     /**
@@ -272,8 +275,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         /*
         final ServerBootstrap sslBootstrap = new ServerBootstrap(
             new NioServerSocketChannelFactory(
-                Executors.newCachedThreadPool(),
-                Executors.newCachedThreadPool()));
+                newServerThreadPool(),
+                newServerThreadPool()));
         sslBootstrap.setPipelineFactory(new HttpsServerPipelineFactory());
         sslBootstrap.bind(new InetSocketAddress("127.0.0.1", 8443));
         */
@@ -320,6 +323,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     public KeyStoreManager getKeyStoreManager() {
         return this.ksm;
+    }
+    
+    
+    private static Executor newClientThreadPool() {
+        return Executors.newCachedThreadPool(
+            new ThreadFactoryBuilder().setNameFormat(
+                "LittleProxy-NioClientSocketChannelFactory-Thread-%d").build());
+    }
+    
+    private static Executor newServerThreadPool() {
+        return Executors.newCachedThreadPool(
+            new ThreadFactoryBuilder().setNameFormat(
+                "LittleProxy-NioServerSocketChannelFactory-Thread-%d").build());
     }
 
 }

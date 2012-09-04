@@ -98,7 +98,7 @@ public class EndToEndStoppingTest {
         proxy.stop();
     }
     
-    @Test
+    //@Test
     public void testWithWebDriver() throws Exception {
         int port = 9090;
         HttpProxyServer proxyServer = new DefaultHttpProxyServer(port);
