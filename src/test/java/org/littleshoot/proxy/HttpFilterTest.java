@@ -34,7 +34,8 @@ public class HttpFilterTest {
 
         final AtomicInteger shouldFilterCalls = new AtomicInteger(0);
         final AtomicInteger filterCalls = new AtomicInteger(0);
-        final Queue<HttpRequest> associatedRequests = new LinkedList<HttpRequest>();
+        final Queue<HttpRequest> associatedRequests = 
+            new LinkedList<HttpRequest>();
 
         final String url1 = "http://localhost:8924";
         final String url2 = "http://localhost:8924/testing";
@@ -116,15 +117,15 @@ public class HttpFilterTest {
         webServer.stop();
     }
 
-    private HttpEntity getResponse(final String url2) throws Exception {
-        final DefaultHttpClient http2 = new DefaultHttpClient();
+    private HttpEntity getResponse(final String url) throws Exception {
+        final DefaultHttpClient http = new DefaultHttpClient();
         final HttpHost proxy = new HttpHost("127.0.0.1", PROXY_PORT, "http");
-        http2.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
-        final HttpGet get2 = new HttpGet(url2);
-        final org.apache.http.HttpResponse hr = http2.execute(get2);
+        http.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
+        final HttpGet get = new HttpGet(url);
+        final org.apache.http.HttpResponse hr = http.execute(get);
         final HttpEntity responseEntity = hr.getEntity();
         EntityUtils.consume(responseEntity);
-        http2.getConnectionManager().shutdown();
+        http.getConnectionManager().shutdown();
         return responseEntity;
     }
 
