@@ -3,7 +3,7 @@ package org.littleshoot.proxy;
 import java.util.LinkedList;
 import java.util.Queue;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
