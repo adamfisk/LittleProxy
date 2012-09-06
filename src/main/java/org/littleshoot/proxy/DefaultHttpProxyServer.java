@@ -21,6 +21,8 @@ import org.jboss.netty.channel.socket.ServerSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.util.HashedWheelTimer;
+import org.jboss.netty.util.ThreadNameDeterminer;
+import org.jboss.netty.util.ThreadRenamingRunnable;
 import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -227,6 +229,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             }
         });
         
+        // Use our thread names so users know there are LittleProxy threads.
+        ThreadRenamingRunnable.setThreadNameDeterminer(
+                ThreadNameDeterminer.CURRENT);
         this.serverBootstrap = 
             new ServerBootstrap(serverChannelFactory);
     }
