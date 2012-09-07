@@ -657,7 +657,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             
         cb.setPipelineFactory(cpf);
         cb.setOption("connectTimeoutMillis", 40*1000);
-        log.info("Starting new connection to: {}", hostAndPort);
+        log.debug("Starting new connection to: {}", hostAndPort);
         if (LittleProxyConfig.isUseDnsSec()) {
             return cb.connect(VerifiedAddressFactory.newInetSocketAddress(host, port, 
                     LittleProxyConfig.isUseDnsSec()));
@@ -673,12 +673,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     public void channelOpen(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) throws Exception {
         final Channel inboundChannel = cse.getChannel();
-        log.info("New channel opened: {}", inboundChannel);
+        log.debug("New channel opened: {}", inboundChannel);
         totalBrowserToProxyConnections.incrementAndGet();
         browserToProxyConnections.incrementAndGet();
-        log.info("Now "+totalBrowserToProxyConnections+
+        log.debug("Now "+totalBrowserToProxyConnections+
             " browser to proxy channels...");
-        log.info("Now this class has "+browserToProxyConnections+
+        log.debug("Now this class has "+browserToProxyConnections+
             " browser to proxy channels...");
         
         // We need to keep track of the channel so we can close it at the end.
@@ -693,15 +693,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         log.info("Channel closed: {}", cse.getChannel());
         totalBrowserToProxyConnections.decrementAndGet();
         browserToProxyConnections.decrementAndGet();
-        log.info("Now "+totalBrowserToProxyConnections+
+        log.debug("Now "+totalBrowserToProxyConnections+
             " total browser to proxy channels...");
-        log.info("Now this class has "+browserToProxyConnections+
+        log.debug("Now this class has "+browserToProxyConnections+
             " browser to proxy channels...");
         
         // The following should always be the case with
         // @ChannelPipelineCoverage("one")
         if (browserToProxyConnections.get() == 0) {
-            log.info("Closing all proxy to web channels for this browser " +
+            log.debug("Closing all proxy to web channels for this browser " +
                 "to proxy connection!!!");
             final Collection<Queue<ChannelFuture>> allFutures = 
                 this.externalHostsToChannelFutures.values();
@@ -725,10 +725,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final String key, final int unansweredRequestsOnChannel,
         final boolean closedEndsResponseBody) {
         if (closedEndsResponseBody) {
-            log.info("Close ends response body");
+            log.debug("Close ends response body");
             this.receivedChannelClosed = true;
         }
-        log.info("this.receivedChannelClosed: "+this.receivedChannelClosed);
+        log.debug("this.receivedChannelClosed: "+this.receivedChannelClosed);
         
         removeProxyToWebConnection(key);
         
