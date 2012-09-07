@@ -3,8 +3,11 @@ package org.littleshoot.proxy;
 import static org.jboss.netty.channel.Channels.pipeline;
 
 import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -24,6 +27,7 @@ import javax.management.ObjectName;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -36,10 +40,15 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
+import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
+import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.jboss.netty.handler.codec.http.HttpResponseStatus;
+import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,7 +114,18 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
     private ClientSocketChannelFactory clientChannelFactory;
-    private boolean currentRequestIsChunkedProxyAuthenticationRequired;
+    
+    /**
+     * This flag is necessary for edge cases where we prematurely halt request
+     * processing but where there may be more incoming chunks for the request
+     * (in cases where the request is chunked). This happens, for example, with
+     * proxy authentication and chunked posts or when the external host just
+     * does not resolve to an IP address. In those cases we prematurely return
+     * pre-packaged responses and halt request processing but still need to 
+     * handle any future chunks associated with the request coming in on the
+     * client channel.
+     */
+    private boolean pendingRequestChunks = false;
     
     /**
      * Creates a new class for handling HTTP requests with no frills.
@@ -235,7 +255,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         
         // It's possible to receive a chunk before a channel future has even
         // been set. It's also possible for this to happen for requests that
-        // require proxy authentication.
+        // require proxy authentication or in cases where we get a DNS lookup
+        // error trying to reach the remote site.
         if (this.currentChannelFuture == null) {
             // First deal with the case where a proxy authentication manager
             // is active and we've received an HTTP POST requiring 
@@ -246,15 +267,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             // issue a new POST request with the appropriate credentials 
             // (assuming they have them) and associated chunks in the new 
             // request body.
-            if (currentRequestIsChunkedProxyAuthenticationRequired) {
+            if (pendingRequestChunks) {
                 if (chunk.isLast()) {
                     log.info("Received last chunk -- setting proxy auth " +
                         "chunking to false");
-                    this.currentRequestIsChunkedProxyAuthenticationRequired = 
-                         false;
+                    this.pendingRequestChunks = false;
+                    
+                    //me.getChannel().close();
                 }
-                log.info("Ignoring chunk with chunked post requiring proxy " +
-                    "authentication");
+                log.info("Ignoring chunk with chunked post for edge case");
                 return;
             } else {
                 // Note this can happen quite often in tests when requests are
@@ -313,13 +334,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             // We need to do a few things here. First, if the request is 
             // chunked, we need to make sure we read the full request/POST
             // message body.
-            if (request.isChunked()) {
-                this.currentRequestIsChunkedProxyAuthenticationRequired = true;
-                readingChunks = true;
-            }
+            handleFutureChunksIfNecessary(request);
             return;
         } else {
-            this.currentRequestIsChunkedProxyAuthenticationRequired = false;
+            this.pendingRequestChunks = false;
         }
         
         String hostAndPort = null;
@@ -330,9 +348,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         if (hostAndPort == null) {
             hostAndPort = ProxyUtils.parseHostAndPort(request);
             if (StringUtils.isBlank(hostAndPort)) {
-                // Fail fast if we get a fishy host and port
                 log.warn("No host and port found in {}", request.getUri());
-                inboundChannel.close();
+                badGateway(request, inboundChannel);
+                handleFutureChunksIfNecessary(request);
                 return;
             }
         }
@@ -340,7 +358,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
                 if (request.getMethod() != HttpMethod.CONNECT) {
-                    final ChannelFuture writeFuture = cf.getChannel().write(request);
+                    final ChannelFuture writeFuture = 
+                        cf.getChannel().write(request);
                     writeFuture.addListener(new ChannelFutureListener() {
                         
                         public void operationComplete(final ChannelFuture future) 
@@ -394,6 +413,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 cf = newChannelFuture(request, inboundChannel, hostAndPort);
             } catch (final UnknownHostException e) {
                 log.warn("Could not resolve host?", e);
+                badGateway(request, inboundChannel);
+                handleFutureChunksIfNecessary(request);
+                ctx.getChannel().setReadable(true);
                 return;
             }
             
@@ -468,6 +490,26 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
     
     
+    private void badGateway(final HttpRequest request, 
+        final Channel inboundChannel) {
+        final HttpResponse response = 
+            new DefaultHttpResponse(HttpVersion.HTTP_1_1, 
+                HttpResponseStatus.BAD_GATEWAY);
+        response.setHeader(HttpHeaders.Names.CONNECTION, "close");
+        final String body = "Bad Gateway: "+request.getUri();
+        response.setContent(ChannelBuffers.copiedBuffer(body, 
+            Charset.forName("UTF-8")));
+        response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, body.length());
+        inboundChannel.write(response);
+    }
+
+    private void handleFutureChunksIfNecessary(final HttpRequest request) {
+        if (request.isChunked()) {
+            this.pendingRequestChunks = true;
+            readingChunks = true;
+        }
+    }
+
     public void onChannelAvailable(final String hostAndPortKey, 
         final ChannelFuture cf) {
         
@@ -573,7 +615,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
-        final Channel browserToProxyChannel, String hostAndPort) 
+        final Channel browserToProxyChannel, final String hostAndPort) 
         throws UnknownHostException {
         final String host;
         final int port;
@@ -616,8 +658,15 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         cb.setPipelineFactory(cpf);
         cb.setOption("connectTimeoutMillis", 40*1000);
         log.info("Starting new connection to: {}", hostAndPort);
-        return cb.connect(VerifiedAddressFactory.newInetSocketAddress(host, port, 
-            LittleProxyConfig.isUseDnsSec()));
+        if (LittleProxyConfig.isUseDnsSec()) {
+            return cb.connect(VerifiedAddressFactory.newInetSocketAddress(host, port, 
+                    LittleProxyConfig.isUseDnsSec()));
+        } else {
+            final InetAddress ia = InetAddress.getByName(host);
+            final String address = ia.getHostAddress();
+            //final InetSocketAddress address = new InetSocketAddress(host, port);
+            return cb.connect(new InetSocketAddress(address, port));
+        }
     }
     
     @Override
@@ -667,6 +716,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
     
+    /**
+     * This is called when a relay channel to a remote server is closed in order
+     * for this class to perform any necessary cleanup. Note that this is 
+     * called on the same thread as the incoming request processing.
+     */
     public void onRelayChannelClose(final Channel browserToProxyChannel, 
         final String key, final int unansweredRequestsOnChannel,
         final boolean closedEndsResponseBody) {
@@ -675,6 +729,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             this.receivedChannelClosed = true;
         }
         log.info("this.receivedChannelClosed: "+this.receivedChannelClosed);
+        
         removeProxyToWebConnection(key);
         
         // The closed channel may have had outstanding requests we haven't 

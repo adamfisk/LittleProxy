@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
@@ -36,7 +37,6 @@ import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
-import org.eclipse.jetty.util.log.Log;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.codec.http.HttpVersion;
@@ -51,6 +51,8 @@ public class HttpProxyTest {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
     
+    private static final String HOST = "http://opsgenie.com/status/ping";
+    
     /**
      * Tests the proxy both with chunking and without to make sure it's working
      * identically with both.
@@ -58,54 +60,68 @@ public class HttpProxyTest {
      * @throws Exception If any unexpected error occurs.
      */
     public void testProxyChunkAndNo() throws Exception {
-        System.out.println("starting proxy");
         final HttpProxyServer server = startHttpProxy();
-        System.out.println("started proxy");
-
-        final byte[] baseResponse = rawResponse("i.i.com.com", 80, true, HttpVersion.HTTP_1_0);
-        final byte[] proxyResponse = rawResponse("127.0.0.1", 8080, false, HttpVersion.HTTP_1_1);
-        final ChannelBuffer wrappedBase = ChannelBuffers.wrappedBuffer(baseResponse);
-        final ChannelBuffer wrappedProxy = ChannelBuffers.wrappedBuffer(proxyResponse);
-
-        assertEquals("Lengths not equal", wrappedBase.capacity(), wrappedProxy.capacity());
-        assertEquals("Not equal:\n"+
-            ChannelBuffers.hexDump(wrappedBase)+"\n\n\n"+
-            ChannelBuffers.hexDump(wrappedProxy), wrappedBase, wrappedProxy);
-
-        final ByteArrayInputStream baseBais = new ByteArrayInputStream(baseResponse);
-        //final String baseStr = IOUtils.toString(new GZIPInputStream(baseBais));
-        final String baseStr = IOUtils.toString(baseBais);
-        final File baseFile = new File("base_sandberg.jpg");
-        baseFile.deleteOnExit();
-        final FileWriter baseFileWriter = new FileWriter(baseFile);
-        baseFileWriter.write(baseStr);
-        baseFileWriter.close();
-        //System.out.println("RESPONSE:\n"+baseStr);
-
-        final ByteArrayInputStream proxyBais = new ByteArrayInputStream(proxyResponse);
-        //final String proxyStr = IOUtils.toString(new GZIPInputStream(proxyBais));
-        final String proxyStr = IOUtils.toString(proxyBais);
-        final File proxyFile = new File("proxy_sandberg.jpg");
-        proxyFile.deleteOnExit();
-        final FileWriter proxyFileWriter = new FileWriter(proxyFile);
-        proxyFileWriter.write(proxyStr);
-        proxyFileWriter.close();
-        //System.out.println("RESPONSE:\n"+proxyStr);
-        
-        assertEquals("Decoded proxy string does not equal expected", baseStr, proxyStr);
-        server.stop();
+        try {
+            final byte[] baseResponse = rawResponse("i.i.com.com", 80, true, HttpVersion.HTTP_1_0);
+            final byte[] proxyResponse = rawResponse("127.0.0.1", 8080, false, HttpVersion.HTTP_1_1);
+            final ChannelBuffer wrappedBase = ChannelBuffers.wrappedBuffer(baseResponse);
+            final ChannelBuffer wrappedProxy = ChannelBuffers.wrappedBuffer(proxyResponse);
+    
+            assertEquals("Lengths not equal", wrappedBase.capacity(), wrappedProxy.capacity());
+            assertEquals("Not equal:\n"+
+                ChannelBuffers.hexDump(wrappedBase)+"\n\n\n"+
+                ChannelBuffers.hexDump(wrappedProxy), wrappedBase, wrappedProxy);
+    
+            final ByteArrayInputStream baseBais = new ByteArrayInputStream(baseResponse);
+            //final String baseStr = IOUtils.toString(new GZIPInputStream(baseBais));
+            final String baseStr = IOUtils.toString(baseBais);
+            final File baseFile = new File("base_sandberg.jpg");
+            baseFile.deleteOnExit();
+            final FileWriter baseFileWriter = new FileWriter(baseFile);
+            baseFileWriter.write(baseStr);
+            baseFileWriter.close();
+            //System.out.println("RESPONSE:\n"+baseStr);
+    
+            final ByteArrayInputStream proxyBais = new ByteArrayInputStream(proxyResponse);
+            //final String proxyStr = IOUtils.toString(new GZIPInputStream(proxyBais));
+            final String proxyStr = IOUtils.toString(proxyBais);
+            final File proxyFile = new File("proxy_sandberg.jpg");
+            proxyFile.deleteOnExit();
+            final FileWriter proxyFileWriter = new FileWriter(proxyFile);
+            proxyFileWriter.write(proxyStr);
+            proxyFileWriter.close();
+            //System.out.println("RESPONSE:\n"+proxyStr);
+            
+            assertEquals("Decoded proxy string does not equal expected", baseStr, proxyStr);
+        } finally {
+            server.stop();
+        }
     }
 
     @Test
     public void testProxyWithApacheHttpClientChunkedRequests() throws Exception {
-        System.out.println("starting proxy");
         final HttpProxyServer server = startHttpProxy();
-        System.out.println("started proxy");
 
-        String baseResponse = httpPostWithApacheClient(false);
-        String proxyResponse = httpPostWithApacheClient(true);
-        assertEquals(baseResponse, proxyResponse);
-        server.stop();
+        try {
+            String baseResponse = httpPostWithApacheClient(false);
+            String proxyResponse = httpPostWithApacheClient(true);
+            assertEquals(baseResponse, proxyResponse);
+        } finally {
+            server.stop();
+        }
+    }
+    
+    @Test
+    public void testProxyWithApacheHttpClientChunkedRequestsBadAddress() throws Exception {
+        final HttpProxyServer server = startHttpProxy();
+        
+        try {
+            final String response =
+                httpPostWithApacheClient(true, "http://kt.baidu.com");
+            assertTrue(response.startsWith("Bad Gateway"));
+        } finally {
+            server.stop();
+        }
     }
 
     @Test
@@ -113,15 +129,17 @@ public class HttpProxyTest {
         String username = "user1";
         String password = "pass1";
 
-        System.out.println("starting proxy");
         final HttpProxyServer server = 
                 startHttpProxyWithCredentials(username, password);
-        System.out.println("started proxy");
 
-        String baseResponse = httpPostWithApacheClient(false);
-        String proxyResponse = httpPostWithApacheClient(true, username, password);
-        assertEquals(baseResponse, proxyResponse);
-        server.stop();
+        try {
+            String baseResponse = httpPostWithApacheClient(false);
+            String proxyResponse = 
+                httpPostWithApacheClient(true, username, password);
+            assertEquals(baseResponse, proxyResponse);
+        } finally {
+            server.stop();
+        }
     }
     
     @Test
@@ -129,49 +147,64 @@ public class HttpProxyTest {
         String username = "user1";
         String password = "pass1";
 
-        System.out.println("starting proxy");
         final HttpProxyServer server = 
             startHttpProxyWithCredentials(username, password);
-        System.out.println("started proxy");
 
-        String baseResponse = httpGetWithApacheClient(false);
-        String proxyResponse = httpGetWithApacheClient(true, username, password);
-        assertEquals(baseResponse, proxyResponse);
-        server.stop();
+        try {
+            String baseResponse = httpGetWithApacheClient(false);
+            String proxyResponse = httpGetWithApacheClient(true, username, password);
+            assertEquals(baseResponse, proxyResponse);
+        } finally {
+            server.stop();
+        }
     }
 
-    private String httpPostWithApacheClient(boolean isProxy) throws IOException {
-        return httpPostWithApacheClient(isProxy, null, null);
+    private String httpPostWithApacheClient(final boolean isProxy) 
+        throws IOException {
+        return httpPostWithApacheClient(isProxy, null, null, HOST);
     }
     
-    private String httpPostWithApacheClient(boolean isProxy, String username, 
-        String password) throws IOException {
-        DefaultHttpClient httpclient = new DefaultHttpClient();
+    private String httpPostWithApacheClient(final boolean isProxy,
+        final String host) throws IOException {
+        return httpPostWithApacheClient(isProxy, null, null, host);
+    }
+    
+    private String httpPostWithApacheClient(final boolean isProxy, 
+        final String username, final String password) throws IOException {
+        return httpPostWithApacheClient(isProxy, username, password, HOST);
+    }
+    
+    private String httpPostWithApacheClient(final boolean isProxy, 
+        final String username, final String password, final String host) 
+                throws IOException {
+        final DefaultHttpClient httpclient = new DefaultHttpClient();
         try {
             if (isProxy) {
-                HttpHost proxy = new HttpHost("127.0.0.1", 8080);
+                final HttpHost proxy = new HttpHost("127.0.0.1", 8080);
                 httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if(username != null && password != null){
-                    httpclient.getCredentialsProvider().setCredentials(new AuthScope("127.0.0.1", 8080), 
+                    httpclient.getCredentialsProvider().setCredentials(
+                        new AuthScope("127.0.0.1", 8080), 
                         new UsernamePasswordCredentials(username, password));
                 }
             }
             
-            
-            HttpPost httppost = new HttpPost("http://opsgenie.com/status/ping");
-            StringEntity entity = new StringEntity("adsf", "UTF-8");
+            final HttpPost httppost = new HttpPost(host);
+            final StringEntity entity = new StringEntity("adsf", "UTF-8");
             entity.setChunked(true);
             httppost.setEntity(entity);
             
-            HttpResponse response = httpclient.execute(httppost);
-            HttpEntity resEntity = response.getEntity();
-            return EntityUtils.toString(resEntity);
+            final HttpResponse response = httpclient.execute(httppost);
+            final HttpEntity resEntity = response.getEntity();
+            final String str = EntityUtils.toString(resEntity);
+            return str;
         } finally {
             httpclient.getConnectionManager().shutdown();
         }
     }
     
-    private String httpGetWithApacheClient(boolean isProxy) throws IOException {
+    private String httpGetWithApacheClient(final boolean isProxy) 
+        throws IOException {
         return httpGetWithApacheClient(isProxy, null, null);
     }
     
@@ -188,7 +221,7 @@ public class HttpProxyTest {
                 }
             }
             
-            HttpGet httppost = new HttpGet("http://opsgenie.com/status/ping");
+            HttpGet httppost = new HttpGet(HOST);
 
             HttpResponse response = httpclient.execute(httppost);
             HttpEntity resEntity = response.getEntity();
