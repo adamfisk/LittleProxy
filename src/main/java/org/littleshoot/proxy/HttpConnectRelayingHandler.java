@@ -94,7 +94,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
-        LOG.warn("Caught exception on proxy -> web connection: "+
+        LOG.info("Caught exception on proxy -> web connection: "+
             e.getChannel(), e.getCause());
         ProxyUtils.closeOnFlush(e.getChannel());
     }
