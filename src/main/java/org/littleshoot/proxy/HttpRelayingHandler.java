@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Class that simply relays traffic from a remote server the proxy is 
- * connected to back to the browser.
+ * connected to back to the browser/client.
  */
 public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     
@@ -115,7 +115,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         
         if (!readingChunks) {
             final HttpResponse hr = (HttpResponse) me.getMessage();
-            log.info("Received raw response: {}", hr);
+            log.debug("Received raw response: {}", hr);
             
             // We need to make a copy here because the response will be 
             // modified in various ways before we need to do things like
@@ -135,7 +135,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     response = ProxyUtils.copyMutableResponseFields(hr, 
                         new DefaultHttpResponse(HttpVersion.HTTP_1_1, hr.getStatus()));
                     if (!response.containsHeader(HttpHeaders.Names.TRANSFER_ENCODING)) {
-                        log.info("Adding chunked encoding header");
+                        log.debug("Adding chunked encoding header");
                         response.addHeader(HttpHeaders.Names.TRANSFER_ENCODING, 
                             HttpHeaders.Values.CHUNKED);
                     }
@@ -149,7 +149,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
 
             if (response.isChunked()) {
-                log.info("Starting to read chunks");
+                log.debug("Starting to read chunks");
                 readingChunks = true;
                 writeEndBuffer = false;
             }
@@ -170,12 +170,12 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                     log.warn("Got null HTTP request object.");
                 }
             } else {
-                log.info("Request queue is empty!");
+                log.debug("Request queue is empty!");
             }
             messageToWrite = 
                 this.httpFilter.filterResponse(this.currentHttpRequest, response);
         } else {
-            log.info("Processing a chunk");
+            log.debug("Processing a chunk");
             final HttpChunk chunk = (HttpChunk) me.getMessage();
             if (chunk.isLast()) {
                 readingChunks = false;
@@ -334,11 +334,11 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // through to the same close semantics we'd otherwise use.
             if (msg != null) {
                 if (!ProxyUtils.isLastChunk(msg)) {
-                    log.info("Not closing on middle chunk for {}", req.getUri());
+                    log.debug("Not closing on middle chunk for {}", req.getUri());
                     return false;
                 }
                 else {
-                    log.info("Last chunk...using normal closing rules");
+                    log.debug("Last chunk...using normal closing rules");
                 }
             }
         }
@@ -350,19 +350,19 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             final String header = req.getHeader(proxyConnectionKey);
             req.removeHeader(proxyConnectionKey);
             if (req.getProtocolVersion() == HttpVersion.HTTP_1_1) {
-                log.info("Switching Proxy-Connection to Connection for " +
+                log.debug("Switching Proxy-Connection to Connection for " +
                     "analyzing request for close");
                 req.setHeader("Connection", header);
             }
         }
         
         if (!HttpHeaders.isKeepAlive(req)) {
-            log.info("Closing since request is not keep alive:");
+            log.debug("Closing since request is not keep alive:");
             // Here we simply want to close the connection because the 
             // browser itself has requested it be closed in the request.
             return true;
         }
-        log.info("Not closing browser/client to proxy connection " +
+        log.debug("Not closing browser/client to proxy connection " +
             "for request: {}", req);
         return false;
     }
@@ -398,29 +398,29 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             // through to the same close semantics we'd otherwise use.
             if (msg != null) {
                 if (!ProxyUtils.isLastChunk(msg)) {
-                    log.info("Not closing on middle chunk");
+                    log.debug("Not closing on middle chunk");
                     return false;
                 }
                 else {
-                    log.info("Last chunk...using normal closing rules");
+                    log.debug("Last chunk...using normal closing rules");
                 }
             }
         }
         if (!HttpHeaders.isKeepAlive(req)) {
-            log.info("Closing since request is not keep alive:{}, ", req);
+            log.debug("Closing since request is not keep alive:{}, ", req);
             // Here we simply want to close the connection because the 
             // browser itself has requested it be closed in the request.
             return true;
         }
         if (!HttpHeaders.isKeepAlive(res)) {
-            log.info("Closing since response is not keep alive:{}", res);
+            log.debug("Closing since response is not keep alive:{}", res);
             // In this case, we want to honor the Connection: close header 
             // from the remote server and close that connection. We don't
             // necessarily want to close the connection to the browser, however
             // as it's possible it has other connections open.
             return true;
         }
-        log.info("Not closing -- response probably keep alive for:\n{}", res);
+        log.debug("Not closing -- response probably keep alive for:\n{}", res);
         return false;
     }
     
@@ -428,7 +428,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     public void channelOpen(final ChannelHandlerContext ctx, 
         final ChannelStateEvent cse) throws Exception {
         final Channel ch = cse.getChannel();
-        log.info("New channel opened from proxy to web: {}", ch);
+        log.debug("New channel opened from proxy to web: {}", ch);
         if (this.channelGroup != null) {
             this.channelGroup.add(ch);
         }
@@ -437,14 +437,14 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent e) throws Exception {
-        log.info("Got closed event on proxy -> web connection: {}",
+        log.debug("Got closed event on proxy -> web connection: {}",
             e.getChannel());
         
         // We shouldn't close the connection to the browser 
         // here, as there can be multiple connections to external sites for
         // a single connection from the browser.
         final int unansweredRequests = this.requestQueue.size();
-        log.info("Unanswered requests: {}", unansweredRequests);
+        log.debug("Unanswered requests: {}", unansweredRequests);
         this.relayListener.onRelayChannelClose(browserToProxyChannel, 
             this.hostAndPort, unansweredRequests, this.closeEndsResponseBody);
     }
@@ -469,13 +469,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         if (warn) {
             log.warn(message, cause);
         } else {
-            log.info(message, cause);
+            log.debug(message, cause);
         }
         if (e.getChannel().isConnected()) {
             if (warn) {
                 log.warn("Closing open connection");
             } else {
-                log.info("Closing open connection");
+                log.debug("Closing open connection");
             }
             ProxyUtils.closeOnFlush(e.getChannel());
         }
