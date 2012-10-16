@@ -21,6 +21,7 @@ import java.net.UnknownHostException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -402,7 +403,7 @@ public class HttpProxyTest {
             crlf[1] = (byte) lf;
             final ChannelBuffer buf = ChannelBuffers.wrappedBuffer(crlf);
             throw new Error("Did not get expected CRLF!! Instead got hex: "+
-                ChannelBuffers.hexDump(buf)+" and str: "+buf.toString("US-ASCII"));
+                ChannelBuffers.hexDump(buf)+" and str: "+buf.toString(Charset.forName("US-ASCII")));
         }
     }
 
@@ -449,6 +450,7 @@ public class HttpProxyTest {
         final String password) {
         final HttpProxyServer server = new DefaultHttpProxyServer(8080);
         server.addProxyAuthenticationHandler(new ProxyAuthorizationHandler() {
+            @Override
             public boolean authenticate(String u, String p) {
                 return userName.equals(u) && password.equals(p);
             }

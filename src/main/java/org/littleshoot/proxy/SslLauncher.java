@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import static org.littleshoot.proxy.NopHttpResponseFilters.NO_RESPONSE_FILTERS;
+
 import java.util.Arrays;
 
 import org.apache.commons.cli.CommandLine;
@@ -87,13 +89,8 @@ public class SslLauncher {
         }
         
         System.out.println("About to start SSL server on port: "+port);
-        final HttpResponseFilters responseFilters = new HttpResponseFilters() {
-            public HttpFilter getFilter(final String hostAndPort) {
-                return null;
-            }
-        };
-        final HttpProxyServer server = new DefaultHttpProxyServer(port, 
-            responseFilters, null, 
+        
+        final HttpProxyServer server = new DefaultHttpProxyServer(port, NO_RESPONSE_FILTERS, null, 
             new SelfSignedKeyStoreManager(), null);
         System.out.println("About to start...");
         server.start();

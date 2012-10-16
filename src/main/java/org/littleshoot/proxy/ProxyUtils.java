@@ -93,6 +93,7 @@ public class ProxyUtils {
      */
     public static final ChannelFutureListener NO_OP_LISTENER = 
         new ChannelFutureListener() {
+        @Override
         public void operationComplete(final ChannelFuture future) 
             throws Exception {
             LOG.info("No op listener - write finished");
@@ -121,6 +122,7 @@ public class ProxyUtils {
 
     public static final HttpRequestFilter PASS_THROUGH_REQUEST_FILTER = 
         new HttpRequestFilter() {
+            @Override
             public void filter(final HttpRequest httpRequest) {
             }
         };
@@ -270,7 +272,7 @@ public class ProxyUtils {
         final String statusLine, final String headers, 
         final String responseBody) {
         final String fullResponse = statusLine + headers + responseBody;
-        LOG.info("Writing full response:\n"+fullResponse);
+        LOG.info("Writing full response:\n{}", fullResponse);
         try {
             final ChannelBuffer buf = 
                 ChannelBuffers.copiedBuffer(fullResponse.getBytes("UTF-8"));
@@ -300,7 +302,7 @@ public class ProxyUtils {
             sb.append(value);
             sb.append("\n");
         }
-        LOG.debug("\n"+sb.toString());
+        LOG.debug("{}", sb);
     }
 
     /**
@@ -311,7 +313,7 @@ public class ProxyUtils {
      */
     public static void printHeader(final HttpMessage msg, final String name) {
         final String value = msg.getHeader(name);
-        LOG.debug(name + ": "+value);
+        LOG.debug("{}: {}", name, value);
     }
     
 
@@ -325,6 +327,7 @@ public class ProxyUtils {
     }
     
     private static ChannelFutureListener CLOSE = new ChannelFutureListener() {
+        @Override
         public void operationComplete(final ChannelFuture future) {
             final Channel ch = future.getChannel();
             if (ch.isOpen()) {

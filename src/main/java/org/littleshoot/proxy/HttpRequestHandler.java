@@ -233,7 +233,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             return;
         }
         messagesReceived.incrementAndGet();
-        log.debug("Received "+messagesReceived+" total messages");
+        log.debug("Received {} total messages", messagesReceived);
         if (!readingChunks) {
             processRequest(ctx, me);
         } 
@@ -304,7 +304,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         else {
             this.currentChannelFuture.addListener(new ChannelFutureListener() {
-                
+                @Override
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
                     currentChannelFuture.getChannel().write(chunk);
@@ -327,7 +327,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         this.unansweredRequestCount.incrementAndGet();
         
-        log.info("Got request: {} on channel: "+inboundChannel, request);
+        log.info("Got request: {} on channel: {}", request, inboundChannel);
         if (this.authorizationManager != null && 
             !this.authorizationManager.handleProxyAuthorization(request, ctx)) {
             log.info("Not authorized!!");
@@ -361,7 +361,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     final ChannelFuture writeFuture = 
                         cf.getChannel().write(request);
                     writeFuture.addListener(new ChannelFutureListener() {
-                        
+                        @Override
                         public void operationComplete(final ChannelFuture future) 
                             throws Exception {
                             if (LittleProxyConfig.isUseJmx()) {
@@ -397,6 +397,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             }
             else {
                 final ChannelFutureListener cfl = new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture future)
                         throws Exception {
                         onConnect.onConnect(curFuture);
@@ -426,7 +427,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 LocalChannelFutureListener(final String copiedHostAndPort) {
                     this.copiedHostAndPort = copiedHostAndPort;
                 }
-            
+                @Override
                 public void operationComplete(final ChannelFuture future)
                     throws Exception {
                     final Channel channel = future.getChannel();
@@ -438,12 +439,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         log.info("Writing message on channel...");
                         final ChannelFuture wf = onConnect.onConnect(cf);
                         wf.addListener(new ChannelFutureListener() {
+                            @Override
                             public void operationComplete(final ChannelFuture wcf)
                                 throws Exception {
-                                log.info("Finished write: "+wcf+ " to: "+
-                                    request.getMethod()+" "+
-                                    request.getUri());
-                                
+                                log.info("Finished write: {} to: {} {}", wcf, request.getMethod(), request.getUri());
                                 ctx.getChannel().setReadable(true);
                             }
                         });
@@ -509,7 +508,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             readingChunks = true;
         }
     }
-
+    @Override
     public void onChannelAvailable(final String hostAndPortKey, 
         final ChannelFuture cf) {
         
@@ -598,6 +597,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 outgoingChannel.getPipeline().addBefore("handler", "encoder", 
                     new HttpRequestEncoder());
                 outgoingChannel.write(httpRequest).addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture future)
                         throws Exception {
                         outgoingChannel.getPipeline().remove("encoder");
@@ -640,6 +640,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             // directions. We SHOULD make sure this is traffic on a reasonable
             // port, however, such as 80 or 443, to reduce security risks.
             cpf = new ChannelPipelineFactory() {
+                @Override
                 public ChannelPipeline getPipeline() throws Exception {
                     // Create a default pipeline implementation.
                     final ChannelPipeline pipeline = pipeline();
@@ -676,10 +677,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         log.debug("New channel opened: {}", inboundChannel);
         totalBrowserToProxyConnections.incrementAndGet();
         browserToProxyConnections.incrementAndGet();
-        log.debug("Now "+totalBrowserToProxyConnections+
-            " browser to proxy channels...");
-        log.debug("Now this class has "+browserToProxyConnections+
-            " browser to proxy channels...");
+        log.debug("Now {} browser to proxy channels...", totalBrowserToProxyConnections);
+        log.debug("Now this class has {} browser to proxy channels...", browserToProxyConnections);
         
         // We need to keep track of the channel so we can close it at the end.
         if (this.channelGroup != null) {
@@ -693,10 +692,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         log.info("Channel closed: {}", cse.getChannel());
         totalBrowserToProxyConnections.decrementAndGet();
         browserToProxyConnections.decrementAndGet();
-        log.debug("Now "+totalBrowserToProxyConnections+
-            " total browser to proxy channels...");
-        log.debug("Now this class has "+browserToProxyConnections+
-            " browser to proxy channels...");
+        log.debug("Now {} total browser to proxy channels...", totalBrowserToProxyConnections);
+        log.debug("Now this class has {} browser to proxy channels...", browserToProxyConnections);
         
         // The following should always be the case with
         // @ChannelPipelineCoverage("one")
@@ -721,6 +718,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * for this class to perform any necessary cleanup. Note that this is 
      * called on the same thread as the incoming request processing.
      */
+    @Override
     public void onRelayChannelClose(final Channel browserToProxyChannel, 
         final String key, final int unansweredRequestsOnChannel,
         final boolean closedEndsResponseBody) {
@@ -728,7 +726,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             log.debug("Close ends response body");
             this.receivedChannelClosed = true;
         }
-        log.debug("this.receivedChannelClosed: "+this.receivedChannelClosed);
+        log.debug("this.receivedChannelClosed: {}", this.receivedChannelClosed);
         
         removeProxyToWebConnection(key);
         
@@ -750,9 +748,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             }
         }
         else {
-            log.info("Not closing browser to proxy channel. Received channel " +
-                "closed is "+this.receivedChannelClosed+" and we have {} " +
-                "connections and awaiting {} responses", 
+            log.info("Not closing browser to proxy channel. Received channel closed is {} and we have {} connections and awaiting {} responses", 
+                this.receivedChannelClosed,
                 this.externalHostsToChannelFutures.size(), 
                 this.unansweredRequestCount );
         }
@@ -764,6 +761,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         this.externalHostsToChannelFutures.remove(key);
     }
 
+    @Override
     public void onRelayHttpResponse(final Channel browserToProxyChannel,
         final String key, final HttpRequest httpRequest) {
         if (LittleProxyConfig.isUseJmx()) {
@@ -783,9 +781,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             }
         }
         else {
-            log.info("Not closing browser to proxy channel. Still "+
-                "awaiting " + this.unansweredRequestCount+" responses..." +
-                "receivedChannelClosed="+this.receivedChannelClosed);
+            log.info("Not closing browser to proxy channel. Still awaiting {} responses..." +
+                "receivedChannelClosed={}", this.unansweredRequestCount, this.receivedChannelClosed);
         }
     }
     
@@ -795,36 +792,42 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final Channel channel = e.getChannel();
         final Throwable cause = e.getCause();
         if (cause instanceof ClosedChannelException) {
-            log.warn("Caught an exception on browser to proxy channel: "+
+            log.warn("Caught an exception on browser to proxy channel: {}",
                 channel, cause);
         }
         else {
-            log.info("Caught an exception on browser to proxy channel: "+
+            log.info("Caught an exception on browser to proxy channel: {}",
                 channel, cause);
         }
         ProxyUtils.closeOnFlush(channel);
     }
-
+    
+    @Override
     public int getClientConnections() {
         return this.browserToProxyConnections.get();
     }
     
+    @Override
     public int getTotalClientConnections() {
         return totalBrowserToProxyConnections.get();
     }
 
+    @Override
     public int getOutgoingConnections() {
         return this.externalHostsToChannelFutures.size();
     }
 
+    @Override
     public int getRequestsSent() {
         return this.requestsSent.get();
     }
 
+    @Override
     public int getResponsesReceived() {
         return this.responsesReceived.get();
     }
 
+    @Override
     public String getUnansweredRequests() {
         return this.unansweredRequests.toString();
     }
@@ -833,6 +836,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
       return unansweredHttpRequests;
     }
 
+    @Override
     public String getAnsweredReqeusts() {
         return this.answeredRequests.toString();
     }

@@ -1,17 +1,19 @@
 package org.littleshoot.proxy;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.littleshoot.proxy.TestUtils.createProxiedHttpClient;
+import static org.littleshoot.proxy.TestUtils.startProxyServer;
+import static org.littleshoot.proxy.TestUtils.startWebServer;
+
+import javax.servlet.http.HttpServletResponse;
+
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.eclipse.jetty.server.Server;
 import org.junit.Test;
-
-import javax.servlet.http.HttpServletResponse;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.littleshoot.proxy.TestUtils.*;
 
 public class ProxyChainTest {
 

@@ -38,15 +38,27 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     private static final Logger log = 
         LoggerFactory.getLogger(HttpServerPipelineFactory.class);
     
-    // Please note that caching is not currently supported. This is left
-    // as placeholder for a future implementation.
-    private static final boolean CACHE_ENABLED = false;
+    /**
+     * An implementation of {@link ProxyCacheManager} that doesn't do anything.
+     */
+    private static final ProxyCacheManager NOP = new ProxyCacheManager() {
+        @Override
+        public boolean returnCacheHit(HttpRequest request, Channel channel) {
+            return false;
+        }
+        
+        @Override
+        public Future<String> cache(HttpRequest originalRequest,
+                HttpResponse httpResponse, Object response, ChannelBuffer encoded) {
+            return null;
+        }
+    };
     
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final ChainProxyManager chainProxyManager;
 
-    private final ProxyCacheManager cacheManager;
+    private final ProxyCacheManager cacheManager = NOP;
     
     private final KeyStoreManager ksm;
 
@@ -91,26 +103,6 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         this.chainProxyManager = chainProxyManager;
         this.ksm = ksm;
         
-        // Please note that caching is not currently supported. This is left
-        // as placeholder for a future implementation.
-        if (CACHE_ENABLED) {
-            cacheManager = new DefaultProxyCacheManager();
-        } else {
-            cacheManager = new ProxyCacheManager() {
-                
-                public boolean returnCacheHit(final HttpRequest request, 
-                    final Channel channel) {
-                    return false;
-                }
-                
-                public Future<String> cache(final HttpRequest originalRequest,
-                    final HttpResponse httpResponse, 
-                    final Object response, final ChannelBuffer encoded) {
-                    return null;
-                }
-            };
-        }
-        
         if (LittleProxyConfig.isUseJmx()) {
             setupJmx();
         }
@@ -140,6 +132,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         }
     }
     
+    @Override
     public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = pipeline();
 
@@ -178,6 +171,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         return pipeline;
     }
 
+    @Override
     public int getNumRequestHandlers() {
         return this.numHandlers;
     }

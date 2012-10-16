@@ -1,15 +1,19 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.junit.Test;
+import static org.jboss.netty.handler.codec.http.HttpMethod.GET;
+import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_0;
+import static org.littleshoot.proxy.RegexHttpRequestFilter.newHostAndPathFilter;
+import static org.littleshoot.proxy.RegexHttpRequestFilter.newHostFilter;
+import static org.littleshoot.proxy.RegexHttpRequestFilter.newPathFilter;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.net.URISyntaxException;
 
-import static org.jboss.netty.handler.codec.http.HttpMethod.GET;
-import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_0;
-import static org.littleshoot.proxy.RegexHttpRequestFilter.*;
-import static org.mockito.Mockito.*;
+import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
+import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.junit.Test;
 
 
 public class RegexHttpRequestFilterTest {

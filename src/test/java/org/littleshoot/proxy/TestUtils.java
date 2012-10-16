@@ -1,5 +1,11 @@
 package org.littleshoot.proxy;
 
+import java.io.IOException;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import org.apache.http.HttpHost;
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.params.ConnRoutePNames;
@@ -8,11 +14,6 @@ import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.jboss.netty.handler.codec.http.HttpRequest;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 
 public class TestUtils {
 
@@ -37,10 +38,12 @@ public class TestUtils {
      */
     public static HttpProxyServer startProxyServer(int port, final String chainProxyHostAndPort) {
         final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(port, null, new ChainProxyManager() {
+            @Override
             public String getChainProxy(HttpRequest httpRequest) {
                 return chainProxyHostAndPort;
             }
 
+            @Override
             public void onCommunicationError(String hostAndPort) {
             }
         }, null, null);
@@ -59,6 +62,7 @@ public class TestUtils {
     public static Server startWebServer(int port) throws Exception {
         final Server httpServer = new Server(port);
         httpServer.setHandler(new AbstractHandler() {
+            @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
                 response.setStatus(HttpServletResponse.SC_OK);
                 baseRequest.setHandled(true);

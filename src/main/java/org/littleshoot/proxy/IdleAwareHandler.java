@@ -24,10 +24,10 @@ public class IdleAwareHandler extends IdleStateAwareChannelHandler {
     public void channelIdle(final ChannelHandlerContext ctx, 
         final IdleStateEvent e) {
         if (e.getState() == IdleState.READER_IDLE) {
-            log.info("Got reader idle -- closing -- "+this);
+            log.info("Got reader idle -- closing -- {}", this);
             e.getChannel().close();
         } else if (e.getState() == IdleState.WRITER_IDLE) {
-            log.info("Got writer idle -- closing connection -- "+this);
+            log.info("Got writer idle -- closing connection -- {}", this);
             e.getChannel().close();
         }
     }

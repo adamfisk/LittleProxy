@@ -1,10 +1,10 @@
 package org.littleshoot.proxy;
 
-import org.junit.Test;
-
 import static org.junit.Assert.assertEquals;
 import static org.littleshoot.proxy.ProxyUtils.parseHost;
 import static org.littleshoot.proxy.ProxyUtils.parseHostAndPort;
+
+import org.junit.Test;
 
 /**
  * Test for proxy utilities.

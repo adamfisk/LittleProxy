@@ -229,6 +229,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             if (wroteFullResponse) {
                 log.debug("Notifying request handler of completed response.");
                 future.addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         relayListener.onRelayHttpResponse(browserToProxyChannel, 
@@ -249,6 +250,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 // particularly when there are no more remote connections
                 // associated with that browser connection.
                 future.addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         if (me.getChannel().isConnected()) {
@@ -261,6 +263,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             if (closePending) {
                 log.debug("Closing connection to browser after writes");
                 future.addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         log.info("Closing browser connection on flush!!");
@@ -453,8 +456,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
         final Throwable cause = e.getCause();
-        final String message = 
-            "Caught exception on proxy -> web connection: "+e.getChannel();
+        
         final boolean warn;
         if (cause != null) {
             final String msg = cause.getMessage();
@@ -467,9 +469,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             warn = true;
         }
         if (warn) {
-            log.warn(message, cause);
+            log.warn("Caught exception on proxy -> web connection: {}", e.getChannel(), cause);
         } else {
-            log.debug(message, cause);
+            log.debug("Caught exception on proxy -> web connection: {}", e.getChannel(), cause);
         }
         if (e.getChannel().isConnected()) {
             if (warn) {

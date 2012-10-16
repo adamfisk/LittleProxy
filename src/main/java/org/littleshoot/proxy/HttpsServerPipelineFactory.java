@@ -27,6 +27,7 @@ public class HttpsServerPipelineFactory implements ChannelPipelineFactory {
         this.m_channelGroup = channelGroup;
     }
 
+    @Override
     public ChannelPipeline getPipeline() throws Exception {
         //final ChannelPipeline pipeline = pipeline();
 

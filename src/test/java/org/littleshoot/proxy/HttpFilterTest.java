@@ -1,6 +1,14 @@
 package org.littleshoot.proxy;
 
-import org.apache.commons.io.IOUtils;
+import static org.junit.Assert.assertEquals;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.HttpGet;
@@ -13,15 +21,6 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.Assert.assertEquals;
 
 public class HttpFilterTest {
 
@@ -40,16 +39,18 @@ public class HttpFilterTest {
         final String url1 = "http://localhost:8924";
         final String url2 = "http://localhost:8924/testing";
         final HttpFilter filter = new HttpFilter() {
-
+            @Override
             public boolean filterResponses(final HttpRequest httpRequest) {
                 shouldFilterCalls.incrementAndGet();
                 return true;
             }
-
+            
+            @Override
             public int getMaxResponseSize() {
                 return 1024 * 1024;
             }
-
+            
+            @Override
             public HttpResponse filterResponse(final HttpRequest httpRequest,
                 final HttpResponse response) {
                 filterCalls.incrementAndGet();
@@ -63,6 +64,7 @@ public class HttpFilterTest {
         };
         final HttpResponseFilters responseFilters = 
             new HttpResponseFilters() {
+                @Override
                 public HttpFilter getFilter(final String hostAndPort) {
                     if (hostAndPort.equals("localhost:8924")) {
                         return filter;
@@ -83,7 +85,7 @@ public class HttpFilterTest {
             } catch (final IOException e) {
                 // Keep trying.
             } finally {
-                IOUtils.closeQuietly(sock);
+                sock.close();
             }
             Thread.sleep(50);
         }

@@ -27,6 +27,7 @@ public class DefaultRelayPipelineFactoryFactory
         this.timer = timer;
     }
     
+    @Override
     public ChannelPipelineFactory getRelayPipelineFactory(
         final HttpRequest httpRequest, final Channel browserToProxyChannel,
         final RelayListener relayListener) {

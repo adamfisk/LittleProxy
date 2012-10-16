@@ -83,6 +83,7 @@ public class RegexHttpRequestFilter implements HttpRequestFilter {
         this.filter = filter;
     }
     
+    @Override
     public void filter(final HttpRequest httpRequest) {
         if (filterHosts) {
             final List<String> hosts = httpRequest.getHeaders("Host");

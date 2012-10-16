@@ -19,6 +19,7 @@ public class HttpRequestHostMatcher implements HttpRequestMatcher {
         this.toCheck = "://" + host;
     }
 
+    @Override
     public boolean filterResponses(final HttpRequest httpRequest) {
         final String uri = httpRequest.getUri();
         return uri.contains(this.toCheck);

@@ -59,7 +59,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         this.filtersOff = responseFilters == null;
     }
     
-
+    @Override
     public ChannelPipeline getPipeline() throws Exception {
         // Create a default pipeline implementation.
         final ChannelPipeline pipeline = pipeline();
@@ -109,7 +109,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
                         new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
                 }
             }
-            LOG.debug("Filtering: "+shouldFilter);
+            LOG.debug("Filtering: {}", shouldFilter);
         }
         
         // The trick here is we need to determine whether or not

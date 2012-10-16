@@ -18,6 +18,7 @@ public class HttpRequestPathMatcher implements HttpRequestMatcher {
         this.path = path;
     }
 
+    @Override
     public boolean filterResponses(final HttpRequest httpRequest) {
         final String uri = httpRequest.getUri();
         return uri.startsWith(path);

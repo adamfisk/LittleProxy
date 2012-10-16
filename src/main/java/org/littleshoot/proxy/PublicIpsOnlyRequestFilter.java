@@ -14,6 +14,7 @@ public class PublicIpsOnlyRequestFilter implements HttpRequestFilter {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
+    @Override
     public void filter(final HttpRequest request) {
         final String host = ProxyUtils.parseHost(request);
         try {
