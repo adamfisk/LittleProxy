@@ -578,7 +578,7 @@ public class ProxyUtils {
 
         Charset headerCharset = CharsetUtil.ISO_8859_1; // Default charset for detection is latin-1
 
-        String contentType = http.getHeader("Content-Type");
+        String contentType = http.getHeader(HttpHeaders.Names.CONTENT_TYPE);
         if (contentType != null) { // If has Content-Type header, try to detect charset from it
             Matcher matcher = CONTENT_TYPE_CHARSET.matcher(contentType); // find charset in header
 

@@ -4,6 +4,7 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.timeout.IdleStateEvent;
 import org.slf4j.Logger;
@@ -38,7 +39,7 @@ public class IdleRequestHandler extends IdleAwareHandler {
             for (HttpRequest unansweredRequest : unansweredHttpRequests) {
                 // Go through each unanswered request and concat the info
                 message.append(unansweredRequest.getUri());
-                String referrer = unansweredRequest.getHeader("Referer");
+                String referrer = unansweredRequest.getHeader(HttpHeaders.Names.REFERER);
                 if (!StringUtils.isBlank(referrer)) {
                     // Capture the referrer so that slow resources can be tracked
                     // to a page
