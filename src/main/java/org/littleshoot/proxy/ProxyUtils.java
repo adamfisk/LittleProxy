@@ -1,6 +1,5 @@
 package org.littleshoot.proxy;
 
-import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
@@ -53,6 +52,16 @@ public class ProxyUtils {
      * Date format pattern used to parse HTTP date headers in RFC 1036 format.
      */
     public static final String PATTERN_RFC1036 = "EEEE, dd-MMM-yy HH:mm:ss zzz";
+    
+    /**
+     * A {@link String} constant for UTF-8
+     */
+    public static final String UTF8 = "UTF-8";
+    
+    /**
+     * A {@link Charset} constant for UTF-8
+     */
+    public static final Charset UTF8_CHARSET = Charset.forName(UTF8);
     
     private static final Set<String> HOP_BY_HOP_HEADERS = new HashSet<String>();
     
@@ -272,16 +281,10 @@ public class ProxyUtils {
         final String responseBody) {
         final String fullResponse = statusLine + headers + responseBody;
         LOG.info("Writing full response:\n{}", fullResponse);
-        try {
-            final ChannelBuffer buf = 
-                ChannelBuffers.copiedBuffer(fullResponse.getBytes("UTF-8"));
-            channel.write(buf);
-            channel.setReadable(true);
-        }
-        catch (final UnsupportedEncodingException e) {
-            // Never.
-            return;
-        }    
+        
+        final ChannelBuffer buf = ChannelBuffers.copiedBuffer(fullResponse.getBytes(UTF8_CHARSET));
+        channel.write(buf);
+        channel.setReadable(true);
     }
 
     /**

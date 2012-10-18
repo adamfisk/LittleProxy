@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
-import java.io.UnsupportedEncodingException;
+import static org.littleshoot.proxy.ProxyUtils.UTF8_CHARSET;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -48,19 +49,15 @@ public class DefaultProxyAuthorizationManager implements
         final String value =
             StringUtils.substringAfter(fullValue, "Basic ").trim();
         final byte[] decodedValue = Base64.decodeBase64(value);
-        try {
-            final String decodedString = new String(decodedValue, "UTF-8");
-            final String userName = StringUtils.substringBefore(decodedString, ":");
-            final String password = StringUtils.substringAfter(decodedString, ":");
-            for (final ProxyAuthorizationHandler handler : this.handlers) {
-                if (!handler.authenticate(userName, password)) {
-                    rejectRequest(ctx);
-                    return false;
-                }
+        
+        final String decodedString = new String(decodedValue, UTF8_CHARSET);
+        final String userName = StringUtils.substringBefore(decodedString, ":");
+        final String password = StringUtils.substringAfter(decodedString, ":");
+        for (final ProxyAuthorizationHandler handler : this.handlers) {
+            if (!handler.authenticate(userName, password)) {
+                rejectRequest(ctx);
+                return false;
             }
-        }
-        catch (final UnsupportedEncodingException e) {
-            log.error("Could not decode?", e);
         }
         
         log.info("Got proxy authorization!");

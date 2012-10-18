@@ -1,13 +1,13 @@
 package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
+import static org.littleshoot.proxy.ProxyUtils.UTF8_CHARSET;
 
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
-import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -496,8 +496,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 HttpResponseStatus.BAD_GATEWAY);
         response.setHeader(HttpHeaders.Names.CONNECTION, "close");
         final String body = "Bad Gateway: "+request.getUri();
-        response.setContent(ChannelBuffers.copiedBuffer(body, 
-            Charset.forName("UTF-8")));
+        response.setContent(ChannelBuffers.copiedBuffer(body, UTF8_CHARSET));
         response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, body.length());
         inboundChannel.write(response);
     }
