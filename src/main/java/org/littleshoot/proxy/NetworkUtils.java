@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,9 +55,7 @@ public class NetworkUtils {
             LOG.warn("Exception getting address", e);
             return InetAddress.getLocalHost();
         } finally {
-            if (sock != null) {
-                sock.close();
-            }
+            IOUtils.closeQuietly(sock);
         }
     }
 
