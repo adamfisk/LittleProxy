@@ -24,8 +24,6 @@ public class SslLauncher {
     
     private static final Logger LOG = LoggerFactory.getLogger(Launcher.class);
 
-    private static final String OPTION_DNSSEC = "dnssec";
-    
     private static final String OPTION_PORT = "port";
 
     private static final String OPTION_HELP = "help";
@@ -38,8 +36,6 @@ public class SslLauncher {
     public static void main(final String... args) {
         LOG.info("Running LittleProxy with args: {}", Arrays.asList(args));
         final Options options = new Options();
-        options.addOption(null, OPTION_DNSSEC, true, 
-            "Request and verify DNSSEC signatures.");
         options.addOption(null, OPTION_PORT, true, 
             "Run on the specified port.");
         options.addOption(null, OPTION_HELP, false,
@@ -60,19 +56,6 @@ public class SslLauncher {
         if (cmd.hasOption(OPTION_HELP)) {
             printHelp(options, null);
             return;
-        }
-        if (cmd.hasOption(OPTION_DNSSEC)) {
-            final String val = cmd.getOptionValue(OPTION_DNSSEC);
-            if (ProxyUtils.isTrue(val)) {
-                LOG.info("Using DNSSEC");
-                LittleProxyConfig.setUseDnsSec(true);
-            } else if (ProxyUtils.isFalse(val)) {
-                LOG.info("Not using DNSSEC");
-                LittleProxyConfig.setUseDnsSec(false);
-            } else {
-                printHelp(options, "Unexpected value for "+OPTION_DNSSEC+"=:"+val);
-                return;
-            }
         }
         final int defaultPort = 8080;
         int port;
