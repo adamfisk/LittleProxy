@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.littleshoot.proxy.ProxyUtils.parseHost;
 import static org.littleshoot.proxy.ProxyUtils.parseHostAndPort;
 
+import java.net.InetSocketAddress;
+
 import org.junit.Test;
 
 /**
@@ -22,10 +24,10 @@ public class ProxyUtilsTest {
 
     @Test
     public void testParseHostAndPort() throws Exception {
-        assertEquals("www.test.com:80", parseHostAndPort("http://www.test.com:80/test"));
-        assertEquals("www.test.com:80", parseHostAndPort("https://www.test.com:80/test"));
-        assertEquals("www.test.com:80", parseHostAndPort("www.test.com:80/test"));
-        assertEquals("www.test.com", parseHostAndPort("http://www.test.com"));
-        assertEquals("www.test.com", parseHostAndPort("www.test.com"));
+        assertEquals(new InetSocketAddress("www.test.com", 80), parseHostAndPort("http://www.test.com:80/test"));
+        assertEquals(new InetSocketAddress("www.test.com", 80), parseHostAndPort("https://www.test.com:80/test"));
+        assertEquals(new InetSocketAddress("www.test.com", 80), parseHostAndPort("www.test.com:80/test"));
+        assertEquals(new InetSocketAddress("www.test.com", 80), parseHostAndPort("http://www.test.com"));
+        assertEquals(new InetSocketAddress("www.test.com", 80), parseHostAndPort("www.test.com"));
     }
 }

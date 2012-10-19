@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
@@ -356,7 +357,7 @@ public class ProxyUtils {
      * @param httpRequest The request.
      * @return The host and port string.
      */
-    public static String parseHostAndPort(final HttpRequest httpRequest) {
+    public static InetSocketAddress parseHostAndPort(HttpRequest httpRequest) {
         return parseHostAndPort(httpRequest.getUri());
     }
     
@@ -366,44 +367,48 @@ public class ProxyUtils {
      * @param uri The URI.
      * @return The host and port string.
      */
-    public static String parseHostAndPort(final String uri) {
-        final String tempUri;
+    public static InetSocketAddress parseHostAndPort(String uri) {
+        String tempUri;
         if (!HTTP_PREFIX.matcher(uri).matches()) {
             // Browsers particularly seem to send requests in this form when
             // they use CONNECT.
             tempUri = uri;
-        }
-        else {
+        } else {
             // We can't just take a substring from a hard-coded index because it
             // could be either http or https.
             tempUri = StringUtils.substringAfter(uri, "://");
         }
-        final String hostAndPort;
+        
+        String hostPort;
         if (tempUri.contains("/")) {
-            hostAndPort = tempUri.substring(0, tempUri.indexOf("/"));
+            hostPort = tempUri.substring(0, tempUri.indexOf("/"));
+        } else {
+            hostPort = tempUri;
         }
-        else {
-            hostAndPort = tempUri;
+        
+        String host = hostPort;
+        int port = ProxyConstants.HTTP_PORT;
+        
+        int p = hostPort.lastIndexOf(':');
+        if (p != -1) {
+            host = hostPort.substring(0, p);
+            port = Integer.parseInt(hostPort.substring(++p));
         }
-        return hostAndPort;
+        
+        return new InetSocketAddress(host, port);
     }
     
-    public static String parseHost(final HttpRequest request) {
-        final String host = request.getHeader(HttpHeaders.Names.HOST);
+    public static String parseHost(HttpRequest request) {
+        String host = request.getHeader(HttpHeaders.Names.HOST);
         if (StringUtils.isNotBlank(host)) {
             return host;
         }
         return parseHost(request.getUri());
     }
     
-    public static String parseHost(final String request) {
-        final String hostAndPort = 
-            ProxyUtils.parseHostAndPort(request);
-        if (hostAndPort.contains(":")) {
-            return StringUtils.substringBefore(hostAndPort, ":");
-        } else {
-            return hostAndPort;
-        }
+    public static String parseHost(String request) {
+        InetSocketAddress address = parseHostAndPort(request);
+        return address.getHostName();
     }
     
     /**

@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -36,15 +37,16 @@ public class TestUtils {
      * @param chainProxyHostAndPort Proxy relay
      * @return The instance of proxy server
      */
-    public static HttpProxyServer startProxyServer(int port, final String chainProxyHostAndPort) {
+    public static HttpProxyServer startProxyServer(int port, final SocketAddress address) {
         final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(port, null, new ChainProxyManager() {
             @Override
-            public String getChainProxy(HttpRequest httpRequest) {
-                return chainProxyHostAndPort;
+            public SocketAddress getChainProxy(HttpRequest httpRequest) {
+                return address;
             }
 
             @Override
-            public void onCommunicationError(String hostAndPort) {
+            public boolean onCommunicationError(SocketAddress address, Throwable cause) {
+                return false;
             }
         }, null, null);
         proxyServer.start(true, true);

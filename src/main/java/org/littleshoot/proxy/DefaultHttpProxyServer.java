@@ -4,6 +4,7 @@ import static org.littleshoot.proxy.NopHttpResponseFilters.NO_RESPONSE_FILTERS;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.util.Iterator;
 import java.util.Map;
@@ -21,6 +22,7 @@ import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.ServerSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.ThreadNameDeterminer;
 import org.jboss.netty.util.ThreadRenamingRunnable;
@@ -33,7 +35,23 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
     
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private static final Logger log = LoggerFactory.getLogger(DefaultHttpProxyServer.class);
+    
+    private static final ChainProxyManager DEFAULT = new ChainProxyManager() {
+        
+        @Override
+        public SocketAddress getChainProxy(HttpRequest httpRequest) throws Exception {
+            return ProxyUtils.parseHostAndPort(httpRequest);
+        }
+        
+        @Override
+        public boolean onCommunicationError(SocketAddress address, Throwable cause) {
+            if (log.isErrorEnabled()) {
+                log.error("Communication Error: {}", address, cause);
+            }
+            return false;
+        }
+    };
     
     private final ChannelGroup allChannels = 
         new DefaultChannelGroup("HTTP-Proxy-Server");
@@ -197,13 +215,18 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param serverChannelFactory The factory for creating listening channels
      * for incoming connections.
      */
-    public DefaultHttpProxyServer(final int port, 
-        final HttpResponseFilters responseFilters,
-        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
-        final HttpRequestFilter requestFilter,
-        final ClientSocketChannelFactory clientChannelFactory, 
-        final Timer timer,
-        final ServerSocketChannelFactory serverChannelFactory) {
+    public DefaultHttpProxyServer(int port, 
+        HttpResponseFilters responseFilters,
+        ChainProxyManager chainProxyManager, KeyStoreManager ksm,
+        HttpRequestFilter requestFilter,
+        ClientSocketChannelFactory clientChannelFactory, 
+        Timer timer,
+        ServerSocketChannelFactory serverChannelFactory) {
+        
+        if (chainProxyManager == null) {
+            chainProxyManager = DEFAULT;
+        }
+        
         this.port = port;
         this.responseFilters = responseFilters;
         this.ksm = ksm;

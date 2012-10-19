@@ -5,6 +5,7 @@ import static org.junit.Assert.assertEquals;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,8 +66,8 @@ public class HttpFilterTest {
         final HttpResponseFilters responseFilters = 
             new HttpResponseFilters() {
                 @Override
-                public HttpFilter getFilter(final String hostAndPort) {
-                    if (hostAndPort.equals("localhost:8924")) {
+                public HttpFilter getFilter(SocketAddress address) {
+                    if (address.equals(new InetSocketAddress("localhost", 8924))) {
                         return filter;
                     }
                     return null;
