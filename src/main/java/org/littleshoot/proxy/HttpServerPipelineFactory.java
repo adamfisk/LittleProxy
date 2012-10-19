@@ -2,26 +2,13 @@ package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
-import java.lang.management.ManagementFactory;
-import java.util.concurrent.Future;
-
-import javax.management.InstanceAlreadyExistsException;
-import javax.management.MBeanRegistrationException;
-import javax.management.MBeanServer;
-import javax.management.MalformedObjectNameException;
-import javax.management.NotCompliantMBeanException;
-import javax.management.ObjectName;
 import javax.net.ssl.SSLEngine;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
-import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
-import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.handler.timeout.IdleStateHandler;
 import org.jboss.netty.util.Timer;
@@ -32,39 +19,15 @@ import org.slf4j.LoggerFactory;
  * Factory for creating pipelines for incoming requests to our listening
  * socket.
  */
-public class HttpServerPipelineFactory implements ChannelPipelineFactory, 
-    AllConnectionData {
+public class HttpServerPipelineFactory implements ChannelPipelineFactory {
     
-    private static final Logger log = 
-        LoggerFactory.getLogger(HttpServerPipelineFactory.class);
-    
-    /**
-     * An implementation of {@link ProxyCacheManager} that doesn't do anything.
-     */
-    private static final ProxyCacheManager NOP = new ProxyCacheManager() {
-        @Override
-        public boolean returnCacheHit(HttpRequest request, Channel channel) {
-            return false;
-        }
-        
-        @Override
-        public Future<String> cache(HttpRequest originalRequest,
-                HttpResponse httpResponse, Object response, ChannelBuffer encoded) {
-            return null;
-        }
-    };
+    private static final Logger LOG = LoggerFactory.getLogger(HttpServerPipelineFactory.class);
     
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final ChainProxyManager chainProxyManager;
-
-    private final ProxyCacheManager cacheManager = NOP;
     
     private final KeyStoreManager ksm;
-
-    private int numHandlers;
-
-    //private boolean useJmx;
     
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
 
@@ -97,48 +60,20 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         this.timer = timer;
         this.clientChannelFactory = clientChannelFactory;
         
-        log.info("Creating server with keystore manager: {}", ksm);
+        LOG.info("Creating server with keystore manager: {}", ksm);
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.chainProxyManager = chainProxyManager;
         this.ksm = ksm;
-        
-        if (LittleProxyConfig.isUseJmx()) {
-            setupJmx();
-        }
-    }
-    
-    private void setupJmx() {
-        final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-        try {
-            final Class<? extends AllConnectionData> clazz = getClass();
-            final String pack = clazz.getPackage().getName();
-            final String oName =
-                pack+":type="+clazz.getSimpleName()+"-"+clazz.getSimpleName() + 
-                hashCode();
-            log.info("Registering MBean with name: {}", oName);
-            final ObjectName mxBeanName = new ObjectName(oName);
-            if(!mbs.isRegistered(mxBeanName)) {
-                mbs.registerMBean(this, mxBeanName);
-            }
-        } catch (final MalformedObjectNameException e) {
-            log.error("Could not set up JMX", e);
-        } catch (final InstanceAlreadyExistsException e) {
-            log.error("Could not set up JMX", e);
-        } catch (final MBeanRegistrationException e) {
-            log.error("Could not set up JMX", e);
-        } catch (final NotCompliantMBeanException e) {
-            log.error("Could not set up JMX", e);
-        }
     }
     
     @Override
     public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = pipeline();
 
-        log.info("Accessing pipeline");
+        LOG.info("Accessing pipeline");
         if (this.ksm != null) {
-            log.info("Adding SSL handler");
+            LOG.info("Adding SSL handler");
             final SslContextFactory scf = new SslContextFactory(this.ksm);
             final SSLEngine engine = scf.getServerContext().createSSLEngine();
             engine.setUseClientMode(false);
@@ -149,7 +84,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         // respectively.
         pipeline.addLast("decoder", 
             new HttpRequestDecoder(8192, 8192*2, 8192*2));
-        pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
+        pipeline.addLast("encoder", new ProxyHttpResponseEncoder());
         
         
         /*
@@ -159,7 +94,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         */
 
         final HttpRequestHandler httpRequestHandler = 
-            new HttpRequestHandler(this.cacheManager, authenticationManager,
+            new HttpRequestHandler(authenticationManager,
             this.channelGroup, this.chainProxyManager, 
             relayPipelineFactoryFactory, this.clientChannelFactory);
         
@@ -167,12 +102,6 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         //pipeline.addLast("idleAware", new IdleAwareHandler("Client-Pipeline"));
         pipeline.addLast("idleAware", new IdleRequestHandler(httpRequestHandler));
         pipeline.addLast("handler", httpRequestHandler);
-        this.numHandlers++;
         return pipeline;
-    }
-
-    @Override
-    public int getNumRequestHandlers() {
-        return this.numHandlers;
     }
 }

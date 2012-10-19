@@ -3,7 +3,6 @@ package org.littleshoot.proxy;
 import static org.jboss.netty.channel.Channels.pipeline;
 import static org.littleshoot.proxy.ProxyUtils.UTF8_CHARSET;
 
-import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -17,13 +16,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.management.InstanceAlreadyExistsException;
-import javax.management.MBeanRegistrationException;
-import javax.management.MBeanServer;
-import javax.management.MalformedObjectNameException;
-import javax.management.NotCompliantMBeanException;
-import javax.management.ObjectName;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -62,7 +54,7 @@ import org.slf4j.LoggerFactory;
  * to host A has completed.
  */
 public class HttpRequestHandler extends SimpleChannelUpstreamHandler 
-    implements RelayListener, ConnectionData {
+    implements RelayListener {
 
     private final static Logger log = 
         LoggerFactory.getLogger(HttpRequestHandler.class);
@@ -106,8 +98,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     
     private final ChainProxyManager chainProxyManager;
     private final ChannelGroup channelGroup;
-
-    private final ProxyCacheManager cacheManager;
     
     private final AtomicBoolean browserChannelClosed = new AtomicBoolean(false);
     private volatile boolean receivedChannelClosed = false;
@@ -138,15 +128,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     public HttpRequestHandler(
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
         final ClientSocketChannelFactory clientChannelFactory) {
-        this(null, null, null, null, 
-            relayPipelineFactoryFactory, clientChannelFactory);
+        this(null, null, relayPipelineFactoryFactory, clientChannelFactory);
     }
     
     /**
      * Creates a new class for handling HTTP requests with the specified
      * authentication manager.
-     * 
-     * @param cacheManager The manager for the cache. 
      * @param authorizationManager The class that handles any 
      * proxy authentication requirements.
      * @param channelGroup The group of channels for keeping track of all
@@ -156,20 +143,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * @param clientChannelFactory The factory for creating outgoing channels
      * to external sites.
      */
-    public HttpRequestHandler(final ProxyCacheManager cacheManager, 
-        final ProxyAuthorizationManager authorizationManager, 
+    public HttpRequestHandler(final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
         final ClientSocketChannelFactory clientChannelFactory) {
-        this(cacheManager, authorizationManager, channelGroup,
-            null, relayPipelineFactoryFactory, clientChannelFactory);
+        this(authorizationManager, channelGroup, null,
+            relayPipelineFactoryFactory, clientChannelFactory);
     }
     
     /**
      * Creates a new class for handling HTTP requests with the specified
      * authentication manager.
-     * 
-     * @param cacheManager The manager for the cache. 
      * @param authorizationManager The class that handles any 
      * proxy authentication requirements.
      * @param channelGroup The group of channels for keeping track of all
@@ -180,48 +164,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * @param clientChannelFactory The factory for creating outgoing channels
      * to external sites.
      */
-    public HttpRequestHandler(final ProxyCacheManager cacheManager, 
-        final ProxyAuthorizationManager authorizationManager, 
+    public HttpRequestHandler(final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, 
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
         final ClientSocketChannelFactory clientChannelFactory) {
         log.info("Creating new request handler...");
         this.clientChannelFactory = clientChannelFactory;
-        this.cacheManager = cacheManager;
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.chainProxyManager = chainProxyManager;
         this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
-        if (LittleProxyConfig.isUseJmx()) {
-            setupJmx();
-        }
-    }
-
-
-    private void setupJmx() {
-        final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-        try {
-            final Class<? extends SimpleChannelUpstreamHandler> clazz = 
-                getClass();
-            final String pack = clazz.getPackage().getName();
-            final String oName =
-                pack+":type="+clazz.getSimpleName()+"-"+clazz.getSimpleName() + 
-                "-"+hashCode();
-            log.info("Registering MBean with name: {}", oName);
-            final ObjectName mxBeanName = new ObjectName(oName);
-            if(!mbs.isRegistered(mxBeanName)) {
-                mbs.registerMBean(this, mxBeanName);
-            }
-        } catch (final MalformedObjectNameException e) {
-            log.error("Could not set up JMX", e);
-        } catch (final InstanceAlreadyExistsException e) {
-            log.error("Could not set up JMX", e);
-        } catch (final MBeanRegistrationException e) {
-            log.error("Could not set up JMX", e);
-        } catch (final NotCompliantMBeanException e) {
-            log.error("Could not set up JMX", e);
-        }
     }
     
     @Override
@@ -319,12 +272,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final HttpRequest request = (HttpRequest) me.getMessage();
         
         final Channel inboundChannel = me.getChannel();
-        if (this.cacheManager != null &&
-            this.cacheManager.returnCacheHit((HttpRequest)me.getMessage(), 
-            inboundChannel)) {
-            log.info("Found cache hit! Cache wrote the response.");
-            return;
-        }
         this.unansweredRequestCount.incrementAndGet();
         
         log.info("Got request: {} on channel: {}", request, inboundChannel);
@@ -364,9 +311,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         @Override
                         public void operationComplete(final ChannelFuture future) 
                             throws Exception {
-                            if (LittleProxyConfig.isUseJmx()) {
-                                unansweredRequests.add(request.toString());
-                            }
                             unansweredHttpRequests.add(request);
                             requestsSent.incrementAndGet();
                         }
@@ -763,10 +707,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     @Override
     public void onRelayHttpResponse(final Channel browserToProxyChannel,
         final String key, final HttpRequest httpRequest) {
-        if (LittleProxyConfig.isUseJmx()) {
-            this.answeredRequests.add(httpRequest.toString());
-            this.unansweredRequests.remove(httpRequest.toString());
-        }
+        
         this.unansweredHttpRequests.remove(httpRequest);
         this.unansweredRequestCount.decrementAndGet();
         this.responsesReceived.incrementAndGet();
@@ -800,43 +741,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
         ProxyUtils.closeOnFlush(channel);
     }
-    
-    @Override
-    public int getClientConnections() {
-        return this.browserToProxyConnections.get();
-    }
-    
-    @Override
-    public int getTotalClientConnections() {
-        return totalBrowserToProxyConnections.get();
-    }
 
-    @Override
-    public int getOutgoingConnections() {
-        return this.externalHostsToChannelFutures.size();
-    }
-
-    @Override
-    public int getRequestsSent() {
-        return this.requestsSent.get();
-    }
-
-    @Override
-    public int getResponsesReceived() {
-        return this.responsesReceived.get();
-    }
-
-    @Override
-    public String getUnansweredRequests() {
-        return this.unansweredRequests.toString();
-    }
-
-    public Set<HttpRequest> getUnansweredHttpRequests() {
+    Set<HttpRequest> getUnansweredHttpRequests() {
       return unansweredHttpRequests;
-    }
-
-    @Override
-    public String getAnsweredReqeusts() {
-        return this.answeredRequests.toString();
     }
 }

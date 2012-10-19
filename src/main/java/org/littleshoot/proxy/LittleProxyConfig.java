@@ -44,9 +44,6 @@ public class LittleProxyConfig {
     private static boolean useDnsSec = 
         ProxyUtils.extractBooleanDefaultFalse(props, "dnssec");
     
-    private static boolean useJmx = 
-        ProxyUtils.extractBooleanDefaultFalse(props, "jmx");
-    
     private LittleProxyConfig(){}
 
     /**
@@ -67,24 +64,5 @@ public class LittleProxyConfig {
      */
     public static boolean isUseDnsSec() {
         return useDnsSec;
-    }
-
-    /**
-     * Whether or not to use JMX -- defaults to false.
-     * 
-     * @param useJmx Whether or not to use JMX.
-     */
-    public static void setUseJmx(boolean useJmx) {
-        LittleProxyConfig.useJmx = useJmx;
-    }
-
-    /**
-     * Returns whether or not JMX is turned on.
-     * 
-     * @return <code>true</code> if JMX is turned on, otherwise 
-     * <code>false</code>.
-     */
-    public static boolean isUseJmx() {
-        return useJmx;
     }
 }
