@@ -41,7 +41,6 @@ import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.HttpVersion;
-import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -602,15 +601,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         cb.setPipelineFactory(cpf);
         cb.setOption("connectTimeoutMillis", 40*1000);
         log.debug("Starting new connection to: {}", hostAndPort);
-        if (LittleProxyConfig.isUseDnsSec()) {
-            return cb.connect(VerifiedAddressFactory.newInetSocketAddress(host, port, 
-                    LittleProxyConfig.isUseDnsSec()));
-        } else {
-            final InetAddress ia = InetAddress.getByName(host);
-            final String address = ia.getHostAddress();
-            //final InetSocketAddress address = new InetSocketAddress(host, port);
-            return cb.connect(new InetSocketAddress(address, port));
-        }
+        
+        final InetAddress ia = InetAddress.getByName(host);
+        final String address = ia.getHostAddress();
+        //final InetSocketAddress address = new InetSocketAddress(host, port);
+        return cb.connect(new InetSocketAddress(address, port));
     }
     
     @Override
