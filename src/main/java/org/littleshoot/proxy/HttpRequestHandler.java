@@ -367,6 +367,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler implements 
                 @Override
                 public void operationComplete(final ChannelFuture future)
                     throws Exception {
+                    
                     final Channel channel = future.getChannel();
                     if (channelGroup != null) {
                         channelGroup.add(channel);
@@ -401,6 +402,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler implements 
                         if (!tryAgain) {
                             // We call the relay channel closed event handler
                             // with one associated unanswered request.
+                            badGateway(request, inboundChannel);
                             onRelayChannelClose(inboundChannel, address, 1, true);
                             
                         } else {
