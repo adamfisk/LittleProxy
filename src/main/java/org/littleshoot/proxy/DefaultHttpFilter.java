@@ -31,6 +31,7 @@ public class DefaultHttpFilter implements HttpFilter {
         this.requestMatchers = Arrays.asList(requestRules);
     }
 
+    @Override
     public boolean filterResponses(final HttpRequest httpRequest) {
         for (final HttpRequestMatcher rule : requestMatchers) {
             if (!rule.filterResponses(httpRequest)) {
@@ -40,11 +41,13 @@ public class DefaultHttpFilter implements HttpFilter {
         return true;
     }
 
+    @Override
     public HttpResponse filterResponse(final HttpRequest request, 
         final HttpResponse response) {
         return responseFilter.filterResponse(request, response);
     }
     
+    @Override
     public int getMaxResponseSize() {
         return 1024 * 1000;
     }

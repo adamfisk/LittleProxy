@@ -79,7 +79,7 @@ public class EndToEndStoppingTest {
 
         final HttpProxyServer proxy = 
             new DefaultHttpProxyServer(PROXY_PORT, new HttpRequestFilter() {
-
+            @Override
             public void filter(HttpRequest httpRequest) {
                 System.out.println("Request went through proxy");
             }

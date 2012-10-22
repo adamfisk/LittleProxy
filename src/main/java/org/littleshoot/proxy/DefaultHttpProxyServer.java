@@ -1,13 +1,15 @@
 package org.littleshoot.proxy;
 
+import static org.littleshoot.proxy.NopHttpResponseFilters.NO_RESPONSE_FILTERS;
+
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
@@ -20,6 +22,7 @@ import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.ServerSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.ThreadNameDeterminer;
 import org.jboss.netty.util.ThreadRenamingRunnable;
@@ -32,7 +35,23 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
     
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private static final Logger log = LoggerFactory.getLogger(DefaultHttpProxyServer.class);
+    
+    private static final ChainProxyManager DEFAULT = new ChainProxyManager() {
+        
+        @Override
+        public SocketAddress getChainProxy(HttpRequest httpRequest) throws Exception {
+            return ProxyUtils.parseHostAndPort(httpRequest);
+        }
+        
+        @Override
+        public boolean onCommunicationError(SocketAddress address, Throwable cause) {
+            if (log.isErrorEnabled()) {
+                log.error("Communication Error: {}", address, cause);
+            }
+            return false;
+        }
+    };
     
     private final ChannelGroup allChannels = 
         new DefaultChannelGroup("HTTP-Proxy-Server");
@@ -76,11 +95,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param port The port the server should run on.
      */
     public DefaultHttpProxyServer(final int port) {
-        this(port, new HttpResponseFilters() {
-            public HttpFilter getFilter(String hostAndPort) {
-                return null;
-            }
-        });
+        this(port, NO_RESPONSE_FILTERS);
     }
     
     /**
@@ -111,11 +126,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     public DefaultHttpProxyServer(final int port, 
         final HttpRequestFilter requestFilter) {
-        this(port, requestFilter, new HttpResponseFilters() {
-            public HttpFilter getFilter(String hostAndPort) {
-                return null;
-            }
-        });
+        this(port, requestFilter, NO_RESPONSE_FILTERS);
     }
 
     /**
@@ -154,11 +165,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final ClientSocketChannelFactory clientChannelFactory, 
         final Timer timer,
         final ServerSocketChannelFactory serverChannelFactory) {
-        this(port, new HttpResponseFilters() {
-            public HttpFilter getFilter(String hostAndPort) {
-                return null;
-            }
-        }, null, null, requestFilter, clientChannelFactory, timer, 
+        this(port, NO_RESPONSE_FILTERS, null, null, requestFilter, clientChannelFactory, timer, 
         serverChannelFactory);
     }
     
@@ -208,13 +215,18 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param serverChannelFactory The factory for creating listening channels
      * for incoming connections.
      */
-    public DefaultHttpProxyServer(final int port, 
-        final HttpResponseFilters responseFilters,
-        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
-        final HttpRequestFilter requestFilter,
-        final ClientSocketChannelFactory clientChannelFactory, 
-        final Timer timer,
-        final ServerSocketChannelFactory serverChannelFactory) {
+    public DefaultHttpProxyServer(int port, 
+        HttpResponseFilters responseFilters,
+        ChainProxyManager chainProxyManager, KeyStoreManager ksm,
+        HttpRequestFilter requestFilter,
+        ClientSocketChannelFactory clientChannelFactory, 
+        Timer timer,
+        ServerSocketChannelFactory serverChannelFactory) {
+        
+        if (chainProxyManager == null) {
+            chainProxyManager = DEFAULT;
+        }
+        
         this.port = port;
         this.responseFilters = responseFilters;
         this.ksm = ksm;
@@ -224,6 +236,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.timer = timer;
         this.serverChannelFactory = serverChannelFactory;
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+            @Override
             public void uncaughtException(final Thread t, final Throwable e) {
                 log.error("Uncaught throwable", e);
             }
@@ -236,12 +249,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             new ServerBootstrap(serverChannelFactory);
     }
 
+    @Override
     public void start() {
         start(false, true);
     }
     
+    @Override
     public void start(final boolean localOnly, final boolean anyAddress) {
-        log.info("Starting proxy on port: "+this.port);
+        log.info("Starting proxy on port: {}", this.port);
         this.stopped.set(false);
         final HttpServerPipelineFactory factory = 
             new HttpServerPipelineFactory(authenticationManager, 
@@ -271,6 +286,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         allChannels.add(channel);
         
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            @Override
             public void run() {
                 stop();
             }
@@ -288,6 +304,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     
     private final AtomicBoolean stopped = new AtomicBoolean(false);
     
+    @Override
     public void stop() {
         log.info("Shutting down proxy");
         if (stopped.get()) {
@@ -320,6 +337,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         log.info("Done shutting down proxy");
     }
 
+    @Override
     public void addProxyAuthenticationHandler(
         final ProxyAuthorizationHandler pah) {
         this.authenticationManager.addHandler(pah);
@@ -329,31 +347,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return this.ksm;
     }
     
-    
     private static Executor newClientThreadPool() {
-        return Executors.newCachedThreadPool(
-            new ThreadFactory() {
-                
-                private int num = 0;
-                public Thread newThread(final Runnable r) {
-                    final Thread t = new Thread(r, 
-                        "LittleProxy-NioClientSocketChannelFactory-Thread-"+num++);
-                    return t;
-                }
-            });
+        return Executors.newCachedThreadPool(new DefaultThreadFactory("LittleProxy-NioClientSocketChannelFactory-Thread"));
     }
     
     private static Executor newServerThreadPool() {
-        return Executors.newCachedThreadPool(
-            new ThreadFactory() {
-                
-                private int num = 0;
-                public Thread newThread(final Runnable r) {
-                    final Thread t = new Thread(r, 
-                        "LittleProxy-NioServerSocketChannelFactory-Thread-"+num++);
-                    return t;
-                }
-            });
+        return Executors.newCachedThreadPool(new DefaultThreadFactory("LittleProxy-NioServerSocketChannelFactory-Thread"));
     }
-
 }

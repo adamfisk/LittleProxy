@@ -55,6 +55,7 @@ public class SelfSignedKeyStoreManager implements KeyStoreManager {
         return "";
     }
 
+    @Override
     public InputStream keyStoreAsInputStream() {
         try {
             return new FileInputStream(KEYSTORE_FILE);
@@ -63,18 +64,22 @@ public class SelfSignedKeyStoreManager implements KeyStoreManager {
         }
     }
     
+    @Override
     public InputStream trustStoreAsInputStream() {
         return null;
     }
 
+    @Override
     public char[] getCertificatePassword() {
         return PASS.toCharArray();
     }
 
+    @Override
     public char[] getKeyStorePassword() {
         return PASS.toCharArray();
     }
     
+    @Override
     public void addBase64Cert(final String alias, final String base64Cert) {
     }
 
@@ -85,8 +90,8 @@ public class SelfSignedKeyStoreManager implements KeyStoreManager {
             final Process process = pb.start();
             final InputStream is = process.getInputStream();
             final String data = IOUtils.toString(is);
-            log.info("Completed native call: '{}'\nResponse: '"+data+"'", 
-                Arrays.asList(commands));
+            log.info("Completed native call: '{}'\nResponse: '{}'", 
+                Arrays.asList(commands), data);
             return data;
         } catch (final IOException e) {
             log.error("Error running commands: " + Arrays.asList(commands), e);
@@ -94,6 +99,7 @@ public class SelfSignedKeyStoreManager implements KeyStoreManager {
         }
     }
 
+    @Override
     public TrustManager[] getTrustManagers() {
         // We don't use client authentication, so we should not need trust
         // managers.

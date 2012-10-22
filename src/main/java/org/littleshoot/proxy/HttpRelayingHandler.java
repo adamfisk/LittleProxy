@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import java.net.SocketAddress;
 import java.util.LinkedList;
 import java.util.Queue;
 
@@ -50,7 +51,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
 
     private final RelayListener relayListener;
 
-    private final String hostAndPort;
+    private final SocketAddress address;
 
     private boolean closeEndsResponseBody;
 
@@ -63,11 +64,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param relayListener The relay listener.
      * @param hostAndPort Host and port we're relaying to.
      */
-    public HttpRelayingHandler(final Channel browserToProxyChannel, 
-        final ChannelGroup channelGroup, 
-        final RelayListener relayListener, final String hostAndPort) {
+    public HttpRelayingHandler(Channel browserToProxyChannel, 
+        ChannelGroup channelGroup, RelayListener relayListener, SocketAddress address) {
         this (browserToProxyChannel, channelGroup, new NoOpHttpFilter(),
-            relayListener, hostAndPort);
+            relayListener, address);
     }
     
     /**
@@ -80,14 +80,14 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      * @param relayListener The relay listener.
      * @param hostAndPort Host and port we're relaying to.
      */
-    public HttpRelayingHandler(final Channel browserToProxyChannel,
-        final ChannelGroup channelGroup, final HttpFilter filter,
-        final RelayListener relayListener, final String hostAndPort) {
+    public HttpRelayingHandler(Channel browserToProxyChannel,
+            ChannelGroup channelGroup, HttpFilter filter,
+            RelayListener relayListener, SocketAddress address) {
         this.browserToProxyChannel = browserToProxyChannel;
         this.channelGroup = channelGroup;
         this.httpFilter = filter;
         this.relayListener = relayListener;
-        this.hostAndPort = hostAndPort;
+        this.address = address;
     }
 
     @Override
@@ -229,10 +229,11 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             if (wroteFullResponse) {
                 log.debug("Notifying request handler of completed response.");
                 future.addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         relayListener.onRelayHttpResponse(browserToProxyChannel, 
-                            hostAndPort, currentHttpRequest);
+                            address, currentHttpRequest);
                     }
                 });
             }
@@ -249,6 +250,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 // particularly when there are no more remote connections
                 // associated with that browser connection.
                 future.addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         if (me.getChannel().isConnected()) {
@@ -261,6 +263,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             if (closePending) {
                 log.debug("Closing connection to browser after writes");
                 future.addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         log.info("Closing browser connection on flush!!");
@@ -270,7 +273,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
             if (wroteFullResponse && (!closePending && !closeRemote)) {
                 log.debug("Making remote channel available for requests");
-                this.relayListener.onChannelAvailable(hostAndPort,
+                this.relayListener.onChannelAvailable(address,
                     Channels.succeededFuture(me.getChannel()));
             }
         }
@@ -437,8 +440,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void channelClosed(final ChannelHandlerContext ctx, 
         final ChannelStateEvent e) throws Exception {
-        log.debug("Got closed event on proxy -> web connection: {}",
-            e.getChannel());
+        log.debug("Got closed event on proxy -> web connection: {}", e.getChannel());
         
         // We shouldn't close the connection to the browser 
         // here, as there can be multiple connections to external sites for
@@ -446,15 +448,14 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         final int unansweredRequests = this.requestQueue.size();
         log.debug("Unanswered requests: {}", unansweredRequests);
         this.relayListener.onRelayChannelClose(browserToProxyChannel, 
-            this.hostAndPort, unansweredRequests, this.closeEndsResponseBody);
+                address, unansweredRequests, this.closeEndsResponseBody);
     }
 
     @Override
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
         final Throwable cause = e.getCause();
-        final String message = 
-            "Caught exception on proxy -> web connection: "+e.getChannel();
+        
         final boolean warn;
         if (cause != null) {
             final String msg = cause.getMessage();
@@ -467,9 +468,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             warn = true;
         }
         if (warn) {
-            log.warn(message, cause);
+            log.warn("Caught exception on proxy -> web connection: {}", e.getChannel(), cause);
         } else {
-            log.debug(message, cause);
+            log.debug("Caught exception on proxy -> web connection: {}", e.getChannel(), cause);
         }
         if (e.getChannel().isConnected()) {
             if (warn) {

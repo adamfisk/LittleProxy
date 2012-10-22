@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
-import java.io.UnsupportedEncodingException;
+import static org.littleshoot.proxy.ProxyUtils.UTF8_CHARSET;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -26,10 +27,12 @@ public class DefaultProxyAuthorizationManager implements
     private final Collection<ProxyAuthorizationHandler> handlers =
         new ArrayList<ProxyAuthorizationHandler>();
     
+    @Override
     public void addHandler(final ProxyAuthorizationHandler pah) {
         this.handlers.add(pah);
     }
 
+    @Override
     public boolean handleProxyAuthorization(final HttpRequest request,
         final ChannelHandlerContext ctx) {
         if (!request.containsHeader(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
@@ -46,19 +49,15 @@ public class DefaultProxyAuthorizationManager implements
         final String value =
             StringUtils.substringAfter(fullValue, "Basic ").trim();
         final byte[] decodedValue = Base64.decodeBase64(value);
-        try {
-            final String decodedString = new String(decodedValue, "UTF-8");
-            final String userName = StringUtils.substringBefore(decodedString, ":");
-            final String password = StringUtils.substringAfter(decodedString, ":");
-            for (final ProxyAuthorizationHandler handler : this.handlers) {
-                if (!handler.authenticate(userName, password)) {
-                    rejectRequest(ctx);
-                    return false;
-                }
+        
+        final String decodedString = new String(decodedValue, UTF8_CHARSET);
+        final String userName = StringUtils.substringBefore(decodedString, ":");
+        final String password = StringUtils.substringAfter(decodedString, ":");
+        for (final ProxyAuthorizationHandler handler : this.handlers) {
+            if (!handler.authenticate(userName, password)) {
+                rejectRequest(ctx);
+                return false;
             }
-        }
-        catch (final UnsupportedEncodingException e) {
-            log.error("Could not decode?", e);
         }
         
         log.info("Got proxy authorization!");
@@ -93,7 +92,7 @@ public class DefaultProxyAuthorizationManager implements
             "browser doesn't understand how to supply\n"+
             "the credentials required.</p>\n"+
             "</body></html>\n";
-        log.info("Content-Length is really: "+responseBody.length());
+        log.info("Content-Length is really: {}", responseBody.length());
         ProxyUtils.writeResponse(ctx.getChannel(), statusLine, headers, responseBody);
     }
 }

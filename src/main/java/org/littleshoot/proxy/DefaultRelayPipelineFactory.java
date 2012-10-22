@@ -2,6 +2,8 @@ package org.littleshoot.proxy;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
+import java.net.SocketAddress;
+
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -25,7 +27,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
     private static final Logger LOG = 
         LoggerFactory.getLogger(DefaultRelayPipelineFactory.class);
     
-    private final String hostAndPort;
+    private final SocketAddress address;
     private final HttpRequest httpRequest;
     private final RelayListener relayListener;
     private final Channel browserToProxyChannel;
@@ -38,14 +40,15 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
 
     private final Timer timer;
 
-    public DefaultRelayPipelineFactory(final String hostAndPort, 
-        final HttpRequest httpRequest, final RelayListener relayListener, 
-        final Channel browserToProxyChannel,
-        final ChannelGroup channelGroup, 
-        final HttpResponseFilters responseFilters, 
-        final HttpRequestFilter requestFilter, 
-        final ChainProxyManager chainProxyManager, final Timer timer) {
-        this.hostAndPort = hostAndPort;
+    public DefaultRelayPipelineFactory(SocketAddress address, 
+        HttpRequest httpRequest, RelayListener relayListener, 
+        Channel browserToProxyChannel,
+        ChannelGroup channelGroup, 
+        HttpResponseFilters responseFilters, 
+        HttpRequestFilter requestFilter, 
+        ChainProxyManager chainProxyManager, Timer timer) {
+        
+        this.address = address;
         this.httpRequest = httpRequest;
         this.relayListener = relayListener;
         this.browserToProxyChannel = browserToProxyChannel;
@@ -59,7 +62,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         this.filtersOff = responseFilters == null;
     }
     
-
+    @Override
     public ChannelPipeline getPipeline() throws Exception {
         // Create a default pipeline implementation.
         final ChannelPipeline pipeline = pipeline();
@@ -85,14 +88,14 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         }
         pipeline.addLast("decoder", decoder);
         
-        LOG.debug("Querying for host and port: {}", hostAndPort);
+        LOG.debug("Querying for host and port: {}", address);
         final boolean shouldFilter;
         final HttpFilter filter;
         if (filtersOff) {
             shouldFilter = false;
             filter = null;
         } else {
-            filter = responseFilters.getFilter(hostAndPort);
+            filter = responseFilters.getFilter(address);
             if (filter == null) {
                 LOG.info("No filter found");
                 shouldFilter = false;
@@ -109,7 +112,7 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
                         new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
                 }
             }
-            LOG.debug("Filtering: "+shouldFilter);
+            LOG.debug("Filtering: {}", shouldFilter);
         }
         
         // The trick here is we need to determine whether or not
@@ -121,11 +124,11 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         if (shouldFilter) {
             LOG.info("Creating relay handler with filter");
             handler = new HttpRelayingHandler(browserToProxyChannel, 
-                channelGroup, filter, relayListener, hostAndPort);
+                channelGroup, filter, relayListener, address);
         } else {
             LOG.info("Creating non-filtering relay handler");
             handler = new HttpRelayingHandler(browserToProxyChannel, 
-                channelGroup, relayListener, hostAndPort);
+                channelGroup, relayListener, address);
         }
         
         final ProxyHttpRequestEncoder encoder = 

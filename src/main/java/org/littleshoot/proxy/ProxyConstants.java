@@ -21,4 +21,8 @@ public class ProxyConstants {
      */
     public static final String CHUNK_CACHE = "CHUNK_CACHE";
 
+    /**
+     * The default HTTP port if nothing is specified.
+     */
+    public static final int HTTP_PORT = 80;
 }

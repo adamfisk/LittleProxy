@@ -4,12 +4,12 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.ChannelHandler.Sharable;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.channel.ChannelHandler.Sharable;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +60,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
         if (relayChannel.isConnected()) {
             final ChannelFutureListener logListener = 
                 new ChannelFutureListener() {
+                @Override
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
                     LOG.debug("Finished writing data on CONNECT channel");
@@ -94,8 +95,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void exceptionCaught(final ChannelHandlerContext ctx, 
         final ExceptionEvent e) throws Exception {
-        LOG.info("Caught exception on proxy -> web connection: "+
-            e.getChannel(), e.getCause());
+        LOG.info("Caught exception on proxy -> web connection: {}", e.getChannel(), e.getCause());
         ProxyUtils.closeOnFlush(e.getChannel());
     }
 }

@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import java.net.SocketAddress;
+
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.handler.codec.http.HttpRequest;
@@ -9,12 +11,12 @@ import org.jboss.netty.handler.codec.http.HttpRequest;
  */
 public interface RelayListener {
 
-    void onRelayChannelClose(Channel browserToProxyChannel, String hostAndPort, 
+    void onRelayChannelClose(Channel browserToProxyChannel, SocketAddress address, 
         int unansweredRequests, boolean closedEndsResponseBody);
     
-    void onRelayHttpResponse(Channel browserToProxyChannel, String hostAndPort, 
+    void onRelayHttpResponse(Channel browserToProxyChannel, SocketAddress address, 
         HttpRequest httpRequest);
 
-    void onChannelAvailable(String hostAndPort, ChannelFuture channelFuture);
+    void onChannelAvailable(SocketAddress address, ChannelFuture channelFuture);
 
 }

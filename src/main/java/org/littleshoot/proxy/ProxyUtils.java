@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
-import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
@@ -54,38 +54,47 @@ public class ProxyUtils {
      */
     public static final String PATTERN_RFC1036 = "EEEE, dd-MMM-yy HH:mm:ss zzz";
     
-    private static final Set<String> hopByHopHeaders = new HashSet<String>();
+    /**
+     * A {@link String} constant for UTF-8
+     */
+    public static final String UTF8 = "UTF-8";
     
-    private static final String via;
-    private static final String hostName;
+    /**
+     * A {@link Charset} constant for UTF-8
+     */
+    public static final Charset UTF8_CHARSET = Charset.forName(UTF8);
+    
+    private static final Set<String> HOP_BY_HOP_HEADERS = new HashSet<String>();
+    
+    private static final String VIA;
+    private static final String HOSTNAME;
     
     static {
         try {
             final InetAddress localAddress = InetAddress.getLocalHost();
-            hostName = localAddress.getHostName();
+            HOSTNAME = localAddress.getHostName();
         }
         catch (final UnknownHostException e) {
             LOG.error("Could not lookup host", e);
             throw new IllegalStateException("Could not determine host!", e);
         }
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Via: 1.1 ");
-        sb.append(hostName);
-        sb.append("\r\n");
-        via = sb.toString();
         
-        //hopByHopHeaders.add("proxy-connection");
-        hopByHopHeaders.add("connection");
-        hopByHopHeaders.add("keep-alive");
-        hopByHopHeaders.add("proxy-authenticate");
-        hopByHopHeaders.add("proxy-authorization");
-        hopByHopHeaders.add("te");
-        hopByHopHeaders.add("trailers");
+        StringBuilder sb = new StringBuilder();
+        sb.append("Via: 1.1 ").append(HOSTNAME).append("\r\n");
+        VIA = sb.toString();
+        
+        //HOP_BY_HOP_HEADERS.add("proxy-connection");
+        HOP_BY_HOP_HEADERS.add("connection");
+        HOP_BY_HOP_HEADERS.add("keep-alive");
+        HOP_BY_HOP_HEADERS.add("proxy-authenticate");
+        HOP_BY_HOP_HEADERS.add("proxy-authorization");
+        HOP_BY_HOP_HEADERS.add("te");
+        HOP_BY_HOP_HEADERS.add("trailers");
         
         // We pass Transfer-Encoding along in both directions, as we don't
         // choose to modify it.
-        //hopByHopHeaders.add("transfer-encoding");
-        hopByHopHeaders.add("upgrade");
+        //HOP_BY_HOP_HEADERS.add("transfer-encoding");
+        HOP_BY_HOP_HEADERS.add("upgrade");
     }
 
     /**
@@ -93,6 +102,7 @@ public class ProxyUtils {
      */
     public static final ChannelFutureListener NO_OP_LISTENER = 
         new ChannelFutureListener() {
+        @Override
         public void operationComplete(final ChannelFuture future) 
             throws Exception {
             LOG.info("No op listener - write finished");
@@ -105,7 +115,7 @@ public class ProxyUtils {
     public static final String CONNECT_OK_HEADERS = 
         "Connection: Keep-Alive\r\n"+
         "Proxy-Connection: Keep-Alive\r\n"+
-        via + 
+        VIA + 
         "\r\n";
 
     /**
@@ -116,11 +126,12 @@ public class ProxyUtils {
         "Proxy-Connection: close\r\n"+
         "Pragma: no-cache\r\n"+
         "Cache-Control: no-cache\r\n" +
-        via +
+        VIA +
         "\r\n";
 
     public static final HttpRequestFilter PASS_THROUGH_REQUEST_FILTER = 
         new HttpRequestFilter() {
+            @Override
             public void filter(final HttpRequest httpRequest) {
             }
         };
@@ -130,8 +141,8 @@ public class ProxyUtils {
     }
     
     // Schemes are case-insensitive: http://tools.ietf.org/html/rfc3986#section-3.1
-    private static Pattern HTTP_PREFIX  = Pattern.compile("http.*",  Pattern.CASE_INSENSITIVE);
-    private static Pattern HTTPS_PREFIX = Pattern.compile("https.*", Pattern.CASE_INSENSITIVE);
+    private static final Pattern HTTP_PREFIX  = Pattern.compile("http.*",  Pattern.CASE_INSENSITIVE);
+    private static final Pattern HTTPS_PREFIX = Pattern.compile("https.*", Pattern.CASE_INSENSITIVE);
 
     /**
      * Strips the host from a URI string. This will turn "http://host.com/path"
@@ -270,17 +281,11 @@ public class ProxyUtils {
         final String statusLine, final String headers, 
         final String responseBody) {
         final String fullResponse = statusLine + headers + responseBody;
-        LOG.info("Writing full response:\n"+fullResponse);
-        try {
-            final ChannelBuffer buf = 
-                ChannelBuffers.copiedBuffer(fullResponse.getBytes("UTF-8"));
-            channel.write(buf);
-            channel.setReadable(true);
-        }
-        catch (final UnsupportedEncodingException e) {
-            // Never.
-            return;
-        }    
+        LOG.info("Writing full response:\n{}", fullResponse);
+        
+        final ChannelBuffer buf = ChannelBuffers.copiedBuffer(fullResponse.getBytes(UTF8_CHARSET));
+        channel.write(buf);
+        channel.setReadable(true);
     }
 
     /**
@@ -300,7 +305,7 @@ public class ProxyUtils {
             sb.append(value);
             sb.append("\n");
         }
-        LOG.debug("\n"+sb.toString());
+        LOG.debug("{}", sb);
     }
 
     /**
@@ -311,7 +316,7 @@ public class ProxyUtils {
      */
     public static void printHeader(final HttpMessage msg, final String name) {
         final String value = msg.getHeader(name);
-        LOG.debug(name + ": "+value);
+        LOG.debug("{}: {}", name, value);
     }
     
 
@@ -325,6 +330,7 @@ public class ProxyUtils {
     }
     
     private static ChannelFutureListener CLOSE = new ChannelFutureListener() {
+        @Override
         public void operationComplete(final ChannelFuture future) {
             final Channel ch = future.getChannel();
             if (ch.isOpen()) {
@@ -351,7 +357,7 @@ public class ProxyUtils {
      * @param httpRequest The request.
      * @return The host and port string.
      */
-    public static String parseHostAndPort(final HttpRequest httpRequest) {
+    public static InetSocketAddress parseHostAndPort(HttpRequest httpRequest) {
         return parseHostAndPort(httpRequest.getUri());
     }
     
@@ -361,44 +367,48 @@ public class ProxyUtils {
      * @param uri The URI.
      * @return The host and port string.
      */
-    public static String parseHostAndPort(final String uri) {
-        final String tempUri;
+    public static InetSocketAddress parseHostAndPort(String uri) {
+        String tempUri;
         if (!HTTP_PREFIX.matcher(uri).matches()) {
             // Browsers particularly seem to send requests in this form when
             // they use CONNECT.
             tempUri = uri;
-        }
-        else {
+        } else {
             // We can't just take a substring from a hard-coded index because it
             // could be either http or https.
             tempUri = StringUtils.substringAfter(uri, "://");
         }
-        final String hostAndPort;
+        
+        String hostPort;
         if (tempUri.contains("/")) {
-            hostAndPort = tempUri.substring(0, tempUri.indexOf("/"));
+            hostPort = tempUri.substring(0, tempUri.indexOf("/"));
+        } else {
+            hostPort = tempUri;
         }
-        else {
-            hostAndPort = tempUri;
+        
+        String host = hostPort;
+        int port = ProxyConstants.HTTP_PORT;
+        
+        int p = hostPort.lastIndexOf(':');
+        if (p != -1) {
+            host = hostPort.substring(0, p);
+            port = Integer.parseInt(hostPort.substring(++p));
         }
-        return hostAndPort;
+        
+        return new InetSocketAddress(host, port);
     }
     
-    public static String parseHost(final HttpRequest request) {
-        final String host = request.getHeader(HttpHeaders.Names.HOST);
+    public static String parseHost(HttpRequest request) {
+        String host = request.getHeader(HttpHeaders.Names.HOST);
         if (StringUtils.isNotBlank(host)) {
             return host;
         }
         return parseHost(request.getUri());
     }
     
-    public static String parseHost(final String request) {
-        final String hostAndPort = 
-            ProxyUtils.parseHostAndPort(request);
-        if (hostAndPort.contains(":")) {
-            return StringUtils.substringBefore(hostAndPort, ":");
-        } else {
-            return hostAndPort;
-        }
+    public static String parseHost(String request) {
+        InetSocketAddress address = parseHostAndPort(request);
+        return address.getHostName();
     }
     
     /**
@@ -498,7 +508,7 @@ public class ProxyUtils {
         final HttpMessage copy) {
         final Set<String> headerNames = original.getHeaderNames();
         for (final String name : headerNames) {
-            if (!hopByHopHeaders.contains(name.toLowerCase())) {
+            if (!HOP_BY_HOP_HEADERS.contains(name.toLowerCase())) {
                 final List<String> values = original.getHeaders(name);
                 copy.setHeader(name, values);
             }
@@ -514,7 +524,7 @@ public class ProxyUtils {
     public static void stripHopByHopHeaders(final HttpMessage msg) {
         final Set<String> headerNames = msg.getHeaderNames();
         for (final String name : headerNames) {
-            if (hopByHopHeaders.contains(name.toLowerCase())) {
+            if (HOP_BY_HOP_HEADERS.contains(name.toLowerCase())) {
                 msg.removeHeader(name);
             }
         }
@@ -543,7 +553,7 @@ public class ProxyUtils {
         sb.append(".");
         sb.append(msg.getProtocolVersion().getMinorVersion());
         sb.append(".");
-        sb.append(hostName);
+        sb.append(HOSTNAME);
         final List<String> vias; 
         if (msg.containsHeader(HttpHeaders.Names.VIA)) {
             vias = msg.getHeaders(HttpHeaders.Names.VIA);
@@ -554,6 +564,14 @@ public class ProxyUtils {
         }
         msg.setHeader(HttpHeaders.Names.VIA, vias);
     }
+    
+    private static final Pattern CONTENT_TYPE_CHARSET = Pattern.compile("^\\s*?.*?\\s*?charset\\s*?=\\s*?(.*?)$", Pattern.CASE_INSENSITIVE);
+    
+    private static final Pattern META_CONTENT_CHARSET = Pattern.compile("<meta\\s+.*? content\\s*?=\\s*?\\\"\\s*?text/html;\\s*?charset\\s*?=\\s*?(.*?)\\\"\\s*?/*?>", Pattern.CASE_INSENSITIVE);
+    
+    private static final Pattern META_HTML5_CHARSET = Pattern.compile("<meta\\s+.*?charset\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>", Pattern.CASE_INSENSITIVE);
+    
+    private static final Pattern META_HTML5_VARIANT_CHARSET = Pattern.compile("<meta\\s+.*?name=\\\"charset\\\"\\s*?content\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>", Pattern.CASE_INSENSITIVE);
     
     /**
      * Detect Charset Encoding of a HttpResponse
@@ -568,12 +586,9 @@ public class ProxyUtils {
 
         Charset headerCharset = CharsetUtil.ISO_8859_1; // Default charset for detection is latin-1
 
-        if (http.getHeader("Content-Type") != null) { // If has Content-Type header, try to detect charset from it
-
-            String header_pattern = "^\\s*?.*?\\s*?charset\\s*?=\\s*?(.*?)$"; // How to find charset in header
-
-            Pattern pattern = Pattern.compile(header_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-            Matcher matcher = pattern.matcher(http.getHeader("Content-Type")); // find charset in header
+        String contentType = http.getHeader(HttpHeaders.Names.CONTENT_TYPE);
+        if (contentType != null) { // If has Content-Type header, try to detect charset from it
+            Matcher matcher = CONTENT_TYPE_CHARSET.matcher(contentType); // find charset in header
 
             if (matcher.find()) { // If there is a charset definition
 
@@ -581,16 +596,14 @@ public class ProxyUtils {
 
                 if (Charset.isSupported(charsetName)) { // If charset is supported by java
                     charset = Charset.forName(charsetName); // Set current charset to that
-                    headerCharset = Charset.forName(charsetName); // Set the header charset to that
+                    headerCharset = charset; // Set the header charset to that
                 }
             }
         }
 
         String html = http.getContent().toString(headerCharset); // Try to decode response content with header charset
 
-        String meta_pattern = "<meta\\s+.*? content\\s*?=\\s*?\\\"\\s*?text/html;\\s*?charset\\s*?=\\s*?(.*?)\\\"\\s*?/*?>"; // How to find charset in html4 meta tags
-        Pattern pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-        Matcher matcher = pattern.matcher(html);         // find meta tag charset in html
+        Matcher matcher = META_CONTENT_CHARSET.matcher(html);         // find meta tag charset in html
         if (matcher.find()) { // If there is a charset in meta tag
             String charsetName = matcher.group(1); // Get string charset name
             if (Charset.isSupported(charsetName)) { // If charset is supported by java
@@ -598,21 +611,15 @@ public class ProxyUtils {
             }
         }
 
-        meta_pattern = "<meta\\s+.*?charset\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 meta tag
-
-        pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-        matcher = pattern.matcher(html);         // find meta tag charset in html
+        matcher = META_HTML5_CHARSET.matcher(html);         // find meta tag charset in html
         if (matcher.find()) { // If there is a charset in meta tag
             String charsetName = matcher.group(1); // Get string charset name
             if (Charset.isSupported(charsetName)) { // If charset is supported by java
                 charset = Charset.forName(charsetName); // Set current charset to that
             }
         }
-
-        meta_pattern = "<meta\\s+.*?name=\\\"charset\\\"\\s*?content\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 variant meta tag
-
-        pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-        matcher = pattern.matcher(html);         // find meta charset in html
+        
+        matcher = META_HTML5_VARIANT_CHARSET.matcher(html);         // find meta charset in html
         if (matcher.find()) { // If there is a charset in meta tag
             String charsetName = matcher.group(1); // Get string charset name
             if (Charset.isSupported(charsetName)) { // If charset is supported by java
@@ -671,6 +678,4 @@ public class ProxyUtils {
         }
         return -1;
     }
-    
-
 }

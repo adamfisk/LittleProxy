@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import java.net.SocketAddress;
+
 
 /**
  * Interface for accessing response filters.
@@ -12,5 +14,5 @@ public interface HttpResponseFilters {
      * @param hostAndPort The host and port of the initial request
      * @return The {@link HttpFilter} for the request.
      */
-    HttpFilter getFilter(String hostAndPort);
+    HttpFilter getFilter(SocketAddress address);
 }
