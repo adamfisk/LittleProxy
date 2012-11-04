@@ -559,7 +559,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         
         // TODO: We should really only allow access on 443, but this breaks
         // what a lot of browsers do in practice.
-        //if (port != 443) {
+        if (port != 443) {
+            log.warn("Connecting on port other than 443: "+httpRequest.getUri());
+        }
         if (port < 0) {
             log.warn("Connecting on port other than 443!!");
             final String statusLine = "HTTP/1.1 502 Proxy Error\r\n";
@@ -583,6 +585,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             ctx.getPipeline().addLast("handler", 
                 new HttpConnectRelayingHandler(outgoingChannel, this.channelGroup));
         }
+        
+        log.debug("Sending response to CONNECT request...");
         
         // This is sneaky -- thanks to Emil Goicovici from the list --
         // We temporarily add in a request encoder if we're chaining, allowing
