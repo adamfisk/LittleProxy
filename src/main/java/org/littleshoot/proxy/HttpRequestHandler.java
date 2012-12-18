@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.InstanceAlreadyExistsException;
+import javax.management.InstanceNotFoundException;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
@@ -126,6 +127,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * client channel.
      */
     private boolean pendingRequestChunks = false;
+    private ObjectName mxBeanName;
     
     /**
      * Creates a new class for handling HTTP requests with no frills.
@@ -198,7 +200,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
 
-
     private void setupJmx() {
         final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
         try {
@@ -209,7 +210,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 pack+":type="+clazz.getSimpleName()+"-"+clazz.getSimpleName() + 
                 "-"+hashCode();
             log.info("Registering MBean with name: {}", oName);
-            final ObjectName mxBeanName = new ObjectName(oName);
+            mxBeanName = new ObjectName(oName);
             if(!mbs.isRegistered(mxBeanName)) {
                 mbs.registerMBean(this, mxBeanName);
             }
@@ -223,7 +224,18 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             log.error("Could not set up JMX", e);
         }
     }
-    
+
+    protected void cleanupJmx() {
+        final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+        try {
+          mbs.unregisterMBean(mxBeanName);
+        } catch (MBeanRegistrationException e) {
+            //that's OK, because we won't leak
+        } catch (InstanceNotFoundException e) {
+            //ditto
+        }
+    }
+
     @Override
     public void messageReceived(final ChannelHandlerContext ctx, 
         final MessageEvent me) {
@@ -478,6 +490,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                             processRequest(ctx, me);
                         }
                     }
+                    cleanupJmx();
                 }
             }
             
