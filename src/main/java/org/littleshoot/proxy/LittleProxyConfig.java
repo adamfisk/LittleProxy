@@ -47,6 +47,9 @@ public class LittleProxyConfig {
     private static boolean useJmx = 
         ProxyUtils.extractBooleanDefaultFalse(props, "jmx");
     
+    private static String proxyCacheManagerClass = 
+        props.getProperty("proxy_cache_manager_class");
+    
     private LittleProxyConfig(){}
 
     /**
@@ -86,5 +89,13 @@ public class LittleProxyConfig {
      */
     public static boolean isUseJmx() {
         return useJmx;
+    }
+    
+    public static void setProxyCacheManagerClass(String clazz) {
+        proxyCacheManagerClass = clazz;
+    }
+    
+    public static String getProxyCacheManagerClass() {
+        return proxyCacheManagerClass;
     }
 }

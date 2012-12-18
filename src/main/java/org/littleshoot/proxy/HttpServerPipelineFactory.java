@@ -13,6 +13,7 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.net.ssl.SSLEngine;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -28,6 +29,8 @@ import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Optional;
+
 /**
  * Factory for creating pipelines for incoming requests to our listening
  * socket.
@@ -37,10 +40,6 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     
     private static final Logger log = 
         LoggerFactory.getLogger(HttpServerPipelineFactory.class);
-    
-    // Please note that caching is not currently supported. This is left
-    // as placeholder for a future implementation.
-    private static final boolean CACHE_ENABLED = false;
     
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
@@ -91,10 +90,21 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         this.chainProxyManager = chainProxyManager;
         this.ksm = ksm;
         
-        // Please note that caching is not currently supported. This is left
-        // as placeholder for a future implementation.
-        if (CACHE_ENABLED) {
-            cacheManager = new DefaultProxyCacheManager();
+        Optional<String> managerClassName = Optional.fromNullable( LittleProxyConfig.getProxyCacheManagerClass() );
+        if (managerClassName.isPresent()) {
+            ProxyCacheManager configCacheManager = null;
+            try {
+                Class managerClass = Class.forName( managerClassName.get() );
+                configCacheManager = (ProxyCacheManager)managerClass.newInstance();
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException("Failed to find class: " + managerClassName.get(), e);
+            } catch (InstantiationException e) {
+                throw new RuntimeException("Failed to create instance of ProxyCacheManager: " + managerClassName.get(), e);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException("Failed to create instance of ProxyCacheManager: " + managerClassName.get(), e);
+            }
+            
+            cacheManager = configCacheManager;
         } else {
             cacheManager = new ProxyCacheManager() {
                 
