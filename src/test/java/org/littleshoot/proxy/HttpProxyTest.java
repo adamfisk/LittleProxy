@@ -21,7 +21,10 @@ import java.net.UnknownHostException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
@@ -117,7 +120,7 @@ public class HttpProxyTest {
         
         try {
             final String response =
-                httpPostWithApacheClient(true, "http://kt.baidu.com");
+                httpPostWithApacheClient(true, "http://test.localhost");
             assertTrue(response.startsWith("Bad Gateway"));
         } finally {
             server.stop();
@@ -157,6 +160,24 @@ public class HttpProxyTest {
         } finally {
             server.stop();
         }
+    }
+    
+    @Test
+    public void testConfiguredProxyCacheManager() throws IOException {
+        LittleProxyConfig.setProxyCacheManagerClass( SimpleProxyCacheManager.class.getCanonicalName() );
+        final HttpProxyServer server =  startHttpProxy();
+        // clear the test manager from config, so it does not bleed into other tests
+        LittleProxyConfig.setProxyCacheManagerClass( null );
+        
+        try {
+            String baseResponse = httpPostWithApacheClient(false);
+            String proxyResponse = httpPostWithApacheClient(true);
+            assertEquals(baseResponse, proxyResponse);
+        } finally {
+            server.stop();
+        }
+        
+        assertEquals( Arrays.asList("http://opsgenie.com/status/ping"), SimpleProxyCacheManager.requests );
     }
 
     private String httpPostWithApacheClient(final boolean isProxy) 
@@ -485,5 +506,6 @@ public class HttpProxyTest {
         }
     }
 }
+
 
 
