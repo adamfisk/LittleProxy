@@ -226,6 +226,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     protected void cleanupJmx() {
+        if (this.mxBeanName == null) {
+            log.debug("JMX not setup");
+            return;
+        }
+            
         final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
         try {
           mbs.unregisterMBean(mxBeanName);
