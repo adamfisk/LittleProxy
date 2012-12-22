@@ -35,6 +35,15 @@ If you do use a SNAPSHOT, you need to add the Sonatype snapshot repository to yo
 
 ```
 
+Once you've included LittleProxy, you can start the server with the following:
+
+```
+final HttpProxyServer server = new DefaultHttpProxyServer(8080);
+server.start();
+```
+
+There are lots of filters and such you can also add to LittleProxy.
+
 If you have questions, please visit our Google Group here:
 
 https://groups.google.com/forum/#!forum/littleproxy
