@@ -20,5 +20,7 @@ public interface KeyStoreManager {
     TrustManager[] getTrustManagers();
 
     InputStream trustStoreAsInputStream();
+    
+    String getBase64Cert();
 
 }
