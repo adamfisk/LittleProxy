@@ -51,7 +51,7 @@ public class SelfSignedKeyStoreManager implements KeyStoreManager {
             "littleproxy_cert");
     }
 
-    public String getBase64Cert() {
+    public String getBase64Cert(final String id) {
         return "";
     }
 
@@ -99,5 +99,4 @@ public class SelfSignedKeyStoreManager implements KeyStoreManager {
         // managers.
         return null;
     }
-
 }
