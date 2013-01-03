@@ -495,7 +495,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                             processRequest(ctx, me);
                         }
                     }
-                    cleanupJmx();
+                    if (LittleProxyConfig.isUseJmx()) {
+                        cleanupJmx();
+                    }
                 }
             }
             
