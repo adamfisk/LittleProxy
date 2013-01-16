@@ -355,10 +355,6 @@ public class ProxyUtils {
      */
     public static String parseHostAndPort(final HttpRequest httpRequest) {
         final String uriHostAndPort = parseHostAndPort(httpRequest.getUri());
-        if(StringUtils.isBlank(uriHostAndPort)) {
-            final String headerHostAndPort = httpRequest.getHeader(HttpHeaders.Names.HOST);
-            return headerHostAndPort;
-        }
         return uriHostAndPort;
     }
 

@@ -355,7 +355,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         
         if (_hostAndPort == null) {
             _hostAndPort = ProxyUtils.parseHostAndPort(request);
-            if (StringUtils.isBlank(_hostAndPort)) {
+            if (StringUtils.isBlank(_hostAndPort) && currentChannelFuture == null) {
                 log.warn("No host and port found in {}", request.getUri());
                 badGateway(request, inboundChannel);
                 handleFutureChunksIfNecessary(request);
@@ -397,11 +397,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     handshakeFuture.addListener(new ChannelFutureListener() {
                         public void operationComplete(ChannelFuture future) throws Exception {
                             log.info("Proxy to web SSL handshake done");
-                            // HttpRelayingHandler will not be called on this outgoing channel at this point
-                            // since the only messages arriving are those from the SSL handshake
-                            // we mimic it behaviour by this call
-                            //TODO:nir: I'm not sure that this is enough
-                            onChannelAvailable(hostAndPort, Channels.succeededFuture(cf.getChannel()));
                             // signaling on the client channel that we have connected to the server successfully
                             writeConnectResponse(ctx, request, cf.getChannel());
                         }
@@ -563,6 +558,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     private ChannelFuture getChannelFuture(final String hostAndPort) {
+        if(StringUtils.isBlank(hostAndPort)) {
+            return currentChannelFuture;
+        }
+
         synchronized (this.externalHostsToChannelFutures) {
             final Queue<ChannelFuture> futures = 
                 this.externalHostsToChannelFutures.get(hostAndPort);
