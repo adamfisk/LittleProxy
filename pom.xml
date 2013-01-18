@@ -140,7 +140,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty</artifactId>
-      <version>3.5.6.Final</version>
+      <version>3.6.2.Final</version>
       <scope>compile</scope>
     </dependency>
 
@@ -203,6 +203,7 @@
       <plugin> 
         <!-- explicitly define maven-deploy-plugin after other to force exec order -->
         <artifactId>maven-deploy-plugin</artifactId> 
+        <version>2.7</version>
         <executions> 
           <execution> 
             <id>deploy</id>
@@ -312,34 +313,47 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.4</version>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.0</version>
         <executions>
           <execution>
-            <id>latest-build</id>
             <phase>package</phase>
-            <configuration>
-              <descriptorRefs>
-                <descriptorRef>jar-with-dependencies</descriptorRef>
-              </descriptorRefs>
-
-              <archive>
-                <manifest>
-                  <mainClass>org.littleshoot.proxy.Launcher</mainClass>
-                </manifest>
-              </archive>
-            </configuration>
             <goals>
-              <goal>single</goal>
+              <goal>shade</goal>
             </goals>
+            <configuration>
+<!--
+              <finalName>${project.artifactId}-${project.version}-shaded</finalName>
+-->
+              <artifactSet>
+                <!-- we have to exclude bouncycastle b/c  it is signed -->
+                <excludes>
+                  <exclude>org.bouncycastle:*</exclude>
+                </excludes>
+              </artifactSet>
+
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <manifestEntries>
+                    <Main-Class>org.littleshoot.proxy.Launcher</Main-Class>
+                    <Class-Path>. ./bcprov-jdk16-1.46.jar</Class-Path>
+                  </manifestEntries>
+                </transformer>
+              </transformers>
+            </configuration>
           </execution>
         </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-site-plugin</artifactId>
-        <version>2.2</version>
       </plugin>
 
       <plugin>
