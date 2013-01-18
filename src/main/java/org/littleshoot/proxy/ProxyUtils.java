@@ -339,8 +339,8 @@ public class ProxyUtils {
      * @param ch The {@link Channel} to close.
      */
     public static void closeOnFlush(final Channel ch) {
-        LOG.info("Closing on flush: {}", ch);
-        if (ch.isConnected()) {
+        LOG.debug("Closing on flush: {}", ch);
+        if (ch.isOpen()) {
             ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
         }
     }

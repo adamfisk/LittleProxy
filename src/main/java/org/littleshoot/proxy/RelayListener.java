@@ -17,4 +17,6 @@ public interface RelayListener {
 
     void onChannelAvailable(String hostAndPort, ChannelFuture channelFuture);
 
+    void addInterestOpsListener(InterestOpsListener opsListener);
+
 }

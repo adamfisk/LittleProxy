@@ -28,7 +28,8 @@ import org.slf4j.LoggerFactory;
  * Class that simply relays traffic from a remote server the proxy is 
  * connected to back to the browser/client.
  */
-public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
+public class HttpRelayingHandler extends SimpleChannelUpstreamHandler 
+    implements InterestOpsListener {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
@@ -53,6 +54,19 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
     private final String hostAndPort;
 
     private boolean closeEndsResponseBody;
+
+    private Channel channel;
+    
+    /**
+     * Lock for synchronizing traffic, as we learn about the writability of a
+     * client channel on a different thread than we set the readability of the
+     * remote channel to false. As such, we could determine we need to disable
+     * reading from the remote channel on one thread, get an event telling us
+     * the client channel is then writable, turn reading on, but then 
+     * mistakenly turn it off again on the other thread. So we need to
+     * synchronize. See old HexDumpProxyInboundHandler.java example
+     */
+    private final Object trafficLock = new Object();
 
     /**
      * Creates a new {@link HttpRelayingHandler} with the specified connection
@@ -88,6 +102,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
         this.httpFilter = filter;
         this.relayListener = relayListener;
         this.hostAndPort = hostAndPort;
+        relayListener.addInterestOpsListener(this);
     }
 
     @Override
@@ -207,12 +222,22 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 
             ChannelFuture future = 
                 this.browserToProxyChannel.write(
-                    new ProxyHttpResponse(this.currentHttpRequest, originalHttpResponse, 
-                        messageToWrite));
+                    new ProxyHttpResponse(this.currentHttpRequest, 
+                        originalHttpResponse, messageToWrite));
 
             if (writeEndBuffer) {
                 // See the comment on this flag variable above.
                 future = browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER);
+            }
+            
+            // If browserToProxyChannel is saturated, do not read until 
+            // notified in channelInterestChanged().
+            // See trafficLock for an explanation of the locking here.
+            synchronized (trafficLock) {
+                if (!browserToProxyChannel.isWritable()) {
+                    log.debug("SETTING UNREADABLE!!");
+                    me.getChannel().setReadable(false);
+                }
             }
             
             // If we've written the full response, we need to notify the 
@@ -238,7 +263,6 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
             }
             if (closeRemote) {
                 log.debug("Closing remote connection after writing to browser");
-                
                 
                 // We close after the future has completed to make sure that
                 // all the response data is written to the browser -- 
@@ -287,7 +311,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 
                 // Can also happen when the user browses to another page
                 // before a page has completely loaded -- lots of cases really.
-                log.info("Closing channel to remote server -- received a " +
+                log.debug("Closing channel to remote server -- received a " +
                     "response after the browser connection is closed? " +
                     "Current request:\n{}\nResponse:\n{}", 
                     this.currentHttpRequest, me.getMessage());
@@ -296,7 +320,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
                 me.getChannel().close();
             }
         }
-        log.info("Finished processing message");
+        log.debug("Finished processing message");
+    }
+
+    @Override
+    public void channelInterestChanged(final ChannelHandlerContext ctx,
+        final ChannelStateEvent cse) throws Exception {
+        log.debug("OPS CHANGED!!");
+    }
+    
+    @Override
+    public void channelConnected(final ChannelHandlerContext ctx, 
+        final ChannelStateEvent e) throws Exception {
+        log.debug("CHANNEL CONNECTED!!");
+        this.channel = ctx.getChannel();
     }
     
     private boolean closeEndsResponseBody(final HttpResponse res) {
@@ -504,6 +541,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler {
      */
     public void requestEncoded(final HttpRequest request) {
         this.requestQueue.add(request);
+    }
+
+    public void channelWritable(final ChannelHandlerContext ctx,
+        final ChannelStateEvent cse) {
+        // See trafficLock for an explanation of the locking here.
+        synchronized (trafficLock) {
+            // If inboundChannel is not saturated anymore, continue accepting
+            // the incoming traffic from the outboundChannel.
+            if (cse.getChannel().isWritable()) {
+                if (this.channel != null) {
+                    this.channel.setReadable(true);
+                }
+            }
+        }
     }
     
 }
