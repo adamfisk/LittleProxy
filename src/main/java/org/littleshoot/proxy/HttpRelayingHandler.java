@@ -254,6 +254,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
             if (wroteFullResponse) {
                 log.debug("Notifying request handler of completed response.");
                 future.addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         relayListener.onRelayHttpResponse(browserToProxyChannel, 
@@ -273,6 +274,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
                 // particularly when there are no more remote connections
                 // associated with that browser connection.
                 future.addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         if (me.getChannel().isConnected()) {
@@ -285,6 +287,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
             if (closePending) {
                 log.debug("Closing connection to browser after writes");
                 future.addListener(new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         log.info("Closing browser connection on flush!!");
@@ -543,6 +546,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
         this.requestQueue.add(request);
     }
 
+    @Override
     public void channelWritable(final ChannelHandlerContext ctx,
         final ChannelStateEvent cse) {
         // See trafficLock for an explanation of the locking here.
