@@ -15,8 +15,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -344,6 +342,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         else {
             this.currentChannelFuture.addListener(new ChannelFutureListener() {
                 
+                @Override
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
                     currentChannelFuture.getChannel().write(chunk);
@@ -401,6 +400,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         cf.getChannel().write(request);
                     writeFuture.addListener(new ChannelFutureListener() {
                         
+                        @Override
                         public void operationComplete(final ChannelFuture future) 
                             throws Exception {
                             if (LittleProxyConfig.isUseJmx()) {
@@ -436,6 +436,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             }
             else {
                 final ChannelFutureListener cfl = new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture future)
                         throws Exception {
                         onConnect.onConnect(curFuture);
@@ -466,6 +467,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     this.copiedHostAndPort = copiedHostAndPort;
                 }
             
+                @Override
                 public void operationComplete(final ChannelFuture future)
                     throws Exception {
                     final Channel channel = future.getChannel();
@@ -477,6 +479,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                         log.debug("Writing message on channel...");
                         final ChannelFuture wf = onConnect.onConnect(cf);
                         wf.addListener(new ChannelFutureListener() {
+                            @Override
                             public void operationComplete(final ChannelFuture wcf)
                                 throws Exception {
                                 log.debug("Finished write: "+wcf+ " to: "+
@@ -484,7 +487,8 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                                     request.getUri());
                                 
                                 ctx.getChannel().setReadable(true);
-                                log.debug("Channel is readable: {}", channel.isReadable());
+                                log.debug("Channel is readable: {}", 
+                                    channel.isReadable());
                             }
                         });
                         currentChannelFuture = wf;
@@ -553,6 +557,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
 
+    @Override
     public void onChannelAvailable(final String hostAndPortKey, 
         final ChannelFuture cf) {
         synchronized (this.externalHostsToChannelFutures) {
@@ -643,7 +648,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 // which will return a HTTP response
                 outgoingChannel.getPipeline().addBefore("handler", "encoder", 
                     new HttpRequestEncoder());
-                outgoingChannel.write(httpRequest).addListener(new ChannelFutureListener() {
+                outgoingChannel.write(httpRequest).addListener(
+                    new ChannelFutureListener() {
+                    @Override
                     public void operationComplete(final ChannelFuture future)
                         throws Exception {
                         outgoingChannel.getPipeline().remove("encoder");
@@ -686,6 +693,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             // directions. We SHOULD make sure this is traffic on a reasonable
             // port, however, such as 80 or 443, to reduce security risks.
             cpf = new ChannelPipelineFactory() {
+                @Override
                 public ChannelPipeline getPipeline() throws Exception {
                     // Create a default pipeline implementation.
                     final ChannelPipeline pipeline = pipeline();
@@ -782,6 +790,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
      * for this class to perform any necessary cleanup. Note that this is 
      * called on the same thread as the incoming request processing.
      */
+    @Override
     public void onRelayChannelClose(final Channel browserToProxyChannel, 
         final String key, final int unansweredRequestsOnChannel,
         final boolean closedEndsResponseBody) {
@@ -825,6 +834,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         this.externalHostsToChannelFutures.remove(key);
     }
 
+    @Override
     public void onRelayHttpResponse(final Channel browserToProxyChannel,
         final String key, final HttpRequest httpRequest) {
         if (LittleProxyConfig.isUseJmx()) {
@@ -866,26 +876,32 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         ProxyUtils.closeOnFlush(channel);
     }
 
+    @Override
     public int getClientConnections() {
         return this.browserToProxyConnections.get();
     }
     
+    @Override
     public int getTotalClientConnections() {
         return totalBrowserToProxyConnections.get();
     }
 
+    @Override
     public int getOutgoingConnections() {
         return this.externalHostsToChannelFutures.size();
     }
 
+    @Override
     public int getRequestsSent() {
         return this.requestsSent.get();
     }
 
+    @Override
     public int getResponsesReceived() {
         return this.responsesReceived.get();
     }
 
+    @Override
     public String getUnansweredRequests() {
         return this.unansweredRequests.toString();
     }
@@ -894,10 +910,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
       return unansweredHttpRequests;
     }
 
+    @Override
     public String getAnsweredReqeusts() {
         return this.answeredRequests.toString();
     }
 
+    @Override
     public void addInterestOpsListener(final InterestOpsListener opsListener) {
         interestOpsListeners.add(opsListener);
     }
