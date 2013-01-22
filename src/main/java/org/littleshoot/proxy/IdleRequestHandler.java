@@ -29,8 +29,8 @@ public class IdleRequestHandler extends IdleAwareHandler {
     public void channelIdle(final ChannelHandlerContext ctx, 
         final IdleStateEvent e) {
         super.channelIdle(ctx, e);
-        final Set<HttpRequest> unansweredHttpRequests = handler
-                .getUnansweredHttpRequests();
+        final Set<HttpRequest> unansweredHttpRequests = 
+            handler.getUnansweredHttpRequests();
         // If this isn't empty, we have requests paused
         if (!unansweredHttpRequests.isEmpty()) {
             final StringBuilder message = new StringBuilder(
