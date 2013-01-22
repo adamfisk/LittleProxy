@@ -13,7 +13,6 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.net.ssl.SSLEngine;
 
-import org.apache.commons.lang3.ClassUtils;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -38,25 +37,17 @@ import com.google.common.base.Optional;
 public class HttpServerPipelineFactory implements ChannelPipelineFactory, 
     AllConnectionData {
     
-    private static final Logger log = 
+    private final Logger log = 
         LoggerFactory.getLogger(HttpServerPipelineFactory.class);
     
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final ChainProxyManager chainProxyManager;
-
     private final ProxyCacheManager cacheManager;
-    
     private final KeyStoreManager ksm;
-
     private int numHandlers;
-
-    //private boolean useJmx;
-    
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
-
     private final Timer timer;
-
     private final ClientSocketChannelFactory clientChannelFactory;
     
     /**
@@ -90,7 +81,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         this.chainProxyManager = chainProxyManager;
         this.ksm = ksm;
         
-        Optional<String> managerClassName = Optional.fromNullable( LittleProxyConfig.getProxyCacheManagerClass() );
+        final Optional<String> managerClassName = 
+            Optional.fromNullable( LittleProxyConfig.getProxyCacheManagerClass());
         if (managerClassName.isPresent()) {
             ProxyCacheManager configCacheManager = null;
             try {
@@ -108,11 +100,13 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         } else {
             cacheManager = new ProxyCacheManager() {
                 
+                @Override
                 public boolean returnCacheHit(final HttpRequest request, 
                     final Channel channel) {
                     return false;
                 }
                 
+                @Override
                 public Future<String> cache(final HttpRequest originalRequest,
                     final HttpResponse httpResponse, 
                     final Object response, final ChannelBuffer encoded) {
@@ -134,9 +128,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             final String oName =
                 pack+":type="+clazz.getSimpleName()+"-"+clazz.getSimpleName() + 
                 hashCode();
-            log.info("Registering MBean with name: {}", oName);
+            log.debug("Registering MBean with name: {}", oName);
             final ObjectName mxBeanName = new ObjectName(oName);
-            if(!mbs.isRegistered(mxBeanName)) {
+            if (!mbs.isRegistered(mxBeanName)) {
                 mbs.registerMBean(this, mxBeanName);
             }
         } catch (final MalformedObjectNameException e) {
@@ -150,12 +144,13 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         }
     }
     
+    @Override
     public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = pipeline();
 
-        log.info("Accessing pipeline");
+        log.debug("Accessing pipeline");
         if (this.ksm != null) {
-            log.info("Adding SSL handler");
+            log.debug("Adding SSL handler");
             final SslContextFactory scf = new SslContextFactory(this.ksm);
             final SSLEngine engine = scf.getServerContext().createSSLEngine();
             engine.setUseClientMode(false);
@@ -168,13 +163,6 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             new HttpRequestDecoder(8192, 8192*2, 8192*2));
         pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
         
-        
-        /*
-        if (trafficShaper != null) {
-            pipeline.addLast("GLOBAL_TRAFFIC_SHAPING", trafficShaper);
-        }
-        */
-
         final HttpRequestHandler httpRequestHandler = 
             new HttpRequestHandler(this.cacheManager, authenticationManager,
             this.channelGroup, this.chainProxyManager, 
@@ -188,6 +176,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         return pipeline;
     }
 
+    @Override
     public int getNumRequestHandlers() {
         return this.numHandlers;
     }
