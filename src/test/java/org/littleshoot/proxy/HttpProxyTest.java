@@ -21,10 +21,8 @@ import java.net.UnknownHostException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
@@ -121,7 +119,10 @@ public class HttpProxyTest {
         try {
             final String response =
                 httpPostWithApacheClient(true, "http://test.localhost");
-            assertTrue(response.startsWith("Bad Gateway"));
+            
+            // The second expected response is what squid returns here.
+            assertTrue("Received: "+response, response.startsWith("Bad Gateway") ||
+                    response.contains("The requested URL could not be retrieved"));
         } finally {
             server.stop();
         }
