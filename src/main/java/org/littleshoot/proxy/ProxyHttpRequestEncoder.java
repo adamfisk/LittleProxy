@@ -29,45 +29,26 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
      * and response pair.
      */
     public ProxyHttpRequestEncoder(final HttpRelayingHandler handler) {
-        this(handler, null, false, false);
+        this(handler, null, false);
     }
-    
+
     /**
      * Creates a new request encoder.
-     * 
-     * @param handler The class that handles relaying all data along this 
+     *
+     * @param handler The class that handles relaying all data along this
      * connection. We need this to synchronize caching rules for each request
      * and response pair.
-     * @param keepProxyFormat keep proxy-formatted URI (used in chaining)
      * @param requestFilter The filter for requests.
-     */
-    public ProxyHttpRequestEncoder(final HttpRelayingHandler handler, 
-        final HttpRequestFilter requestFilter, 
-        final boolean keepProxyFormat) {
-        this(handler, requestFilter, keepProxyFormat, false);
-    }
-    
-    /**
-     * Creates a new request encoder.
-     * 
-     * @param handler The class that handles relaying all data along this 
-     * connection. We need this to synchronize caching rules for each request
-     * and response pair.
      * @param keepProxyFormat keep proxy-formatted URI (used in chaining)
-     * @param requestFilter The filter for requests.
-     * @param transparent Whether or not this is an transparent proxy. 
-     * Transparent proxies don't add extra via headers or follow normal 
-     * proxy rules.
      */
-    public ProxyHttpRequestEncoder(final HttpRelayingHandler handler, 
-        final HttpRequestFilter requestFilter, 
-        final boolean keepProxyFormat,
-        final boolean transparent) {
-	
+    public ProxyHttpRequestEncoder(final HttpRelayingHandler handler,
+                                   final HttpRequestFilter requestFilter,
+                                   final boolean keepProxyFormat) {
+
         this.relayingHandler = handler;
         this.requestFilter = requestFilter;
         this.keepProxyFormat = keepProxyFormat;
-        this.transparent = transparent;
+        this.transparent = LittleProxyConfig.isTransparent();
     }
 
     @Override
