@@ -72,7 +72,7 @@ public class ProxyUtils {
         sb.append("Via: 1.1 ");
         sb.append(hostName);
         sb.append("\r\n");
-        via = sb.toString();
+        via = LittleProxyConfig.isTransparent() ? "" : sb.toString();
         
         //hopByHopHeaders.add("proxy-connection");
         hopByHopHeaders.add("connection");
