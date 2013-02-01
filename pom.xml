@@ -327,6 +327,8 @@
               <goal>shade</goal>
             </goals>
             <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>littleproxy-shade</shadedClassifierName>
 <!--
               <finalName>${project.artifactId}-${project.version}-shaded</finalName>
 -->
