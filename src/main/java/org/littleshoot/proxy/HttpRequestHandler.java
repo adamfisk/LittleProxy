@@ -396,9 +396,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     final ChannelFuture handshakeFuture = handler.handshake();
                     handshakeFuture.addListener(new ChannelFutureListener() {
                         public void operationComplete(ChannelFuture future) throws Exception {
-                            log.info("Proxy to web SSL handshake done");
+                            log.info("Proxy to web SSL handshake done. Success is: " + future.isSuccess());
                             // signaling on the client channel that we have connected to the server successfully
-                            writeConnectResponse(ctx, request, cf.getChannel());
+                            writeConnectResponse(ctx, request, cf.getChannel(), future.isSuccess());
                         }
                     });
                     return cf;
@@ -586,7 +586,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     private void writeConnectResponse(final ChannelHandlerContext ctx,
-        final HttpRequest httpRequest, final Channel outgoingChannel) {
+        final HttpRequest httpRequest, final Channel outgoingChannel, boolean didHandshakeSucceed) {
         final int port = ProxyUtils.parsePort(httpRequest);
         final Channel browserToProxyChannel = ctx.getChannel();
         
@@ -629,24 +629,42 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 });
             }
         }
-        if (chainProxy == null) {
-            final String statusLine = "HTTP/1.1 200 Connection established\r\n";
-            //TODO:nir: why does writeResponse() calls setReadable(true)?
-            final ChannelFuture channelFuture = ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
-                ProxyUtils.CONNECT_OK_HEADERS);
-
-            channelFuture.addListener(new ChannelFutureListener() {
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    // don't accept incoming message until we'll setup the SSL handler
-                    future.getChannel().setReadable(false);
-                    log.info("Adding browser to proxy SSL handler");
-                    final SslContextFactory scf = new SslContextFactory(new SelfSignedKeyStoreManager());
-                    final SSLEngine engine = scf.getServerContext().createSSLEngine();
-                    engine.setUseClientMode(false);
-                    ctx.getPipeline().addFirst("ssl", new SslHandler(engine));
-                    future.getChannel().setReadable(true);
-                }
-            });
+        if (chainProxy == null) { 
+        	if (didHandshakeSucceed) {
+	            final String statusLine = "HTTP/1.1 200 Connection established\r\n";
+	            //TODO:nir: why does writeResponse() calls setReadable(true)?
+	            final ChannelFuture channelFuture = ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
+	                ProxyUtils.CONNECT_OK_HEADERS);
+	            channelFuture.addListener(new ChannelFutureListener() {
+	                public void operationComplete(ChannelFuture future) throws Exception {
+	                    // don't accept incoming message until we'll setup the SSL handler
+	                    future.getChannel().setReadable(false);
+	                    log.info("Adding browser to proxy SSL handler");
+	                    final SslContextFactory scf = new SslContextFactory(new SelfSignedKeyStoreManager());
+	                    final SSLEngine engine = scf.getServerContext().createSSLEngine();
+	                    engine.setUseClientMode(false);
+	                    SslHandler handler = new SslHandler(engine);
+	                    future.getChannel().getPipeline().addFirst("ssl", handler);
+	                    future.getChannel().setReadable(true);
+	                    handler.handshake().addListener(new ChannelFutureListener() {
+							@Override
+							public void operationComplete(ChannelFuture future) throws Exception {
+								log.info("Browser to proxy SSL handshake done. Success is: " + future.isSuccess());
+							}
+						});
+	                }
+	            });
+        	}
+        	else {
+        		// Send an error to the browser and close the connection. For our implementation, this is enough. If you 
+        		// want the browser to give the correct error, you'd have to start the handshake with the browser and purposefully
+        		// make the handshake fail be using an invalid certificate.        		
+        		String statusLine = "HTTP/1.1 401 Unauthorized\r\n";
+	            ChannelFuture channelFuture = ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
+	                ProxyUtils.PROXY_ERROR_HEADERS);
+	            ProxyUtils.closeOnFlush(browserToProxyChannel);
+				ProxyUtils.closeOnFlush(outgoingChannel);
+        	}
         }
     }
 
