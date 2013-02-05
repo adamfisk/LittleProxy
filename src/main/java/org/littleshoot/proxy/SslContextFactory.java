@@ -10,7 +10,6 @@ public class SslContextFactory {
 
     private static final String PROTOCOL = "TLS";
     private final SSLContext SERVER_CONTEXT;
-    private final SSLContext CLIENT_CONTEXT;
     
     public SslContextFactory(final KeyStoreManager ksm) {
         String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
@@ -19,7 +18,6 @@ public class SslContextFactory {
         }
 
         SSLContext serverContext;
-        SSLContext clientContext;
         try {
             final KeyStore ks = KeyStore.getInstance("JKS");
             //ks.load(new FileInputStream("keystore.jks"), "changeit".toCharArray());
@@ -39,16 +37,7 @@ public class SslContextFactory {
                     "Failed to initialize the server-side SSLContext", e);
         }
 
-        try {
-            clientContext = SSLContext.getInstance(PROTOCOL);
-            clientContext.init(null, ksm.getTrustManagers(), null);
-        } catch (final Exception e) {
-            throw new Error(
-                    "Failed to initialize the client-side SSLContext", e);
-        }
-
         SERVER_CONTEXT = serverContext;
-        CLIENT_CONTEXT = clientContext;
     }
 
 
@@ -56,7 +45,4 @@ public class SslContextFactory {
         return SERVER_CONTEXT;
     }
 
-    public SSLContext getClientContext() {
-        return CLIENT_CONTEXT;
-    }
 }
