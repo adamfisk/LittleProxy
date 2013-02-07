@@ -115,6 +115,7 @@ public class HttpFilterTest {
         assertEquals(url2, second.getUri());
 
         webServer.stop();
+        server.stop();
     }
 
     private HttpEntity getResponse(final String url) throws Exception {
