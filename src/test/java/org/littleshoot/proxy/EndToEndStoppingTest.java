@@ -99,7 +99,7 @@ public class EndToEndStoppingTest {
             public HttpRoute determineRoute(HttpHost target,
                     org.apache.http.HttpRequest request, HttpContext context)
                     throws HttpException {
-                return new HttpRoute(target, null,  new HttpHost("localhost", PROXY_PORT, "https"), //true);
+                return new HttpRoute(target, null,  new HttpHost("localhost", PROXY_PORT, "http"), //true);
                         "https".equalsIgnoreCase(target.getSchemeName()));
             }
         });
@@ -155,7 +155,7 @@ public class EndToEndStoppingTest {
                     return null;
                 }
             });
-        final HttpProxyServer proxy = ssl;
+        final HttpProxyServer proxy = plain;
 
         proxy.start();
         //client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, 
