@@ -383,24 +383,29 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     return writeFuture;
                 }
                 else {
-                    //TODO:nir: verify connect ok??
-                    //TODO:nir: will this still work in case of proxy chaining?
-                    final ChannelPipeline pipeline = cf.getChannel().getPipeline();
-                    log.info("Adding proxy to web SSL handler");
-                    final SslContextFactory scf = new SslContextFactory(new SelfSignedKeyStoreManager());
-                    final SSLEngine engine = scf.getClientContext().createSSLEngine();
-                    engine.setUseClientMode(true);
-                    final SslHandler handler = new SslHandler(engine);
-                    pipeline.addFirst("ssl", handler);
-                    log.info("Running proxy to web SSL handshake");
-                    final ChannelFuture handshakeFuture = handler.handshake();
-                    handshakeFuture.addListener(new ChannelFutureListener() {
-                        public void operationComplete(ChannelFuture future) throws Exception {
-                            log.info("Proxy to web SSL handshake done. Success is: " + future.isSuccess());
-                            // signaling on the client channel that we have connected to the server successfully
-                            writeConnectResponse(ctx, request, cf.getChannel(), future.isSuccess());
-                        }
-                    });
+                	if (LittleProxyConfig.isUseSSLMitm()) {
+	                    //TODO:nir: verify connect ok??
+	                    //TODO:nir: will this still work in case of proxy chaining?
+	                    final ChannelPipeline pipeline = cf.getChannel().getPipeline();
+	                    log.info("Adding proxy to web SSL handler");
+	                    final SslContextFactory scf = new SslContextFactory(new SelfSignedKeyStoreManager());
+	                    final SSLEngine engine = scf.getClientContext().createSSLEngine();
+	                    engine.setUseClientMode(true);
+	                    final SslHandler handler = new SslHandler(engine);
+	                    pipeline.addFirst("ssl", handler);
+	                    log.info("Running proxy to web SSL handshake");
+	                    final ChannelFuture handshakeFuture = handler.handshake();
+	                    handshakeFuture.addListener(new ChannelFutureListener() {
+	                        public void operationComplete(ChannelFuture future) throws Exception {
+	                            log.info("Proxy to web SSL handshake done. Success is: " + future.isSuccess());
+	                            // signaling on the client channel that we have connected to the server successfully
+	                            writeConnectResponse(ctx, request, cf.getChannel(), future.isSuccess());
+	                        }
+	                    });
+                	}
+                	else {
+                		writeConnectResponse(ctx, request, cf.getChannel(), true);
+                	}
                     return cf;
                 }
             }
@@ -603,6 +608,22 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 ProxyUtils.PROXY_ERROR_HEADERS);
             ProxyUtils.closeOnFlush(browserToProxyChannel);
         }
+        else if (!LittleProxyConfig.isUseSSLMitm()) {
+            browserToProxyChannel.setReadable(false);
+            
+            // We need to modify both the pipeline encoders and decoders for the
+            // browser to proxy channel -- the outgoing channel already has
+            // the correct handlers and such set at this point.
+            ctx.getPipeline().remove("encoder");
+            ctx.getPipeline().remove("decoder");
+            ctx.getPipeline().remove("handler");
+            
+            // Note there are two HttpConnectRelayingHandler for each HTTP
+            // CONNECT tunnel -- one writing to the browser, and one writing
+            // to the remote host.
+            ctx.getPipeline().addLast("handler", 
+                new HttpConnectRelayingHandler(outgoingChannel, this.channelGroup));
+        }
 
         log.debug("Sending response to CONNECT request...");
         
@@ -629,31 +650,60 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 });
             }
         }
+        
         if (chainProxy == null) { 
         	if (didHandshakeSucceed) {
 	            final String statusLine = "HTTP/1.1 200 Connection established\r\n";
 	            //TODO:nir: why does writeResponse() calls setReadable(true)?
 	            final ChannelFuture channelFuture = ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
 	                ProxyUtils.CONNECT_OK_HEADERS);
-	            channelFuture.addListener(new ChannelFutureListener() {
-	                public void operationComplete(ChannelFuture future) throws Exception {
-	                    // don't accept incoming message until we'll setup the SSL handler
-	                    future.getChannel().setReadable(false);
-	                    log.info("Adding browser to proxy SSL handler");
-	                    final SslContextFactory scf = new SslContextFactory(new SelfSignedKeyStoreManager());
-	                    final SSLEngine engine = scf.getServerContext().createSSLEngine();
-	                    engine.setUseClientMode(false);
-	                    SslHandler handler = new SslHandler(engine);
-	                    future.getChannel().getPipeline().addFirst("ssl", handler);
-	                    future.getChannel().setReadable(true);
-	                    handler.handshake().addListener(new ChannelFutureListener() {
-							@Override
-							public void operationComplete(ChannelFuture future) throws Exception {
-								log.info("Browser to proxy SSL handshake done. Success is: " + future.isSuccess());
-							}
-						});
-	                }
-	            });
+	            
+	            if (LittleProxyConfig.isUseSSLMitm()) {
+		            channelFuture.addListener(new ChannelFutureListener() {
+		                public void operationComplete(ChannelFuture future) throws Exception {
+		                    // don't accept incoming message until we'll setup the SSL handler
+
+		                	// Uncomment to use a Signed Certificate manager and not the SelfSigned one. 
+	//	                    future.getChannel().setReadable(false);
+	//	                    log.info("Adding browser to proxy SSL handler");
+	//	                    SignedKeyStoreManager manager = new SignedKeyStoreManager();
+	//	                    manager.createKeyForDomain(httpRequest.getUri());
+	//	                    final SignedSslContextFactory scf = new SignedSslContextFactory(manager);
+	//	                    final SSLEngine engine = scf.getServerContext().createSSLEngine();
+	//	                    engine.setUseClientMode(false);
+	//	                    SslHandler handler = new SslHandler(engine);
+	//	                    handler.setEnableRenegotiation(true);
+	//	                    handler.setIssueHandshake(true);
+	//	                    future.getChannel().getPipeline().addFirst("ssl", handler);
+	//	                    future.getChannel().setReadable(true);
+	//	                    handler.handshake().addListener(new ChannelFutureListener() {
+	//							@Override
+	//							public void operationComplete(ChannelFuture future) throws Exception {
+	//								log.info("Browser to proxy SSL handshake done. Success is: " + future.isSuccess());
+	//							}
+	//						});
+		                    
+		                    
+		                    future.getChannel().setReadable(false);
+		                    log.info("Adding browser to proxy SSL handler");
+		                    final SslContextFactory scf = new SslContextFactory(new SelfSignedKeyStoreManager());
+		                    final SSLEngine engine = scf.getServerContext().createSSLEngine();
+		                    engine.setUseClientMode(false);
+		                    SslHandler handler = new SslHandler(engine);
+		                    future.getChannel().getPipeline().addFirst("ssl", handler);
+		                    future.getChannel().setReadable(true);
+		                    handler.handshake().addListener(new ChannelFutureListener() {
+								@Override
+								public void operationComplete(ChannelFuture future) throws Exception {
+									log.info("Browser to proxy SSL handshake done. Success is: " + future.isSuccess());
+								}
+							});
+		                }
+		            });
+	            }
+	            else {
+	            	browserToProxyChannel.setReadable(true);
+	            }
         	}
         	else {
         		// Send an error to the browser and close the connection. For our implementation, this is enough. If you 
@@ -688,10 +738,27 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final ClientBootstrap cb = 
             new ClientBootstrap(this.clientChannelFactory);
 
-        final ChannelPipelineFactory cpf =
-                relayPipelineFactoryFactory.getRelayPipelineFactory(httpRequest,
-                        browserToProxyChannel, this);
-
+        final ChannelPipelineFactory cpf;
+        if (httpRequest.getMethod() == HttpMethod.CONNECT && !LittleProxyConfig.isUseSSLMitm()) {
+            // In the case of CONNECT, we just want to relay all data in both 
+            // directions. We SHOULD make sure this is traffic on a reasonable
+            // port, however, such as 80 or 443, to reduce security risks.
+            cpf = new ChannelPipelineFactory() {
+                public ChannelPipeline getPipeline() throws Exception {
+                    // Create a default pipeline implementation.
+                    final ChannelPipeline pipeline = new DefaultChannelPipeline();
+                    pipeline.addLast("handler", 
+                        new HttpConnectRelayingHandler(browserToProxyChannel,
+                            channelGroup));
+                    return pipeline;
+                }
+            };
+        }
+        else {
+            cpf = relayPipelineFactoryFactory.getRelayPipelineFactory(
+                httpRequest, browserToProxyChannel, this);
+        }
+        
         cb.setPipelineFactory(cpf);
         cb.setOption("connectTimeoutMillis", 40*1000);
         log.debug("Starting new connection to: {}", hostAndPort);

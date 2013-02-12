@@ -665,6 +665,15 @@ public class ProxyUtils {
         }
         return false;
     }
+    
+    public static boolean extractBooleanDefaultTrue(
+        final Properties props, final String key) {
+        final String throttle = props.getProperty(key);
+        if (StringUtils.isNotBlank(throttle)) {
+            return throttle.trim().equalsIgnoreCase("true");
+        }
+        return true;
+    }
 
     public static long extractLong(final Properties props, final String key) {
         final String readThrottleString = props.getProperty(key);

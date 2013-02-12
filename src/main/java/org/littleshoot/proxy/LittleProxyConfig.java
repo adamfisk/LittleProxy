@@ -49,7 +49,10 @@ public class LittleProxyConfig {
     
     private static String proxyCacheManagerClass = 
         props.getProperty("proxy_cache_manager_class");
-    
+
+    private static boolean useMITMInSSL = 
+            ProxyUtils.extractBooleanDefaultTrue(props, "use_ssl_mitm");
+
     private LittleProxyConfig(){}
 
     /**
@@ -89,6 +92,10 @@ public class LittleProxyConfig {
      */
     public static boolean isUseJmx() {
         return useJmx;
+    }
+    
+    public static boolean isUseSSLMitm() {
+        return useMITMInSSL;
     }
     
     public static void setProxyCacheManagerClass(String clazz) {
