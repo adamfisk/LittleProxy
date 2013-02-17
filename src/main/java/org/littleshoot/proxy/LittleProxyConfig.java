@@ -66,6 +66,15 @@ public class LittleProxyConfig {
     }
 
     /**
+     * Sets whether or not to use Man In The Middle strategy for an ssl connection.
+     * 
+     * @param useMITMInSSL Whether or not to use MITM in SSL.
+     */
+    public static void setUseMITMInSSL(final boolean useMITMInSSL) {
+        LittleProxyConfig.useMITMInSSL = useMITMInSSL;
+    }
+    
+    /**
      * Whether or not we're configured to use DNSSEC for lookups.
      * 
      * @return <code>true</code> if configured to use DNSSEC, otherwise
