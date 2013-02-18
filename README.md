@@ -44,7 +44,25 @@ final HttpProxyServer server = new DefaultHttpProxyServer(8080);
 server.start();
 ```
 
-There are lots of filters and such you can also add to LittleProxy.
+There are lots of filters and such you can also add to LittleProxy. You can add request and reponse filters, for example, as in:
+
+```
+final HttpProxyServer server = 
+    new DefaultHttpProxyServer(PROXY_PORT, new HttpRequestFilter() {
+        @Override
+        public void filter(HttpRequest httpRequest) {
+            System.out.println("Request went through proxy");
+        }
+    },
+    new HttpResponseFilters() {
+        @Override
+        public HttpFilter getFilter(String hostAndPort) {
+            return null;
+        }
+    });
+
+server.start();
+```
 
 If you have questions, please visit our Google Group here:
 
