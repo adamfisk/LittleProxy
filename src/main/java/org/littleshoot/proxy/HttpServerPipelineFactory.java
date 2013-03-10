@@ -62,6 +62,31 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
+        final Timer timer, final ClientSocketChannelFactory clientChannelFactory) {
+        this(authorizationManager, channelGroup, chainProxyManager, ksm, 
+                relayPipelineFactoryFactory, timer, clientChannelFactory, 
+                ProxyUtils.loadCacheManager());
+    }
+    
+    /**
+     * Creates a new pipeline factory with the specified class for processing
+     * proxy authentication.
+     * 
+     * @param authorizationManager The manager for proxy authentication.
+     * @param channelGroup The group that keeps track of open channels.
+     * @param chainProxyManager upstream proxy server host and port or
+     * <code>null</code> if none used.
+     * @param ksm The KeyStore manager.
+     * @param relayPipelineFactoryFactory The relay pipeline factory factory.
+     * @param timer The global timer for timing out idle connections. 
+     * @param clientChannelFactory The factory for creating outgoing channels
+     * to external sites.
+     */
+    public HttpServerPipelineFactory(
+        final ProxyAuthorizationManager authorizationManager, 
+        final ChannelGroup channelGroup, 
+        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
         final Timer timer, final ClientSocketChannelFactory clientChannelFactory,
         final ProxyCacheManager proxyCacheManager) {
         

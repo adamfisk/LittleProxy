@@ -14,6 +14,7 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,6 +35,8 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Optional;
 
 /**
  * Utilities for the proxy.
@@ -671,6 +674,48 @@ public class ProxyUtils {
         }
         return -1;
     }
-    
 
+    public static ProxyCacheManager loadCacheManager() {
+        final Optional<String> managerClassName = 
+            Optional.fromNullable( LittleProxyConfig.getProxyCacheManagerClass());
+        if (managerClassName.isPresent()) {
+            ProxyCacheManager configCacheManager = null;
+            try {
+                final Class managerClass = 
+                        Class.forName( managerClassName.get() );
+                configCacheManager = 
+                        (ProxyCacheManager)managerClass.newInstance();
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException("Failed to find class: " +
+                        managerClassName.get(), e);
+            } catch (InstantiationException e) {
+                throw new RuntimeException(
+                        "Failed to create instance of ProxyCacheManager: " + 
+                managerClassName.get(), e);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(
+                        "Failed to create instance of ProxyCacheManager: " + 
+                managerClassName.get(), e);
+            }
+            
+            return configCacheManager;
+        } else {
+            return new ProxyCacheManager() {
+                
+                @Override
+                public boolean returnCacheHit(final HttpRequest request, 
+                    final Channel channel) {
+                    return false;
+                }
+                
+                @Override
+                public Future<String> cache(final HttpRequest originalRequest,
+                    final HttpResponse httpResponse, 
+                    final Object response, final ChannelBuffer encoded) {
+                    return null;
+                }
+            };
+        }
+    }
+    
 }

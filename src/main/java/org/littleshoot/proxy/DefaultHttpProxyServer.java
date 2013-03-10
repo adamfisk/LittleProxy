@@ -261,7 +261,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final ServerSocketChannelFactory serverChannelFactory) {
         this(port, responseFilters, chainProxyManager, ksm, requestFilter,
                 clientChannelFactory, timer, serverChannelFactory, 
-                loadCacheManager());
+                ProxyUtils.loadCacheManager());
     }
     
     /**
@@ -300,7 +300,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.timer = timer;
         this.serverChannelFactory = serverChannelFactory;
         if (cacheManager == null) {
-            this.cacheManager = loadCacheManager();
+            this.cacheManager = ProxyUtils.loadCacheManager();
         } else {
             this.cacheManager = cacheManager;
         }
@@ -436,49 +436,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     return t;
                 }
             });
-    }
-    
-    private static ProxyCacheManager loadCacheManager() {
-        final Optional<String> managerClassName = 
-            Optional.fromNullable( LittleProxyConfig.getProxyCacheManagerClass());
-        if (managerClassName.isPresent()) {
-            ProxyCacheManager configCacheManager = null;
-            try {
-                final Class managerClass = 
-                        Class.forName( managerClassName.get() );
-                configCacheManager = 
-                        (ProxyCacheManager)managerClass.newInstance();
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException("Failed to find class: " +
-                        managerClassName.get(), e);
-            } catch (InstantiationException e) {
-                throw new RuntimeException(
-                        "Failed to create instance of ProxyCacheManager: " + 
-                managerClassName.get(), e);
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(
-                        "Failed to create instance of ProxyCacheManager: " + 
-                managerClassName.get(), e);
-            }
-            
-            return configCacheManager;
-        } else {
-            return new ProxyCacheManager() {
-                
-                @Override
-                public boolean returnCacheHit(final HttpRequest request, 
-                    final Channel channel) {
-                    return false;
-                }
-                
-                @Override
-                public Future<String> cache(final HttpRequest originalRequest,
-                    final HttpResponse httpResponse, 
-                    final Object response, final ChannelBuffer encoded) {
-                    return null;
-                }
-            };
-        }
     }
 
 }
