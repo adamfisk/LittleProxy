@@ -7,10 +7,12 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.group.ChannelGroup;
@@ -20,12 +22,16 @@ import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.ServerSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.ThreadNameDeterminer;
 import org.jboss.netty.util.ThreadRenamingRunnable;
 import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Optional;
 
 /**
  * HTTP proxy server.
@@ -69,6 +75,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     private final ClientSocketChannelFactory clientChannelFactory;
 
+    private final ProxyCacheManager cacheManager;
+
     
     /**
      * Creates a new proxy server.
@@ -102,6 +110,27 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 newServerThreadPool(),
                 newServerThreadPool()));
     }
+    
+    /**
+     * Creates a new proxy server.
+     * 
+     * @param port The port the server should run on.
+     * @param responseFilters The {@link Map} of request domains to match 
+     * with associated {@link HttpFilter}s for filtering responses to 
+     * those requests.
+     */
+    public DefaultHttpProxyServer(final int port, 
+        final HttpResponseFilters responseFilters,
+        final ProxyCacheManager cacheManager) {
+        this(port, responseFilters, null, null, null, 
+            new NioClientSocketChannelFactory(
+                newClientThreadPool(),
+                newClientThreadPool()), 
+            new HashedWheelTimer(),
+            new NioServerSocketChannelFactory(
+                newServerThreadPool(),
+                newServerThreadPool()), cacheManager);
+    }
 
     /**
      * Creates a new proxy server.
@@ -116,6 +145,21 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 return null;
             }
         });
+    }
+    
+    /**
+     * Creates a new proxy server.
+     * 
+     * @param port The port the server should run on.
+     * @param requestFilter The filter for HTTP requests.
+     */
+    public DefaultHttpProxyServer(final int port, 
+        final ProxyCacheManager cacheManager) {
+        this(port, new HttpResponseFilters() {
+            public HttpFilter getFilter(String hostAndPort) {
+                return null;
+            }
+        }, cacheManager);
     }
 
     /**
@@ -188,7 +232,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 newServerThreadPool(),
                 newServerThreadPool()));
     }
-    
+
     /**
      * Creates a new proxy server.
      * 
@@ -215,6 +259,38 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final ClientSocketChannelFactory clientChannelFactory, 
         final Timer timer,
         final ServerSocketChannelFactory serverChannelFactory) {
+        this(port, responseFilters, chainProxyManager, ksm, requestFilter,
+                clientChannelFactory, timer, serverChannelFactory, 
+                loadCacheManager());
+    }
+    
+    /**
+     * Creates a new proxy server.
+     * 
+     * @param port The port the server should run on.
+     * @param responseFilters The {@link Map} of request domains to match 
+     * with associated {@link HttpFilter}s for filtering responses to 
+     * those requests.
+     * @param chainProxyManager The proxy to send requests to if chaining
+     * proxies. Typically <code>null</code>.
+     * @param ksm The key manager if running the proxy over SSL.
+     * @param requestFilter Optional filter for modifying incoming requests.
+     * Often <code>null</code>.
+     * 
+     * @param clientChannelFactory The factory for creating outgoing channels
+     * to external sites.
+     * @param timer The global timer for timing out idle connections.
+     * @param serverChannelFactory The factory for creating listening channels
+     * for incoming connections.
+     */
+    public DefaultHttpProxyServer(final int port, 
+        final HttpResponseFilters responseFilters,
+        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
+        final HttpRequestFilter requestFilter,
+        final ClientSocketChannelFactory clientChannelFactory, 
+        final Timer timer,
+        final ServerSocketChannelFactory serverChannelFactory,
+        final ProxyCacheManager cacheManager) {
         this.port = port;
         this.responseFilters = responseFilters;
         this.ksm = ksm;
@@ -223,6 +299,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.clientChannelFactory = clientChannelFactory;
         this.timer = timer;
         this.serverChannelFactory = serverChannelFactory;
+        if (cacheManager == null) {
+            this.cacheManager = loadCacheManager();
+        } else {
+            this.cacheManager = cacheManager;
+        }
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
             public void uncaughtException(final Thread t, final Throwable e) {
                 log.error("Uncaught throwable", e);
@@ -248,7 +329,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 this.allChannels, this.chainProxyManager, this.ksm, 
                 new DefaultRelayPipelineFactoryFactory(chainProxyManager, 
                     this.responseFilters, this.requestFilter, 
-                    this.allChannels, timer), timer, this.clientChannelFactory);
+                    this.allChannels, timer), timer, this.clientChannelFactory, 
+                    this.cacheManager);
         serverBootstrap.setPipelineFactory(factory);
         
         // Binding only to localhost can significantly improve the security of
@@ -354,6 +436,49 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     return t;
                 }
             });
+    }
+    
+    private static ProxyCacheManager loadCacheManager() {
+        final Optional<String> managerClassName = 
+            Optional.fromNullable( LittleProxyConfig.getProxyCacheManagerClass());
+        if (managerClassName.isPresent()) {
+            ProxyCacheManager configCacheManager = null;
+            try {
+                final Class managerClass = 
+                        Class.forName( managerClassName.get() );
+                configCacheManager = 
+                        (ProxyCacheManager)managerClass.newInstance();
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException("Failed to find class: " +
+                        managerClassName.get(), e);
+            } catch (InstantiationException e) {
+                throw new RuntimeException(
+                        "Failed to create instance of ProxyCacheManager: " + 
+                managerClassName.get(), e);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(
+                        "Failed to create instance of ProxyCacheManager: " + 
+                managerClassName.get(), e);
+            }
+            
+            return configCacheManager;
+        } else {
+            return new ProxyCacheManager() {
+                
+                @Override
+                public boolean returnCacheHit(final HttpRequest request, 
+                    final Channel channel) {
+                    return false;
+                }
+                
+                @Override
+                public Future<String> cache(final HttpRequest originalRequest,
+                    final HttpResponse httpResponse, 
+                    final Object response, final ChannelBuffer encoded) {
+                    return null;
+                }
+            };
+        }
     }
 
 }
