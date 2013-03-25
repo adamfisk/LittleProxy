@@ -1,7 +1,5 @@
 package org.littleshoot.proxy;
 
-import static org.jboss.netty.channel.Channels.pipeline;
-
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -25,20 +23,12 @@ import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
+import javax.net.ssl.SSLEngine;
 
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
@@ -50,6 +40,7 @@ import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.HttpVersion;
+import org.jboss.netty.handler.ssl.SslHandler;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -378,21 +369,22 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             this.pendingRequestChunks = false;
         }
         
-        String hostAndPort = null;
+        String _hostAndPort = null;
         if (this.chainProxyManager != null) {
-            hostAndPort = this.chainProxyManager.getChainProxy(request);
+            _hostAndPort = this.chainProxyManager.getChainProxy(request);
         }
         
-        if (hostAndPort == null) {
-            hostAndPort = ProxyUtils.parseHostAndPort(request);
-            if (StringUtils.isBlank(hostAndPort)) {
+        if (_hostAndPort == null) {
+            _hostAndPort = ProxyUtils.parseHostAndPort(request);
+            if (StringUtils.isBlank(_hostAndPort) && currentChannelFuture == null) {
                 log.warn("No host and port found in {}", request.getUri());
                 badGateway(request, inboundChannel);
                 handleFutureChunksIfNecessary(request);
                 return;
             }
         }
-        
+        final String hostAndPort = _hostAndPort;
+
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
                 if (request.getMethod() != HttpMethod.CONNECT) {
@@ -413,7 +405,29 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     return writeFuture;
                 }
                 else {
-                    writeConnectResponse(ctx, request, cf.getChannel());
+                	if (LittleProxyConfig.isUseSSLMitm()) {
+	                    //TODO:nir: verify connect ok??
+	                    //TODO:nir: will this still work in case of proxy chaining?
+	                    final ChannelPipeline pipeline = cf.getChannel().getPipeline();
+	                    log.info("Adding proxy to web SSL handler");
+	                    final SslContextFactory scf = new SslContextFactory(new SelfSignedKeyStoreManager());
+	                    final SSLEngine engine = scf.getClientContext().createSSLEngine();
+	                    engine.setUseClientMode(true);
+	                    final SslHandler handler = new SslHandler(engine);
+	                    pipeline.addFirst("ssl", handler);
+	                    log.info("Running proxy to web SSL handshake");
+	                    final ChannelFuture handshakeFuture = handler.handshake();
+	                    handshakeFuture.addListener(new ChannelFutureListener() {
+	                        public void operationComplete(ChannelFuture future) throws Exception {
+	                            log.info("Proxy to web SSL handshake done. Success is: " + future.isSuccess());
+	                            // signaling on the client channel that we have connected to the server successfully
+	                            writeConnectResponse(ctx, request, cf.getChannel(), future.isSuccess());
+	                        }
+	                    });
+                	}
+                	else {
+                		writeConnectResponse(ctx, request, cf.getChannel(), true);
+                	}
                     return cf;
                 }
             }
@@ -576,6 +590,10 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
     }
 
     private ChannelFuture getChannelFuture(final String hostAndPort) {
+        if(StringUtils.isBlank(hostAndPort)) {
+            return currentChannelFuture;
+        }
+
         synchronized (this.externalHostsToChannelFutures) {
             final Queue<ChannelFuture> futures = 
                 this.externalHostsToChannelFutures.get(hostAndPort);
@@ -599,12 +617,13 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         }
     }
 
-    private void writeConnectResponse(final ChannelHandlerContext ctx, 
-        final HttpRequest httpRequest, final Channel outgoingChannel) {
+    private void writeConnectResponse(final ChannelHandlerContext ctx,
+        final HttpRequest httpRequest, final Channel outgoingChannel, boolean didHandshakeSucceed) {
         final int port = ProxyUtils.parsePort(httpRequest);
         final Channel browserToProxyChannel = ctx.getChannel();
         
         // TODO: We should really only allow access on 443, but this breaks
+        //TODO:nir: we should intercept such requests when they arrive and before we have created the browser to web channel
         // what a lot of browsers do in practice.
         if (port != 443) {
             log.warn("Connecting on port other than 443: "+httpRequest.getUri());
@@ -616,7 +635,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 ProxyUtils.PROXY_ERROR_HEADERS);
             ProxyUtils.closeOnFlush(browserToProxyChannel);
         }
-        else {
+        else if (!LittleProxyConfig.isUseSSLMitm()) {
             browserToProxyChannel.setReadable(false);
             
             // We need to modify both the pipeline encoders and decoders for the
@@ -632,7 +651,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             ctx.getPipeline().addLast("handler", 
                 new HttpConnectRelayingHandler(outgoingChannel, this.channelGroup));
         }
-        
+
         log.debug("Sending response to CONNECT request...");
         
         // This is sneaky -- thanks to Emil Goicovici from the list --
@@ -643,10 +662,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         String chainProxy = null;
         if (chainProxyManager != null) {
             chainProxy = chainProxyManager.getChainProxy(httpRequest);
+            //TODO:nir: SSL intercept support: it seems that we need to add SSLHandler in this case after we receive
+            //TODO:nir: the response from the chained proxy. Currently I'm not sure were to put that.
             if (chainProxy != null) {
                 // forward the CONNECT request to the upstream proxy server 
                 // which will return a HTTP response
-                outgoingChannel.getPipeline().addBefore("handler", "encoder", 
+                outgoingChannel.getPipeline().addBefore("handler", "encoder",
                     new HttpRequestEncoder());
                 outgoingChannel.write(httpRequest).addListener(
                     new ChannelFutureListener() {
@@ -658,13 +679,72 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 });
             }
         }
-        if (chainProxy == null) {
-            final String statusLine = "HTTP/1.1 200 Connection established\r\n";
-            ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
-                ProxyUtils.CONNECT_OK_HEADERS);
-        }
         
-        browserToProxyChannel.setReadable(true);
+        if (chainProxy == null) { 
+        	if (didHandshakeSucceed) {
+	            final String statusLine = "HTTP/1.1 200 Connection established\r\n";
+	            //TODO:nir: why does writeResponse() calls setReadable(true)?
+	            final ChannelFuture channelFuture = ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
+	                ProxyUtils.CONNECT_OK_HEADERS);
+	            
+	            if (LittleProxyConfig.isUseSSLMitm()) {
+		            channelFuture.addListener(new ChannelFutureListener() {
+		                public void operationComplete(ChannelFuture future) throws Exception {
+		                    // don't accept incoming message until we'll setup the SSL handler
+
+		                	// Uncomment to use a Signed Certificate manager and not the SelfSigned one. 
+	//	                    future.getChannel().setReadable(false);
+	//	                    log.info("Adding browser to proxy SSL handler");
+	//	                    SignedKeyStoreManager manager = new SignedKeyStoreManager();
+	//	                    manager.createKeyForDomain(httpRequest.getUri());
+	//	                    final SignedSslContextFactory scf = new SignedSslContextFactory(manager);
+	//	                    final SSLEngine engine = scf.getServerContext().createSSLEngine();
+	//	                    engine.setUseClientMode(false);
+	//	                    SslHandler handler = new SslHandler(engine);
+	//	                    handler.setEnableRenegotiation(true);
+	//	                    handler.setIssueHandshake(true);
+	//	                    future.getChannel().getPipeline().addFirst("ssl", handler);
+	//	                    future.getChannel().setReadable(true);
+	//	                    handler.handshake().addListener(new ChannelFutureListener() {
+	//							@Override
+	//							public void operationComplete(ChannelFuture future) throws Exception {
+	//								log.info("Browser to proxy SSL handshake done. Success is: " + future.isSuccess());
+	//							}
+	//						});
+		                    
+		                    
+		                    future.getChannel().setReadable(false);
+		                    log.info("Adding browser to proxy SSL handler");
+		                    final SslContextFactory scf = new SslContextFactory(new SelfSignedKeyStoreManager());
+		                    final SSLEngine engine = scf.getServerContext().createSSLEngine();
+		                    engine.setUseClientMode(false);
+		                    SslHandler handler = new SslHandler(engine);
+		                    future.getChannel().getPipeline().addFirst("ssl", handler);
+		                    future.getChannel().setReadable(true);
+		                    handler.handshake().addListener(new ChannelFutureListener() {
+								@Override
+								public void operationComplete(ChannelFuture future) throws Exception {
+									log.info("Browser to proxy SSL handshake done. Success is: " + future.isSuccess());
+								}
+							});
+		                }
+		            });
+	            }
+	            else {
+	            	browserToProxyChannel.setReadable(true);
+	            }
+        	}
+        	else {
+        		// Send an error to the browser and close the connection. For our implementation, this is enough. If you 
+        		// want the browser to give the correct error, you'd have to start the handshake with the browser and purposefully
+        		// make the handshake fail be using an invalid certificate.        		
+        		String statusLine = "HTTP/1.1 401 Unauthorized\r\n";
+	            ChannelFuture channelFuture = ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
+	                ProxyUtils.PROXY_ERROR_HEADERS);
+	            ProxyUtils.closeOnFlush(browserToProxyChannel);
+				ProxyUtils.closeOnFlush(outgoingChannel);
+        	}
+        }
     }
 
     private ChannelFuture newChannelFuture(final HttpRequest httpRequest, 
@@ -686,9 +766,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         // Configure the client.
         final ClientBootstrap cb = 
             new ClientBootstrap(this.clientChannelFactory);
-        
+
         final ChannelPipelineFactory cpf;
-        if (httpRequest.getMethod() == HttpMethod.CONNECT) {
+        if (httpRequest.getMethod() == HttpMethod.CONNECT && !LittleProxyConfig.isUseSSLMitm()) {
             // In the case of CONNECT, we just want to relay all data in both 
             // directions. We SHOULD make sure this is traffic on a reasonable
             // port, however, such as 80 or 443, to reduce security risks.
@@ -696,7 +776,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                 @Override
                 public ChannelPipeline getPipeline() throws Exception {
                     // Create a default pipeline implementation.
-                    final ChannelPipeline pipeline = pipeline();
+                    final ChannelPipeline pipeline = new DefaultChannelPipeline();
                     pipeline.addLast("handler", 
                         new HttpConnectRelayingHandler(browserToProxyChannel,
                             channelGroup));
@@ -708,7 +788,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             cpf = relayPipelineFactoryFactory.getRelayPipelineFactory(
                 httpRequest, browserToProxyChannel, this);
         }
-            
+        
         cb.setPipelineFactory(cpf);
         cb.setOption("connectTimeoutMillis", 40*1000);
         log.debug("Starting new connection to: {}", hostAndPort);
