@@ -20,7 +20,6 @@ public class SslContextFactory {
         }
 
         SSLContext serverContext;
-        SSLContext clientContext;
         try {
             final KeyStore ks = KeyStore.getInstance("JKS");
             //ks.load(new FileInputStream("keystore.jks"), "changeit".toCharArray());
@@ -39,7 +38,9 @@ public class SslContextFactory {
             throw new Error(
                     "Failed to initialize the server-side SSLContext", e);
         }
+        SERVER_CONTEXT = serverContext;
 
+        SSLContext clientContext;
         try {
             clientContext = SSLContext.getInstance(PROTOCOL);
             final X509TrustManager allTrustingTrustManager = new X509TrustManager() {
@@ -56,16 +57,15 @@ public class SslContextFactory {
                     return new X509Certificate[0];
                 }
             };
-            clientContext.init(null, new TrustManager[]{allTrustingTrustManager}, null);
+            final TrustManager[] trustManagers = LittleProxyConfig.isAcceptAllSSLCertificates() ?
+                    new TrustManager[]{allTrustingTrustManager} : null;
+            clientContext.init(null, trustManagers, null);
         } catch (final Exception e) {
             throw new Error(
                     "Failed to initialize the client-side SSLContext", e);
         }
-
-        SERVER_CONTEXT = serverContext;
         CLIENT_CONTEXT = clientContext;
     }
-
 
     public SSLContext getServerContext() {
         return SERVER_CONTEXT;

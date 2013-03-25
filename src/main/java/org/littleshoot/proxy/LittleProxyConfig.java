@@ -53,6 +53,9 @@ public class LittleProxyConfig {
     private static boolean useMITMInSSL = 
             ProxyUtils.extractBooleanDefaultTrue(props, "use_ssl_mitm");
 
+    private static boolean acceptAllSSLCertificates =
+            ProxyUtils.extractBooleanDefaultFalse(props, "accept_all_ssl_certificates");
+
     private LittleProxyConfig(){}
 
     /**
@@ -73,7 +76,18 @@ public class LittleProxyConfig {
     public static void setUseMITMInSSL(final boolean useMITMInSSL) {
         LittleProxyConfig.useMITMInSSL = useMITMInSSL;
     }
-    
+
+    /**
+     * Sets whether or not to trust all SSL certificates when SSL interception is enabled.
+     * Was created just to be used within LittleProxy tests. During normal operation
+     * the proxy should not, in general, accept un trusted certificates.
+     *
+     * @param acceptAllSSLCertificates Whether or not to trust all SSL certificates when SSL interception is enabled
+     */
+    public static void setAcceptAllSSLCertificates(final boolean acceptAllSSLCertificates) {
+        LittleProxyConfig.acceptAllSSLCertificates = acceptAllSSLCertificates;
+    }
+
     /**
      * Whether or not we're configured to use DNSSEC for lookups.
      * 
@@ -106,7 +120,11 @@ public class LittleProxyConfig {
     public static boolean isUseSSLMitm() {
         return useMITMInSSL;
     }
-    
+
+    public static boolean isAcceptAllSSLCertificates() {
+        return acceptAllSSLCertificates;
+    }
+
     public static void setProxyCacheManagerClass(String clazz) {
         proxyCacheManagerClass = clazz;
     }
