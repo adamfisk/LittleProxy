@@ -84,6 +84,7 @@ public class HttpsFilterTest {
                     }
                 };
 
+        LittleProxyConfig.setUseMITMInSSL(true);
         final HttpProxyServer proxyServer =
                 new DefaultHttpProxyServer(PROXY_PORT, responseFilters, null, null, null);
         proxyServer.start();
