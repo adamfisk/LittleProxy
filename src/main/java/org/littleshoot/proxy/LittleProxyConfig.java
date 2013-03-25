@@ -18,15 +18,15 @@ import org.slf4j.LoggerFactory;
  */
 public class LittleProxyConfig {
 
-    private static final Logger LOG = 
+    private static final Logger LOG =
         LoggerFactory.getLogger(LittleProxyConfig.class);
-    
+
     private static final Properties props = new Properties();
-    
+
     static {
-        
+
         final File propsFile = new File("./littleproxy.properties");
-        
+
         if (propsFile.isFile()) {
             InputStream is = null;
             try {
@@ -39,29 +39,32 @@ public class LittleProxyConfig {
             }
         }
     }
-    
-    
-    private static boolean useDnsSec = 
+
+
+    private static boolean useDnsSec =
         ProxyUtils.extractBooleanDefaultFalse(props, "dnssec");
-    
-    private static boolean useJmx = 
+
+    private static boolean useJmx =
         ProxyUtils.extractBooleanDefaultFalse(props, "jmx");
-    
-    private static String proxyCacheManagerClass = 
+
+    private static String proxyCacheManagerClass =
         props.getProperty("proxy_cache_manager_class");
 
-    private static boolean useMITMInSSL = 
+    private static boolean useMITMInSSL =
             ProxyUtils.extractBooleanDefaultTrue(props, "use_ssl_mitm");
 
     private static boolean acceptAllSSLCertificates =
             ProxyUtils.extractBooleanDefaultFalse(props, "accept_all_ssl_certificates");
+
+    private static boolean transparent =
+            ProxyUtils.extractBooleanDefaultFalse(props, "transparent");
 
     private LittleProxyConfig(){}
 
     /**
      * Sets whether or not to use DNSSEC to request signed records when
      * performing DNS lookups and verifying those records if they exist.
-     * 
+     *
      * @param useDnsSec Whether or not to use DNSSEC.
      */
     public static void setUseDnsSec(final boolean useDnsSec) {
@@ -90,7 +93,7 @@ public class LittleProxyConfig {
 
     /**
      * Whether or not we're configured to use DNSSEC for lookups.
-     * 
+     *
      * @return <code>true</code> if configured to use DNSSEC, otherwise
      * <code>false</code>.
      */
@@ -100,7 +103,7 @@ public class LittleProxyConfig {
 
     /**
      * Whether or not to use JMX -- defaults to false.
-     * 
+     *
      * @param useJmx Whether or not to use JMX.
      */
     public static void setUseJmx(boolean useJmx) {
@@ -109,14 +112,14 @@ public class LittleProxyConfig {
 
     /**
      * Returns whether or not JMX is turned on.
-     * 
+     *
      * @return <code>true</code> if JMX is turned on, otherwise 
      * <code>false</code>.
      */
     public static boolean isUseJmx() {
         return useJmx;
     }
-    
+
     public static boolean isUseSSLMitm() {
         return useMITMInSSL;
     }
@@ -128,8 +131,27 @@ public class LittleProxyConfig {
     public static void setProxyCacheManagerClass(String clazz) {
         proxyCacheManagerClass = clazz;
     }
-    
+
     public static String getProxyCacheManagerClass() {
         return proxyCacheManagerClass;
+    }
+
+    /**
+     * Whether or not the proxy adds the 'via' header -- defaults to false.
+     *
+     * @param transparent if true does not add the 'via' header.
+     */
+    public static void setTransparent(boolean transparent) {
+        LittleProxyConfig.transparent = transparent;
+    }
+
+    /**
+     * Returns whether or not the proxy adds the 'via' header.
+     *
+     * @return <code>true</code> if the proxy does not add the 'via' header, otherwise
+     * <code>false</code>.
+     */
+    public static boolean isTransparent() {
+        return transparent;
     }
 }

@@ -37,7 +37,7 @@ public class HttpFilterTest {
         final Queue<HttpRequest> associatedRequests = 
             new LinkedList<HttpRequest>();
 
-        final String url1 = "http://localhost:8924";
+        final String url1 = "http://localhost:8924/";
         final String url2 = "http://localhost:8924/testing";
         final HttpFilter filter = new HttpFilter() {
 

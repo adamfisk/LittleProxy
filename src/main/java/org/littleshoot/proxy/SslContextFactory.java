@@ -12,7 +12,7 @@ public class SslContextFactory {
     private static final String PROTOCOL = "TLS";
     private final SSLContext SERVER_CONTEXT;
     private final SSLContext CLIENT_CONTEXT;
-    
+
     public SslContextFactory(final KeyStoreManager ksm) {
         String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
         if (algorithm == null) {
@@ -74,4 +74,5 @@ public class SslContextFactory {
     public SSLContext getClientContext() {
         return CLIENT_CONTEXT;
     }
+
 }

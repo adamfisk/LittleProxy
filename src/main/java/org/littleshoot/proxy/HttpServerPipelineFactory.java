@@ -3,7 +3,6 @@ package org.littleshoot.proxy;
 import static org.jboss.netty.channel.Channels.pipeline;
 
 import java.lang.management.ManagementFactory;
-import java.util.concurrent.Future;
 
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.MBeanRegistrationException;
@@ -13,23 +12,16 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.net.ssl.SSLEngine;
 
-import org.apache.commons.lang3.ClassUtils;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
-import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
-import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.handler.timeout.IdleStateHandler;
 import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Optional;
 
 /**
  * Factory for creating pipelines for incoming requests to our listening
@@ -38,25 +30,17 @@ import com.google.common.base.Optional;
 public class HttpServerPipelineFactory implements ChannelPipelineFactory, 
     AllConnectionData {
     
-    private static final Logger log = 
+    private final Logger log = 
         LoggerFactory.getLogger(HttpServerPipelineFactory.class);
     
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final ChainProxyManager chainProxyManager;
-
     private final ProxyCacheManager cacheManager;
-    
     private final KeyStoreManager ksm;
-
     private int numHandlers;
-
-    //private boolean useJmx;
-    
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
-
     private final Timer timer;
-
     private final ClientSocketChannelFactory clientChannelFactory;
     
     /**
@@ -79,47 +63,43 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
         final Timer timer, final ClientSocketChannelFactory clientChannelFactory) {
+        this(authorizationManager, channelGroup, chainProxyManager, ksm, 
+                relayPipelineFactoryFactory, timer, clientChannelFactory, 
+                ProxyUtils.loadCacheManager());
+    }
+    
+    /**
+     * Creates a new pipeline factory with the specified class for processing
+     * proxy authentication.
+     * 
+     * @param authorizationManager The manager for proxy authentication.
+     * @param channelGroup The group that keeps track of open channels.
+     * @param chainProxyManager upstream proxy server host and port or
+     * <code>null</code> if none used.
+     * @param ksm The KeyStore manager.
+     * @param relayPipelineFactoryFactory The relay pipeline factory factory.
+     * @param timer The global timer for timing out idle connections. 
+     * @param clientChannelFactory The factory for creating outgoing channels
+     * to external sites.
+     */
+    public HttpServerPipelineFactory(
+        final ProxyAuthorizationManager authorizationManager, 
+        final ChannelGroup channelGroup, 
+        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
+        final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
+        final Timer timer, final ClientSocketChannelFactory clientChannelFactory,
+        final ProxyCacheManager proxyCacheManager) {
         
         this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
         this.timer = timer;
         this.clientChannelFactory = clientChannelFactory;
         
-        log.info("Creating server with keystore manager: {}", ksm);
+        log.debug("Creating server with keystore manager: {}", ksm);
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.chainProxyManager = chainProxyManager;
         this.ksm = ksm;
-        
-        Optional<String> managerClassName = Optional.fromNullable( LittleProxyConfig.getProxyCacheManagerClass() );
-        if (managerClassName.isPresent()) {
-            ProxyCacheManager configCacheManager = null;
-            try {
-                Class managerClass = Class.forName( managerClassName.get() );
-                configCacheManager = (ProxyCacheManager)managerClass.newInstance();
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException("Failed to find class: " + managerClassName.get(), e);
-            } catch (InstantiationException e) {
-                throw new RuntimeException("Failed to create instance of ProxyCacheManager: " + managerClassName.get(), e);
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException("Failed to create instance of ProxyCacheManager: " + managerClassName.get(), e);
-            }
-            
-            cacheManager = configCacheManager;
-        } else {
-            cacheManager = new ProxyCacheManager() {
-                
-                public boolean returnCacheHit(final HttpRequest request, 
-                    final Channel channel) {
-                    return false;
-                }
-                
-                public Future<String> cache(final HttpRequest originalRequest,
-                    final HttpResponse httpResponse, 
-                    final Object response, final ChannelBuffer encoded) {
-                    return null;
-                }
-            };
-        }
+        this.cacheManager = proxyCacheManager;
         
         if (LittleProxyConfig.isUseJmx()) {
             setupJmx();
@@ -134,9 +114,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             final String oName =
                 pack+":type="+clazz.getSimpleName()+"-"+clazz.getSimpleName() + 
                 hashCode();
-            log.info("Registering MBean with name: {}", oName);
+            log.debug("Registering MBean with name: {}", oName);
             final ObjectName mxBeanName = new ObjectName(oName);
-            if(!mbs.isRegistered(mxBeanName)) {
+            if (!mbs.isRegistered(mxBeanName)) {
                 mbs.registerMBean(this, mxBeanName);
             }
         } catch (final MalformedObjectNameException e) {
@@ -150,12 +130,13 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         }
     }
     
+    @Override
     public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = pipeline();
 
-        log.info("Accessing pipeline");
+        log.debug("Accessing pipeline");
         if (this.ksm != null) {
-            log.info("Adding SSL handler");
+            log.debug("Adding SSL handler");
             final SslContextFactory scf = new SslContextFactory(this.ksm);
             final SSLEngine engine = scf.getServerContext().createSSLEngine();
             engine.setUseClientMode(false);
@@ -168,13 +149,6 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
             new HttpRequestDecoder(8192, 8192*2, 8192*2));
         pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
         
-        
-        /*
-        if (trafficShaper != null) {
-            pipeline.addLast("GLOBAL_TRAFFIC_SHAPING", trafficShaper);
-        }
-        */
-
         final HttpRequestHandler httpRequestHandler = 
             new HttpRequestHandler(this.cacheManager, authenticationManager,
             this.channelGroup, this.chainProxyManager, 
@@ -188,6 +162,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         return pipeline;
     }
 
+    @Override
     public int getNumRequestHandlers() {
         return this.numHandlers;
     }
