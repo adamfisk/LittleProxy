@@ -11,6 +11,7 @@ import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -386,10 +387,17 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         if (hostAndPort == null) {
             hostAndPort = ProxyUtils.parseHostAndPort(request);
             if (StringUtils.isBlank(hostAndPort)) {
-                log.warn("No host and port found in {}", request.getUri());
-                badGateway(request, inboundChannel);
-                handleFutureChunksIfNecessary(request);
-                return;
+                final List<String> hosts = 
+                    request.getHeaders(HttpHeaders.Names.HOST);
+                if (hosts != null && !hosts.isEmpty()) {
+                    hostAndPort = hosts.get(0);
+                } else {
+                    log.warn("No host and port found in {}", request.getUri());
+                    badGateway(request, inboundChannel);
+                    handleFutureChunksIfNecessary(request);
+                    return;
+                }
+                
             }
         }
         
