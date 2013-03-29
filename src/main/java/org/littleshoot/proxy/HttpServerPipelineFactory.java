@@ -12,6 +12,7 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.net.ssl.SSLEngine;
 
+import org.jboss.netty.channel.ChannelDownstreamHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
@@ -37,7 +38,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     private final ChannelGroup channelGroup;
     private final ChainProxyManager chainProxyManager;
     private final ProxyCacheManager cacheManager;
-    private final KeyStoreManager ksm;
+    //private final KeyStoreManager ksm;
+    
+    private final HandshakeHandlerFactory handshakeHandlerFactory;
     private int numHandlers;
     private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
     private final Timer timer;
@@ -60,10 +63,12 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
+        final ChainProxyManager chainProxyManager, 
+        final HandshakeHandlerFactory handshakeHandlerFactory,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
         final Timer timer, final ClientSocketChannelFactory clientChannelFactory) {
-        this(authorizationManager, channelGroup, chainProxyManager, ksm, 
+        this(authorizationManager, channelGroup, chainProxyManager, 
+                handshakeHandlerFactory, 
                 relayPipelineFactoryFactory, timer, clientChannelFactory, 
                 ProxyUtils.loadCacheManager());
     }
@@ -85,20 +90,23 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     public HttpServerPipelineFactory(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
+        final ChainProxyManager chainProxyManager, 
+        final HandshakeHandlerFactory handshakeHandlerFactory,
         final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
         final Timer timer, final ClientSocketChannelFactory clientChannelFactory,
         final ProxyCacheManager proxyCacheManager) {
         
+        this.handshakeHandlerFactory = handshakeHandlerFactory;
         this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
         this.timer = timer;
         this.clientChannelFactory = clientChannelFactory;
         
-        log.debug("Creating server with keystore manager: {}", ksm);
+        log.debug("Creating server with handshake handler: {}", 
+                handshakeHandlerFactory);
         this.authenticationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.chainProxyManager = chainProxyManager;
-        this.ksm = ksm;
+        //this.ksm = ksm;
         this.cacheManager = proxyCacheManager;
         
         if (LittleProxyConfig.isUseJmx()) {
@@ -135,12 +143,15 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         final ChannelPipeline pipeline = pipeline();
 
         log.debug("Accessing pipeline");
-        if (this.ksm != null) {
+        if (this.handshakeHandlerFactory != null) {
             log.debug("Adding SSL handler");
-            final SslContextFactory scf = new SslContextFactory(this.ksm);
-            final SSLEngine engine = scf.getServerContext().createSSLEngine();
-            engine.setUseClientMode(false);
-            pipeline.addLast("ssl", new SslHandler(engine));
+            //final SslContextFactory scf = new SslContextFactory(this.ksm);
+            //final SSLEngine engine = scf.getServerContext().createSSLEngine();
+            //engine.setUseClientMode(false);
+            //pipeline.addLast("ssl", new SslHandler(engine));
+            final HandshakeHandler hh = 
+                this.handshakeHandlerFactory.newHandshakeHandler();
+            pipeline.addLast(hh.getId(), hh.getChannelHandler());
         }
             
         // We want to allow longer request lines, headers, and chunks 
