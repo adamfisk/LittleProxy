@@ -316,6 +316,7 @@
         </configuration>
       </plugin>
 
+<!--
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -329,11 +330,7 @@
             <configuration>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>littleproxy-shade</shadedClassifierName>
-<!--
-              <finalName>${project.artifactId}-${project.version}-shaded</finalName>
--->
               <artifactSet>
-                <!-- we have to exclude bouncycastle b/c  it is signed -->
                 <excludes>
                   <exclude>org.bouncycastle:*</exclude>
                 </excludes>
@@ -362,6 +359,7 @@
           </execution>
         </executions>
       </plugin>
+-->
 
       <plugin>
         <groupId>org.apache.felix</groupId>
