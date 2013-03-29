@@ -5,6 +5,7 @@ import java.security.Security;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
 
 public class SslContextFactory {
 
@@ -12,6 +13,11 @@ public class SslContextFactory {
     private final SSLContext SERVER_CONTEXT;
     
     public SslContextFactory(final KeyStoreManager ksm) {
+        this(ksm, null);
+    }
+    
+    public SslContextFactory(final KeyStoreManager ksm, 
+        final TrustManager[] trustManagers) {
         String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
         if (algorithm == null) {
             algorithm = "SunX509";
@@ -31,7 +37,7 @@ public class SslContextFactory {
 
             // Initialize the SSLContext to work with our key managers.
             serverContext = SSLContext.getInstance(PROTOCOL);
-            serverContext.init(kmf.getKeyManagers(), null, null);
+            serverContext.init(kmf.getKeyManagers(), trustManagers, null);
         } catch (final Exception e) {
             throw new Error(
                     "Failed to initialize the server-side SSLContext", e);
