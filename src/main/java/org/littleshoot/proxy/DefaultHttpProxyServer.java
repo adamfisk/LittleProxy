@@ -7,12 +7,10 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
-import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.group.ChannelGroup;
@@ -22,16 +20,12 @@ import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.ServerSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.ThreadNameDeterminer;
 import org.jboss.netty.util.ThreadRenamingRunnable;
 import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Optional;
 
 /**
  * HTTP proxy server.
@@ -50,7 +44,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private final ChainProxyManager chainProxyManager;
 
-    private final KeyStoreManager ksm;
+    private final HandshakeHandlerFactory handshakeHandlerFactory;
 
     private final HttpRequestFilter requestFilter;
 
@@ -221,9 +215,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     public DefaultHttpProxyServer(final int port, 
         final HttpResponseFilters responseFilters,
-        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
+        final ChainProxyManager chainProxyManager, 
+        final HandshakeHandlerFactory handshakeHandlerFactory,
         final HttpRequestFilter requestFilter) {
-        this(port, responseFilters, chainProxyManager, ksm, requestFilter,
+        this(port, responseFilters, chainProxyManager, handshakeHandlerFactory, 
+            requestFilter,
             new NioClientSocketChannelFactory(
                     newClientThreadPool(),
                     newClientThreadPool()), 
@@ -254,12 +250,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     public DefaultHttpProxyServer(final int port, 
         final HttpResponseFilters responseFilters,
-        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
+        final ChainProxyManager chainProxyManager, 
+        final HandshakeHandlerFactory handshakeHandlerFactory,
         final HttpRequestFilter requestFilter,
         final ClientSocketChannelFactory clientChannelFactory, 
         final Timer timer,
         final ServerSocketChannelFactory serverChannelFactory) {
-        this(port, responseFilters, chainProxyManager, ksm, requestFilter,
+        this(port, responseFilters, chainProxyManager, handshakeHandlerFactory, 
+                requestFilter,
                 clientChannelFactory, timer, serverChannelFactory, 
                 ProxyUtils.loadCacheManager());
     }
@@ -285,7 +283,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     public DefaultHttpProxyServer(final int port, 
         final HttpResponseFilters responseFilters,
-        final ChainProxyManager chainProxyManager, final KeyStoreManager ksm,
+        final ChainProxyManager chainProxyManager, 
+        final HandshakeHandlerFactory handshakeHandlerFactory,
         final HttpRequestFilter requestFilter,
         final ClientSocketChannelFactory clientChannelFactory, 
         final Timer timer,
@@ -293,7 +292,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final ProxyCacheManager cacheManager) {
         this.port = port;
         this.responseFilters = responseFilters;
-        this.ksm = ksm;
+        this.handshakeHandlerFactory = handshakeHandlerFactory;
         this.requestFilter = requestFilter;
         this.chainProxyManager = chainProxyManager;
         this.clientChannelFactory = clientChannelFactory;
@@ -326,7 +325,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.stopped.set(false);
         final HttpServerPipelineFactory factory = 
             new HttpServerPipelineFactory(authenticationManager, 
-                this.allChannels, this.chainProxyManager, this.ksm, 
+                this.allChannels, this.chainProxyManager, 
+                this.handshakeHandlerFactory, 
                 new DefaultRelayPipelineFactoryFactory(chainProxyManager, 
                     this.responseFilters, this.requestFilter, 
                     this.allChannels, timer), timer, this.clientChannelFactory, 
@@ -407,11 +407,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.authenticationManager.addHandler(pah);
     }
 
-    public KeyStoreManager getKeyStoreManager() {
-        return this.ksm;
-    }
-    
-    
     private static Executor newClientThreadPool() {
         return Executors.newCachedThreadPool(
             new ThreadFactory() {

@@ -134,14 +134,16 @@ public class EndToEndStoppingTest {
         
         //assertEquals(200, response.getStatusLine().getStatusCode());
         //EntityUtils.consume(response.getEntity());
+        /*
         final HttpProxyServer ssl = new DefaultHttpProxyServer(PROXY_PORT, 
             null, null, 
-            new SelfSignedKeyStoreManager(), new HttpRequestFilter() {
+            new SslHandshakeHandlerFactory(), new HttpRequestFilter() {
                 @Override
                 public void filter(HttpRequest httpRequest) {
                     System.out.println("Request went through proxy");
                 }
             });
+        */
         
         final HttpProxyServer plain = 
             new DefaultHttpProxyServer(PROXY_PORT, new HttpRequestFilter() {
