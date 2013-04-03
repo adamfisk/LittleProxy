@@ -33,9 +33,14 @@ public class NetworkUtils {
      * any reason.
      */
     public static InetAddress getLocalHost() throws UnknownHostException {
-        final InetAddress is = InetAddress.getLocalHost();
-        if (!is.isLoopbackAddress()) {
-            return is;
+        try {
+            final InetAddress is = InetAddress.getLocalHost();
+            if (!is.isLoopbackAddress()) {
+                return is;
+            }
+        } catch (final UnknownHostException e) {
+            // This can happen in odd cases like when using network cards.
+            // Continue to try via UDP.
         }
 
         return getLocalHostViaUdp();
