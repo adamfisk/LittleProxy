@@ -60,7 +60,7 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>14.0-rc1</version>
+      <version>14.0.1</version>
     </dependency>
 
     <dependency>
@@ -140,14 +140,14 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty</artifactId>
-      <version>3.6.3.Final</version>
+      <version>3.6.5.Final</version>
       <scope>compile</scope>
     </dependency>
 
     <dependency>
       <groupId>org.littleshoot</groupId>
       <artifactId>dnssec4j</artifactId>
-      <version>0.2-SNAPSHOT</version>
+      <version>0.1</version>
     </dependency>
 
     <dependency>
