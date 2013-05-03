@@ -25,38 +25,17 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
     public ProxyHttpResponseEncoder() {
         this(null);
     }
-    
-    /**
-     * Creates a new HTTP response encoder that intercepts the encoding to 
-     * include any relevant responses in the cache.
-     * 
-     * @param cacheManager The class that manages the cache.
-     */
-    public ProxyHttpResponseEncoder(final ProxyCacheManager cacheManager) {
-        this(cacheManager, false);
-    }
 
     /**
      * Creates a new HTTP response encoder that intercepts the encoding to 
      * include any relevant responses in the cache.
-     * 
-     * @param transparent Whether or not this should act as a transparent proxy.
-     */
-    public ProxyHttpResponseEncoder(final boolean transparent) {
-        this(null, transparent);
-    }
-    
-    /**
-     * Creates a new HTTP response encoder that intercepts the encoding to 
-     * include any relevant responses in the cache.
-     * 
+     *
      * @param cacheManager The class that manages the cache.
-     * @param transparent Whether or not this should act as a transparent proxy.
+     *
      */
-    public ProxyHttpResponseEncoder(final ProxyCacheManager cacheManager,
-        final boolean transparent) {
+    public ProxyHttpResponseEncoder(final ProxyCacheManager cacheManager) {
         this.cacheManager = cacheManager;
-        this.transparent = transparent;
+        this.transparent = LittleProxyConfig.isTransparent();
     }
     
     @Override
