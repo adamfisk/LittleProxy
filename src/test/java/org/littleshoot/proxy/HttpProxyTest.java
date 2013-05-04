@@ -64,7 +64,7 @@ public class HttpProxyTest {
         final HttpProxyServer server = startHttpProxy();
         try {
             final byte[] baseResponse = rawResponse("i.i.com.com", 80, true, HttpVersion.HTTP_1_0);
-            final byte[] proxyResponse = rawResponse("127.0.0.1", 8080, false, HttpVersion.HTTP_1_1);
+            final byte[] proxyResponse = rawResponse("127.0.0.1", 8888, false, HttpVersion.HTTP_1_1);
             final ChannelBuffer wrappedBase = ChannelBuffers.wrappedBuffer(baseResponse);
             final ChannelBuffer wrappedProxy = ChannelBuffers.wrappedBuffer(proxyResponse);
     
@@ -202,11 +202,11 @@ public class HttpProxyTest {
         final DefaultHttpClient httpclient = new DefaultHttpClient();
         try {
             if (isProxy) {
-                final HttpHost proxy = new HttpHost("127.0.0.1", 8080);
+                final HttpHost proxy = new HttpHost("127.0.0.1", 8888);
                 httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if(username != null && password != null){
                     httpclient.getCredentialsProvider().setCredentials(
-                        new AuthScope("127.0.0.1", 8080), 
+                        new AuthScope("127.0.0.1", 8888), 
                         new UsernamePasswordCredentials(username, password));
                 }
             }
@@ -235,10 +235,10 @@ public class HttpProxyTest {
         DefaultHttpClient httpclient = new DefaultHttpClient();
         try {
             if (isProxy) {
-                HttpHost proxy = new HttpHost("127.0.0.1", 8080);
+                HttpHost proxy = new HttpHost("127.0.0.1", 8888);
                 httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if(username != null && password != null){
-                    httpclient.getCredentialsProvider().setCredentials(new AuthScope("127.0.0.1", 8080), 
+                    httpclient.getCredentialsProvider().setCredentials(new AuthScope("127.0.0.1", 8888), 
                         new UsernamePasswordCredentials(username, password));
                 }
             }
@@ -256,7 +256,7 @@ public class HttpProxyTest {
     private byte[] rawResponse(final String url, final int port,
         final boolean simulateProxy, final HttpVersion httpVersion)
         throws UnknownHostException, IOException {
-        //final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", 8080);
+        //final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", 8888);
         final Socket sock = new Socket(url, port);
         System.out.println("Connected...");
         final OutputStream os = sock.getOutputStream();
@@ -469,22 +469,22 @@ public class HttpProxyTest {
 
     private HttpProxyServer startHttpProxyWithCredentials(final String userName, 
         final String password) {
-        final HttpProxyServer server = new DefaultHttpProxyServer(8080);
+        final HttpProxyServer server = new DefaultHttpProxyServer(8888);
         server.addProxyAuthenticationHandler(new ProxyAuthorizationHandler() {
             public boolean authenticate(String u, String p) {
                 return userName.equals(u) && password.equals(p);
             }
         });
         server.start();
-        checkServer(8080);
+        checkServer(8888);
         return server;
     }
 
     private HttpProxyServer startHttpProxy() {
-        final HttpProxyServer server = new DefaultHttpProxyServer(8080);
+        final HttpProxyServer server = new DefaultHttpProxyServer(8888);
         server.start();
         
-        checkServer(8080);
+        checkServer(8888);
         return server;
     }
     
