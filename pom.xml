@@ -319,7 +319,6 @@
         </configuration>
       </plugin>
 
-<!--
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -362,7 +361,6 @@
           </execution>
         </executions>
       </plugin>
--->
 
       <plugin>
         <groupId>org.apache.felix</groupId>
