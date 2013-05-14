@@ -60,7 +60,7 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>14.0-rc1</version>
+      <version>14.0.1</version>
     </dependency>
 
     <dependency>
@@ -140,7 +140,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty</artifactId>
-      <version>3.6.3.Final</version>
+      <version>3.6.5.Final</version>
       <scope>compile</scope>
     </dependency>
 
@@ -319,7 +319,6 @@
         </configuration>
       </plugin>
 
-<!--
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -362,7 +361,6 @@
           </execution>
         </executions>
       </plugin>
--->
 
       <plugin>
         <groupId>org.apache.felix</groupId>
