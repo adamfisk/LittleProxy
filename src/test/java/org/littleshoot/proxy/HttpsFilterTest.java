@@ -115,31 +115,34 @@ public class HttpsFilterTest {
         webServer.addConnector(connector);
         webServer.start();
 
-        getResponse(url1);
+        try {
+            getResponse(url1);
 
-        assertEquals(1, associatedRequests.size());
-        assertEquals(1, shouldFilterCalls.get());
-        assertEquals(1, filterCalls.get());
+            assertEquals(1, associatedRequests.size());
+            assertEquals(1, shouldFilterCalls.get());
+            assertEquals(1, filterCalls.get());
 
-        // We just open a second connection here since reusing the original
-        // connection is inconsistent.
-        getResponse(url2);
+            // We just open a second connection here since reusing the original
+            // connection is inconsistent.
+            getResponse(url2);
 
-        assertEquals(2, shouldFilterCalls.get());
-        assertEquals(2, filterCalls.get());
-        assertEquals(2, associatedRequests.size());
+            assertEquals(2, shouldFilterCalls.get());
+            assertEquals(2, filterCalls.get());
+            assertEquals(2, associatedRequests.size());
 
-        final HttpRequest first = associatedRequests.remove();
-        final HttpRequest second = associatedRequests.remove();
+            final HttpRequest first = associatedRequests.remove();
+            final HttpRequest second = associatedRequests.remove();
 
-        // Make sure the requests in the filter calls were the requests they
-        // actually should have been.
-        assertEquals(url1, first.getUri());
-        // stripping host since in this run the proxy is not transparent. see ProxyHttpRequestEncoder
-        assertEquals(ProxyUtils.stripHost(url2), second.getUri());
+            // Make sure the requests in the filter calls were the requests they
+            // actually should have been.
+            assertEquals(url1, first.getUri());
+            // stripping host since in this run the proxy is not transparent. see ProxyHttpRequestEncoder
+            assertEquals(ProxyUtils.stripHost(url2), second.getUri());
 
-        webServer.stop();
-        proxyServer.stop();
+        } finally {
+            webServer.stop();
+            proxyServer.stop();
+        }
     }
 
     private HttpEntity getResponse(final String url) throws Exception {
