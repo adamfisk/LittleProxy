@@ -3,7 +3,7 @@
   <groupId>org.littleshoot</groupId>
   <artifactId>littleproxy</artifactId>
   <packaging>bundle</packaging>
-  <version>0.5.3-SNAPSHOT</version>
+  <version>0.5.2-SNAPSHOT</version>
   <name>LittleProxy</name>
   <description>
     LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework. 
@@ -178,48 +178,22 @@
       </extension>
     </extensions>
     <plugins>
-<!--
       <plugin>
-        <artifactId>maven-source-plugin</artifactId>
-        <version>2.2.1</version>
-        <executions>
-          <execution>
-            <id>attach-sources</id>
-            <phase>deploy</phase>
-            <goals><goal>jar-no-fork</goal></goals> 
-          </execution>
-        </executions>
+        <groupId>org.sonatype.plugins</groupId>
+        <artifactId>nexus-staging-maven-plugin</artifactId>
+        <version>1.4.4</version>
+        <extensions>true</extensions>
+        <configuration>
+          <serverId>sonatype-nexus-staging</serverId>
+          <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+        </configuration>
       </plugin>
-      <plugin> 
-        <artifactId>maven-javadoc-plugin</artifactId> 
-        <version>2.9</version>
-        <executions> 
-          <execution> 
-            <id>attach-javadocs</id>
-            <phase>deploy</phase>
-            <goals><goal>jar</goal></goals> 
-          </execution> 
-        </executions> 
-      </plugin>
--->
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.13</version>
       </plugin>
-<!--
-      <plugin> 
-        <artifactId>maven-deploy-plugin</artifactId> 
-        <version>2.7</version>
-        <executions> 
-          <execution> 
-            <id>deploy</id>
-            <phase>deploy</phase>
-            <goals><goal>deploy</goal></goals> 
-          </execution> 
-        </executions> 
-      </plugin>
--->
       <plugin>
         <groupId>com.github.github</groupId>
         <artifactId>site-maven-plugin</artifactId>
@@ -495,35 +469,6 @@
       <timezone>-5</timezone>
     </developer>
   </developers>
-
-  <profiles>
-    <profile>
-      <id>release-sign-artifacts</id>
-      <activation>
-        <property>
-          <name>performRelease</name>
-          <value>true</value>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-gpg-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>sign-artifacts</id>
-                <phase>verify</phase>
-                <goals>
-                  <goal>sign</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 
   <repositories>
     <repository>
