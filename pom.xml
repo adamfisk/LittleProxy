@@ -3,7 +3,7 @@
   <groupId>org.littleshoot</groupId>
   <artifactId>littleproxy</artifactId>
   <packaging>jar</packaging>
-  <version>0.5.3-SNAPSHOT</version>
+  <version>0.5.2-SNAPSHOT</version>
   <name>LittleProxy</name>
   <description>
     LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework. 
@@ -170,6 +170,7 @@
   </prerequisites>
 
   <build>
+<!--
     <extensions>
       <extension>
         <groupId>org.apache.maven.wagon</groupId>
@@ -177,6 +178,8 @@
         <version>1.0-beta-6</version>
       </extension>
     </extensions>
+-->
+
     <plugins>
       <plugin>
         <groupId>org.sonatype.plugins</groupId>
@@ -278,7 +281,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.0</version>
+        <version>3.1</version>
         <configuration>
           <source>1.6</source>
           <target>1.6</target>
