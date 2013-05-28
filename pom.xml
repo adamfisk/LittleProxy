@@ -3,7 +3,7 @@
   <groupId>org.littleshoot</groupId>
   <artifactId>littleproxy</artifactId>
   <packaging>bundle</packaging>
-  <version>0.5.3-SNAPSHOT</version>
+  <version>0.5.2-SNAPSHOT</version>
   <name>LittleProxy</name>
   <description>
     LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework. 
@@ -293,6 +293,7 @@
         </configuration>
       </plugin>
 
+<!--
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -348,6 +349,7 @@
           </instructions>
         </configuration>
       </plugin>
+-->
   
     </plugins>
   </build>
