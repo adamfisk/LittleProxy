@@ -64,7 +64,7 @@ public class ProxyUtils {
     
     static {
         try {
-            final InetAddress localAddress = InetAddress.getLocalHost();
+            final InetAddress localAddress = NetworkUtils.getLocalHost();
             hostName = localAddress.getHostName();
         }
         catch (final UnknownHostException e) {
