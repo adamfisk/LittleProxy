@@ -10,7 +10,7 @@ $ cd LittleProxy
 $ ./run.bash
 ```
 
-From Maven this as simple as:
+You can embed LittleProxy in your own projects through maven with the following:
 
 ```
     <dependency>
