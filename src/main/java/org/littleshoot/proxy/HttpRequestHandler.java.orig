@@ -370,11 +370,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             this.pendingRequestChunks = false;
         }
         
-        String hostAndPort = null;
+        String _hostAndPort = null;
         if (this.chainProxyManager != null) {
-            hostAndPort = this.chainProxyManager.getChainProxy(request);
+            _hostAndPort = this.chainProxyManager.getChainProxy(request);
         }
         
+<<<<<<< HEAD
         if (hostAndPort == null) {
             hostAndPort = ProxyUtils.parseHostAndPort(request);
             if (StringUtils.isBlank(hostAndPort)) {
@@ -389,9 +390,19 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
                     return;
                 }
                 
+=======
+        if (_hostAndPort == null) {
+            _hostAndPort = ProxyUtils.parseHostAndPort(request);
+            if (StringUtils.isBlank(_hostAndPort) && currentChannelFuture == null) {
+                log.warn("No host and port found in {}", request.getUri());
+                badGateway(request, inboundChannel);
+                handleFutureChunksIfNecessary(request);
+                return;
+>>>>>>> 9f7c5e61def64facd279d8dc634987a79539b035
             }
         }
-        
+        final String hostAndPort = _hostAndPort;
+
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
                 if (request.getMethod() != HttpMethod.CONNECT) {

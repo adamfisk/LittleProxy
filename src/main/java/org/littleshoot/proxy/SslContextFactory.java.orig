@@ -5,10 +5,13 @@ import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
+<<<<<<< HEAD
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
+=======
+import javax.net.ssl.*;
+>>>>>>> 9f7c5e61def64facd279d8dc634987a79539b035
 
 public class SslContextFactory {
 
@@ -65,13 +68,9 @@ public class SslContextFactory {
                     return new X509Certificate[0];
                 }
             };
-            final TrustManager[] tms;
-            if (LittleProxyConfig.isAcceptAllSSLCertificates()) {
-                tms = new TrustManager[]{allTrustingTrustManager};
-            } else {
-                tms = trustManagers;
-            }
-            clientContext.init(null, tms, null);
+            final TrustManager[] trustManagers = LittleProxyConfig.isAcceptAllSSLCertificates() ?
+                    new TrustManager[]{allTrustingTrustManager} : null;
+            clientContext.init(null, trustManagers, null);
         } catch (final Exception e) {
             throw new Error(
                     "Failed to initialize the client-side SSLContext", e);

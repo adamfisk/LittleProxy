@@ -64,7 +64,7 @@ public class HttpProxyTest {
         final HttpProxyServer server = startHttpProxy();
         try {
             final byte[] baseResponse = rawResponse("i.i.com.com", 80, true, HttpVersion.HTTP_1_0);
-            final byte[] proxyResponse = rawResponse("127.0.0.1", 8080, false, HttpVersion.HTTP_1_1);
+            final byte[] proxyResponse = rawResponse("127.0.0.1", 54827, false, HttpVersion.HTTP_1_1);
             final ChannelBuffer wrappedBase = ChannelBuffers.wrappedBuffer(baseResponse);
             final ChannelBuffer wrappedProxy = ChannelBuffers.wrappedBuffer(proxyResponse);
     
@@ -202,11 +202,11 @@ public class HttpProxyTest {
         final DefaultHttpClient httpclient = new DefaultHttpClient();
         try {
             if (isProxy) {
-                final HttpHost proxy = new HttpHost("127.0.0.1", 8080);
+                final HttpHost proxy = new HttpHost("127.0.0.1", 54827);
                 httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if(username != null && password != null){
                     httpclient.getCredentialsProvider().setCredentials(
-                        new AuthScope("127.0.0.1", 8080), 
+                        new AuthScope("127.0.0.1", 54827), 
                         new UsernamePasswordCredentials(username, password));
                 }
             }
@@ -235,10 +235,10 @@ public class HttpProxyTest {
         DefaultHttpClient httpclient = new DefaultHttpClient();
         try {
             if (isProxy) {
-                HttpHost proxy = new HttpHost("127.0.0.1", 8080);
+                HttpHost proxy = new HttpHost("127.0.0.1", 54827);
                 httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if(username != null && password != null){
-                    httpclient.getCredentialsProvider().setCredentials(new AuthScope("127.0.0.1", 8080), 
+                    httpclient.getCredentialsProvider().setCredentials(new AuthScope("127.0.0.1", 54827), 
                         new UsernamePasswordCredentials(username, password));
                 }
             }
@@ -256,7 +256,7 @@ public class HttpProxyTest {
     private byte[] rawResponse(final String url, final int port,
         final boolean simulateProxy, final HttpVersion httpVersion)
         throws UnknownHostException, IOException {
-        //final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", 8080);
+        //final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", 54827);
         final Socket sock = new Socket(url, port);
         System.out.println("Connected...");
         final OutputStream os = sock.getOutputStream();
@@ -288,7 +288,7 @@ public class HttpProxyTest {
         }
         writeHeader(writer, "User-Agent: Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US; rv:1.9.0.14) Gecko/2009082706 Firefox/3.0.14\r\n");
         if (simulateProxy) {
-            final InetAddress address = InetAddress.getLocalHost();
+            final InetAddress address = NetworkUtils.getLocalHost();//InetAddress.getLocalHost();
             final String host = address.getHostName();
             final String via = "1.1 " + host;
             writeHeader(writer, "Via: "+via+"\r\n");
@@ -469,22 +469,22 @@ public class HttpProxyTest {
 
     private HttpProxyServer startHttpProxyWithCredentials(final String userName, 
         final String password) {
-        final HttpProxyServer server = new DefaultHttpProxyServer(8080);
+        final HttpProxyServer server = new DefaultHttpProxyServer(54827);
         server.addProxyAuthenticationHandler(new ProxyAuthorizationHandler() {
             public boolean authenticate(String u, String p) {
                 return userName.equals(u) && password.equals(p);
             }
         });
         server.start();
-        checkServer(8080);
+        checkServer(54827);
         return server;
     }
 
     private HttpProxyServer startHttpProxy() {
-        final HttpProxyServer server = new DefaultHttpProxyServer(8080);
+        final HttpProxyServer server = new DefaultHttpProxyServer(54827);
         server.start();
         
-        checkServer(8080);
+        checkServer(54827);
         return server;
     }
     
@@ -494,12 +494,13 @@ public class HttpProxyTest {
         while (true) {
             final Socket sock = new Socket();
             try {
-                sock.connect(new InetSocketAddress(port), 50);
+                sock.connect(new InetSocketAddress("127.0.0.1", port), 50);
                 sock.close();
                 log.info("CONNECTED IN {} ms", tries*100);
                 break;
             } catch (IOException e) {
             }
+            
             tries++;
             if (tries > 200) {
                 throw new Error("Server didn't come up?");
