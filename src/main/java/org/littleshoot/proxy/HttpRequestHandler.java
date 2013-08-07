@@ -337,7 +337,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
 
         if (this.currentChannelFuture.channel() != null &&
                 this.currentChannelFuture.channel().isActive()) {
-            this.currentChannelFuture.channel().write(chunk);
+            this.currentChannelFuture.channel().writeAndFlush(chunk);
         }
         else {
             this.currentChannelFuture.addListener(new ChannelFutureListener() {
@@ -345,7 +345,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                 @Override
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
-                    currentChannelFuture.channel().write(chunk);
+                    currentChannelFuture.channel().writeAndFlush(chunk);
                 }
             });
         }
@@ -398,7 +398,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             public ChannelFuture onConnect(final ChannelFuture cf) {
                 if (request.getMethod() != HttpMethod.CONNECT) {
                     final ChannelFuture writeFuture = 
-                        cf.channel().write(request);
+                        cf.channel().writeAndFlush(request);
                     writeFuture.addListener(new ChannelFutureListener() {
                         
                         @Override
@@ -577,7 +577,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         response.headers().set(HttpHeaders.Names.CONNECTION, "close");
         final String body = "Bad Gateway: "+request.getUri();
         response.content().setBytes(0, body.getBytes(Charset.forName("UTF-8")));
-        inboundChannel.write(response);
+        inboundChannel.writeAndFlush(response);
     }
 
     private void handleFutureChunksIfNecessary(final HttpRequest request) {
@@ -685,7 +685,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                 // which will return a HTTP response
                 outgoingChannel.pipeline().addBefore("handler", "encoder",
                     new HttpRequestEncoder());
-                outgoingChannel.write(httpRequest).addListener(
+                outgoingChannel.writeAndFlush(httpRequest).addListener(
                     new ChannelFutureListener() {
                     @Override
                     public void operationComplete(final ChannelFuture future)

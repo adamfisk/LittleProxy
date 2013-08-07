@@ -216,13 +216,13 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
             }
                 
             ChannelFuture future = 
-                this.browserToProxyChannel.write(
+                this.browserToProxyChannel.writeAndFlush(
                     new ProxyHttpResponse(this.currentHttpRequest, 
                         originalHttpResponse, messageToWrite));
 
             if (writeEndBuffer) {
                 // See the comment on this flag variable above.
-                future = browserToProxyChannel.write(Unpooled.EMPTY_BUFFER);
+                future = browserToProxyChannel.writeAndFlush(Unpooled.EMPTY_BUFFER);
             }
             
             // If browserToProxyChannel is saturated, do not read until 

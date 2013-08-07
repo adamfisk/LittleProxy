@@ -240,7 +240,7 @@ public class ProxyUtils {
         if (original instanceof DefaultFullHttpResponse) {
             copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
                     original.getStatus(),
-                    Unpooled.copiedBuffer(((DefaultFullHttpResponse) original).content()));
+                    ((DefaultFullHttpResponse) original).content());
         } else {
             copy = new DefaultHttpResponse(original.getProtocolVersion(),
                     original.getStatus());
@@ -282,7 +282,7 @@ public class ProxyUtils {
         try {
             final ByteBuf buf = Unpooled.wrappedBuffer(fullResponse
                     .getBytes("UTF-8"));
-            final ChannelFuture channelFuture = channel.write(buf);
+            final ChannelFuture channelFuture = channel.writeAndFlush(buf);
             channel.config().setAutoRead(true);
             return channelFuture;
         }
@@ -367,7 +367,7 @@ public class ProxyUtils {
     public static void closeOnFlush(final Channel ch) {
         LOG.debug("Closing on flush: {}", ch);
         if (ch.isOpen()) {
-            ch.write(Unpooled.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
+            ch.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
         }
     }
 
@@ -476,7 +476,7 @@ public class ProxyUtils {
         if (original instanceof DefaultFullHttpRequest) {
             copy = new DefaultFullHttpRequest(original.getProtocolVersion(),
                 method, adjustedUri,
-                Unpooled.copiedBuffer(((DefaultFullHttpRequest) original).content()));
+                ((DefaultFullHttpRequest) original).content());
         } else {
             copy = new DefaultHttpRequest(original.getProtocolVersion(),
                 method, adjustedUri);
