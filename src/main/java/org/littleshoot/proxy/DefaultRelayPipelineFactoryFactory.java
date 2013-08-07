@@ -1,10 +1,10 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.util.Timer;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelPipelineFactory;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.util.Timer;
 
 public class DefaultRelayPipelineFactoryFactory 
     implements RelayPipelineFactoryFactory {

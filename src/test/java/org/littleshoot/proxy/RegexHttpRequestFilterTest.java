@@ -1,13 +1,13 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
-import org.jboss.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.HttpRequest;
 import org.junit.Test;
 
 import java.net.URISyntaxException;
 
-import static org.jboss.netty.handler.codec.http.HttpMethod.GET;
-import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_0;
+import static io.netty.handler.codec.http.HttpMethod.GET;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_0;
 import static org.littleshoot.proxy.RegexHttpRequestFilter.*;
 import static org.mockito.Mockito.*;
 

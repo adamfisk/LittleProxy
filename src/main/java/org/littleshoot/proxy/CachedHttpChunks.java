@@ -1,8 +1,8 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.handler.codec.http.HttpChunk;
+import io.netty.buffer.ChannelBuffer;
+import io.netty.channel.Channel;
+import io.netty.handler.codec.http.HttpChunk;
 
 /**
  * Interface for classes that fetch HTTP chunks from a cache. This is tricky

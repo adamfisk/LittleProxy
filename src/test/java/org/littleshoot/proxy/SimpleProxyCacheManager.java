@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Future;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.handler.codec.http.HttpRequest;
+import io.netty.buffer.ChannelBuffer;
+import io.netty.channel.Channel;
+import io.netty.handler.codec.http.HttpRequest;
 
 class SimpleProxyCacheManager implements ProxyCacheManager {
 
@@ -20,7 +20,7 @@ class SimpleProxyCacheManager implements ProxyCacheManager {
     }
 
     public Future<String> cache(HttpRequest originalRequest,
-            org.jboss.netty.handler.codec.http.HttpResponse httpResponse,
+            io.netty.handler.codec.http.HttpResponse httpResponse,
             Object response, ChannelBuffer encoded) {
         
         return null;

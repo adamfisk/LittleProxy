@@ -3,7 +3,7 @@ package org.littleshoot.proxy;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import org.jboss.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

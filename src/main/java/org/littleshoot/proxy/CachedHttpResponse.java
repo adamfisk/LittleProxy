@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.ChannelFutureListener;
+import io.netty.buffer.ChannelBuffer;
+import io.netty.channel.ChannelFutureListener;
 
 /**
  * HTTP response object stored in the cache.

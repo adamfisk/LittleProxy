@@ -1,10 +1,9 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelStateEvent;
+import io.netty.channel.ChannelHandlerContext;
 
 public interface InterestOpsListener {
 
-    void channelWritable(ChannelHandlerContext ctx, ChannelStateEvent cse);
+    void channelWritable(ChannelHandlerContext ctx);
 
 }

@@ -1,5 +1,18 @@
 package org.littleshoot.proxy;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMessage;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.util.CharsetUtil;
+
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -20,19 +33,6 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
-import org.jboss.netty.handler.codec.http.HttpChunk;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpMessage;
-import org.jboss.netty.handler.codec.http.HttpMethod;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.util.CharsetUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -319,14 +319,31 @@ public class ProxyUtils {
         LOG.debug(name + ": "+value);
     }
 
-
-    static boolean isLastChunk(final Object msg) {
-        if (msg instanceof HttpChunk) {
-            final HttpChunk chunk = (HttpChunk) msg;
-            return chunk.isLast();
-        } else {
-            return false;
-        }
+    /**
+     * If an HttpObject implements the market interface LastHttpContent, it
+     * represents the last chunk of a transfer.
+     * 
+     * @see io.netty.handler.codec.http.LastHttpContent
+     * 
+     * @param httpObject
+     * @return
+     * 
+     */
+    static boolean isLastChunk(final HttpObject httpObject) {
+        return httpObject instanceof LastHttpContent;
+    }
+    
+    /**
+     * If an HttpObject is not the last chunk, then that means there are other
+     * chunks that will follow.
+     * 
+     * @see io.netty.handler.codec.http.FullHttpMessage
+     * 
+     * @param httpObject
+     * @return
+     */
+    static boolean isChunked(final HttpObject httpObject) {
+        return !isLastChunk(httpObject);
     }
 
     private static ChannelFutureListener CLOSE = new ChannelFutureListener() {
