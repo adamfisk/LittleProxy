@@ -11,6 +11,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -334,7 +335,8 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         // happen if the client sends a chunk directly after the initial 
         // request.
 
-        if (this.currentChannelFuture.channel().isActive()) {
+        if (this.currentChannelFuture.channel() != null &&
+                this.currentChannelFuture.channel().isActive()) {
             this.currentChannelFuture.channel().write(chunk);
         }
         else {
@@ -783,12 +785,12 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         final Bootstrap cb = 
             new Bootstrap().group(this.clientWorker);
 
-        final ChannelInitializer<Channel> cpf;
+        final ChannelInitializer<Channel> channelInitializer;
         if (httpRequest.getMethod() == HttpMethod.CONNECT && !LittleProxyConfig.isUseSSLMitm()) {
             // In the case of CONNECT, we just want to relay all data in both 
             // directions. We SHOULD make sure this is traffic on a reasonable
             // port, however, such as 80 or 443, to reduce security risks.
-            cpf = new ChannelInitializer() {
+            channelInitializer = new ChannelInitializer<Channel>() {
                 @Override
                 protected void initChannel(Channel ch) throws Exception {
                     ch.pipeline().addLast("handler", 
@@ -798,11 +800,12 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             };
         }
         else {
-            cpf = relayChannelInitializerFactory.getRelayChannelInitializer(
+            channelInitializer = relayChannelInitializerFactory.getRelayChannelInitializer(
                 httpRequest, browserToProxyChannel, this);
         }
         
-        cb.handler(cpf);
+        cb.channel(NioSocketChannel.class);
+        cb.handler(channelInitializer);
         cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 40*1000);
         log.debug("Starting new connection to: {}", hostAndPort);
         final ChannelFuture cf;

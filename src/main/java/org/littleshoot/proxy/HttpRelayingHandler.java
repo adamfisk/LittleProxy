@@ -1,13 +1,12 @@
 package org.littleshoot.proxy;
 
-import io.netty.buffer.EmptyByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
-import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObject;
@@ -223,7 +222,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
 
             if (writeEndBuffer) {
                 // See the comment on this flag variable above.
-                future = browserToProxyChannel.write(new EmptyByteBuf(ctx.alloc()));
+                future = browserToProxyChannel.write(Unpooled.EMPTY_BUFFER);
             }
             
             // If browserToProxyChannel is saturated, do not read until 

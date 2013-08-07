@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.EmptyByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -16,12 +16,10 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.netty.util.CharsetUtil;
 
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,16 +30,12 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.concurrent.Future;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Optional;
 
 /**
  * Utilities for the proxy.
@@ -246,7 +240,7 @@ public class ProxyUtils {
         if (original instanceof DefaultFullHttpResponse) {
             copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
                     original.getStatus(),
-                    ((DefaultFullHttpResponse) original).content());
+                    Unpooled.copiedBuffer(((DefaultFullHttpResponse) original).content()));
         } else {
             copy = new DefaultHttpResponse(original.getProtocolVersion(),
                     original.getStatus());
@@ -286,9 +280,8 @@ public class ProxyUtils {
         final String fullResponse = statusLine + headers + responseBody;
         LOG.info("Writing full response:\n"+fullResponse);
         try {
-            byte[] bytes = fullResponse.getBytes("UTF-8");
-            final ByteBuf buf = channel.alloc().buffer(bytes.length);
-            buf.setBytes(0, bytes);
+            final ByteBuf buf = Unpooled.wrappedBuffer(fullResponse
+                    .getBytes("UTF-8"));
             final ChannelFuture channelFuture = channel.write(buf);
             channel.config().setAutoRead(true);
             return channelFuture;
@@ -374,7 +367,7 @@ public class ProxyUtils {
     public static void closeOnFlush(final Channel ch) {
         LOG.debug("Closing on flush: {}", ch);
         if (ch.isOpen()) {
-            ch.write(new EmptyByteBuf(ch.alloc())).addListener(ProxyUtils.CLOSE);
+            ch.write(Unpooled.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
         }
     }
 
@@ -483,7 +476,7 @@ public class ProxyUtils {
         if (original instanceof DefaultFullHttpRequest) {
             copy = new DefaultFullHttpRequest(original.getProtocolVersion(),
                 method, adjustedUri,
-                ((DefaultFullHttpRequest) original).content());
+                Unpooled.copiedBuffer(((DefaultFullHttpRequest) original).content()));
         } else {
             copy = new DefaultHttpRequest(original.getProtocolVersion(),
                 method, adjustedUri);

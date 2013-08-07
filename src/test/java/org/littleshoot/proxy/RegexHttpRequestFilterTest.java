@@ -84,7 +84,7 @@ public class RegexHttpRequestFilterTest {
 
     private HttpRequest createRequest(String url) {
         final HttpRequest request = new DefaultHttpRequest(HTTP_1_0, GET, ProxyUtils.stripHost(url));
-        request.setHeader("Host", ProxyUtils.parseHost(url));
+        request.headers().set("Host", ProxyUtils.parseHost(url));
         return request;
     }
 

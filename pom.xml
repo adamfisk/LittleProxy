@@ -476,6 +476,16 @@
       <roles><role>Developer</role></roles>
       <timezone>-5</timezone>
     </developer>
+    
+    <developer>
+      <id>ox.to.a.cart</id>
+      <name>Ox Cart</name>
+      <email>ox@getlantern.org</email>
+      <organization>GetLantern</organization>
+      <organizationUrl>https://www.getlantern.org/</organizationUrl>
+      <roles><role>Developer</role></roles>
+      <timezone>-5</timezone>
+    </developer>
   </developers>
 
   <repositories>

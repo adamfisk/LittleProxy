@@ -8,6 +8,7 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
 import java.lang.Thread.UncaughtExceptionHandler;
@@ -259,7 +260,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         this.responseFilters, this.requestFilter,
                         this.allChannels),
                 this.clientWorker);
-        serverBootstrap.handler(initializer);
+        serverBootstrap.channel(NioServerSocketChannel.class);
+        serverBootstrap.childHandler(initializer);
         
 
         // Binding only to localhost can significantly improve the security of

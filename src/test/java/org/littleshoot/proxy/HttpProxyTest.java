@@ -1,8 +1,9 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.http.HttpVersion;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -21,10 +22,11 @@ import java.net.UnknownHostException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.util.Arrays;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
@@ -38,9 +40,6 @@ import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
-import io.netty.buffer.ChannelBuffer;
-import io.netty.buffer.ChannelBuffers;
-import io.netty.handler.codec.http.HttpVersion;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,13 +64,13 @@ public class HttpProxyTest {
         try {
             final byte[] baseResponse = rawResponse("i.i.com.com", 80, true, HttpVersion.HTTP_1_0);
             final byte[] proxyResponse = rawResponse("127.0.0.1", 54827, false, HttpVersion.HTTP_1_1);
-            final ChannelBuffer wrappedBase = ChannelBuffers.wrappedBuffer(baseResponse);
-            final ChannelBuffer wrappedProxy = ChannelBuffers.wrappedBuffer(proxyResponse);
+            final ByteBuf wrappedBase = Unpooled.wrappedBuffer(baseResponse);
+            final ByteBuf wrappedProxy = Unpooled.wrappedBuffer(proxyResponse);
     
             assertEquals("Lengths not equal", wrappedBase.capacity(), wrappedProxy.capacity());
             assertEquals("Not equal:\n"+
-                ChannelBuffers.hexDump(wrappedBase)+"\n\n\n"+
-                ChannelBuffers.hexDump(wrappedProxy), wrappedBase, wrappedProxy);
+                Hex.encodeHexString(baseResponse)+"\n\n\n"+
+                Hex.encodeHexString(proxyResponse), wrappedBase, wrappedProxy);
     
             final ByteArrayInputStream baseBais = new ByteArrayInputStream(baseResponse);
             //final String baseStr = IOUtils.toString(new GZIPInputStream(baseBais));
@@ -163,24 +162,6 @@ public class HttpProxyTest {
         }
     }
     
-    @Test
-    public void testConfiguredProxyCacheManager() throws IOException {
-        LittleProxyConfig.setProxyCacheManagerClass( SimpleProxyCacheManager.class.getCanonicalName() );
-        final HttpProxyServer server =  startHttpProxy();
-        // clear the test manager from config, so it does not bleed into other tests
-        LittleProxyConfig.setProxyCacheManagerClass( null );
-        
-        try {
-            String baseResponse = httpPostWithApacheClient(false);
-            String proxyResponse = httpPostWithApacheClient(true);
-            assertEquals(baseResponse, proxyResponse);
-        } finally {
-            server.stop();
-        }
-        
-        assertEquals( Arrays.asList("http://opsgenie.com/status/ping"), SimpleProxyCacheManager.requests );
-    }
-
     private String httpPostWithApacheClient(final boolean isProxy) 
         throws IOException {
         return httpPostWithApacheClient(isProxy, null, null, HOST);
@@ -422,9 +403,9 @@ public class HttpProxyTest {
             final byte[] crlf = new byte[2];
             crlf[0] = (byte) cr;
             crlf[1] = (byte) lf;
-            final ChannelBuffer buf = ChannelBuffers.wrappedBuffer(crlf);
+            final ByteBuf buf = Unpooled.wrappedBuffer(crlf);
             throw new Error("Did not get expected CRLF!! Instead got hex: "+
-                ChannelBuffers.hexDump(buf)+" and str: "+buf.toString("US-ASCII"));
+                Hex.encodeHexString(crlf)+" and str: "+buf.toString(Charset.forName("US-ASCII")));
         }
     }
 
@@ -438,8 +419,8 @@ public class HttpProxyTest {
             if (lastCr && curChar == '\n') {
                 final String line = curLine.toString();
                 final byte[] bytes = line.getBytes();
-                final ChannelBuffer buf = ChannelBuffers.wrappedBuffer(bytes);
-                System.out.println("BUF IN HEX: "+ChannelBuffers.hexDump(buf));
+                final ByteBuf buf = Unpooled.wrappedBuffer(bytes);
+                System.out.println("BUF IN HEX: "+Hex.encodeHexString(bytes));
                 if (StringUtils.isBlank(line)) {
                     return 0;
                 }

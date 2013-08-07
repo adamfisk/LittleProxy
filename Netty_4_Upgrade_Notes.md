@@ -54,4 +54,4 @@ Relevant Changes
 * Headers on HttpObject are no longer accessed directly, but first by getting
   the headers object using .headers()
   
-* ChannelBuffers class is gone.  Using ByteBufAllocator directly, plus EmptyByteBuf in place of EMPTY_BUFFER
+* ChannelBuffers -> Unpooled
