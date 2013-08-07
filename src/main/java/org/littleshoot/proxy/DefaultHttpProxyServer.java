@@ -8,10 +8,6 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.util.HashedWheelTimer;
-import io.netty.util.Timer;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
 import java.lang.Thread.UncaughtExceptionHandler;
@@ -54,11 +50,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ServerBootstrap serverBootstrap;
 
     private final HttpResponseFilters responseFilters;
-
-    /**
-     * This entire server instance needs to use a single timer.
-     */
-    private final Timer timer;
 
     /**
      * This entire server instance needs to use a single boss EventLoopGroup for
@@ -107,7 +98,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             final HttpResponseFilters responseFilters) {
         this(port, responseFilters, null, null, null,
                 new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
-                new HashedWheelTimer(),
                 new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
                 new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY));
     }
@@ -126,7 +116,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             final ProxyCacheManager cacheManager) {
         this(port, responseFilters, null, null, null,
                 new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
-                new HashedWheelTimer(),
                 new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
                 new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
                 cacheManager);
@@ -181,7 +170,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             final HttpResponseFilters responseFilters) {
         this(port, responseFilters, null, null, requestFilter,
                 new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
-                new HashedWheelTimer(),
                 new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
                 new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY));
     }
@@ -195,8 +183,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            <code>null</code>.
      * @param clientWorker
      *            The EventLoopGroup for creating outgoing channels to external sites.
-     * @param timer
-     *            The global timer for timing out idle connections.
      * @param serverBoss
      *            The EventLoopGroup for accepting incoming connections 
      * @param serverWorker
@@ -205,14 +191,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public DefaultHttpProxyServer(final int port,
             final HttpRequestFilter requestFilter,
             final EventLoopGroup clientWorker,
-            final Timer timer,
             final EventLoopGroup serverBoss,
             final EventLoopGroup serverWorker) {
         this(port, new HttpResponseFilters() {
             public HttpFilter getFilter(String hostAndPort) {
                 return null;
             }
-        }, null, null, requestFilter, clientWorker, timer,
+        }, null, null, requestFilter, clientWorker,
                 serverBoss, serverWorker);
     }
 
@@ -241,7 +226,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this(port, responseFilters, chainProxyManager, handshakeHandlerFactory,
                 requestFilter,
                 new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
-                new HashedWheelTimer(),
                 new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
                 new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY));
     }
@@ -265,8 +249,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * 
      * @param clientWorker
      *            The EventLoopGroup for creating outgoing channels to external sites.
-     * @param timer
-     *            The global timer for timing out idle connections.
      * @param serverBoss
      *            The EventLoopGroup for accepting incoming connections 
      * @param serverWorker
@@ -278,11 +260,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             final HandshakeHandlerFactory handshakeHandlerFactory,
             final HttpRequestFilter requestFilter,
             final EventLoopGroup clientWorker,
-            final Timer timer,
             final EventLoopGroup serverBoss,
             final EventLoopGroup serverWorker) {
         this(port, responseFilters, chainProxyManager, handshakeHandlerFactory,
-                requestFilter, clientWorker, timer,
+                requestFilter, clientWorker,
                 serverBoss, serverWorker, ProxyUtils.loadCacheManager());
     }
 
@@ -305,8 +286,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * 
      * @param clientWorker
      *            The EventLoopGroup for creating outgoing channels to external sites.
-     * @param timer
-     *            The global timer for timing out idle connections.
      * @param serverBoss
      *            The EventLoopGroup for accepting incoming connections 
      * @param serverWorker
@@ -318,7 +297,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             final HandshakeHandlerFactory handshakeHandlerFactory,
             final HttpRequestFilter requestFilter,
             final EventLoopGroup clientWorker,
-            final Timer timer,
             final EventLoopGroup serverBoss,
             final EventLoopGroup serverWorker,
             final ProxyCacheManager cacheManager) {
@@ -328,7 +306,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.requestFilter = requestFilter;
         this.chainProxyManager = chainProxyManager;
         this.clientWorker = clientWorker;
-        this.timer = timer;
         this.serverBoss = serverBoss;
         this.serverWorker = serverWorker;
         if (cacheManager == null) {
@@ -359,9 +336,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         final HttpServerChannelInitializer initializer = new HttpServerChannelInitializer(
                 authenticationManager, this.allChannels,
                 this.chainProxyManager, this.handshakeHandlerFactory,
-                new DefaultRelayPipelineFactoryFactory(chainProxyManager,
+                new DefaultRelayChannelInitializerFactory(chainProxyManager,
                         this.responseFilters, this.requestFilter,
-                        this.allChannels, timer), timer,
+                        this.allChannels),
                 this.clientWorker, this.cacheManager);
         serverBootstrap.handler(initializer);
         
@@ -433,8 +410,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 }
             }
         }
-        log.info("Stopping timer");
-        timer.stop();
         
         serverBoss.shutdownGracefully();
         serverWorker.shutdownGracefully();

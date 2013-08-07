@@ -7,7 +7,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.Timer;
 
 import java.lang.management.ManagementFactory;
 
@@ -38,8 +37,7 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
     
     private final HandshakeHandlerFactory handshakeHandlerFactory;
     private int numHandlers;
-    private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
-    private final Timer timer;
+    private final RelayChannelInitializerFactory relayChannelInitializerFactory;
     private final EventLoopGroup clientWorker;
     
     /**
@@ -51,8 +49,7 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
      * @param chainProxyManager upstream proxy server host and port or
      * <code>null</code> if none used.
      * @param ksm The KeyStore manager.
-     * @param relayPipelineFactoryFactory The relay pipeline factory factory.
-     * @param timer The global timer for timing out idle connections. 
+     * @param relayChannelInitializerFactory The relay channel initializer factory.
      * @param clientWorker The EventLoopGroup for creating outgoing channels
      *  to external sites.
      */
@@ -61,11 +58,11 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, 
         final HandshakeHandlerFactory handshakeHandlerFactory,
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
-        final Timer timer, final EventLoopGroup clientWorker) {
+        final RelayChannelInitializerFactory relayChannelInitializerFactory, 
+        final EventLoopGroup clientWorker) {
         this(authorizationManager, channelGroup, chainProxyManager, 
                 handshakeHandlerFactory, 
-                relayPipelineFactoryFactory, timer, clientWorker, 
+                relayChannelInitializerFactory, clientWorker, 
                 ProxyUtils.loadCacheManager());
     }
     
@@ -78,8 +75,7 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
      * @param chainProxyManager upstream proxy server host and port or
      * <code>null</code> if none used.
      * @param ksm The KeyStore manager.
-     * @param relayPipelineFactoryFactory The relay pipeline factory factory.
-     * @param timer The global timer for timing out idle connections. 
+     * @param relayChannelInitializerFactory The relay channel initializer factory.
      * @param clientWorker The EventLoopGroup for creating outgoing channels
      *  to external sites.
      */
@@ -88,13 +84,12 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, 
         final HandshakeHandlerFactory handshakeHandlerFactory,
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
-        final Timer timer, final EventLoopGroup clientWorker,
+        final RelayChannelInitializerFactory relayChannelInitializerFactory, 
+        final EventLoopGroup clientWorker,
         final ProxyCacheManager proxyCacheManager) {
         
         this.handshakeHandlerFactory = handshakeHandlerFactory;
-        this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
-        this.timer = timer;
+        this.relayChannelInitializerFactory = relayChannelInitializerFactory;
         this.clientWorker = clientWorker;
         
         log.debug("Creating server with handshake handler: {}", 
@@ -159,14 +154,13 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
         final HttpRequestHandler httpRequestHandler = 
             new HttpRequestHandler(this.cacheManager, authenticationManager,
             this.channelGroup, this.chainProxyManager, 
-            relayPipelineFactoryFactory, this.clientWorker);
+            relayChannelInitializerFactory, this.clientWorker);
         
         pipeline.addLast("idle", new IdleStateHandler(0, 0, 70));
         //pipeline.addLast("idleAware", new IdleAwareHandler("Client-Pipeline"));
         pipeline.addLast("idleAware", new IdleRequestHandler(httpRequestHandler));
         pipeline.addLast("handler", httpRequestHandler);
         this.numHandlers++;
-        return pipeline;
     }
 
     @Override

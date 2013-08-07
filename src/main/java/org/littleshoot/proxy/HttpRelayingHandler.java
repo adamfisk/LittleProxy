@@ -200,7 +200,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
             messageToWrite = chunk;
         }
         
-        if (browserToProxyChannel.isOpen()) {
+        if (browserToProxyChannel.isActive()) {
             // We need to determine whether or not to close connections based
             // on the HTTP request and response *before* the response has 
             // been modified for sending to the browser.
@@ -274,7 +274,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
                     @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
-                        if (ctx.channel().isOpen()) {
+                        if (ctx.channel().isActive()) {
                             ctx.channel().close();
                         }
                     }
@@ -326,6 +326,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
     
     @Override
     public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+        super.channelActive(ctx);
         log.debug("CHANNEL CONNECTED!!");
         this.channel = ctx.channel();
     }
@@ -443,6 +444,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
     
     @Override
     public void channelRegistered(final ChannelHandlerContext ctx) throws Exception {
+        super.channelRegistered(ctx);
         final Channel ch = ctx.channel();
         log.debug("New channel opened from proxy to web: {}", ch);
         if (this.channelGroup != null) {
@@ -452,6 +454,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
 
     @Override
     public void channelUnregistered(final ChannelHandlerContext ctx) throws Exception {
+        super.channelUnregistered(ctx);
         log.debug("Got closed event on proxy -> web connection: {}",
             ctx.channel());
         

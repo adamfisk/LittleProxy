@@ -126,7 +126,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     private final AtomicBoolean browserChannelClosed = new AtomicBoolean(false);
     private volatile boolean receivedChannelClosed = false;
     
-    private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
+    private final RelayChannelInitializerFactory relayChannelInitializerFactory;
     private EventLoopGroup clientWorker;
     
     /**
@@ -153,16 +153,16 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     /**
      * Creates a new class for handling HTTP requests with no frills.
      * 
-     * @param relayPipelineFactoryFactory The factory for creating factories
+     * @param relayChannelInitializerFactory The factory for creating initializers
      * for channels to relay data from external sites back to clients.
      * @param clientWorker
      * The EventLoopGroup for creating outgoing channels to external sites.
      */
     public HttpRequestHandler(
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
+        final RelayChannelInitializerFactory relayChannelInitializerFactory,
         final EventLoopGroup clientWorker) {
         this(null, null, null, null, 
-            relayPipelineFactoryFactory, clientWorker);
+                relayChannelInitializerFactory, clientWorker);
     }
     
     /**
@@ -174,7 +174,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
      * proxy authentication requirements.
      * @param channelGroup The group of channels for keeping track of all
      * channels we've opened.
-     * @param relayPipelineFactoryFactory The factory for creating factories
+     * @param relayChannelInitializerFactory The factory for creating initializers
      * for channels to relay data from external sites back to clients.
      * @param clientWorker
      * The EventLoopGroup for creating outgoing channels to external sites.
@@ -182,10 +182,10 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     public HttpRequestHandler(final ProxyCacheManager cacheManager, 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
+        final RelayChannelInitializerFactory relayChannelInitializerFactory,
         final EventLoopGroup clientWorker) {
         this(cacheManager, authorizationManager, channelGroup,
-            null, relayPipelineFactoryFactory, clientWorker);
+            null, relayChannelInitializerFactory, clientWorker);
     }
     
     /**
@@ -199,7 +199,8 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
      * channels we've opened.
      * @param chainProxyManager upstream proxy server host and port or null 
      * if none used.
-     * @param relayPipelineFactoryFactory The relay pipeline factory.
+     * @param relayChannelInitializerFactory The factory for creating initializers
+     * for channels to relay data from external sites back to clients.
      * @param clientWorker
      * The EventLoopGroup for creating outgoing channels to external sites.
      */
@@ -207,7 +208,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, 
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory,
+        final RelayChannelInitializerFactory relayChannelInitializerFactory,
         final EventLoopGroup clientWorker) {
         log.info("Creating new request handler...");
         this.clientWorker = clientWorker;
@@ -215,7 +216,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.chainProxyManager = chainProxyManager;
-        this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
+        this.relayChannelInitializerFactory = relayChannelInitializerFactory;
         if (LittleProxyConfig.isUseJmx()) {
             setupJmx();
         }
@@ -807,7 +808,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             };
         }
         else {
-            cpf = relayPipelineFactoryFactory.getRelayChannelInitializer(
+            cpf = relayChannelInitializerFactory.getRelayChannelInitializer(
                 httpRequest, browserToProxyChannel, this);
         }
         
@@ -842,6 +843,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        super.channelRegistered(ctx);
         final Channel inboundChannel = ctx.channel();
         log.debug("New channel opened: {}", inboundChannel);
         totalBrowserToProxyConnections.incrementAndGet();
@@ -859,6 +861,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     
     @Override
     public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+        super.channelUnregistered(ctx);
         log.debug("Channel closed: {}", ctx.channel());
         this.receivedChannelClosed = true;
         totalBrowserToProxyConnections.decrementAndGet();

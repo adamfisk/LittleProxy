@@ -74,6 +74,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelInboundHandler<Byte
     
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        super.channelRegistered(ctx);
         final Channel ch = ctx.channel();
         LOG.info("New CONNECT channel opened from proxy to web: {}", ch);
         this.channelGroup.add(ch);
@@ -81,6 +82,7 @@ public class HttpConnectRelayingHandler extends SimpleChannelInboundHandler<Byte
     
     @Override
     public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+        super.channelUnregistered(ctx);
         LOG.info("Got closed event on proxy -> web connection: {}", 
             ctx.channel());
         ProxyUtils.closeOnFlush(this.relayChannel);
