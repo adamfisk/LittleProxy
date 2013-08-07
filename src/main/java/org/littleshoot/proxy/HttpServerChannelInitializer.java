@@ -32,7 +32,6 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final ChainProxyManager chainProxyManager;
-    private final ProxyCacheManager cacheManager;
     //private final KeyStoreManager ksm;
     
     private final HandshakeHandlerFactory handshakeHandlerFactory;
@@ -60,33 +59,6 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
         final HandshakeHandlerFactory handshakeHandlerFactory,
         final RelayChannelInitializerFactory relayChannelInitializerFactory, 
         final EventLoopGroup clientWorker) {
-        this(authorizationManager, channelGroup, chainProxyManager, 
-                handshakeHandlerFactory, 
-                relayChannelInitializerFactory, clientWorker, 
-                ProxyUtils.loadCacheManager());
-    }
-    
-    /**
-     * Creates a new pipeline factory with the specified class for processing
-     * proxy authentication.
-     * 
-     * @param authorizationManager The manager for proxy authentication.
-     * @param channelGroup The group that keeps track of open channels.
-     * @param chainProxyManager upstream proxy server host and port or
-     * <code>null</code> if none used.
-     * @param ksm The KeyStore manager.
-     * @param relayChannelInitializerFactory The relay channel initializer factory.
-     * @param clientWorker The EventLoopGroup for creating outgoing channels
-     *  to external sites.
-     */
-    public HttpServerChannelInitializer(
-        final ProxyAuthorizationManager authorizationManager, 
-        final ChannelGroup channelGroup, 
-        final ChainProxyManager chainProxyManager, 
-        final HandshakeHandlerFactory handshakeHandlerFactory,
-        final RelayChannelInitializerFactory relayChannelInitializerFactory, 
-        final EventLoopGroup clientWorker,
-        final ProxyCacheManager proxyCacheManager) {
         
         this.handshakeHandlerFactory = handshakeHandlerFactory;
         this.relayChannelInitializerFactory = relayChannelInitializerFactory;
@@ -98,7 +70,6 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
         this.channelGroup = channelGroup;
         this.chainProxyManager = chainProxyManager;
         //this.ksm = ksm;
-        this.cacheManager = proxyCacheManager;
         
         if (LittleProxyConfig.isUseJmx()) {
             setupJmx();
@@ -149,10 +120,10 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel> im
         // respectively.
         pipeline.addLast("decoder", 
             new HttpRequestDecoder(8192, 8192*2, 8192*2));
-        pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
+        pipeline.addLast("encoder", new ProxyHttpResponseEncoder());
         
         final HttpRequestHandler httpRequestHandler = 
-            new HttpRequestHandler(this.cacheManager, authenticationManager,
+            new HttpRequestHandler(authenticationManager,
             this.channelGroup, this.chainProxyManager, 
             relayChannelInitializerFactory, this.clientWorker);
         

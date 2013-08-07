@@ -135,8 +135,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
             // analyze response headers for whether or not to close the 
             // connection (which may not happen for awhile for large, chunked
             // responses, for example).
-            originalHttpResponse = ProxyUtils.copyMutableResponseFields(hr, 
-                new DefaultHttpResponse(hr.getProtocolVersion(), hr.getStatus()));
+            originalHttpResponse = ProxyUtils.copyMutableResponseFields(hr);
             final HttpResponse response;
             
             // Double check the Transfer-Encoding, since it gets tricky.
@@ -145,8 +144,8 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
                 te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED)) {
                 if (hr.getProtocolVersion() != HttpVersion.HTTP_1_1) {
                     log.warn("Fixing HTTP version.");
-                    response = ProxyUtils.copyMutableResponseFields(hr, 
-                        new DefaultHttpResponse(HttpVersion.HTTP_1_1, hr.getStatus()));
+                    response = ProxyUtils.copyMutableResponseFields(hr);
+                    response.setProtocolVersion(HttpVersion.HTTP_1_1);
                     if (!response.headers().contains(HttpHeaders.Names.TRANSFER_ENCODING)) {
                         log.debug("Adding chunked encoding header");
                         response.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, 

@@ -1,9 +1,12 @@
 package org.littleshoot.proxy;
 
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
+
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,10 +53,10 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
         this.keepProxyFormat = keepProxyFormat;
         this.transparent = LittleProxyConfig.isTransparent();
     }
-
+    
     @Override
-    protected Object encode(final ChannelHandlerContext ctx, 
-        final Channel channel, final Object msg) throws Exception {
+    protected void encode(ChannelHandlerContext ctx, HttpObject msg,
+            List<Object> out) throws Exception {
         if (msg instanceof HttpRequest) {
             // The relaying handler needs to know all the headers, including
             // hop-by-hop headers, of the original request, particularly
@@ -75,8 +78,8 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
                 this.requestFilter.filter(toSend);
             }
             //LOG.info("Writing modified request: {}", httpRequestCopy);
-            return super.encode(ctx, channel, toSend);
+            super.encode(ctx, toSend, out);
         }
-        return super.encode(ctx, channel, msg);
+        super.encode(ctx, msg, out);
     }
 }

@@ -69,8 +69,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     private final EventLoopGroup clientWorker;
 
-    private final ProxyCacheManager cacheManager;
-
     /**
      * Creates a new proxy server.
      * 
@@ -107,25 +105,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * 
      * @param port
      *            The port the server should run on.
-     * @param responseFilters
-     *            The {@link Map} of request domains to match with associated
-     *            {@link HttpFilter}s for filtering responses to those requests.
-     */
-    public DefaultHttpProxyServer(final int port,
-            final HttpResponseFilters responseFilters,
-            final ProxyCacheManager cacheManager) {
-        this(port, responseFilters, null, null, null,
-                new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
-                cacheManager);
-    }
-
-    /**
-     * Creates a new proxy server.
-     * 
-     * @param port
-     *            The port the server should run on.
      * @param requestFilter
      *            The filter for HTTP requests.
      */
@@ -136,23 +115,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 return null;
             }
         });
-    }
-
-    /**
-     * Creates a new proxy server.
-     * 
-     * @param port
-     *            The port the server should run on.
-     * @param requestFilter
-     *            The filter for HTTP requests.
-     */
-    public DefaultHttpProxyServer(final int port,
-            final ProxyCacheManager cacheManager) {
-        this(port, new HttpResponseFilters() {
-            public HttpFilter getFilter(String hostAndPort) {
-                return null;
-            }
-        }, cacheManager);
     }
 
     /**
@@ -262,44 +224,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             final EventLoopGroup clientWorker,
             final EventLoopGroup serverBoss,
             final EventLoopGroup serverWorker) {
-        this(port, responseFilters, chainProxyManager, handshakeHandlerFactory,
-                requestFilter, clientWorker,
-                serverBoss, serverWorker, ProxyUtils.loadCacheManager());
-    }
-
-    /**
-     * Creates a new proxy server.
-     * 
-     * @param port
-     *            The port the server should run on.
-     * @param responseFilters
-     *            The {@link Map} of request domains to match with associated
-     *            {@link HttpFilter}s for filtering responses to those requests.
-     * @param chainProxyManager
-     *            The proxy to send requests to if chaining proxies. Typically
-     *            <code>null</code>.
-     * @param ksm
-     *            The key manager if running the proxy over SSL.
-     * @param requestFilter
-     *            Optional filter for modifying incoming requests. Often
-     *            <code>null</code>.
-     * 
-     * @param clientWorker
-     *            The EventLoopGroup for creating outgoing channels to external sites.
-     * @param serverBoss
-     *            The EventLoopGroup for accepting incoming connections 
-     * @param serverWorker
-     *            The EventLoopGroup for processing incoming connections           
-     */
-    public DefaultHttpProxyServer(final int port,
-            final HttpResponseFilters responseFilters,
-            final ChainProxyManager chainProxyManager,
-            final HandshakeHandlerFactory handshakeHandlerFactory,
-            final HttpRequestFilter requestFilter,
-            final EventLoopGroup clientWorker,
-            final EventLoopGroup serverBoss,
-            final EventLoopGroup serverWorker,
-            final ProxyCacheManager cacheManager) {
         this.port = port;
         this.responseFilters = responseFilters;
         this.handshakeHandlerFactory = handshakeHandlerFactory;
@@ -308,11 +232,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.clientWorker = clientWorker;
         this.serverBoss = serverBoss;
         this.serverWorker = serverWorker;
-        if (cacheManager == null) {
-            this.cacheManager = ProxyUtils.loadCacheManager();
-        } else {
-            this.cacheManager = cacheManager;
-        }
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
             public void uncaughtException(final Thread t, final Throwable e) {
                 log.error("Uncaught throwable", e);
@@ -339,7 +258,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 new DefaultRelayChannelInitializerFactory(chainProxyManager,
                         this.responseFilters, this.requestFilter,
                         this.allChannels),
-                this.clientWorker, this.cacheManager);
+                this.clientWorker);
         serverBootstrap.handler(initializer);
         
 

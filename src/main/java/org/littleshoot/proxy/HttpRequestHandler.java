@@ -121,8 +121,6 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     private final ChainProxyManager chainProxyManager;
     private final ChannelGroup channelGroup;
 
-    private final ProxyCacheManager cacheManager;
-    
     private final AtomicBoolean browserChannelClosed = new AtomicBoolean(false);
     private volatile boolean receivedChannelClosed = false;
     
@@ -161,7 +159,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     public HttpRequestHandler(
         final RelayChannelInitializerFactory relayChannelInitializerFactory,
         final EventLoopGroup clientWorker) {
-        this(null, null, null, null, 
+        this(null, null, null, 
                 relayChannelInitializerFactory, clientWorker);
     }
     
@@ -169,7 +167,6 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
      * Creates a new class for handling HTTP requests with the specified
      * authentication manager.
      * 
-     * @param cacheManager The manager for the cache. 
      * @param authorizationManager The class that handles any 
      * proxy authentication requirements.
      * @param channelGroup The group of channels for keeping track of all
@@ -179,12 +176,12 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
      * @param clientWorker
      * The EventLoopGroup for creating outgoing channels to external sites.
      */
-    public HttpRequestHandler(final ProxyCacheManager cacheManager, 
+    public HttpRequestHandler( 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final RelayChannelInitializerFactory relayChannelInitializerFactory,
         final EventLoopGroup clientWorker) {
-        this(cacheManager, authorizationManager, channelGroup,
+        this(authorizationManager, channelGroup,
             null, relayChannelInitializerFactory, clientWorker);
     }
     
@@ -204,7 +201,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
      * @param clientWorker
      * The EventLoopGroup for creating outgoing channels to external sites.
      */
-    public HttpRequestHandler(final ProxyCacheManager cacheManager, 
+    public HttpRequestHandler( 
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, 
@@ -212,7 +209,6 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         final EventLoopGroup clientWorker) {
         log.info("Creating new request handler...");
         this.clientWorker = clientWorker;
-        this.cacheManager = cacheManager;
         this.authorizationManager = authorizationManager;
         this.channelGroup = channelGroup;
         this.chainProxyManager = chainProxyManager;
@@ -359,12 +355,6 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         final HttpRequest request = (HttpRequest) httpObject;
         
         final Channel inboundChannel = ctx.channel();
-        if (this.cacheManager != null &&
-            this.cacheManager.returnCacheHit(request, 
-            inboundChannel)) {
-            log.debug("Found cache hit! Cache wrote the response.");
-            return;
-        }
         this.unansweredRequestCount.incrementAndGet();
         
         log.debug("Got request: {} on channel: "+inboundChannel, request);

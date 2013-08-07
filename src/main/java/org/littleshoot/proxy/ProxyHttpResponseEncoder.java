@@ -1,11 +1,13 @@
 package org.littleshoot.proxy;
 
-import io.netty.buffer.ChannelBuffer;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseEncoder;
+
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,25 +17,14 @@ import org.slf4j.LoggerFactory;
 public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final ProxyCacheManager cacheManager;
     private final boolean transparent;
 
     /**
-     * Creates a new HTTP response encoder that doesn't include responses in 
-     * the cache.
+     * Creates a new HTTP response encoder.
+     * 
      */
     public ProxyHttpResponseEncoder() {
-        this(null);
-    }
-    
-    /**
-     * Creates a new HTTP response encoder that intercepts the encoding to 
-     * include any relevant responses in the cache.
-     * 
-     * @param cacheManager The class that manages the cache.
-     */
-    public ProxyHttpResponseEncoder(final ProxyCacheManager cacheManager) {
-        this(cacheManager, false);
+        this(false);
     }
 
     /**
@@ -43,25 +34,13 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
      * @param transparent Whether or not this should act as a transparent proxy.
      */
     public ProxyHttpResponseEncoder(final boolean transparent) {
-        this(null, transparent);
-    }
-    
-    /**
-     * Creates a new HTTP response encoder that intercepts the encoding to 
-     * include any relevant responses in the cache.
-     * 
-     * @param cacheManager The class that manages the cache.
-     * @param transparent Whether or not this should act as a transparent proxy.
-     */
-    public ProxyHttpResponseEncoder(final ProxyCacheManager cacheManager,
-        final boolean transparent) {
-        this.cacheManager = cacheManager;
         this.transparent = transparent;
     }
     
     @Override
-    protected Object encode(final ChannelHandlerContext ctx, 
-        final Channel channel, final Object msg) throws Exception {
+    protected void encode(ChannelHandlerContext ctx, HttpObject msg,
+            List<Object> out) throws Exception {
+        // TODO Auto-generated method stub
         if (msg instanceof ProxyHttpResponse) {
             //log.info("Processing proxy response!!");
             final ProxyHttpResponse proxyResponse = (ProxyHttpResponse) msg;
@@ -72,7 +51,7 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
             final HttpResponse httpResponse = proxyResponse.getHttpResponse();
             
             // The actual response is either a chunk or a "normal" response.
-            final Object response = proxyResponse.getResponse();
+            final HttpObject response = proxyResponse.getResponse();
             
             // We do this right before encoding because we want to deal with
             // the hop-by-hop headers elsewhere in the proxy processing logic.
@@ -85,16 +64,7 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
                 }
             }
             
-            final ChannelBuffer encoded = 
-                (ChannelBuffer) super.encode(ctx, channel, response);
-            
-            // The buffer will be null when it's the last chunk, for example.
-            if (encoded != null && this.cacheManager != null) {
-                this.cacheManager.cache(httpRequest, httpResponse, response, 
-                    encoded);
-            }
-            return encoded;
-            
+            super.encode(ctx, response, out);
         } else if (msg instanceof HttpResponse) {
             // We can get an HttpResponse when a third-party is custom 
             // configured, for example.
@@ -104,6 +74,6 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
                 ProxyUtils.addVia(hr);
             }
         }
-        return super.encode(ctx, channel, msg);
+        super.encode(ctx, msg, out);
     }
 }

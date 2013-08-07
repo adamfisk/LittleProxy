@@ -1,9 +1,14 @@
 package org.littleshoot.proxy;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.EmptyByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.handler.codec.http.DefaultFullHttpRequest;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMessage;
 import io.netty.handler.codec.http.HttpMethod;
@@ -166,7 +171,7 @@ public class ProxyUtils {
      * @return The cache URI.
      */
     public static String cacheUri(final HttpRequest httpRequest) {
-        final String host = httpRequest.getHeader(HttpHeaders.Names.HOST);
+        final String host = httpRequest.headers().get(HttpHeaders.Names.HOST);
         final String uri = httpRequest.getUri();
         final String path;
         if (HTTP_PREFIX.matcher(uri).matches()) {
@@ -228,23 +233,28 @@ public class ProxyUtils {
     }
 
     /**
-     * Copies the mutable fields from the response original to the copy.
+     * Make a copy of the response including all mutable fields.
      *
      * @param original The original response to copy from.
      * @param copy The copy.
      * @return The copy with all mutable fields from the original.
      */
     public static HttpResponse copyMutableResponseFields(
-        final HttpResponse original, final HttpResponse copy) {
+        final HttpResponse original) {
 
-        final Collection<String> headerNames = original.getHeaderNames();
-        for (final String name : headerNames) {
-            final List<String> values = original.getHeaders(name);
-            copy.setHeader(name, values);
+        HttpResponse copy = null;
+        if (original instanceof DefaultFullHttpResponse) {
+            copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
+                    original.getStatus(),
+                    ((DefaultFullHttpResponse) original).content());
+        } else {
+            copy = new DefaultHttpResponse(original.getProtocolVersion(),
+                    original.getStatus());
         }
-        copy.setContent(original.getContent());
-        if (original.isChunked()) {
-            copy.setChunked(true);
+        final Collection<String> headerNames = original.headers().names();
+        for (final String name : headerNames) {
+            final List<String> values = original.headers().getAll(name);
+            copy.headers().set(name, values);
         }
         return copy;
     }
@@ -276,10 +286,11 @@ public class ProxyUtils {
         final String fullResponse = statusLine + headers + responseBody;
         LOG.info("Writing full response:\n"+fullResponse);
         try {
-            final ChannelBuffer buf =
-                ChannelBuffers.copiedBuffer(fullResponse.getBytes("UTF-8"));
+            byte[] bytes = fullResponse.getBytes("UTF-8");
+            final ByteBuf buf = channel.alloc().buffer(bytes.length);
+            buf.setBytes(0, bytes);
             final ChannelFuture channelFuture = channel.write(buf);
-            channel.setReadable(true);
+            channel.config().setAutoRead(true);
             return channelFuture;
         }
         catch (final UnsupportedEncodingException e) {
@@ -297,9 +308,9 @@ public class ProxyUtils {
         final String status = msg.getProtocolVersion().toString();
         LOG.debug(status);
         final StringBuilder sb = new StringBuilder();
-        final Set<String> headerNames = msg.getHeaderNames();
+        final Set<String> headerNames = msg.headers().names();
         for (final String name : headerNames) {
-            final String value = msg.getHeader(name);
+            final String value = msg.headers().get(name);
             sb.append(name);
             sb.append(": ");
             sb.append(value);
@@ -315,7 +326,7 @@ public class ProxyUtils {
      * @param name The name of the header to print.
      */
     public static void printHeader(final HttpMessage msg, final String name) {
-        final String value = msg.getHeader(name);
+        final String value = msg.headers().get(name);
         LOG.debug(name + ": "+value);
     }
 
@@ -348,7 +359,7 @@ public class ProxyUtils {
 
     private static ChannelFutureListener CLOSE = new ChannelFutureListener() {
         public void operationComplete(final ChannelFuture future) {
-            final Channel ch = future.getChannel();
+            final Channel ch = future.channel();
             if (ch.isOpen()) {
                 ch.close();
             }
@@ -363,7 +374,7 @@ public class ProxyUtils {
     public static void closeOnFlush(final Channel ch) {
         LOG.debug("Closing on flush: {}", ch);
         if (ch.isOpen()) {
-            ch.write(ChannelBuffers.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
+            ch.write(new EmptyByteBuf(ch.alloc())).addListener(ProxyUtils.CLOSE);
         }
     }
 
@@ -407,7 +418,7 @@ public class ProxyUtils {
     }
 
     public static String parseHost(final HttpRequest request) {
-        final String host = request.getHeader(HttpHeaders.Names.HOST);
+        final String host = request.headers().get(HttpHeaders.Names.HOST);
         if (StringUtils.isNotBlank(host)) {
             return host;
         }
@@ -464,19 +475,18 @@ public class ProxyUtils {
         LOG.info("Raw URI before switching from proxy format: {}", uri);
         final HttpRequest copy;
 
-        if (keepProxyFormat) {
-            copy = new DefaultHttpRequest(original.getProtocolVersion(),
-                method, uri);
-        } else {
-            final String noHostUri = ProxyUtils.stripHost(uri);
-            copy = new DefaultHttpRequest(original.getProtocolVersion(),
-                method, noHostUri);
+        String adjustedUri = uri;
+        if (!keepProxyFormat) {
+            adjustedUri = ProxyUtils.stripHost(uri);
         }
-
-        final ChannelBuffer originalContent = original.getContent();
-
-        if (originalContent != null) {
-            copy.setContent(originalContent);
+        
+        if (original instanceof DefaultFullHttpRequest) {
+            copy = new DefaultFullHttpRequest(original.getProtocolVersion(),
+                method, adjustedUri,
+                ((DefaultFullHttpRequest) original).content());
+        } else {
+            copy = new DefaultHttpRequest(original.getProtocolVersion(),
+                method, adjustedUri);
         }
 
         // We also need to follow 2616 section 13.5.1 End-to-end and 
@@ -494,11 +504,11 @@ public class ProxyUtils {
         LOG.debug("Request copy method: {}", copy.getMethod());
         copyHeaders(original, copy);
 
-        final String ae = copy.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
+        final String ae = copy.headers().get(HttpHeaders.Names.ACCEPT_ENCODING);
         if (StringUtils.isNotBlank(ae)) {
             // Remove sdch from encodings we accept since we can't decode it.
             final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
-            copy.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
+            copy.headers().set(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
             LOG.debug("Removed sdch and inserted: {}", noSdch);
         }
 
@@ -507,10 +517,10 @@ public class ProxyUtils {
         // largely undocumented but seems to be what most browsers and servers
         // expect.
         final String proxyConnectionKey = "Proxy-Connection";
-        if (copy.containsHeader(proxyConnectionKey)) {
-            final String header = copy.getHeader(proxyConnectionKey);
-            copy.removeHeader(proxyConnectionKey);
-            copy.setHeader("Connection", header);
+        if (copy.headers().contains(proxyConnectionKey)) {
+            final String header = copy.headers().get(proxyConnectionKey);
+            copy.headers().remove(proxyConnectionKey);
+            copy.headers().set("Connection", header);
         }
 
         ProxyUtils.addVia(copy);
@@ -519,11 +529,11 @@ public class ProxyUtils {
 
     private static void copyHeaders(final HttpMessage original,
         final HttpMessage copy) {
-        final Set<String> headerNames = original.getHeaderNames();
+        final Set<String> headerNames = original.headers().names();
         for (final String name : headerNames) {
             if (!hopByHopHeaders.contains(name.toLowerCase())) {
-                final List<String> values = original.getHeaders(name);
-                copy.setHeader(name, values);
+                final List<String> values = original.headers().getAll(name);
+                copy.headers().set(name, values);
             }
         }
     }
@@ -535,10 +545,10 @@ public class ProxyUtils {
      * @param msg The message to strip headers from.
      */
     public static void stripHopByHopHeaders(final HttpMessage msg) {
-        final Set<String> headerNames = msg.getHeaderNames();
+        final Set<String> headerNames = msg.headers().names();
         for (final String name : headerNames) {
             if (hopByHopHeaders.contains(name.toLowerCase())) {
-                msg.removeHeader(name);
+                msg.headers().remove(name);
             }
         }
     }
@@ -562,88 +572,20 @@ public class ProxyUtils {
      */
     public static void addVia(final HttpMessage msg) {
         final StringBuilder sb = new StringBuilder();
-        sb.append(msg.getProtocolVersion().getMajorVersion());
+        sb.append(msg.getProtocolVersion().majorVersion());
         sb.append(".");
-        sb.append(msg.getProtocolVersion().getMinorVersion());
+        sb.append(msg.getProtocolVersion().minorVersion());
         sb.append(".");
         sb.append(hostName);
         final List<String> vias;
-        if (msg.containsHeader(HttpHeaders.Names.VIA)) {
-            vias = msg.getHeaders(HttpHeaders.Names.VIA);
+        if (msg.headers().contains(HttpHeaders.Names.VIA)) {
+            vias = msg.headers().getAll(HttpHeaders.Names.VIA);
             vias.add(sb.toString());
         }
         else {
             vias = Arrays.asList(sb.toString());
         }
-        msg.setHeader(HttpHeaders.Names.VIA, vias);
-    }
-
-    /**
-     * Detect Charset Encoding of a HttpResponse
-     * based on Headers and Meta Tags
-     *
-     * @param http The HTTP Response.
-     * @return Returns the detected charset.
-     */
-    public static Charset detectCharset(HttpResponse http) {
-
-        Charset charset = null; // Return null charset if charset detected in Response have no support
-
-        Charset headerCharset = CharsetUtil.ISO_8859_1; // Default charset for detection is latin-1
-
-        if (http.getHeader("Content-Type") != null) { // If has Content-Type header, try to detect charset from it
-
-            String header_pattern = "^\\s*?.*?\\s*?charset\\s*?=\\s*?(.*?)$"; // How to find charset in header
-
-            Pattern pattern = Pattern.compile(header_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-            Matcher matcher = pattern.matcher(http.getHeader("Content-Type")); // find charset in header
-
-            if (matcher.find()) { // If there is a charset definition
-
-                String charsetName = matcher.group(1); // Get string charset name
-
-                if (Charset.isSupported(charsetName)) { // If charset is supported by java
-                    charset = Charset.forName(charsetName); // Set current charset to that
-                    headerCharset = Charset.forName(charsetName); // Set the header charset to that
-                }
-            }
-        }
-
-        String html = http.getContent().toString(headerCharset); // Try to decode response content with header charset
-
-        String meta_pattern = "<meta\\s+.*? content\\s*?=\\s*?\\\"\\s*?text/html;\\s*?charset\\s*?=\\s*?(.*?)\\\"\\s*?/*?>"; // How to find charset in html4 meta tags
-        Pattern pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-        Matcher matcher = pattern.matcher(html);         // find meta tag charset in html
-        if (matcher.find()) { // If there is a charset in meta tag
-            String charsetName = matcher.group(1); // Get string charset name
-            if (Charset.isSupported(charsetName)) { // If charset is supported by java
-                charset = Charset.forName(charsetName); // Set current charset to that
-            }
-        }
-
-        meta_pattern = "<meta\\s+.*?charset\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 meta tag
-
-        pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-        matcher = pattern.matcher(html);         // find meta tag charset in html
-        if (matcher.find()) { // If there is a charset in meta tag
-            String charsetName = matcher.group(1); // Get string charset name
-            if (Charset.isSupported(charsetName)) { // If charset is supported by java
-                charset = Charset.forName(charsetName); // Set current charset to that
-            }
-        }
-
-        meta_pattern = "<meta\\s+.*?name=\\\"charset\\\"\\s*?content\\s*?=\\s*?\\\"(.*?)\\\"\\s*?/*?>"; // How to find charset in html5 variant meta tag
-
-        pattern = Pattern.compile(meta_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-        matcher = pattern.matcher(html);         // find meta charset in html
-        if (matcher.find()) { // If there is a charset in meta tag
-            String charsetName = matcher.group(1); // Get string charset name
-            if (Charset.isSupported(charsetName)) { // If charset is supported by java
-                charset = Charset.forName(charsetName); // Set current charset to that
-            }
-        }
-
-        return charset;
+        msg.headers().set(HttpHeaders.Names.VIA, vias);
     }
 
     /**
@@ -702,49 +644,6 @@ public class ProxyUtils {
             return Long.parseLong(readThrottleString);
         }
         return -1;
-    }
-
-    public static ProxyCacheManager loadCacheManager() {
-        final Optional<String> managerClassName = 
-            Optional.fromNullable( LittleProxyConfig.getProxyCacheManagerClass());
-        if (managerClassName.isPresent()) {
-            ProxyCacheManager configCacheManager = null;
-            try {
-                final Class managerClass = 
-                        Class.forName( managerClassName.get() );
-                configCacheManager = 
-                        (ProxyCacheManager)managerClass.newInstance();
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException("Failed to find class: " +
-                        managerClassName.get(), e);
-            } catch (InstantiationException e) {
-                throw new RuntimeException(
-                        "Failed to create instance of ProxyCacheManager: " + 
-                managerClassName.get(), e);
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(
-                        "Failed to create instance of ProxyCacheManager: " + 
-                managerClassName.get(), e);
-            }
-            
-            return configCacheManager;
-        } else {
-            return new ProxyCacheManager() {
-                
-                @Override
-                public boolean returnCacheHit(final HttpRequest request, 
-                    final Channel channel) {
-                    return false;
-                }
-                
-                @Override
-                public Future<String> cache(final HttpRequest originalRequest,
-                    final HttpResponse httpResponse, 
-                    final Object response, final ChannelBuffer encoded) {
-                    return null;
-                }
-            };
-        }
     }
     
 }
