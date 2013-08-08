@@ -40,7 +40,6 @@ public class ProxyHttpResponseEncoder extends HttpResponseEncoder {
     @Override
     protected void encode(ChannelHandlerContext ctx, HttpObject msg,
             List<Object> out) throws Exception {
-        // TODO Auto-generated method stub
         if (msg instanceof ProxyHttpResponse) {
             //log.info("Processing proxy response!!");
             final ProxyHttpResponse proxyResponse = (ProxyHttpResponse) msg;

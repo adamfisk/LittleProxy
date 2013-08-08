@@ -273,6 +273,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
                         if (ctx.channel().isActive()) {
+                            log.debug("Closing remote connection now that operation is complete");
                             ctx.channel().close();
                         }
                     }
@@ -319,6 +320,16 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
             }
         }
         log.debug("Finished processing message");
+        // TODO: Ox - there's what appears to be a race condition that prevents
+        // us from sending the last message or chunk back to the client.
+        // For some reason, adding a little delay right here takes care of the
+        // race condition.  Need to figure out the actual race condition and 
+        // deal with it.
+        try {
+            Thread.sleep(3);
+        } catch (InterruptedException ie) {
+            // ignore
+        }
     }
 
     

@@ -358,10 +358,10 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         
         final HttpRequest request = (HttpRequest) httpObject;
         
-        final Channel inboundChannel = ctx.channel();
+        final Channel browserToProxyChannel = ctx.channel();
         this.unansweredRequestCount.incrementAndGet();
         
-        log.debug("Got request: {} on channel: "+inboundChannel, request);
+        log.debug("Got request: {} on channel: "+browserToProxyChannel, request);
         if (this.authorizationManager != null && 
             !this.authorizationManager.handleProxyAuthorization(request, ctx)) {
             log.debug("Not authorized!!");
@@ -388,7 +388,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                     hostAndPort = hosts.get(0);
                 } else {
                     log.warn("No host and port found in {}", request.getUri());
-                    badGateway(request, inboundChannel);
+                    badGateway(request, browserToProxyChannel);
                     handleFutureChunksIfNecessary(request);
                     return;
                 }
@@ -481,15 +481,15 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         else {
             log.debug("Establishing new connection");
             final ChannelFuture cf;
-            // TODO: PWM - not sure if this is equivalent to the old config().setAutoRead(false), need to verify
-            ctx.channel().config().setAutoRead(false);
+            // TODO: Ox - not sure if this is equivalent to the old context.setReadable(), need to verify
+            browserToProxyChannel.config().setAutoRead(false);
             try {
-                cf = newChannelFuture(request, inboundChannel, hostAndPort);
+                cf = newChannelFuture(request, browserToProxyChannel, hostAndPort);
             } catch (final UnknownHostException e) {
                 log.warn("Could not resolve host?", e);
-                badGateway(request, inboundChannel);
+                badGateway(request, browserToProxyChannel);
                 handleFutureChunksIfNecessary(request);
-                ctx.channel().config().setAutoRead(true);
+                browserToProxyChannel.config().setAutoRead(true);
                 return;
             }
             
@@ -520,7 +520,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                                     request.getMethod()+" "+
                                     request.getUri());
                                 
-                                ctx.channel().config().setAutoRead(true);
+                                browserToProxyChannel.config().setAutoRead(true);
                                 log.debug("Channel is auto reading: {}", 
                                     channel.config().isAutoRead());
                             }
@@ -546,7 +546,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                         if (copiedHostAndPort.equals(nextHostAndPort)) {
                             // We call the relay channel closed event handler
                             // with one associated unanswered request.
-                            onRelayChannelClose(inboundChannel, copiedHostAndPort, 1,
+                            onRelayChannelClose(browserToProxyChannel, copiedHostAndPort, 1,
                                 true);
                         }
                         else {

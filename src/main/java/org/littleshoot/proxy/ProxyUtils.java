@@ -367,7 +367,10 @@ public class ProxyUtils {
     public static void closeOnFlush(final Channel ch) {
         LOG.debug("Closing on flush: {}", ch);
         if (ch.isOpen()) {
+            LOG.debug("Channel open, sending empty content and closing channel: {}", ch);
             ch.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
+        } else {
+            LOG.debug("Channel already closed, doing nothing: {}", ch);
         }
     }
 
