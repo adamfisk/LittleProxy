@@ -454,7 +454,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
     public void channelUnregistered(final ChannelHandlerContext ctx) throws Exception {
         super.channelUnregistered(ctx);
         log.debug("Got closed event on proxy -> web connection: {}",
-            ctx.channel());
+            currentHttpRequest);
         
         // We shouldn't close the connection to the browser 
         // here, as there can be multiple connections to external sites for

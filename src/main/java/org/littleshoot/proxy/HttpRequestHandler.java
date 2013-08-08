@@ -1,6 +1,8 @@
 package org.littleshoot.proxy;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -571,12 +573,15 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     
     private void badGateway(final HttpRequest request, 
         final Channel inboundChannel) {
+        final String body = "Bad Gateway: "+request.getUri();
+        byte[] bytes = body.getBytes(Charset.forName("UTF-8"));
+        ByteBuf content = Unpooled.copiedBuffer(bytes);
         final DefaultFullHttpResponse response = 
             new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, 
-                HttpResponseStatus.BAD_GATEWAY);
+                HttpResponseStatus.BAD_GATEWAY,
+                content);
         response.headers().set(HttpHeaders.Names.CONNECTION, "close");
-        final String body = "Bad Gateway: "+request.getUri();
-        response.content().setBytes(0, body.getBytes(Charset.forName("UTF-8")));
+        response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, bytes.length);
         inboundChannel.writeAndFlush(response);
     }
 
