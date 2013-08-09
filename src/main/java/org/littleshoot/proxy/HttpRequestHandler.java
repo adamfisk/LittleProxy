@@ -322,13 +322,13 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                 log.error("NO CHANNEL FUTURE!!");
                 synchronized (this.channelFutureLock) {
                     if (this.currentChannelFuture == null) {
+                        log.debug("Waiting for channel future!");
                         try {
-                            log.debug("Waiting for channel future!");
-                            channelFutureLock.wait(4000);
-                            log.debug("Got channel future? " + (this.currentChannelFuture != null));
-                        } catch (final InterruptedException e) {
-                            log.info("Interrupted!!", e);
+                            this.channelFutureLock.wait(10000);
+                        } catch (InterruptedException ie) {
+                            log.warn("Interrupted!");
                         }
+                        log.debug("Got channel future? " + (this.currentChannelFuture != null));
                     }
                 }
             }
@@ -519,8 +519,9 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                     }
                     if (future.isSuccess()) {
                         log.debug("Connected successfully to: {}", channel);
-                        log.debug("Writing message on channel...");
+                        log.debug("Firing onConnect...");
                         final ChannelFuture wf = onConnect.onConnect(cf);
+                        log.debug("Writing message on channel...");
                         wf.addListener(new ChannelFutureListener() {
                             @Override
                             public void operationComplete(final ChannelFuture wcf)
@@ -653,7 +654,32 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     }
 
     private void writeConnectResponse(final ChannelHandlerContext ctx,
+            final HttpRequest httpRequest, final Channel outgoingChannel,
+            final boolean didHandshakeSucceed) {
+        ctx.channel().config().setAutoRead(false);
+        // As of Netty 4, the implementation of DefaultChannelPipeline.remove()
+        // is not safe to call from within the event loop because it may itself
+        // try to schedule something on the event loop and then block waiting
+        // for that task to complete.  This causes a deadlock.
+        // As a workaround, we do our actual work as a task on the event loop.
+        // By the time pipeline.remove() is called, DefaultChannelPipeline will
+        // no longer need to schedule a task on the event loop and we avoid
+        // deadlock.
+        ctx.executor().submit(new Runnable() {
+            @Override
+            public void run() {
+                doWriteConnectResponse(ctx,
+                        httpRequest,
+                        outgoingChannel,
+                        didHandshakeSucceed);
+            }
+        });
+    }
+    
+    private void doWriteConnectResponse(final ChannelHandlerContext ctx,
         final HttpRequest httpRequest, final Channel outgoingChannel, boolean didHandshakeSucceed) {
+        log.debug("Writing connect response: {}", httpRequest);
+        ctx.channel().config().setAutoRead(true);
         final int port = ProxyUtils.parsePort(httpRequest);
         final Channel browserToProxyChannel = ctx.channel();
         
@@ -671,20 +697,25 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             ProxyUtils.closeOnFlush(browserToProxyChannel);
         }
         else if (!LittleProxyConfig.isUseSSLMitm()) {
-            browserToProxyChannel.config().setAutoRead(false);
+            log.debug("Modifying handlers for tunneling");
+            ctx.channel().config().setAutoRead(false);
             
-            // We need to modify both the pipeline encoders and decoders for the
+            // We need to modify both the pipeline encoders and decoders for
+            // the
             // browser to proxy channel -- the outgoing channel already has
             // the correct handlers and such set at this point.
-            ctx.pipeline().remove("encoder");
-            ctx.pipeline().remove("decoder");
-            ctx.pipeline().remove("handler");
+            ChannelPipeline pipeline = browserToProxyChannel.pipeline();
+            pipeline.remove("encoder");
+            pipeline.remove("decoder");
+            pipeline.remove("handler");
             
             // Note there are two HttpConnectRelayingHandler for each HTTP
             // CONNECT tunnel -- one writing to the browser, and one writing
             // to the remote host.
-            ctx.pipeline().addLast("handler", 
-                new HttpConnectRelayingHandler(outgoingChannel, this.channelGroup));
+            pipeline.addLast(
+                    "handler",
+                    new HttpConnectRelayingHandler(outgoingChannel,
+                            this.channelGroup));
         }
 
         log.debug("Sending response to CONNECT request...");
@@ -700,6 +731,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             //TODO:nir: SSL intercept support: it seems that we need to add SSLHandler in this case after we receive
             //TODO:nir: the response from the chained proxy. Currently I'm not sure were to put that.
             if (chainProxy != null) {
+                log.debug("Temporarily inserting HttpRequestEncoder to deal with CONNECT to upstream proxy");
                 // forward the CONNECT request to the upstream proxy server 
                 // which will return a HTTP response
                 outgoingChannel.pipeline().addBefore("handler", "encoder",
@@ -717,12 +749,14 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         
         if (chainProxy == null) { 
         	if (didHandshakeSucceed) {
+        	    log.debug("Connection established");
 	            final String statusLine = "HTTP/1.1 200 Connection established\r\n";
 	            //TODO:nir: why does writeResponse() calls config().setAutoRead(true)?
 	            final ChannelFuture channelFuture = ProxyUtils.writeResponse(browserToProxyChannel, statusLine,
 	                ProxyUtils.CONNECT_OK_HEADERS);
 	            
 	            if (LittleProxyConfig.isUseSSLMitm()) {
+	                log.debug("Connecting with SSL MITM");
 		            channelFuture.addListener(new ChannelFutureListener() {
 		                public void operationComplete(ChannelFuture future) throws Exception {
 		                    // don't accept incoming message until we'll setup the SSL handler
@@ -761,7 +795,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
 		                        public void operationComplete(
 		                                Future<? super Channel> future)
 		                                throws Exception {
-		                            log.info("Browser to proxy SSL handshake done. Success is: " + future.isSuccess());
+		                            log.info("Browser to proxy SSL handshake done. Success is: {}", future.isSuccess());
 		                        }
                             });
 		                }
@@ -772,6 +806,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
 	            }
         	}
         	else {
+        	    log.debug("Unable to establish connection");
         		// Send an error to the browser and close the connection. For our implementation, this is enough. If you 
         		// want the browser to give the correct error, you'd have to start the handshake with the browser and purposefully
         		// make the handshake fail be using an invalid certificate.        		

@@ -62,6 +62,8 @@ public class HttpConnectRelayingHandler extends SimpleChannelInboundHandler<Byte
                     LOG.debug("Finished writing data on CONNECT channel");
                 }
             };
+            // Retain the ByteBuf before passing it down the line
+            msg.retain();
             relayChannel.writeAndFlush(msg).addListener(logListener);
         }
         else {
