@@ -1,8 +1,6 @@
 package org.littleshoot.proxy;
 
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
@@ -73,9 +71,6 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
             final HttpRequest toSend;
             if (transparent) {
                 toSend = request;
-                if (request instanceof FullHttpRequest) {
-                    ((FullHttpRequest) request).content().retain();
-                }
             } else {
                 toSend = ProxyUtils.copyHttpRequest(request, keepProxyFormat);
             }
@@ -85,7 +80,6 @@ public class ProxyHttpRequestEncoder extends HttpRequestEncoder {
             //LOG.info("Writing modified request: {}", httpRequestCopy);
             super.encode(ctx, toSend, out);
         } else {
-            ((HttpContent) msg).content().retain();
             super.encode(ctx, msg, out);
         }
     }

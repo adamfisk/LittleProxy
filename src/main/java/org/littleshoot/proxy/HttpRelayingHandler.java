@@ -7,7 +7,6 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
-import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObject;
@@ -166,7 +165,6 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
                 writeEndBuffer = false;
             }
             else {
-                ((FullHttpResponse) response).content().retain();
                 writeEndBuffer = true;
             }
             
@@ -190,7 +188,6 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
         } else {
             log.debug("Processing a chunk");
             final HttpContent chunk = (HttpContent) httpObject;
-            chunk.content().retain();
             if (ProxyUtils.isLastChunk(httpObject)) {
                 readingChunks = false;
                 writeEndBuffer = true;

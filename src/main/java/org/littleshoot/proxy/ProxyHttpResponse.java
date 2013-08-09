@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import io.netty.handler.codec.DecoderResult;
+import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
@@ -17,6 +18,9 @@ public class ProxyHttpResponse implements HttpObject {
         this.httpRequest = httpRequest;
         this.httpResponse = httpResponse;
         this.response = response;
+        if (response instanceof HttpContent) {
+            ((HttpContent) response).content().retain();
+        }
     }
 
     public HttpObject getResponse() {

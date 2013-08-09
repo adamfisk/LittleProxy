@@ -338,6 +338,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         // happen if the client sends a chunk directly after the initial 
         // request.
 
+        chunk.content().retain();
         if (this.currentChannelFuture.channel().isActive()) {
             this.currentChannelFuture.channel().writeAndFlush(chunk);
         }
@@ -400,6 +401,9 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         final class OnConnect {
             public ChannelFuture onConnect(final ChannelFuture cf) {
                 if (request.getMethod() != HttpMethod.CONNECT) {
+                    if (request instanceof HttpContent) {
+                        ((HttpContent) request).content().retain();
+                    }
                     final ChannelFuture writeFuture = 
                         cf.channel().writeAndFlush(request);
                     writeFuture.addListener(new ChannelFutureListener() {
@@ -615,28 +619,33 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         if(StringUtils.isBlank(hostAndPort)) {
             return currentChannelFuture;
         }
-
-        synchronized (this.externalHostsToChannelFutures) {
-            final Queue<ChannelFuture> futures = 
-                this.externalHostsToChannelFutures.get(hostAndPort);
-            if (futures == null) {
-                return null;
-            }
-            if (futures.isEmpty()) {
-                return null;
-            }
-            final ChannelFuture cf = futures.remove();
-
-            if (cf != null && cf.isSuccess() && 
-                !cf.channel().isActive()) {
-                // In this case, the future successfully connected at one
-                // time, but we're no longer connected. We need to remove the
-                // channel and open a new one.
-                removeProxyToWebConnection(hostAndPort);
-                return null;
-            }
-            return cf;
-        }
+        
+        // TODO: Ox noticed that the connection reuse logic here is causing
+        // problems in situations where the client is making concurrent
+        // requests to the same server for multiple resources.  Need to discuss
+        // with afisk what this is doing and how (or if) to fix it.
+        return null;
+//        synchronized (this.externalHostsToChannelFutures) {
+//            final Queue<ChannelFuture> futures = 
+//                this.externalHostsToChannelFutures.get(hostAndPort);
+//            if (futures == null) {
+//                return null;
+//            }
+//            if (futures.isEmpty()) {
+//                return null;
+//            }
+//            final ChannelFuture cf = futures.remove();
+//
+//            if (cf != null && cf.isSuccess() && 
+//                !cf.channel().isActive()) {
+//                // In this case, the future successfully connected at one
+//                // time, but we're no longer connected. We need to remove the
+//                // channel and open a new one.
+//                removeProxyToWebConnection(hostAndPort);
+//                return null;
+//            }
+//            return cf;
+//        }
     }
 
     private void writeConnectResponse(final ChannelHandlerContext ctx,
