@@ -325,6 +325,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                         try {
                             log.debug("Waiting for channel future!");
                             channelFutureLock.wait(4000);
+                            log.debug("Got channel future? " + (this.currentChannelFuture != null));
                         } catch (final InterruptedException e) {
                             log.info("Interrupted!!", e);
                         }
