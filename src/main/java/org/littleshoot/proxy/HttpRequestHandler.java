@@ -263,7 +263,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
     }
 
     @Override
-    public void channelRead0(final ChannelHandlerContext ctx,  final HttpObject httpObject ) {
+    protected void channelRead0(final ChannelHandlerContext ctx,  final HttpObject httpObject ) {
         if (browserChannelClosed.get()) {
             log.info("Ignoring message since the connection to the browser " +
                 "is about to close");
@@ -337,8 +337,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         // happen if the client sends a chunk directly after the initial 
         // request.
 
-        if (this.currentChannelFuture.channel() != null &&
-                this.currentChannelFuture.channel().isActive()) {
+        if (this.currentChannelFuture.channel().isActive()) {
             this.currentChannelFuture.channel().writeAndFlush(chunk);
         }
         else {
@@ -347,6 +346,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                 @Override
                 public void operationComplete(final ChannelFuture future) 
                     throws Exception {
+                    log.debug("currentChannelFuture now active, writing chunk");
                     currentChannelFuture.channel().writeAndFlush(chunk);
                 }
             });

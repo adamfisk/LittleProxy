@@ -238,9 +238,11 @@ public class ProxyUtils {
 
         HttpResponse copy = null;
         if (original instanceof DefaultFullHttpResponse) {
+            ByteBuf content = ((DefaultFullHttpResponse) original).content();
+            content.retain();
             copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
                     original.getStatus(),
-                    ((DefaultFullHttpResponse) original).content());
+                    content);
         } else {
             copy = new DefaultHttpResponse(original.getProtocolVersion(),
                     original.getStatus());
@@ -365,9 +367,9 @@ public class ProxyUtils {
      * @param ch The {@link Channel} to close.
      */
     public static void closeOnFlush(final Channel ch) {
-        LOG.debug("Closing on flush: {}", ch);
+        LOG.debug("Requested close on flush: {}", ch);
         if (ch.isOpen()) {
-            LOG.debug("Channel open, sending empty content and closing channel: {}", ch);
+            LOG.debug("Channel open, sending empty content and requesting close of channel: {}", ch);
             ch.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
         } else {
             LOG.debug("Channel already closed, doing nothing: {}", ch);
@@ -477,9 +479,11 @@ public class ProxyUtils {
         }
         
         if (original instanceof DefaultFullHttpRequest) {
+            ByteBuf content = ((DefaultFullHttpRequest) original).content();
+            content.retain();
             copy = new DefaultFullHttpRequest(original.getProtocolVersion(),
                 method, adjustedUri,
-                ((DefaultFullHttpRequest) original).content());
+                content);
         } else {
             copy = new DefaultHttpRequest(original.getProtocolVersion(),
                 method, adjustedUri);

@@ -194,8 +194,8 @@ public class HttpProxyTest {
             }
             
             final HttpPost httppost = new HttpPost(host);
-            httppost.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
+//            httppost.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+//            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
             final StringEntity entity = new StringEntity("adsf", "UTF-8");
             entity.setChunked(true);
             httppost.setEntity(entity);
@@ -228,8 +228,8 @@ public class HttpProxyTest {
             }
             
             HttpGet httppost = new HttpGet(HOST);
-            httppost.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
+//            httppost.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+//            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
             
             HttpResponse response = httpclient.execute(httppost);
             HttpEntity resEntity = response.getEntity();

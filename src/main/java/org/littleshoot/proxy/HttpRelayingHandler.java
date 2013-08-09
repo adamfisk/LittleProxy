@@ -522,6 +522,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
      * @param request The HTTP request to add.
      */
     public void requestEncoded(final HttpRequest request) {
+        log.debug("Enqueued: {}", request);
         this.requestQueue.add(request);
     }
 
@@ -533,6 +534,7 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
             // the incoming traffic from the outboundChannel.
             if (ctx.channel().isWritable()) {
                 if (this.channel != null) {
+                    log.debug("Resume accepting traffic from outbound channel: {}", this.channel);
                     this.channel.config().setAutoRead(true);
                 }
             }

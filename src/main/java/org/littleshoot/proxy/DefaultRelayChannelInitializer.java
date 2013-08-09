@@ -106,11 +106,6 @@ public class DefaultRelayChannelInitializer extends ChannelInitializer<Channel> 
             LOG.debug("Filtering: "+shouldFilter);
         }
         
-        // The trick here is we need to determine whether or not
-        // to cache responses based on the full URI of the request.
-        // This request encoder will only get the URI without the
-        // host, so we just have to be aware of that and construct
-        // the original.
         final HttpRelayingHandler handler;
         if (shouldFilter) {
             LOG.info("Creating relay handler with filter");
