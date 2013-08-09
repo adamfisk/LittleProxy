@@ -625,27 +625,30 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             return currentChannelFuture;
         }
         
-        synchronized (this.externalHostsToChannelFutures) {
-            final Queue<ChannelFuture> futures = 
-                this.externalHostsToChannelFutures.get(hostAndPort);
-            if (futures == null) {
-                return null;
-            }
-            if (futures.isEmpty()) {
-                return null;
-            }
-            final ChannelFuture cf = futures.remove();
-
-            if (cf != null && cf.isSuccess() && 
-                !cf.channel().isRegistered()) {
-                // In this case, the future successfully connected at one
-                // time, but we're no longer connected. We need to remove the
-                // channel and open a new one.
-                removeProxyToWebConnection(hostAndPort);
-                return null;
-            }
-            return cf;
-        }
+        // TODO: Ox, figure out why we were reusing connections, if it's necessary
+        // and how to get it working again (it's broken right now).
+        return null;
+//        synchronized (this.externalHostsToChannelFutures) {
+//            final Queue<ChannelFuture> futures = 
+//                this.externalHostsToChannelFutures.get(hostAndPort);
+//            if (futures == null) {
+//                return null;
+//            }
+//            if (futures.isEmpty()) {
+//                return null;
+//            }
+//            final ChannelFuture cf = futures.remove();
+//
+//            if (cf != null && cf.isSuccess() && 
+//                !cf.channel().isActive()) {
+//                // In this case, the future successfully connected at one
+//                // time, but we're no longer connected. We need to remove the
+//                // channel and open a new one.
+//                removeProxyToWebConnection(hostAndPort);
+//                return null;
+//            }
+//            return cf;
+//        }
     }
 
     private void writeConnectResponse(final ChannelHandlerContext ctx,
