@@ -239,6 +239,8 @@ public class ProxyUtils {
         HttpResponse copy = null;
         if (original instanceof DefaultFullHttpResponse) {
             ByteBuf content = ((DefaultFullHttpResponse) original).content();
+            // Retain the original content so that we can pass it on inside the
+            // copy.
             content.retain();
             copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
                     original.getStatus(),
@@ -480,6 +482,8 @@ public class ProxyUtils {
         
         if (original instanceof DefaultFullHttpRequest) {
             ByteBuf content = ((DefaultFullHttpRequest) original).content();
+            // Retain the original content so that we can pass it on inside the
+            // copy.
             content.retain();
             copy = new DefaultFullHttpRequest(original.getProtocolVersion(),
                 method, adjustedUri,

@@ -337,7 +337,9 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         // We don't necessarily know the channel is connected yet!! This can
         // happen if the client sends a chunk directly after the initial 
         // request.
-
+        
+        // Retain the content for this chunk before passing it to the outbound
+        // channel
         chunk.content().retain();
         if (this.currentChannelFuture.channel().isActive()) {
             this.currentChannelFuture.channel().writeAndFlush(chunk);
@@ -402,6 +404,8 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             public ChannelFuture onConnect(final ChannelFuture cf) {
                 if (request.getMethod() != HttpMethod.CONNECT) {
                     if (request instanceof HttpContent) {
+                        // Retain the content for this request before passing it
+                        // to the outbound channel
                         ((HttpContent) request).content().retain();
                     }
                     final ChannelFuture writeFuture = 

@@ -19,6 +19,8 @@ public class ProxyHttpResponse implements HttpObject {
         this.httpResponse = httpResponse;
         this.response = response;
         if (response instanceof HttpContent) {
+            // Retain the content of the original response so that we can pass
+            // it back to the browser.
             ((HttpContent) response).content().retain();
         }
     }
