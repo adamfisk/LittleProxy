@@ -625,32 +625,27 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             return currentChannelFuture;
         }
         
-        // TODO: Ox noticed that the connection reuse logic here is causing
-        // problems in situations where the client is making concurrent
-        // requests to the same server for multiple resources.  Need to discuss
-        // with afisk what this is doing and how (or if) to fix it.
-        return null;
-//        synchronized (this.externalHostsToChannelFutures) {
-//            final Queue<ChannelFuture> futures = 
-//                this.externalHostsToChannelFutures.get(hostAndPort);
-//            if (futures == null) {
-//                return null;
-//            }
-//            if (futures.isEmpty()) {
-//                return null;
-//            }
-//            final ChannelFuture cf = futures.remove();
-//
-//            if (cf != null && cf.isSuccess() && 
-//                !cf.channel().isActive()) {
-//                // In this case, the future successfully connected at one
-//                // time, but we're no longer connected. We need to remove the
-//                // channel and open a new one.
-//                removeProxyToWebConnection(hostAndPort);
-//                return null;
-//            }
-//            return cf;
-//        }
+        synchronized (this.externalHostsToChannelFutures) {
+            final Queue<ChannelFuture> futures = 
+                this.externalHostsToChannelFutures.get(hostAndPort);
+            if (futures == null) {
+                return null;
+            }
+            if (futures.isEmpty()) {
+                return null;
+            }
+            final ChannelFuture cf = futures.remove();
+
+            if (cf != null && cf.isSuccess() && 
+                !cf.channel().isRegistered()) {
+                // In this case, the future successfully connected at one
+                // time, but we're no longer connected. We need to remove the
+                // channel and open a new one.
+                removeProxyToWebConnection(hostAndPort);
+                return null;
+            }
+            return cf;
+        }
     }
 
     private void writeConnectResponse(final ChannelHandlerContext ctx,
