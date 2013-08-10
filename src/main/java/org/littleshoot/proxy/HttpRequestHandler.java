@@ -490,7 +490,6 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         else {
             log.debug("Establishing new connection");
             final ChannelFuture cf;
-            // TODO: Ox - not sure if this is equivalent to the old context.setReadable(), need to verify
             browserToProxyChannel.config().setAutoRead(false);
             try {
                 cf = newChannelFuture(request, browserToProxyChannel, hostAndPort);
@@ -625,30 +624,26 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             return currentChannelFuture;
         }
         
-        // TODO: Ox, figure out why we were reusing connections, if it's necessary
-        // and how to get it working again (it's broken right now).
-        return null;
-//        synchronized (this.externalHostsToChannelFutures) {
-//            final Queue<ChannelFuture> futures = 
-//                this.externalHostsToChannelFutures.get(hostAndPort);
-//            if (futures == null) {
-//                return null;
-//            }
-//            if (futures.isEmpty()) {
-//                return null;
-//            }
-//            final ChannelFuture cf = futures.remove();
-//
-//            if (cf != null && cf.isSuccess() && 
-//                !cf.channel().isActive()) {
-//                // In this case, the future successfully connected at one
-//                // time, but we're no longer connected. We need to remove the
-//                // channel and open a new one.
-//                removeProxyToWebConnection(hostAndPort);
-//                return null;
-//            }
-//            return cf;
-//        }
+        synchronized (this.externalHostsToChannelFutures) {
+            final Queue<ChannelFuture> futures = 
+                this.externalHostsToChannelFutures.get(hostAndPort);
+            if (futures == null) {
+                return null;
+            }
+            if (futures.isEmpty()) {
+                return null;
+            }
+            final ChannelFuture cf = futures.remove();
+
+            if (cf != null && cf.isDone() && !cf.channel().isActive()) {
+                // In this case, the future tried to connect at one time,
+                // but we're no longer connected. We need to remove the channel
+                // and open a new one.
+                removeProxyToWebConnection(hostAndPort);
+                return null;
+            }
+            return cf;
+        }
     }
 
     private void writeConnectResponse(final ChannelHandlerContext ctx,
