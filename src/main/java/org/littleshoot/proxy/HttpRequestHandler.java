@@ -324,7 +324,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                     if (this.currentChannelFuture == null) {
                         log.debug("Waiting for channel future!");
                         try {
-                            this.channelFutureLock.wait(10000);
+                            this.channelFutureLock.wait(30000);
                         } catch (InterruptedException ie) {
                             log.warn("Interrupted!");
                         }
@@ -1007,11 +1007,11 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         final Throwable cause) throws Exception {
         final Channel channel = ctx.channel();
         if (cause instanceof ClosedChannelException) {
-            log.warn("Caught an exception on browser to proxy channel: "+
+            log.error("Caught an exception on browser to proxy channel: "+
                 channel, cause);
         }
         else {
-            log.debug("Caught an exception on browser to proxy channel: "+
+            log.warn("Caught an exception on browser to proxy channel: "+
                 channel, cause);
         }
         ProxyUtils.closeOnFlush(channel);

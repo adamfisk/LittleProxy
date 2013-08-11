@@ -483,15 +483,15 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
             warn = true;
         }
         if (warn) {
-            log.warn(message, cause);
+            log.error(message, cause);
         } else {
-            log.debug(message, cause);
+            log.warn(message, cause);
         }
         if (ctx.channel().isActive()) {
             if (warn) {
-                log.warn("Closing open connection");
+                log.error("Closing open connection");
             } else {
-                log.debug("Closing open connection");
+                log.warn("Closing open connection");
             }
             ProxyUtils.closeOnFlush(ctx.channel());
         }
@@ -523,6 +523,11 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
         this.requestQueue.add(request);
     }
 
+    /**
+     * This callback fires when the HttpRequestHandler (browser to proxy channel)
+     * becomes writeable, at which point we can resume reading from data from
+     * the outbound proxy connection.
+     */
     @Override
     public void channelWritable(final ChannelHandlerContext ctx) {
         // See trafficLock for an explanation of the locking here.
