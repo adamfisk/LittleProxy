@@ -9,3 +9,4 @@ log.txt
 *.DS_Store
 target/
 .idea/
+jmeter.log
