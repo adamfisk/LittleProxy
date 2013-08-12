@@ -319,7 +319,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                 // Note this can happen quite often in tests when requests are
                 // arriving very quickly on the same JVM but is less likely
                 // to occur in deployed servers.
-                log.error("NO CHANNEL FUTURE!!");
+                log.warn("NO CHANNEL FUTURE!!");
                 synchronized (this.channelFutureLock) {
                     if (this.currentChannelFuture == null) {
                         log.debug("Waiting for channel future!");
