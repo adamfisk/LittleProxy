@@ -34,7 +34,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
-    // TODO: Ox - make sure that using GlobalEventExecutor.INSTANCE is performant
     private final ChannelGroup allChannels = new DefaultChannelGroup(
             "HTTP-Proxy-Server", GlobalEventExecutor.INSTANCE);
 
@@ -240,9 +239,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         });
 
         // Use our thread names so users know there are LittleProxy threads.
-        // TODO: Ox - make sure our thread names are still good despite having discontinued use of this API
-//        ThreadRenamingRunnable
-//                .setThreadNameDeterminer(ThreadNameDeterminer.CURRENT);
         this.serverBootstrap = new ServerBootstrap().group(serverBoss, serverWorker);
     }
 

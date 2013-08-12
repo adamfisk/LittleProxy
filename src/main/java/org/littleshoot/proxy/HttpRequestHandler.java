@@ -264,6 +264,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
 
     @Override
     protected void channelRead0(final ChannelHandlerContext ctx,  final HttpObject httpObject ) {
+        System.out.println(httpObject);
         if (browserChannelClosed.get()) {
             log.info("Ignoring message since the connection to the browser " +
                 "is about to close");
@@ -401,7 +402,8 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
         }
         
         final class OnConnect {
-            public ChannelFuture onConnect(final ChannelFuture cf) {
+            public ChannelFuture onConnect(final String hostAndPort,
+                    final ChannelFuture cf) {
                 if (request.getMethod() != HttpMethod.CONNECT) {
                     if (request instanceof HttpContent) {
                         // Retain the content for this request before passing it
@@ -444,6 +446,10 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                                             throws Exception {
                                         log.info("Proxy to web SSL handshake done. Success is: "
                                                 + future.isSuccess());
+
+                                        // Mark this ChannelFuture as available
+                                        onChannelAvailable(hostAndPort, cf);
+                                        
                                         // signaling on the client channel that
                                         // we have connected to the server
                                         // successfully
@@ -454,9 +460,12 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                         });
                 	}
                 	else {
+                	    // Mark this ChannelFuture as available
+                        onChannelAvailable(hostAndPort, cf);
+                        
                 		writeConnectResponse(ctx, request, cf.channel(), true);
                 	}
-                    return cf;
+                	return cf;
                 }
             }
         }
@@ -474,14 +483,15 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
             }
             this.currentChannelFuture = curFuture;
             if (curFuture.channel().isActive()) {
-                onConnect.onConnect(curFuture);
+                onConnect.onConnect(hostAndPort, curFuture);
             }
             else {
+                final String finalHostAndPort = hostAndPort;
                 final ChannelFutureListener cfl = new ChannelFutureListener() {
                     @Override
                     public void operationComplete(final ChannelFuture future)
                         throws Exception {
-                        onConnect.onConnect(curFuture);
+                        onConnect.onConnect(finalHostAndPort, curFuture);
                     }
                 };
                 curFuture.addListener(cfl);
@@ -519,7 +529,7 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
                     if (future.isSuccess()) {
                         log.debug("Connected successfully to: {}", channel);
                         log.debug("Firing onConnect...");
-                        final ChannelFuture wf = onConnect.onConnect(cf);
+                        final ChannelFuture wf = onConnect.onConnect(copiedHostAndPort, cf);
                         log.debug("Writing message on channel...");
                         wf.addListener(new ChannelFutureListener() {
                             @Override

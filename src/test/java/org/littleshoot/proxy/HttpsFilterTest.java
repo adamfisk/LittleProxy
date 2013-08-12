@@ -182,8 +182,8 @@ public class HttpsFilterTest {
 
         final HttpHost proxy = new HttpHost("127.0.0.1", PROXY_PORT, "http");
         http.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
-        http.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-        http.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
+        http.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 30000);
+        http.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
 
         final HttpGet get = new HttpGet(url);
         final org.apache.http.HttpResponse hr = http.execute(get);
