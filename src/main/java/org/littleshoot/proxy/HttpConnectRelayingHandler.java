@@ -1,16 +1,14 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.channel.ChannelHandler.Sharable;
-import org.jboss.netty.channel.group.ChannelGroup;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler.Sharable;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.group.ChannelGroup;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +17,7 @@ import org.slf4j.LoggerFactory;
  * another channel passed in to the constructor.
  */
 @Sharable
-public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
+public class HttpConnectRelayingHandler extends SimpleChannelInboundHandler<ByteBuf> {
     
     private static final Logger LOG = 
         LoggerFactory.getLogger(HttpConnectRelayingHandler.class);
@@ -54,10 +52,9 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
     }
 
     @Override
-    public void messageReceived(final ChannelHandlerContext ctx, 
-        final MessageEvent e) throws Exception {
-        final ChannelBuffer msg = (ChannelBuffer) e.getMessage();
-        if (relayChannel.isConnected()) {
+    protected void channelRead0(ChannelHandlerContext ctx, ByteBuf msg)
+            throws Exception {
+        if (relayChannel.isActive()) {
             final ChannelFutureListener logListener = 
                 new ChannelFutureListener() {
                 public void operationComplete(final ChannelFuture future) 
@@ -65,37 +62,39 @@ public class HttpConnectRelayingHandler extends SimpleChannelUpstreamHandler {
                     LOG.debug("Finished writing data on CONNECT channel");
                 }
             };
-            relayChannel.write(msg).addListener(logListener);
+            // Retain the ByteBuf before passing it down the line
+            msg.retain();
+            relayChannel.writeAndFlush(msg).addListener(logListener);
         }
         else {
             LOG.info("Channel not open. Connected? {}", 
-                relayChannel.isConnected());
+                relayChannel.isActive());
             // This will undoubtedly happen anyway, but just in case.
-            ProxyUtils.closeOnFlush(e.getChannel());
+            ProxyUtils.closeOnFlush(ctx.channel());
         }
     }
     
     @Override
-    public void channelOpen(final ChannelHandlerContext ctx, 
-        final ChannelStateEvent cse) throws Exception {
-        final Channel ch = cse.getChannel();
+    public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        super.channelRegistered(ctx);
+        final Channel ch = ctx.channel();
         LOG.info("New CONNECT channel opened from proxy to web: {}", ch);
         this.channelGroup.add(ch);
     }
-
+    
     @Override
-    public void channelClosed(final ChannelHandlerContext ctx, 
-        final ChannelStateEvent e) throws Exception {
+    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+        super.channelUnregistered(ctx);
         LOG.info("Got closed event on proxy -> web connection: {}", 
-            e.getChannel());
+            ctx.channel());
         ProxyUtils.closeOnFlush(this.relayChannel);
     }
 
     @Override
     public void exceptionCaught(final ChannelHandlerContext ctx, 
-        final ExceptionEvent e) throws Exception {
+        final Throwable t) throws Exception {
         LOG.info("Caught exception on proxy -> web connection: "+
-            e.getChannel(), e.getCause());
-        ProxyUtils.closeOnFlush(e.getChannel());
+            ctx.channel(), t);
+        ProxyUtils.closeOnFlush(ctx.channel());
     }
 }

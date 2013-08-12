@@ -1,8 +1,8 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.handler.codec.http.HttpRequest;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.handler.codec.http.HttpRequest;
 
 /**
  * Listener for events on the HTTP traffic relayer.

@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandler;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandler;
 
 /**
  * Factory for creating classes that relay responses back to the browser.

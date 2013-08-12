@@ -139,8 +139,8 @@
 
     <dependency>
       <groupId>io.netty</groupId>
-      <artifactId>netty</artifactId>
-      <version>3.6.5.Final</version>
+      <artifactId>netty-all</artifactId>
+      <version>4.0.6.Final</version>
       <scope>compile</scope>
     </dependency>
 
@@ -473,6 +473,16 @@
       <email>a@littleshoot.org</email>
       <organization>LittleShoot</organization>
       <organizationUrl>http://www.littleshoot.org/</organizationUrl>
+      <roles><role>Developer</role></roles>
+      <timezone>-5</timezone>
+    </developer>
+    
+    <developer>
+      <id>ox.to.a.cart</id>
+      <name>Ox Cart</name>
+      <email>ox@getlantern.org</email>
+      <organization>GetLantern</organization>
+      <organizationUrl>https://www.getlantern.org/</organizationUrl>
       <roles><role>Developer</role></roles>
       <timezone>-5</timezone>
     </developer>
