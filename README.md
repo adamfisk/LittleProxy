@@ -58,6 +58,6 @@ http://www.littleshoot.org/littleproxy/
 Acknowledgements
 ----------------
 
-Many thanks to [Measurement Factory](http://www.measurement-factory.com/) for the
+Many thanks to [The Measurement Factory](http://www.measurement-factory.com/) for the
 use of [CoAdvisor](http://coad.measurement-factory.com/) for HTTP standards
 compliance testing. 
