@@ -1,19 +1,17 @@
 package org.littleshoot.proxy;
 
-import static org.jboss.netty.channel.Channels.pipeline;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.handler.codec.http.HttpContentDecompressor;
+import io.netty.handler.codec.http.HttpMessage;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponseDecoder;
+import io.netty.handler.timeout.IdleStateHandler;
 
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
-import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
-import org.jboss.netty.handler.codec.http.HttpMessage;
-import org.jboss.netty.handler.codec.http.HttpMethod;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
-import org.jboss.netty.handler.timeout.IdleStateHandler;
-import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,9 +19,9 @@ import org.slf4j.LoggerFactory;
  * Factory for creating channels for relaying data from external servers to
  * clients.
  */
-public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
+public class DefaultRelayChannelInitializer extends ChannelInitializer<Channel> {
     private static final Logger LOG = 
-        LoggerFactory.getLogger(DefaultRelayPipelineFactory.class);
+        LoggerFactory.getLogger(DefaultRelayChannelInitializer.class);
     
     private final String hostAndPort;
     private final HttpRequest httpRequest;
@@ -36,15 +34,13 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
     private final boolean filtersOff;
     private final HttpResponseFilters responseFilters;
 
-    private final Timer timer;
-
-    public DefaultRelayPipelineFactory(final String hostAndPort, 
+    public DefaultRelayChannelInitializer(final String hostAndPort, 
         final HttpRequest httpRequest, final RelayListener relayListener, 
         final Channel browserToProxyChannel,
         final ChannelGroup channelGroup, 
         final HttpResponseFilters responseFilters, 
         final HttpRequestFilter requestFilter, 
-        final ChainProxyManager chainProxyManager, final Timer timer) {
+        final ChainProxyManager chainProxyManager) {
         this.hostAndPort = hostAndPort;
         this.httpRequest = httpRequest;
         this.relayListener = relayListener;
@@ -54,15 +50,13 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
         this.responseFilters = responseFilters;
         this.requestFilter = requestFilter;
         this.chainProxyManager = chainProxyManager;
-        this.timer = timer;
         
         this.filtersOff = responseFilters == null;
     }
     
-
-    public ChannelPipeline getPipeline() throws Exception {
-        // Create a default pipeline implementation.
-        final ChannelPipeline pipeline = pipeline();
+    @Override
+    protected void initChannel(Channel ch) throws Exception {
+        final ChannelPipeline pipeline = ch.pipeline();
         
         // We always include the request and response decoders
         // regardless of whether or not this is a URL we're 
@@ -106,17 +100,12 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
                     pipeline.addLast("inflater", 
                         new HttpContentDecompressor());
                     pipeline.addLast("aggregator",            
-                        new HttpChunkAggregator(filter.getMaxResponseSize()));//2048576));
+                        new HttpObjectAggregator(filter.getMaxResponseSize()));//2048576));
                 }
             }
             LOG.debug("Filtering: "+shouldFilter);
         }
         
-        // The trick here is we need to determine whether or not
-        // to cache responses based on the full URI of the request.
-        // This request encoder will only get the URI without the
-        // host, so we just have to be aware of that and construct
-        // the original.
         final HttpRelayingHandler handler;
         if (shouldFilter) {
             LOG.info("Creating relay handler with filter");
@@ -154,11 +143,9 @@ public class DefaultRelayPipelineFactory implements ChannelPipelineFactory {
                 writeTimeoutSeconds = 0;
             }
             pipeline.addLast("idle", 
-                new IdleStateHandler(this.timer, 
-                    readTimeoutSeconds, writeTimeoutSeconds, 0));
+                new IdleStateHandler(readTimeoutSeconds, writeTimeoutSeconds, 0));
             pipeline.addLast("idleAware", new IdleAwareHandler("Relay-Handler"));
         }
         pipeline.addLast("handler", handler);
-        return pipeline;
     }
 }

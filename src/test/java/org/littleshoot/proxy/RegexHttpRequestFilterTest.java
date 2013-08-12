@@ -1,13 +1,13 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
-import org.jboss.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.HttpRequest;
 import org.junit.Test;
 
 import java.net.URISyntaxException;
 
-import static org.jboss.netty.handler.codec.http.HttpMethod.GET;
-import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_0;
+import static io.netty.handler.codec.http.HttpMethod.GET;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_0;
 import static org.littleshoot.proxy.RegexHttpRequestFilter.*;
 import static org.mockito.Mockito.*;
 
@@ -84,7 +84,7 @@ public class RegexHttpRequestFilterTest {
 
     private HttpRequest createRequest(String url) {
         final HttpRequest request = new DefaultHttpRequest(HTTP_1_0, GET, ProxyUtils.stripHost(url));
-        request.setHeader("Host", ProxyUtils.parseHost(url));
+        request.headers().set("Host", ProxyUtils.parseHost(url));
         return request;
     }
 

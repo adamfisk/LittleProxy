@@ -1,6 +1,12 @@
 package org.littleshoot.proxy;
 
-import static org.jboss.netty.channel.Channels.pipeline;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.handler.codec.http.HttpRequestDecoder;
+import io.netty.handler.timeout.IdleStateHandler;
 
 import java.lang.management.ManagementFactory;
 
@@ -11,37 +17,27 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
-import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
-import org.jboss.netty.handler.timeout.IdleStateHandler;
-import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Factory for creating pipelines for incoming requests to our listening
- * socket.
+ * Initializes pipelines for incoming requests to our listening socket.
  */
-public class HttpServerPipelineFactory implements ChannelPipelineFactory, 
+public class HttpServerChannelInitializer extends ChannelInitializer<Channel> implements
     AllConnectionData {
     
     private final Logger log = 
-        LoggerFactory.getLogger(HttpServerPipelineFactory.class);
+        LoggerFactory.getLogger(HttpServerChannelInitializer.class);
     
     private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final ChainProxyManager chainProxyManager;
-    private final ProxyCacheManager cacheManager;
     //private final KeyStoreManager ksm;
     
     private final HandshakeHandlerFactory handshakeHandlerFactory;
     private int numHandlers;
-    private final RelayPipelineFactoryFactory relayPipelineFactoryFactory;
-    private final Timer timer;
-    private final ClientSocketChannelFactory clientChannelFactory;
+    private final RelayChannelInitializerFactory relayChannelInitializerFactory;
+    private final EventLoopGroup clientWorker;
     
     /**
      * Creates a new pipeline factory with the specified class for processing
@@ -52,51 +48,21 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
      * @param chainProxyManager upstream proxy server host and port or
      * <code>null</code> if none used.
      * @param ksm The KeyStore manager.
-     * @param relayPipelineFactoryFactory The relay pipeline factory factory.
-     * @param timer The global timer for timing out idle connections. 
-     * @param clientChannelFactory The factory for creating outgoing channels
-     * to external sites.
+     * @param relayChannelInitializerFactory The relay channel initializer factory.
+     * @param clientWorker The EventLoopGroup for creating outgoing channels
+     *  to external sites.
      */
-    public HttpServerPipelineFactory(
+    public HttpServerChannelInitializer(
         final ProxyAuthorizationManager authorizationManager, 
         final ChannelGroup channelGroup, 
         final ChainProxyManager chainProxyManager, 
         final HandshakeHandlerFactory handshakeHandlerFactory,
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
-        final Timer timer, final ClientSocketChannelFactory clientChannelFactory) {
-        this(authorizationManager, channelGroup, chainProxyManager, 
-                handshakeHandlerFactory, 
-                relayPipelineFactoryFactory, timer, clientChannelFactory, 
-                ProxyUtils.loadCacheManager());
-    }
-    
-    /**
-     * Creates a new pipeline factory with the specified class for processing
-     * proxy authentication.
-     * 
-     * @param authorizationManager The manager for proxy authentication.
-     * @param channelGroup The group that keeps track of open channels.
-     * @param chainProxyManager upstream proxy server host and port or
-     * <code>null</code> if none used.
-     * @param ksm The KeyStore manager.
-     * @param relayPipelineFactoryFactory The relay pipeline factory factory.
-     * @param timer The global timer for timing out idle connections. 
-     * @param clientChannelFactory The factory for creating outgoing channels
-     * to external sites.
-     */
-    public HttpServerPipelineFactory(
-        final ProxyAuthorizationManager authorizationManager, 
-        final ChannelGroup channelGroup, 
-        final ChainProxyManager chainProxyManager, 
-        final HandshakeHandlerFactory handshakeHandlerFactory,
-        final RelayPipelineFactoryFactory relayPipelineFactoryFactory, 
-        final Timer timer, final ClientSocketChannelFactory clientChannelFactory,
-        final ProxyCacheManager proxyCacheManager) {
+        final RelayChannelInitializerFactory relayChannelInitializerFactory, 
+        final EventLoopGroup clientWorker) {
         
         this.handshakeHandlerFactory = handshakeHandlerFactory;
-        this.relayPipelineFactoryFactory = relayPipelineFactoryFactory;
-        this.timer = timer;
-        this.clientChannelFactory = clientChannelFactory;
+        this.relayChannelInitializerFactory = relayChannelInitializerFactory;
+        this.clientWorker = clientWorker;
         
         log.debug("Creating server with handshake handler: {}", 
                 handshakeHandlerFactory);
@@ -104,7 +70,6 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         this.channelGroup = channelGroup;
         this.chainProxyManager = chainProxyManager;
         //this.ksm = ksm;
-        this.cacheManager = proxyCacheManager;
         
         if (LittleProxyConfig.isUseJmx()) {
             setupJmx();
@@ -136,8 +101,8 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
     }
     
     @Override
-    public ChannelPipeline getPipeline() throws Exception {
-        final ChannelPipeline pipeline = pipeline();
+    protected void initChannel(Channel ch) throws Exception {
+        final ChannelPipeline pipeline = ch.pipeline();
 
         log.debug("Accessing pipeline");
         if (this.handshakeHandlerFactory != null) {
@@ -155,19 +120,18 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory,
         // respectively.
         pipeline.addLast("decoder", 
             new HttpRequestDecoder(8192, 8192*2, 8192*2));
-        pipeline.addLast("encoder", new ProxyHttpResponseEncoder(cacheManager));
+        pipeline.addLast("encoder", new ProxyHttpResponseEncoder());
         
         final HttpRequestHandler httpRequestHandler = 
-            new HttpRequestHandler(this.cacheManager, authenticationManager,
+            new HttpRequestHandler(authenticationManager,
             this.channelGroup, this.chainProxyManager, 
-            relayPipelineFactoryFactory, this.clientChannelFactory);
+            relayChannelInitializerFactory, this.clientWorker);
         
-        pipeline.addLast("idle", new IdleStateHandler(this.timer, 0, 0, 70));
+        pipeline.addLast("idle", new IdleStateHandler(0, 0, 70));
         //pipeline.addLast("idleAware", new IdleAwareHandler("Client-Pipeline"));
         pipeline.addLast("idleAware", new IdleRequestHandler(httpRequestHandler));
         pipeline.addLast("handler", httpRequestHandler);
         this.numHandlers++;
-        return pipeline;
     }
 
     @Override

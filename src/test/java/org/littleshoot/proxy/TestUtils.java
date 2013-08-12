@@ -16,7 +16,7 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
-import org.jboss.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpRequest;
 
 public class TestUtils {
 
@@ -74,13 +74,15 @@ public class TestUtils {
 
     /**
      * Creates instance HttpClient that is configured to use proxy server.
-     * The proxy server should run on localhost and given port
+     * The proxy server should run on 127.0.0.1 and given port
      * @param port the proxy port
      * @return instance of HttpClient
      */
     public static HttpClient createProxiedHttpClient(final int port) {
         final HttpClient httpclient = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("localhost", port, "http");
+        // Note: we use 127.0.0.1 here because on OS X, using straight up
+        // localhost yields a connect exception.
+        final HttpHost proxy = new HttpHost("127.0.0.1", port, "http");
         httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
         return httpclient;
     }

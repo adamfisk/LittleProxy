@@ -3,8 +3,8 @@ package org.littleshoot.proxy;
 import java.util.Arrays;
 import java.util.Collection;
 
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 
 /**
  * Default implementation of a class for processing HTTP request rules.

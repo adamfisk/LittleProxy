@@ -5,7 +5,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jboss.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpRequest;
 
 /**
  * Request filter that uses regular expressions on the request host and/or the 
@@ -85,7 +85,7 @@ public class RegexHttpRequestFilter implements HttpRequestFilter {
     
     public void filter(final HttpRequest httpRequest) {
         if (filterHosts) {
-            final List<String> hosts = httpRequest.getHeaders("Host");
+            final List<String> hosts = httpRequest.headers().getAll("Host");
             if (hosts != null) {
                 if (!hosts.isEmpty()) {
                     final String host = hosts.get(0);
