@@ -264,7 +264,6 @@ public class HttpRequestHandler extends SimpleChannelInboundHandler<HttpObject>
 
     @Override
     protected void channelRead0(final ChannelHandlerContext ctx,  final HttpObject httpObject ) {
-        System.out.println(httpObject);
         if (browserChannelClosed.get()) {
             log.info("Ignoring message since the connection to the browser " +
                 "is about to close");
