@@ -59,5 +59,5 @@ Acknowledgements
 ----------------
 
 Many thanks to [The Measurement Factory](http://www.measurement-factory.com/) for the
-use of [CoAdvisor](http://coad.measurement-factory.com/) for HTTP standards
+use of [Co-Advisor](http://coad.measurement-factory.com/) for HTTP standards
 compliance testing. 
