@@ -35,6 +35,12 @@ public class ProxyToServerConnection extends ProxyConnection {
 
     private final ClientToProxyConnection clientToProxyConnection;
     private final InetSocketAddress address;
+
+    /**
+     * While we're in the process of connecting, it's possible that we'll
+     * receive a new message to write. This lock helps us synchronize and wait
+     * for the connection to be established before writing the next message.
+     */
     private Object connectLock = new Object();
 
     private HttpRequest initialRequest;
@@ -146,7 +152,7 @@ public class ProxyToServerConnection extends ProxyConnection {
                     // We're in the processing of connecting, wait for it to
                     // finish
                     try {
-                        connectLock.wait();
+                        connectLock.wait(30000);
                     } catch (InterruptedException ie) {
                         LOG.warn("Interrupted while waiting for connect monitor");
                     }
@@ -218,6 +224,10 @@ public class ProxyToServerConnection extends ProxyConnection {
             } else {
                 // TODO: handle upgrading to tunnel
             }
+
+            // Once we've finished recording our connection and written our
+            // initial request, we can notify anyone who is waiting on the
+            // connection that it's okay to proceed.
             connectLock.notifyAll();
         }
         clientToProxyConnection
@@ -229,7 +239,7 @@ public class ProxyToServerConnection extends ProxyConnection {
         pipeline.addLast("decoder", new HttpResponseDecoder(8192, 8192 * 2,
                 8192 * 2));
         pipeline.addLast("encoder", new HttpRequestEncoder());
-        
+
         // We close idle connections to remote servers after the
         // specified timeouts in seconds. If we're sending data, the
         // write timeout should be reasonably low. If we're reading
@@ -251,7 +261,7 @@ public class ProxyToServerConnection extends ProxyConnection {
             pipeline.addLast("idle", new IdleStateHandler(readTimeoutSeconds,
                     writeTimeoutSeconds, 0));
         }
-        
+
         pipeline.addLast("handler", this);
     }
 }

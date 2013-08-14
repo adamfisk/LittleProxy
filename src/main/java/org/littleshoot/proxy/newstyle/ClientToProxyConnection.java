@@ -21,7 +21,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,7 +30,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ChainProxyManager;
 import org.littleshoot.proxy.LittleProxyConfig;
-import org.littleshoot.proxy.ProxyAuthorizationHandler;
+import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.ProxyUtils;
 
 /**
@@ -40,16 +39,16 @@ import org.littleshoot.proxy.ProxyUtils;
 public class ClientToProxyConnection extends ProxyConnection {
 
     private final ChainProxyManager chainProxyManager;
-    private final List<ProxyAuthorizationHandler> authenticationHandlers;
+    private final ProxyAuthenticator authenticator;
     private final Map<String, ProxyToServerConnection> serverConnectionsByHostAndPort = new ConcurrentHashMap<String, ProxyToServerConnection>();
     private ProxyToServerConnection currentServerConnection;
 
     public ClientToProxyConnection(EventLoopGroup proxyToServerWorkerPool,
             ChannelGroup channelGroup, ChainProxyManager chainProxyManager,
-            ProxyAuthorizationHandler... authenticationHandlers) {
+            ProxyAuthenticator authenticator) {
         super(AWAITING_INITIAL, proxyToServerWorkerPool, channelGroup);
         this.chainProxyManager = chainProxyManager;
-        this.authenticationHandlers = Arrays.asList(authenticationHandlers);
+        this.authenticator = authenticator;
         LOG.debug("Created ClientToProxyConnection for {}", channel);
     }
 
@@ -89,7 +88,7 @@ public class ClientToProxyConnection extends ProxyConnection {
                     return DISCONNECT_REQUESTED;
                 }
             }
-            
+
             if (!LittleProxyConfig.isTransparent()) {
                 boolean isChained = chainProxyManager != null
                         && chainProxyManager.getChainProxy(request) != null;
@@ -140,7 +139,7 @@ public class ClientToProxyConnection extends ProxyConnection {
             HttpObject httpObject) {
         if (httpObject instanceof HttpResponse) {
             final HttpResponse httpResponse = (HttpResponse) httpObject;
-        
+
             fixHttpVersionHeaderIfNecessary(httpResponse);
             modifyResponseHeadersToReflectProxying(httpResponse);
 
@@ -330,7 +329,7 @@ public class ClientToProxyConnection extends ProxyConnection {
 
     private boolean authenticationRequired(HttpRequest request) {
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
-            if (!this.authenticationHandlers.isEmpty()) {
+            if (this.authenticator != null) {
                 writeAuthenticationRequired();
                 return true;
             }
@@ -349,11 +348,9 @@ public class ClientToProxyConnection extends ProxyConnection {
                     ":");
             final String password = StringUtils.substringAfter(decodedString,
                     ":");
-            for (final ProxyAuthorizationHandler handler : this.authenticationHandlers) {
-                if (!handler.authenticate(userName, password)) {
-                    writeAuthenticationRequired();
-                    return true;
-                }
+            if (!authenticator.authenticate(userName, password)) {
+                writeAuthenticationRequired();
+                return true;
             }
         } catch (final UnsupportedEncodingException e) {
             LOG.error("Could not decode?", e);
@@ -392,7 +389,7 @@ public class ClientToProxyConnection extends ProxyConnection {
     private void writeBadGateway(final HttpRequest request) {
         final String body = "Bad Gateway: " + request.getUri();
         DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, body);
+                HttpResponseStatus.BAD_GATEWAY, body);
         response.headers().set(HttpHeaders.Names.CONNECTION, "close");
         this.write(response);
     }
@@ -402,7 +399,7 @@ public class ClientToProxyConnection extends ProxyConnection {
         byte[] bytes = body.getBytes(Charset.forName("UTF-8"));
         ByteBuf content = Unpooled.copiedBuffer(bytes);
         DefaultFullHttpResponse response = new DefaultFullHttpResponse(
-                HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY, content);
+                HttpVersion.HTTP_1_1, status, content);
         response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, bytes.length);
         response.headers().set("Content-Type", "text/html; charset=UTF-8");
         return response;

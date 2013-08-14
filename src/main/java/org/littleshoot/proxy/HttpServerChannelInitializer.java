@@ -31,9 +31,9 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel>
     private final Logger log = LoggerFactory
             .getLogger(HttpServerChannelInitializer.class);
 
-    private final ProxyAuthorizationManager authenticationManager;
     private final ChannelGroup channelGroup;
     private final ChainProxyManager chainProxyManager;
+    private final ProxyAuthenticator authenticator;
 
     private final HandshakeHandlerFactory handshakeHandlerFactory;
     private int numHandlers;
@@ -44,8 +44,6 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel>
      * Creates a new pipeline factory with the specified class for processing
      * proxy authentication.
      * 
-     * @param authorizationManager
-     *            The manager for proxy authentication.
      * @param channelGroup
      *            The group that keeps track of open channels.
      * @param chainProxyManager
@@ -58,14 +56,16 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel>
      * @param clientWorker
      *            The EventLoopGroup for creating outgoing channels to external
      *            sites.
+     * @param authenticator
+     *            (optional) ProxyAuthenticator for this proxy
      */
     public HttpServerChannelInitializer(
-            final ProxyAuthorizationManager authorizationManager,
             final ChannelGroup channelGroup,
             final ChainProxyManager chainProxyManager,
             final HandshakeHandlerFactory handshakeHandlerFactory,
             final RelayChannelInitializerFactory relayChannelInitializerFactory,
-            final EventLoopGroup clientWorker) {
+            final EventLoopGroup clientWorker,
+            final ProxyAuthenticator authenticator) {
 
         this.handshakeHandlerFactory = handshakeHandlerFactory;
         this.relayChannelInitializerFactory = relayChannelInitializerFactory;
@@ -73,7 +73,7 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel>
 
         log.debug("Creating server with handshake handler: {}",
                 handshakeHandlerFactory);
-        this.authenticationManager = authorizationManager;
+        this.authenticator = authenticator;
         this.channelGroup = channelGroup;
         this.chainProxyManager = chainProxyManager;
 
@@ -123,9 +123,10 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel>
                 8192 * 2));
         pipeline.addLast("encoder", new HttpResponseEncoder());
 
-        final ClientToProxyConnection clientToProxyConnection = new ClientToProxyConnection(clientWorker, channelGroup, chainProxyManager);
+        final ClientToProxyConnection clientToProxyConnection = new ClientToProxyConnection(
+                clientWorker, channelGroup, chainProxyManager, authenticator);
 
-        //pipeline.addLast("idle", new IdleStateHandler(0, 0, 70));
+        // pipeline.addLast("idle", new IdleStateHandler(0, 0, 70));
         pipeline.addLast("handler", clientToProxyConnection);
         this.numHandlers++;
     }

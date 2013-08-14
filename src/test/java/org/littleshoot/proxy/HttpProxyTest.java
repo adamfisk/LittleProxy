@@ -39,7 +39,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.util.EntityUtils;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -456,7 +455,7 @@ public class HttpProxyTest {
     private HttpProxyServer startHttpProxyWithCredentials(final String userName, 
         final String password) {
         final HttpProxyServer server = new DefaultHttpProxyServer(54827);
-        server.addProxyAuthenticationHandler(new ProxyAuthorizationHandler() {
+        server.setProxyAuthenticator(new ProxyAuthenticator() {
             public boolean authenticate(String u, String p) {
                 return userName.equals(u) && password.equals(p);
             }

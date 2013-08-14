@@ -27,9 +27,9 @@ import org.slf4j.LoggerFactory;
  * HTTP proxy server.
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
-    
+
     private static final int MAXIMUM_SERVER_THREADS = 60;
-    
+
     private static final int MAXIMUM_CLIENT_THREADS = 60;
 
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -39,7 +39,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private final int port;
 
-    private final ProxyAuthorizationManager authenticationManager = new DefaultProxyAuthorizationManager();
+    private ProxyAuthenticator proxyAuthenticator;
 
     private final ChainProxyManager chainProxyManager;
 
@@ -94,10 +94,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     public DefaultHttpProxyServer(final int port,
             final HttpResponseFilters responseFilters) {
-        this(port, responseFilters, null, null, null,
-                new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY));
+        this(port, responseFilters, null, null, null, new NioEventLoopGroup(
+                MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
+                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS,
+                        SERVER_THREAD_FACTORY), new NioEventLoopGroup(
+                        MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY));
     }
 
     /**
@@ -131,9 +132,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             final HttpRequestFilter requestFilter,
             final HttpResponseFilters responseFilters) {
         this(port, responseFilters, null, null, requestFilter,
-                new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY));
+                new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS,
+                        CLIENT_THREAD_FACTORY), new NioEventLoopGroup(
+                        MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
+                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS,
+                        SERVER_THREAD_FACTORY));
     }
 
     /**
@@ -144,23 +147,22 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            Optional filter for modifying incoming requests. Often
      *            <code>null</code>.
      * @param clientWorker
-     *            The EventLoopGroup for creating outgoing channels to external sites.
+     *            The EventLoopGroup for creating outgoing channels to external
+     *            sites.
      * @param serverBoss
-     *            The EventLoopGroup for accepting incoming connections 
+     *            The EventLoopGroup for accepting incoming connections
      * @param serverWorker
-     *            The EventLoopGroup for processing incoming connections           
+     *            The EventLoopGroup for processing incoming connections
      */
     public DefaultHttpProxyServer(final int port,
             final HttpRequestFilter requestFilter,
-            final EventLoopGroup clientWorker,
-            final EventLoopGroup serverBoss,
+            final EventLoopGroup clientWorker, final EventLoopGroup serverBoss,
             final EventLoopGroup serverWorker) {
         this(port, new HttpResponseFilters() {
             public HttpFilter getFilter(String hostAndPort) {
                 return null;
             }
-        }, null, null, requestFilter, clientWorker,
-                serverBoss, serverWorker);
+        }, null, null, requestFilter, clientWorker, serverBoss, serverWorker);
     }
 
     /**
@@ -186,10 +188,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             final HandshakeHandlerFactory handshakeHandlerFactory,
             final HttpRequestFilter requestFilter) {
         this(port, responseFilters, chainProxyManager, handshakeHandlerFactory,
-                requestFilter,
-                new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY));
+                requestFilter, new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS,
+                        CLIENT_THREAD_FACTORY), new NioEventLoopGroup(
+                        MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
+                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS,
+                        SERVER_THREAD_FACTORY));
     }
 
     /**
@@ -210,19 +213,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            <code>null</code>.
      * 
      * @param clientWorker
-     *            The EventLoopGroup for creating outgoing channels to external sites.
+     *            The EventLoopGroup for creating outgoing channels to external
+     *            sites.
      * @param serverBoss
-     *            The EventLoopGroup for accepting incoming connections 
+     *            The EventLoopGroup for accepting incoming connections
      * @param serverWorker
-     *            The EventLoopGroup for processing incoming connections           
+     *            The EventLoopGroup for processing incoming connections
      */
     public DefaultHttpProxyServer(final int port,
             final HttpResponseFilters responseFilters,
             final ChainProxyManager chainProxyManager,
             final HandshakeHandlerFactory handshakeHandlerFactory,
             final HttpRequestFilter requestFilter,
-            final EventLoopGroup clientWorker,
-            final EventLoopGroup serverBoss,
+            final EventLoopGroup clientWorker, final EventLoopGroup serverBoss,
             final EventLoopGroup serverWorker) {
         this.port = port;
         this.responseFilters = responseFilters;
@@ -239,7 +242,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         });
 
         // Use our thread names so users know there are LittleProxy threads.
-        this.serverBootstrap = new ServerBootstrap().group(serverBoss, serverWorker);
+        this.serverBootstrap = new ServerBootstrap().group(serverBoss,
+                serverWorker);
     }
 
     public void start() {
@@ -250,15 +254,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         log.info("Starting proxy on port: " + this.port);
         this.stopped.set(false);
         final HttpServerChannelInitializer initializer = new HttpServerChannelInitializer(
-                authenticationManager, this.allChannels,
-                this.chainProxyManager, this.handshakeHandlerFactory,
+                this.allChannels, this.chainProxyManager,
+                this.handshakeHandlerFactory,
                 new DefaultRelayChannelInitializerFactory(chainProxyManager,
                         this.responseFilters, this.requestFilter,
-                        this.allChannels),
-                this.clientWorker);
+                        this.allChannels), this.clientWorker,
+                this.proxyAuthenticator);
         serverBootstrap.channel(NioServerSocketChannel.class);
         serverBootstrap.childHandler(initializer);
-        
 
         // Binding only to localhost can significantly improve the security of
         // the proxy.
@@ -275,7 +278,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 isa = new InetSocketAddress(port);
             }
         }
-        
+
         serverBootstrap.bind(isa).addListener(new ChannelFutureListener() {
 
             @Override
@@ -322,19 +325,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             while (iter.hasNext()) {
                 final ChannelFuture cf = iter.next();
                 if (!cf.isSuccess()) {
-                    log.warn("Cause of failure for {} is {}", cf .channel(),
+                    log.warn("Cause of failure for {} is {}", cf.channel(),
                             cf.cause());
                 }
             }
         }
-        
+
         serverBoss.shutdownGracefully();
         serverWorker.shutdownGracefully();
         clientWorker.shutdownGracefully();
-        for (EventLoopGroup group : new EventLoopGroup[] {
-                serverBoss,
-                serverWorker,
-                clientWorker}) {
+        for (EventLoopGroup group : new EventLoopGroup[] { serverBoss,
+                serverWorker, clientWorker }) {
             try {
                 group.awaitTermination(60, TimeUnit.SECONDS);
             } catch (InterruptedException ie) {
@@ -345,9 +346,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         log.info("Done shutting down proxy");
     }
 
-    public void addProxyAuthenticationHandler(
-            final ProxyAuthorizationHandler pah) {
-        this.authenticationManager.addHandler(pah);
+    public void setProxyAuthenticator(ProxyAuthenticator proxyAuthenticator) {
+        this.proxyAuthenticator = proxyAuthenticator;
     }
 
     private static final ThreadFactory CLIENT_THREAD_FACTORY = new ThreadFactory() {

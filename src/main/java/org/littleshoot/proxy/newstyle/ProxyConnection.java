@@ -73,7 +73,8 @@ public abstract class ProxyConnection extends
      * @param msg
      */
     private void read(Object msg) {
-        LOG.debug("From {} read: {}", channel, msg);
+        LOG.debug("Reading in state: {}    from {}    read: {}",
+                this.currentState, channel, msg);
         switch (this.currentState) {
         case AWAITING_INITIAL:
             this.currentState = this.readInitial((HttpObject) msg);
@@ -88,8 +89,19 @@ public abstract class ProxyConnection extends
             this.readRaw((ByteBuf) msg);
             break;
         case AWAITING_PROXY_AUTHENTICATION:
-            // Anything that came in while we're pending authorization gets
-            // dropped on the floor
+            if (msg instanceof HttpRequest) {
+                // Once we get an HttpRequest, try to process it as usual
+                this.currentState = this.readInitial((HttpObject) msg);
+            } else {
+                // Anything that's not an HttpRequest that came in while we're
+                // pending authentication gets dropped on the floor. This can
+                // happen if the browser already sent us some chunks (e.g. from
+                // a POST) after an initial request that turns out to require
+                // authentication.
+                break;
+            }
+        case CONNECTING:
+            LOG.warn("Attempted to read from connection that's in the process of connecting.  This shouldn't happen.");
             break;
         case DISCONNECT_REQUESTED:
         case DISCONNECTED:
