@@ -5,6 +5,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpRequest;
@@ -16,6 +17,7 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.timeout.IdleState;
 
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
@@ -58,7 +60,7 @@ public class ProxyUtils {
 
     private static final Set<String> hopByHopHeaders = new HashSet<String>();
 
-    //TODO:nir: should remove 'via' usage in case of 'transparent' proxy
+    // TODO:nir: should remove 'via' usage in case of 'transparent' proxy
     private static final String via;
     private static final String hostName;
 
@@ -66,8 +68,7 @@ public class ProxyUtils {
         try {
             final InetAddress localAddress = NetworkUtils.getLocalHost();
             hostName = localAddress.getHostName();
-        }
-        catch (final UnknownHostException e) {
+        } catch (final UnknownHostException e) {
             LOG.error("Could not lookup host", e);
             throw new IllegalStateException("Could not determine host!", e);
         }
@@ -76,8 +77,8 @@ public class ProxyUtils {
         sb.append(hostName);
         sb.append("\r\n");
         via = LittleProxyConfig.isTransparent() ? "" : sb.toString();
-        
-        //hopByHopHeaders.add("proxy-connection");
+
+        // hopByHopHeaders.add("proxy-connection");
         hopByHopHeaders.add("connection");
         hopByHopHeaders.add("keep-alive");
         hopByHopHeaders.add("proxy-authenticate");
@@ -87,17 +88,16 @@ public class ProxyUtils {
 
         // We pass Transfer-Encoding along in both directions, as we don't
         // choose to modify it.
-        //hopByHopHeaders.add("transfer-encoding");
+        // hopByHopHeaders.add("transfer-encoding");
         hopByHopHeaders.add("upgrade");
     }
 
     /**
      * Utility class for a no-op {@link ChannelFutureListener}.
      */
-    public static final ChannelFutureListener NO_OP_LISTENER =
-        new ChannelFutureListener() {
+    public static final ChannelFutureListener NO_OP_LISTENER = new ChannelFutureListener() {
         public void operationComplete(final ChannelFuture future)
-            throws Exception {
+                throws Exception {
             LOG.info("No op listener - write finished");
         }
     };
@@ -105,47 +105,43 @@ public class ProxyUtils {
     /**
      * Constant for the headers for an OK response to an HTTP connect request.
      */
-    public static final String CONNECT_OK_HEADERS =
-        "Connection: Keep-Alive\r\n"+
-        "Proxy-Connection: Keep-Alive\r\n"+
-        via +
-        "\r\n";
+    public static final String CONNECT_OK_HEADERS = "Connection: Keep-Alive\r\n"
+            + "Proxy-Connection: Keep-Alive\r\n" + via + "\r\n";
 
     /**
      * Constant for the headers for a proxy error response.
      */
-    public static final String PROXY_ERROR_HEADERS =
-        "Connection: close\r\n"+
-        "Proxy-Connection: close\r\n"+
-        "Pragma: no-cache\r\n"+
-        "Cache-Control: no-cache\r\n" +
-        via +
-        "\r\n";
+    public static final String PROXY_ERROR_HEADERS = "Connection: close\r\n"
+            + "Proxy-Connection: close\r\n" + "Pragma: no-cache\r\n"
+            + "Cache-Control: no-cache\r\n" + via + "\r\n";
 
-    public static final HttpRequestFilter PASS_THROUGH_REQUEST_FILTER =
-        new HttpRequestFilter() {
-            public void filter(final HttpRequest httpRequest) {
-            }
-        };
+    public static final HttpRequestFilter PASS_THROUGH_REQUEST_FILTER = new HttpRequestFilter() {
+        public void filter(final HttpRequest httpRequest) {
+        }
+    };
 
     // Should never be constructed.
     private ProxyUtils() {
     }
 
-    // Schemes are case-insensitive: http://tools.ietf.org/html/rfc3986#section-3.1
-    private static Pattern HTTP_PREFIX  = Pattern.compile("http.*",  Pattern.CASE_INSENSITIVE);
-    private static Pattern HTTPS_PREFIX = Pattern.compile("https.*", Pattern.CASE_INSENSITIVE);
+    // Schemes are case-insensitive:
+    // http://tools.ietf.org/html/rfc3986#section-3.1
+    private static Pattern HTTP_PREFIX = Pattern.compile("http.*",
+            Pattern.CASE_INSENSITIVE);
+    private static Pattern HTTPS_PREFIX = Pattern.compile("https.*",
+            Pattern.CASE_INSENSITIVE);
 
     /**
      * Strips the host from a URI string. This will turn "http://host.com/path"
      * into "/path".
-     *
-     * @param uri The URI to transform.
+     * 
+     * @param uri
+     *            The URI to transform.
      * @return A string with the URI stripped.
      */
     public static String stripHost(final String uri) {
         if (!HTTP_PREFIX.matcher(uri).matches()) {
-            // It's likely a URI path, not the full URI (i.e. the host is 
+            // It's likely a URI path, not the full URI (i.e. the host is
             // already stripped).
             return uri;
         }
@@ -160,8 +156,9 @@ public class ProxyUtils {
 
     /**
      * Builds the cache URI from the request, including the host and the path.
-     *
-     * @param httpRequest The request.
+     * 
+     * @param httpRequest
+     *            The request.
      * @return The cache URI.
      */
     public static String cacheUri(final HttpRequest httpRequest) {
@@ -170,8 +167,7 @@ public class ProxyUtils {
         final String path;
         if (HTTP_PREFIX.matcher(uri).matches()) {
             path = stripHost(uri);
-        }
-        else {
+        } else {
             path = uri;
         }
 
@@ -182,10 +178,11 @@ public class ProxyUtils {
 
     /**
      * Formats the given date according to the RFC 1123 pattern.
-     *
-     * @param date The date to format.
+     * 
+     * @param date
+     *            The date to format.
      * @return An RFC 1123 formatted date string.
-     *
+     * 
      * @see #PATTERN_RFC1123
      */
     public static String formatDate(final Date date) {
@@ -193,16 +190,19 @@ public class ProxyUtils {
     }
 
     /**
-     * Formats the given date according to the specified pattern.  The pattern
+     * Formats the given date according to the specified pattern. The pattern
      * must conform to that used by the {@link SimpleDateFormat simple date
      * format} class.
-     *
-     * @param date The date to format.
-     * @param pattern The pattern to use for formatting the date.  
+     * 
+     * @param date
+     *            The date to format.
+     * @param pattern
+     *            The pattern to use for formatting the date.
      * @return A formatted date string.
-     *
-     * @throws IllegalArgumentException If the given date pattern is invalid.
-     *
+     * 
+     * @throws IllegalArgumentException
+     *             If the given date pattern is invalid.
+     * 
      * @see SimpleDateFormat
      */
     public static String formatDate(final Date date, final String pattern) {
@@ -211,15 +211,15 @@ public class ProxyUtils {
         if (pattern == null)
             throw new IllegalArgumentException("pattern is null");
 
-        final SimpleDateFormat formatter =
-            new SimpleDateFormat(pattern, Locale.US);
+        final SimpleDateFormat formatter = new SimpleDateFormat(pattern,
+                Locale.US);
         formatter.setTimeZone(GMT);
         return formatter.format(date);
     }
 
     /**
      * Creates a Date formatted for HTTP headers for the current time.
-     *
+     * 
      * @return The formatted HTTP date.
      */
     public static String httpDate() {
@@ -228,23 +228,21 @@ public class ProxyUtils {
 
     /**
      * Make a copy of the response including all mutable fields.
-     *
-     * @param original The original response to copy from.
-     * @param copy The copy.
+     * 
+     * @param original
+     *            The original response to copy from.
+     * @param copy
+     *            The copy.
      * @return The copy with all mutable fields from the original.
      */
     public static HttpResponse copyMutableResponseFields(
-        final HttpResponse original) {
+            final HttpResponse original) {
 
         HttpResponse copy = null;
         if (original instanceof DefaultFullHttpResponse) {
             ByteBuf content = ((DefaultFullHttpResponse) original).content();
-            // Retain the original content so that we can pass it on inside the
-            // copy.
-            content.retain();
             copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
-                    original.getStatus(),
-                    content);
+                    original.getStatus(), content);
         } else {
             copy = new DefaultHttpResponse(original.getProtocolVersion(),
                     original.getStatus());
@@ -257,40 +255,45 @@ public class ProxyUtils {
         return copy;
     }
 
-
     /**
-     * Writes a raw HTTP response to the channel. 
-     *
-     * @param channel The channel.
-     * @param statusLine The status line of the response.
-     * @param headers The raw headers string.
+     * Writes a raw HTTP response to the channel.
+     * 
+     * @param channel
+     *            The channel.
+     * @param statusLine
+     *            The status line of the response.
+     * @param headers
+     *            The raw headers string.
      */
     public static ChannelFuture writeResponse(final Channel channel,
-        final String statusLine, final String headers) {
+            final String statusLine, final String headers) {
         return writeResponse(channel, statusLine, headers, "");
     }
 
     /**
      * Writes a raw HTTP response to the channel.
-     *
-     * @param channel The channel.
-     * @param statusLine The status line of the response.
-     * @param headers The raw headers string.
-     * @param responseBody The response body.
+     * 
+     * @param channel
+     *            The channel.
+     * @param statusLine
+     *            The status line of the response.
+     * @param headers
+     *            The raw headers string.
+     * @param responseBody
+     *            The response body.
      */
     public static ChannelFuture writeResponse(final Channel channel,
-        final String statusLine, final String headers,
-        final String responseBody) {
+            final String statusLine, final String headers,
+            final String responseBody) {
         final String fullResponse = statusLine + headers + responseBody;
-        LOG.info("Writing full response:\n"+fullResponse);
+        LOG.info("Writing full response:\n" + fullResponse);
         try {
             final ByteBuf buf = Unpooled.wrappedBuffer(fullResponse
                     .getBytes("UTF-8"));
             final ChannelFuture channelFuture = channel.writeAndFlush(buf);
             channel.config().setAutoRead(true);
             return channelFuture;
-        }
-        catch (final UnsupportedEncodingException e) {
+        } catch (final UnsupportedEncodingException e) {
             // Never.
             return null;
         }
@@ -298,8 +301,9 @@ public class ProxyUtils {
 
     /**
      * Prints the headers of the message (for debugging).
-     *
-     * @param msg The {@link HttpMessage}.
+     * 
+     * @param msg
+     *            The {@link HttpMessage}.
      */
     public static void printHeaders(final HttpMessage msg) {
         final String status = msg.getProtocolVersion().toString();
@@ -313,18 +317,20 @@ public class ProxyUtils {
             sb.append(value);
             sb.append("\n");
         }
-        LOG.debug("\n"+sb.toString());
+        LOG.debug("\n" + sb.toString());
     }
 
     /**
      * Prints the specified header from the specified method.
-     *
-     * @param msg The HTTP message.
-     * @param name The name of the header to print.
+     * 
+     * @param msg
+     *            The HTTP message.
+     * @param name
+     *            The name of the header to print.
      */
     public static void printHeader(final HttpMessage msg, final String name) {
         final String value = msg.headers().get(name);
-        LOG.debug(name + ": "+value);
+        LOG.debug(name + ": " + value);
     }
 
     /**
@@ -337,10 +343,10 @@ public class ProxyUtils {
      * @return
      * 
      */
-    static boolean isLastChunk(final HttpObject httpObject) {
+    public static boolean isLastChunk(final HttpObject httpObject) {
         return httpObject instanceof LastHttpContent;
     }
-    
+
     /**
      * If an HttpObject is not the last chunk, then that means there are other
      * chunks that will follow.
@@ -350,7 +356,7 @@ public class ProxyUtils {
      * @param httpObject
      * @return
      */
-    static boolean isChunked(final HttpObject httpObject) {
+    public static boolean isChunked(final HttpObject httpObject) {
         return !isLastChunk(httpObject);
     }
 
@@ -365,14 +371,18 @@ public class ProxyUtils {
 
     /**
      * Closes the specified channel after all queued write requests are flushed.
-     *
-     * @param ch The {@link Channel} to close.
+     * 
+     * @param ch
+     *            The {@link Channel} to close.
      */
     public static void closeOnFlush(final Channel ch) {
         LOG.debug("Requested close on flush: {}", ch);
         if (ch.isOpen()) {
-            LOG.debug("Channel open, sending empty content and requesting close of channel: {}", ch);
-            ch.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ProxyUtils.CLOSE);
+            LOG.debug(
+                    "Channel open, sending empty content and requesting close of channel: {}",
+                    ch);
+            ch.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(
+                    ProxyUtils.CLOSE);
         } else {
             LOG.debug("Channel already closed, doing nothing: {}", ch);
         }
@@ -380,8 +390,9 @@ public class ProxyUtils {
 
     /**
      * Parses the host and port an HTTP request is being sent to.
-     *
-     * @param httpRequest The request.
+     * 
+     * @param httpRequest
+     *            The request.
      * @return The host and port string.
      */
     public static String parseHostAndPort(final HttpRequest httpRequest) {
@@ -391,8 +402,9 @@ public class ProxyUtils {
 
     /**
      * Parses the host and port an HTTP request is being sent to.
-     *
-     * @param uri The URI.
+     * 
+     * @param uri
+     *            The URI.
      * @return The host and port string.
      */
     public static String parseHostAndPort(final String uri) {
@@ -401,8 +413,7 @@ public class ProxyUtils {
             // Browsers particularly seem to send requests in this form when
             // they use CONNECT.
             tempUri = uri;
-        }
-        else {
+        } else {
             // We can't just take a substring from a hard-coded index because it
             // could be either http or https.
             tempUri = StringUtils.substringAfter(uri, "://");
@@ -410,8 +421,7 @@ public class ProxyUtils {
         final String hostAndPort;
         if (tempUri.contains("/")) {
             hostAndPort = tempUri.substring(0, tempUri.indexOf("/"));
-        }
-        else {
+        } else {
             hostAndPort = tempUri;
         }
         return hostAndPort;
@@ -426,8 +436,7 @@ public class ProxyUtils {
     }
 
     public static String parseHost(final String request) {
-        final String hostAndPort =
-            ProxyUtils.parseHostAndPort(request);
+        final String hostAndPort = ProxyUtils.parseHostAndPort(request);
         if (hostAndPort.contains(":")) {
             return StringUtils.substringBefore(hostAndPort, ":");
         } else {
@@ -437,39 +446,39 @@ public class ProxyUtils {
 
     /**
      * Parses the port from an address.
-     *
-     * @param httpRequest The request containing the URI.
-     * @return The port. If not port is explicitly specified, returns the 
-     * the default port 80 if the protocol is HTTP and 443 if the protocol is
-     * HTTPS.
+     * 
+     * @param httpRequest
+     *            The request containing the URI.
+     * @return The port. If not port is explicitly specified, returns the the
+     *         default port 80 if the protocol is HTTP and 443 if the protocol
+     *         is HTTPS.
      */
     public static int parsePort(final HttpRequest httpRequest) {
         final String uri = httpRequest.getUri();
         if (uri.contains(":")) {
             final String portStr = StringUtils.substringAfter(uri, ":");
             return Integer.parseInt(portStr);
-        }
-        else if (HTTP_PREFIX.matcher(uri).matches()) {
+        } else if (HTTP_PREFIX.matcher(uri).matches()) {
             return 80;
-        }
-        else if (HTTPS_PREFIX.matcher(uri).matches()) {
+        } else if (HTTPS_PREFIX.matcher(uri).matches()) {
             return 443;
-        }
-        else {
+        } else {
             // Unsupported protocol -- return 80 for now.
             return 80;
         }
     }
 
     /**
-     * Creates a copy of an original HTTP request to void modifying it.
-     *
-     * @param original The original request.
-     * @param keepProxyFormat keep proxy-formatted URI (used in chaining) 
+     * Creates a copy of an original HTTP request to avoid modifying it.
+     * 
+     * @param original
+     *            The original request.
+     * @param keepProxyFormat
+     *            keep proxy-formatted URI (used in chaining)
      * @return The request copy.
      */
     public static HttpRequest copyHttpRequest(final HttpRequest original,
-        boolean keepProxyFormat) {
+            boolean keepProxyFormat) {
         final HttpMethod method = original.getMethod();
         final String uri = original.getUri();
         LOG.info("Raw URI before switching from proxy format: {}", uri);
@@ -479,31 +488,30 @@ public class ProxyUtils {
         if (!keepProxyFormat) {
             adjustedUri = ProxyUtils.stripHost(uri);
         }
-        
+
         if (original instanceof DefaultFullHttpRequest) {
             ByteBuf content = ((DefaultFullHttpRequest) original).content();
             // Retain the original content so that we can pass it on inside the
             // copy.
             content.retain();
             copy = new DefaultFullHttpRequest(original.getProtocolVersion(),
-                method, adjustedUri,
-                content);
+                    method, adjustedUri, content);
         } else {
             copy = new DefaultHttpRequest(original.getProtocolVersion(),
-                method, adjustedUri);
+                    method, adjustedUri);
         }
 
-        // We also need to follow 2616 section 13.5.1 End-to-end and 
+        // We also need to follow 2616 section 13.5.1 End-to-end and
         // Hop-by-hop Headers
         // The following HTTP/1.1 headers are hop-by-hop headers:
-        //   - Connection
-        //   - Keep-Alive
-        //   - Proxy-Authenticate
-        //   - Proxy-Authorization
-        //   - TE
-        //   - Trailers
-        //   - Transfer-Encoding
-        //   - Upgrade
+        // - Connection
+        // - Keep-Alive
+        // - Proxy-Authenticate
+        // - Proxy-Authorization
+        // - TE
+        // - Trailers
+        // - Transfer-Encoding
+        // - Upgrade
 
         LOG.debug("Request copy method: {}", copy.getMethod());
         copyHeaders(original, copy);
@@ -516,8 +524,8 @@ public class ProxyUtils {
             LOG.debug("Removed sdch and inserted: {}", noSdch);
         }
 
-        // Switch the de-facto standard "Proxy-Connection" header to 
-        // "Connection" when we pass it along to the remote host. This is 
+        // Switch the de-facto standard "Proxy-Connection" header to
+        // "Connection" when we pass it along to the remote host. This is
         // largely undocumented but seems to be what most browsers and servers
         // expect.
         final String proxyConnectionKey = "Proxy-Connection";
@@ -532,7 +540,7 @@ public class ProxyUtils {
     }
 
     private static void copyHeaders(final HttpMessage original,
-        final HttpMessage copy) {
+            final HttpMessage copy) {
         final Set<String> headerNames = original.headers().names();
         for (final String name : headerNames) {
             if (!hopByHopHeaders.contains(name.toLowerCase())) {
@@ -543,10 +551,11 @@ public class ProxyUtils {
     }
 
     /**
-     * Removes all headers that should not be forwarded.
-     * See RFC 2616 13.5.1 End-to-end and Hop-by-hop Headers.
-     *
-     * @param msg The message to strip headers from.
+     * Removes all headers that should not be forwarded. See RFC 2616 13.5.1
+     * End-to-end and Hop-by-hop Headers.
+     * 
+     * @param msg
+     *            The message to strip headers from.
      */
     public static void stripHopByHopHeaders(final HttpMessage msg) {
         final Set<String> headerNames = msg.headers().names();
@@ -558,10 +567,11 @@ public class ProxyUtils {
     }
 
     /**
-     * Creates a copy of an original HTTP request to void modifying it.
-     * This variant will unconditionally strip the proxy-formatted request.
-     *
-     * @param original The original request.
+     * Creates a copy of an original HTTP request to void modifying it. This
+     * variant will unconditionally strip the proxy-formatted request.
+     * 
+     * @param original
+     *            The original request.
      * @return The request copy.
      */
     public static HttpRequest copyHttpRequest(final HttpRequest original) {
@@ -569,10 +579,11 @@ public class ProxyUtils {
     }
 
     /**
-     * Adds the Via header to specify that the message has passed through
-     * the proxy.
-     *
-     * @param msg The HTTP message.
+     * Adds the Via header to specify that the message has passed through the
+     * proxy.
+     * 
+     * @param msg
+     *            The HTTP message.
      */
     public static void addVia(final HttpMessage msg) {
         final StringBuilder sb = new StringBuilder();
@@ -585,8 +596,7 @@ public class ProxyUtils {
         if (msg.headers().contains(HttpHeaders.Names.VIA)) {
             vias = msg.headers().getAll(HttpHeaders.Names.VIA);
             vias.add(sb.toString());
-        }
-        else {
+        } else {
             vias = Arrays.asList(sb.toString());
         }
         msg.headers().set(HttpHeaders.Names.VIA, vias);
@@ -595,10 +605,11 @@ public class ProxyUtils {
     /**
      * Returns <code>true</code> if the specified string is either "true" or
      * "on" ignoring case.
-     *
-     * @param val The string in question.
+     * 
+     * @param val
+     *            The string in question.
      * @return <code>true</code> if the specified string is either "true" or
-     * "on" ignoring case, otherwise <code>false</code>.
+     *         "on" ignoring case, otherwise <code>false</code>.
      */
     public static boolean isTrue(final String val) {
         return checkTrueOrFalse(val, "true", "on");
@@ -607,33 +618,34 @@ public class ProxyUtils {
     /**
      * Returns <code>true</code> if the specified string is either "false" or
      * "off" ignoring case.
-     *
-     * @param val The string in question.
+     * 
+     * @param val
+     *            The string in question.
      * @return <code>true</code> if the specified string is either "false" or
-     * "off" ignoring case, otherwise <code>false</code>.
+     *         "off" ignoring case, otherwise <code>false</code>.
      */
     public static boolean isFalse(final String val) {
         return checkTrueOrFalse(val, "false", "off");
     }
 
     private static boolean checkTrueOrFalse(final String val,
-        final String str1, final String str2) {
+            final String str1, final String str2) {
         final String str = val.trim();
-        return StringUtils.isNotBlank(str) &&
-            (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
+        return StringUtils.isNotBlank(str)
+                && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
     }
 
-    public static boolean extractBooleanDefaultFalse(
-        final Properties props, final String key) {
+    public static boolean extractBooleanDefaultFalse(final Properties props,
+            final String key) {
         final String throttle = props.getProperty(key);
         if (StringUtils.isNotBlank(throttle)) {
             return throttle.trim().equalsIgnoreCase("true");
         }
         return false;
     }
-    
-    public static boolean extractBooleanDefaultTrue(
-        final Properties props, final String key) {
+
+    public static boolean extractBooleanDefaultTrue(final Properties props,
+            final String key) {
         final String throttle = props.getProperty(key);
         if (StringUtils.isNotBlank(throttle)) {
             return throttle.trim().equalsIgnoreCase("true");
@@ -643,11 +655,28 @@ public class ProxyUtils {
 
     public static long extractLong(final Properties props, final String key) {
         final String readThrottleString = props.getProperty(key);
-        if (StringUtils.isNotBlank(readThrottleString) &&
-            NumberUtils.isNumber(readThrottleString)) {
+        if (StringUtils.isNotBlank(readThrottleString)
+                && NumberUtils.isNumber(readThrottleString)) {
             return Long.parseLong(readThrottleString);
         }
         return -1;
     }
-    
+
+    /**
+     * Handles an idle event on a channel, closing the channel if necessary.
+     * 
+     * @param ctx
+     * @param idleState
+     */
+    public static void handleIdle(ChannelHandlerContext ctx, IdleState idleState) {
+        if (idleState == IdleState.READER_IDLE) {
+            LOG.info("Got reader idle -- closing -- " + ctx.channel());
+            ctx.channel().close();
+        } else if (idleState == IdleState.WRITER_IDLE) {
+            LOG.info("Got writer idle -- closing connection -- "
+                    + ctx.channel());
+            ctx.channel().close();
+        }
+    }
+
 }
