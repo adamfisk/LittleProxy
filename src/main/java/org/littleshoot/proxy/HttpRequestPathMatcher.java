@@ -1,6 +1,6 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpRequest;
 
 /**
  * Request rule that operates on the request path.

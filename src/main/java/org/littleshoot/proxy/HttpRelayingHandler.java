@@ -1,26 +1,23 @@
 package org.littleshoot.proxy;
 
+import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpVersion;
+
 import java.util.LinkedList;
 import java.util.Queue;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
-import org.jboss.netty.handler.codec.http.HttpChunk;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +25,7 @@ import org.slf4j.LoggerFactory;
  * Class that simply relays traffic from a remote server the proxy is 
  * connected to back to the browser/client.
  */
-public class HttpRelayingHandler extends SimpleChannelUpstreamHandler 
+public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject> 
     implements InterestOpsListener {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -106,10 +103,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
     }
 
     @Override
-    public void messageReceived(final ChannelHandlerContext ctx, 
-        final MessageEvent me) throws Exception {
+    protected void channelRead0(final ChannelHandlerContext ctx, HttpObject httpObject)
+            throws Exception {
         
-        final Object messageToWrite;
+        final HttpObject messageToWrite;
         
         // This boolean is a flag for whether or not to write a closing, empty
         // "end" buffer after writing the response. We need to do this to 
@@ -129,7 +126,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
         final boolean writeEndBuffer;
         
         if (!readingChunks) {
-            final HttpResponse hr = (HttpResponse) me.getMessage();
+            final HttpResponse hr = (HttpResponse) httpObject;
             log.debug("Received raw response: {}", hr);
             
             // We need to make a copy here because the response will be 
@@ -137,21 +134,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
             // analyze response headers for whether or not to close the 
             // connection (which may not happen for awhile for large, chunked
             // responses, for example).
-            originalHttpResponse = ProxyUtils.copyMutableResponseFields(hr, 
-                new DefaultHttpResponse(hr.getProtocolVersion(), hr.getStatus()));
+            originalHttpResponse = ProxyUtils.copyMutableResponseFields(hr);
             final HttpResponse response;
             
             // Double check the Transfer-Encoding, since it gets tricky.
-            final String te = hr.getHeader(HttpHeaders.Names.TRANSFER_ENCODING);
+            final String te = hr.headers().get(HttpHeaders.Names.TRANSFER_ENCODING);
             if (StringUtils.isNotBlank(te) && 
                 te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED)) {
                 if (hr.getProtocolVersion() != HttpVersion.HTTP_1_1) {
                     log.warn("Fixing HTTP version.");
-                    response = ProxyUtils.copyMutableResponseFields(hr, 
-                        new DefaultHttpResponse(HttpVersion.HTTP_1_1, hr.getStatus()));
-                    if (!response.containsHeader(HttpHeaders.Names.TRANSFER_ENCODING)) {
+                    response = ProxyUtils.copyMutableResponseFields(hr);
+                    response.setProtocolVersion(HttpVersion.HTTP_1_1);
+                    if (!response.headers().contains(HttpHeaders.Names.TRANSFER_ENCODING)) {
                         log.debug("Adding chunked encoding header");
-                        response.addHeader(HttpHeaders.Names.TRANSFER_ENCODING, 
+                        response.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, 
                             HttpHeaders.Values.CHUNKED);
                     }
                 }
@@ -163,7 +159,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
                 response = hr;
             }
 
-            if (response.isChunked()) {
+            if (ProxyUtils.isChunked(httpObject)) {
                 log.debug("Starting to read chunks");
                 readingChunks = true;
                 writeEndBuffer = false;
@@ -191,8 +187,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
                 this.httpFilter.filterResponse(this.currentHttpRequest, response);
         } else {
             log.debug("Processing a chunk");
-            final HttpChunk chunk = (HttpChunk) me.getMessage();
-            if (chunk.isLast()) {
+            final HttpContent chunk = (HttpContent) httpObject;
+            if (ProxyUtils.isLastChunk(httpObject)) {
                 readingChunks = false;
                 writeEndBuffer = true;
             }
@@ -202,7 +198,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
             messageToWrite = chunk;
         }
         
-        if (browserToProxyChannel.isConnected()) {
+        if (browserToProxyChannel.isActive()) {
             // We need to determine whether or not to close connections based
             // on the HTTP request and response *before* the response has 
             // been modified for sending to the browser.
@@ -213,21 +209,20 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
                 shouldCloseBrowserConnection(this.currentHttpRequest, 
                     originalHttpResponse, messageToWrite);
             
-            final boolean wroteFullResponse =
-                wroteFullResponse(originalHttpResponse, messageToWrite);
+            final boolean wroteFullResponse = ProxyUtils.isLastChunk(httpObject);
             
             if (closeRemote && closeEndsResponseBody(originalHttpResponse)) {
                 this.closeEndsResponseBody = true;
             }
                 
             ChannelFuture future = 
-                this.browserToProxyChannel.write(
+                this.browserToProxyChannel.writeAndFlush(
                     new ProxyHttpResponse(this.currentHttpRequest, 
                         originalHttpResponse, messageToWrite));
 
             if (writeEndBuffer) {
                 // See the comment on this flag variable above.
-                future = browserToProxyChannel.write(ChannelBuffers.EMPTY_BUFFER);
+                future = browserToProxyChannel.writeAndFlush(Unpooled.EMPTY_BUFFER);
             }
             
             // If browserToProxyChannel is saturated, do not read until 
@@ -236,7 +231,7 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
             synchronized (trafficLock) {
                 if (!browserToProxyChannel.isWritable()) {
                     log.debug("SETTING UNREADABLE!!");
-                    me.getChannel().setReadable(false);
+                    ctx.channel().config().setAutoRead(false);
                 }
             }
             
@@ -277,8 +272,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
                     @Override
                     public void operationComplete(final ChannelFuture cf) 
                         throws Exception {
-                        if (me.getChannel().isConnected()) {
-                            me.getChannel().close();
+                        if (ctx.channel().isActive()) {
+                            log.debug("Closing remote connection now that operation is complete");
+                            ctx.channel().close();
                         }
                     }
                 });
@@ -298,13 +294,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
             if (wroteFullResponse && (!closePending && !closeRemote)) {
                 log.debug("Making remote channel available for requests");
                 this.relayListener.onChannelAvailable(hostAndPort,
-                    Channels.succeededFuture(me.getChannel()));
+                        ctx.newSucceededFuture());
             }
         }
         else {
-            log.debug("Channel not open. Connected? {}", 
-                browserToProxyChannel.isConnected());
-            if (me.getChannel().isConnected()) {
+            log.debug("Channel not open. Active? {}", 
+                browserToProxyChannel.isActive());
+            if (ctx.channel().isActive()) {
                 // This can happen with thing like Google's auto-suggest, for
                 // example -- when the user presses backspace, the browser 
                 // seems to close the connection for that request, sometimes
@@ -317,34 +313,29 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
                 log.debug("Closing channel to remote server -- received a " +
                     "response after the browser connection is closed? " +
                     "Current request:\n{}\nResponse:\n{}", 
-                    this.currentHttpRequest, me.getMessage());
+                    this.currentHttpRequest, httpObject);
                 
                 // This will undoubtedly happen anyway, but just in case.
-                me.getChannel().close();
+                ctx.channel().close();
             }
         }
         log.debug("Finished processing message");
     }
 
-    @Override
-    public void channelInterestChanged(final ChannelHandlerContext ctx,
-        final ChannelStateEvent cse) throws Exception {
-        log.debug("OPS CHANGED!!");
-    }
     
     @Override
-    public void channelConnected(final ChannelHandlerContext ctx, 
-        final ChannelStateEvent e) throws Exception {
+    public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+        super.channelActive(ctx);
         log.debug("CHANNEL CONNECTED!!");
-        this.channel = ctx.getChannel();
+        this.channel = ctx.channel();
     }
     
     private boolean closeEndsResponseBody(final HttpResponse res) {
-        final String cl = res.getHeader(HttpHeaders.Names.CONTENT_LENGTH);
+        final String cl = res.headers().get(HttpHeaders.Names.CONTENT_LENGTH);
         if (StringUtils.isNotBlank(cl)) {
             return false;
         }
-        final String te = res.getHeader(HttpHeaders.Names.TRANSFER_ENCODING);
+        final String te = res.headers().get(HttpHeaders.Names.TRANSFER_ENCODING);
         if (StringUtils.isNotBlank(te) && 
             te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED))  {
             return false;
@@ -352,28 +343,14 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
         return true;
     }
 
-    private boolean wroteFullResponse(final HttpResponse res, 
-        final Object messageToWrite) {
-        // Thanks to Emil Goicovici for identifying a bug in the initial
-        // logic for this.
-        if (res.isChunked()) {
-            if (messageToWrite instanceof HttpResponse) {
-                
-                return false;
-            }
-            return ProxyUtils.isLastChunk(messageToWrite);
-        }
-        return true;
-    }
-
     private boolean shouldCloseBrowserConnection(final HttpRequest req, 
-        final HttpResponse res, final Object msg) {
-        if (res.isChunked()) {
+        final HttpResponse res, final HttpObject httpObject) {
+        if (ProxyUtils.isChunked(res)) {
             // If the response is chunked, we want to return unless it's
             // the last chunk. If it is the last chunk, then we want to pass
             // through to the same close semantics we'd otherwise use.
-            if (msg != null) {
-                if (!ProxyUtils.isLastChunk(msg)) {
+            if (httpObject != null) {
+                if (!ProxyUtils.isLastChunk(httpObject)) {
                     log.debug("Not closing on middle chunk for {}", req.getUri());
                     return false;
                 }
@@ -386,13 +363,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
         // Switch the de-facto standard "Proxy-Connection" header to 
         // "Connection" when we pass it along to the remote host.
         final String proxyConnectionKey = "Proxy-Connection";
-        if (req.containsHeader(proxyConnectionKey)) {
-            final String header = req.getHeader(proxyConnectionKey);
-            req.removeHeader(proxyConnectionKey);
+        if (req.headers().contains(proxyConnectionKey)) {
+            final String header = req.headers().get(proxyConnectionKey);
+            req.headers().remove(proxyConnectionKey);
             if (req.getProtocolVersion() == HttpVersion.HTTP_1_1) {
                 log.debug("Switching Proxy-Connection to Connection for " +
                     "analyzing request for close");
-                req.setHeader("Connection", header);
+                req.headers().set("Connection", header);
             }
         }
         
@@ -431,8 +408,8 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
      * @return Returns true if the connection should close.
      */
     private boolean shouldCloseRemoteConnection(final HttpRequest req, 
-        final HttpResponse res, final Object msg) {
-        if (res.isChunked()) {
+        final HttpResponse res, final HttpObject msg) {
+        if (ProxyUtils.isChunked(res)) {
             // If the response is chunked, we want to return unless it's
             // the last chunk. If it is the last chunk, then we want to pass
             // through to the same close semantics we'd otherwise use.
@@ -465,9 +442,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
     }
     
     @Override
-    public void channelOpen(final ChannelHandlerContext ctx, 
-        final ChannelStateEvent cse) throws Exception {
-        final Channel ch = cse.getChannel();
+    public void channelRegistered(final ChannelHandlerContext ctx) throws Exception {
+        super.channelRegistered(ctx);
+        final Channel ch = ctx.channel();
         log.debug("New channel opened from proxy to web: {}", ch);
         if (this.channelGroup != null) {
             this.channelGroup.add(ch);
@@ -475,10 +452,10 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
     }
 
     @Override
-    public void channelClosed(final ChannelHandlerContext ctx, 
-        final ChannelStateEvent e) throws Exception {
+    public void channelUnregistered(final ChannelHandlerContext ctx) throws Exception {
+        super.channelUnregistered(ctx);
         log.debug("Got closed event on proxy -> web connection: {}",
-            e.getChannel());
+            currentHttpRequest);
         
         // We shouldn't close the connection to the browser 
         // here, as there can be multiple connections to external sites for
@@ -491,10 +468,9 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
 
     @Override
     public void exceptionCaught(final ChannelHandlerContext ctx, 
-        final ExceptionEvent e) throws Exception {
-        final Throwable cause = e.getCause();
+        final Throwable cause) throws Exception {
         final String message = 
-            "Caught exception on proxy -> web connection: "+e.getChannel();
+            "Caught exception on proxy -> web connection: "+ctx.channel();
         final boolean warn;
         if (cause != null) {
             final String msg = cause.getMessage();
@@ -507,17 +483,17 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
             warn = true;
         }
         if (warn) {
-            log.warn(message, cause);
+            log.error(message, cause);
         } else {
-            log.debug(message, cause);
+            log.warn(message, cause);
         }
-        if (e.getChannel().isConnected()) {
+        if (ctx.channel().isActive()) {
             if (warn) {
-                log.warn("Closing open connection");
+                log.error("Closing open connection");
             } else {
-                log.debug("Closing open connection");
+                log.warn("Closing open connection");
             }
-            ProxyUtils.closeOnFlush(e.getChannel());
+            ProxyUtils.closeOnFlush(ctx.channel());
         }
         // This can happen if we couldn't make the initial connection due
         // to something like an unresolved address, for example, or a timeout.
@@ -543,19 +519,25 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
      * @param request The HTTP request to add.
      */
     public void requestEncoded(final HttpRequest request) {
+        log.debug("Enqueued: {}", request);
         this.requestQueue.add(request);
     }
 
+    /**
+     * This callback fires when the HttpRequestHandler (browser to proxy channel)
+     * becomes writeable, at which point we can resume reading from data from
+     * the outbound proxy connection.
+     */
     @Override
-    public void channelWritable(final ChannelHandlerContext ctx,
-        final ChannelStateEvent cse) {
+    public void channelWritable(final ChannelHandlerContext ctx) {
         // See trafficLock for an explanation of the locking here.
         synchronized (trafficLock) {
             // If inboundChannel is not saturated anymore, continue accepting
             // the incoming traffic from the outboundChannel.
-            if (cse.getChannel().isWritable()) {
+            if (ctx.channel().isWritable()) {
                 if (this.channel != null) {
-                    this.channel.setReadable(true);
+                    log.debug("Resume accepting traffic from outbound channel: {}", this.channel);
+                    this.channel.config().setAutoRead(true);
                 }
             }
         }

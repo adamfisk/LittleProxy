@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.channel.ChannelHandler;
-import org.jboss.netty.handler.ssl.SslHandler;
+import io.netty.channel.ChannelHandler;
+import io.netty.handler.ssl.SslHandler;
 
 public class SslHandshakeHandler implements HandshakeHandler {
 

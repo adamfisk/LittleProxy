@@ -54,3 +54,10 @@ https://groups.google.com/forum/#!forum/littleproxy
 The main LittleProxy page is here:
 
 http://www.littleshoot.org/littleproxy/
+
+Acknowledgements
+----------------
+
+Many thanks to [The Measurement Factory](http://www.measurement-factory.com/) for the
+use of [Co-Advisor](http://coad.measurement-factory.com/) for HTTP standards
+compliance testing. 

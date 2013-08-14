@@ -1,33 +1,30 @@
 package org.littleshoot.proxy;
 
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.util.Timer;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.handler.codec.http.HttpRequest;
 
-public class DefaultRelayPipelineFactoryFactory 
-    implements RelayPipelineFactoryFactory {
+public class DefaultRelayChannelInitializerFactory 
+    implements RelayChannelInitializerFactory {
     
     private final ChainProxyManager chainProxyManager;
     private final ChannelGroup channelGroup;
     private final HttpRequestFilter requestFilter;
     private final HttpResponseFilters responseFilters;
-    private final Timer timer;
 
-    public DefaultRelayPipelineFactoryFactory(
+    public DefaultRelayChannelInitializerFactory(
         final ChainProxyManager chainProxyManager, 
         final HttpResponseFilters responseFilters, 
         final HttpRequestFilter requestFilter, 
-        final ChannelGroup channelGroup, final Timer timer) {
+        final ChannelGroup channelGroup) {
         this.chainProxyManager = chainProxyManager;
         this.responseFilters = responseFilters;
         this.channelGroup = channelGroup;
         this.requestFilter = requestFilter;
-        this.timer = timer;
     }
     
-    public ChannelPipelineFactory getRelayPipelineFactory(
+    public ChannelInitializer<Channel> getRelayChannelInitializer(
         final HttpRequest httpRequest, final Channel browserToProxyChannel,
         final RelayListener relayListener) {
 	
@@ -37,9 +34,9 @@ public class DefaultRelayPipelineFactoryFactory
             hostAndPort = ProxyUtils.parseHostAndPort(httpRequest);
         }
         
-        return new DefaultRelayPipelineFactory(hostAndPort, httpRequest, 
+        return new DefaultRelayChannelInitializer(hostAndPort, httpRequest, 
             relayListener, browserToProxyChannel, channelGroup, responseFilters, 
-            requestFilter, chainProxyManager, this.timer);
+            requestFilter, chainProxyManager);
     }
     
 }

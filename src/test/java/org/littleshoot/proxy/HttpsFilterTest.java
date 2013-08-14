@@ -1,6 +1,8 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -25,11 +27,12 @@ import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.conn.ssl.X509HostnameVerifier;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.util.EntityUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ssl.SslSocketConnector;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,16 +44,19 @@ public class HttpsFilterTest {
     private static final int WEB_SERVER_SSL_PORT = 8443;
 
     private final Logger log = LoggerFactory.getLogger(getClass());
+    
+    private AtomicInteger shouldFilterCalls = new AtomicInteger(0);
+    private AtomicInteger filterCalls = new AtomicInteger(0);
+    private Queue<HttpRequest> associatedRequests = new LinkedList<HttpRequest>();
+    private HttpProxyServer proxyServer;
+    private Server webServer;
 
-    @Test public void testHttpsFiltering() throws Exception {
-
-        final AtomicInteger shouldFilterCalls = new AtomicInteger(0);
-        final AtomicInteger filterCalls = new AtomicInteger(0);
-        final Queue<HttpRequest> associatedRequests = new LinkedList<HttpRequest>();
-
-        final String url1 = "http://localhost:"+WEB_SERVER_PORT+"/testing";
-        final String url2 = "https://localhost:"+WEB_SERVER_SSL_PORT+"/testing";
-
+    @Before
+    public void setUp() throws Exception {
+        shouldFilterCalls = new AtomicInteger(0);
+        filterCalls = new AtomicInteger(0);
+        associatedRequests = new LinkedList<HttpRequest>();
+        
         final HttpFilter filter = new HttpFilter() {
 
             public boolean filterResponses(final HttpRequest httpRequest) {
@@ -86,9 +92,37 @@ public class HttpsFilterTest {
 
         LittleProxyConfig.setUseMITMInSSL(true);
         LittleProxyConfig.setAcceptAllSSLCertificates(true);
-        final HttpProxyServer proxyServer =
+        proxyServer =
                 new DefaultHttpProxyServer(PROXY_PORT, responseFilters, null, null, null);
         proxyServer.start();
+        
+        webServer = new Server(WEB_SERVER_PORT);
+        org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
+
+        org.littleshoot.proxy.SslContextFactory scf = new org.littleshoot.proxy.SslContextFactory(new SelfSignedKeyStoreManager());
+        SSLContext sslContext = scf.getServerContext();
+
+        sslContextFactory.setSslContext(sslContext);
+        SslSocketConnector connector = new SslSocketConnector(sslContextFactory);
+        connector.setPort(WEB_SERVER_SSL_PORT);
+        webServer.addConnector(connector);
+        webServer.start();
+    }
+    
+    @After
+    public void tearDown() throws Exception {
+        try {
+            webServer.stop();
+        } finally {
+            proxyServer.stop();
+        }
+    }
+    
+    @Test public void testHttpsFiltering() throws Exception {
+
+        final String url1 = "http://localhost:"+WEB_SERVER_PORT+"/testing";
+        final String url2 = "https://localhost:"+WEB_SERVER_SSL_PORT+"/testing";
+
         final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", PROXY_PORT);
         while (true) {
             final Socket sock = new Socket();
@@ -102,18 +136,6 @@ public class HttpsFilterTest {
             }
             Thread.sleep(50);
         }
-
-        final Server webServer = new Server(WEB_SERVER_PORT);
-        org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
-
-        org.littleshoot.proxy.SslContextFactory scf = new org.littleshoot.proxy.SslContextFactory(new SelfSignedKeyStoreManager());
-        SSLContext sslContext = scf.getServerContext();
-
-        sslContextFactory.setSslContext(sslContext);
-        SslSocketConnector connector = new SslSocketConnector(sslContextFactory);
-        connector.setPort(WEB_SERVER_SSL_PORT);
-        webServer.addConnector(connector);
-        webServer.start();
 
         getResponse(url1);
 
@@ -138,8 +160,6 @@ public class HttpsFilterTest {
         // stripping host since in this run the proxy is not transparent. see ProxyHttpRequestEncoder
         assertEquals(ProxyUtils.stripHost(url2), second.getUri());
 
-        webServer.stop();
-        proxyServer.stop();
     }
 
     private HttpEntity getResponse(final String url) throws Exception {
@@ -162,6 +182,8 @@ public class HttpsFilterTest {
 
         final HttpHost proxy = new HttpHost("127.0.0.1", PROXY_PORT, "http");
         http.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
+        http.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 30000);
+        http.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
 
         final HttpGet get = new HttpGet(url);
         final org.apache.http.HttpResponse hr = http.execute(get);
