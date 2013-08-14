@@ -7,7 +7,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
-import io.netty.handler.timeout.IdleStateHandler;
 
 import java.lang.management.ManagementFactory;
 
@@ -37,7 +36,6 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel>
 
     private final HandshakeHandlerFactory handshakeHandlerFactory;
     private int numHandlers;
-    private final RelayChannelInitializerFactory relayChannelInitializerFactory;
     private final EventLoopGroup clientWorker;
 
     /**
@@ -51,24 +49,19 @@ public class HttpServerChannelInitializer extends ChannelInitializer<Channel>
      *            none used.
      * @param ksm
      *            The KeyStore manager.
-     * @param relayChannelInitializerFactory
-     *            The relay channel initializer factory.
      * @param clientWorker
      *            The EventLoopGroup for creating outgoing channels to external
      *            sites.
      * @param authenticator
      *            (optional) ProxyAuthenticator for this proxy
      */
-    public HttpServerChannelInitializer(
-            final ChannelGroup channelGroup,
+    public HttpServerChannelInitializer(final ChannelGroup channelGroup,
             final ChainProxyManager chainProxyManager,
             final HandshakeHandlerFactory handshakeHandlerFactory,
-            final RelayChannelInitializerFactory relayChannelInitializerFactory,
             final EventLoopGroup clientWorker,
             final ProxyAuthenticator authenticator) {
 
         this.handshakeHandlerFactory = handshakeHandlerFactory;
-        this.relayChannelInitializerFactory = relayChannelInitializerFactory;
         this.clientWorker = clientWorker;
 
         log.debug("Creating server with handshake handler: {}",

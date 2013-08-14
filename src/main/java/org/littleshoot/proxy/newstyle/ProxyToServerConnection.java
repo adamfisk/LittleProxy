@@ -6,6 +6,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
@@ -29,9 +30,10 @@ import java.util.Queue;
 import org.littleshoot.proxy.ProxyUtils;
 
 /**
- * Represents a connection from our proxy to a server.
+ * Represents a connection from our proxy to a server on the web.
  */
-public class ProxyToServerConnection extends ProxyConnection {
+@Sharable
+public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private final ClientToProxyConnection clientToProxyConnection;
     private final InetSocketAddress address;
@@ -77,16 +79,15 @@ public class ProxyToServerConnection extends ProxyConnection {
      **************************************************************************/
 
     @Override
-    protected ConnectionState readInitial(HttpObject httpObject) {
-        final HttpResponse response = (HttpResponse) httpObject;
-        LOG.debug("Received raw response: {}", response);
+    protected ConnectionState readInitial(HttpResponse httpResponse) {
+        LOG.debug("Received raw response: {}", httpResponse);
 
         rememberCurrentRequest();
-        rememberCurrentResponse(response);
+        rememberCurrentResponse(httpResponse);
 
-        respondWith(httpObject);
+        respondWith(httpResponse);
 
-        return ProxyUtils.isChunked(httpObject) ? AWAITING_CHUNK
+        return ProxyUtils.isChunked(httpResponse) ? AWAITING_CHUNK
                 : AWAITING_INITIAL;
     }
 
@@ -99,6 +100,103 @@ public class ProxyToServerConnection extends ProxyConnection {
     protected void readRaw(ByteBuf buf) {
         clientToProxyConnection.write(buf);
     }
+
+    /***************************************************************************
+     * Writing
+     **************************************************************************/
+
+    public Future<Void> write(Object msg) {
+        LOG.debug("Requested write of {}", msg);
+        if (DISCONNECTED == currentState) {
+            // We're disconnected - connect and write the message
+            return connectAndWrite((HttpRequest) msg);
+        } else {
+            synchronized (connectLock) {
+                if (CONNECTING == currentState) {
+                    // We're in the processing of connecting, wait for it to
+                    // finish
+                    try {
+                        connectLock.wait(30000);
+                    } catch (InterruptedException ie) {
+                        LOG.warn("Interrupted while waiting for connect monitor");
+                    }
+                }
+            }
+            LOG.debug("Using existing connection to: {}", address);
+            // Go ahead and try writing
+            return super.write(msg);
+        }
+    };
+
+    @Override
+    protected Future<Void> writeHttp(HttpObject httpObject) {
+        if (httpObject instanceof HttpRequest) {
+            // Remember that we issued this HttpRequest for later
+            issuedRequests.add((HttpRequest) httpObject);
+        }
+        return super.writeHttp(httpObject);
+    }
+
+    /***************************************************************************
+     * Lifecycle
+     **************************************************************************/
+
+    @Override
+    protected void connected(Channel channel) {
+        boolean wasHttpCONNECT = initialRequest.getMethod() == HttpMethod.CONNECT;
+        synchronized (connectLock) {
+            super.connected(channel);
+            if (!wasHttpCONNECT) {
+                super.write(initialRequest);
+            } else {
+                // TODO: handle upgrading to tunnel
+            }
+
+            // Once we've finished recording our connection and written our
+            // initial request, we can notify anyone who is waiting on the
+            // connection that it's okay to proceed.
+            connectLock.notifyAll();
+        }
+        clientToProxyConnection.finishedConnectingToServer(this,
+                initialRequest, false);
+    }
+
+    @Override
+    protected void disconnected() {
+        super.disconnected();
+
+    }
+
+    @Override
+    protected void exceptionCaught(Throwable cause) {
+        final String message = "Caught exception on proxy -> web connection: "
+                + channel;
+        final boolean reportAsError = cause == null
+                || cause.getMessage() == null
+                || !cause.getMessage().contains("Connection reset by peer");
+
+        if (reportAsError) {
+            LOG.error(message, cause);
+        } else {
+            LOG.warn(message, cause);
+        }
+        if (channel.isActive()) {
+            if (reportAsError) {
+                LOG.error("Disconnecting open connection");
+            } else {
+                LOG.warn("Disconnecting open connection");
+            }
+            disconnect();
+        }
+        // This can happen if we couldn't make the initial connection due
+        // to something like an unresolved address, for example, or a timeout.
+        // There will not have been be any requests written on an unopened
+        // connection, so there should not be any further action to take here.
+    }
+
+    /***************************************************************************
+     * Private Implementation
+     **************************************************************************/
 
     /**
      * An HTTP response is associated with a single request, so we can pop the
@@ -141,38 +239,6 @@ public class ProxyToServerConnection extends ProxyConnection {
                 currentHttpResponse, httpObject);
     }
 
-    public Future<Void> write(Object msg) {
-        LOG.debug("Requested write of {}", msg);
-        if (DISCONNECTED == currentState) {
-            // We're disconnected - connect and write the message
-            return connectAndWrite((HttpRequest) msg);
-        } else {
-            synchronized (connectLock) {
-                if (CONNECTING == currentState) {
-                    // We're in the processing of connecting, wait for it to
-                    // finish
-                    try {
-                        connectLock.wait(30000);
-                    } catch (InterruptedException ie) {
-                        LOG.warn("Interrupted while waiting for connect monitor");
-                    }
-                }
-            }
-            LOG.debug("Using existing connection to: {}", address);
-            // Go ahead and try writing
-            return super.write(msg);
-        }
-    };
-
-    @Override
-    protected Future<Void> writeHttp(HttpObject httpObject) {
-        if (httpObject instanceof HttpRequest) {
-            // Remember that we issued this HttpRequest for later
-            issuedRequests.add((HttpRequest) httpObject);
-        }
-        return super.writeHttp(httpObject);
-    }
-
     /**
      * Connects to the server and then writes out the initial request (or
      * upgrades to an SSL tunnel, depending).
@@ -187,7 +253,7 @@ public class ProxyToServerConnection extends ProxyConnection {
         // Remember our initial request so that we can write it after connecting
         this.initialRequest = initialRequest;
 
-        clientToProxyConnection.connectionToServerStarted(this);
+        clientToProxyConnection.connectingToServer(this);
 
         final Bootstrap cb = new Bootstrap().group(proxyToServerWorkerPool);
         cb.channel(NioSocketChannel.class);
@@ -206,32 +272,15 @@ public class ProxyToServerConnection extends ProxyConnection {
                 if (!future.isSuccess()) {
                     LOG.debug("Could not connect to " + address, future.cause());
                     clientToProxyConnection
-                            .connectionToServerFailed(initialRequest);
+                            .finishedConnectingToServer(
+                                    ProxyToServerConnection.this,
+                                    initialRequest, false);
                 }
+
             }
         });
 
         return cf;
-    }
-
-    @Override
-    protected void connected(Channel channel) {
-        boolean wasHttpCONNECT = initialRequest.getMethod() == HttpMethod.CONNECT;
-        synchronized (connectLock) {
-            super.connected(channel);
-            if (!wasHttpCONNECT) {
-                super.write(initialRequest);
-            } else {
-                // TODO: handle upgrading to tunnel
-            }
-
-            // Once we've finished recording our connection and written our
-            // initial request, we can notify anyone who is waiting on the
-            // connection that it's okay to proceed.
-            connectLock.notifyAll();
-        }
-        clientToProxyConnection
-                .connectionToServerSucceeded(ProxyToServerConnection.this);
     }
 
     private void initChannelPipeline(ChannelPipeline pipeline,

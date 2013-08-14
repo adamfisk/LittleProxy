@@ -1,10 +1,6 @@
 package org.littleshoot.proxy;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -19,7 +15,6 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.timeout.IdleState;
 
-import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
@@ -92,34 +87,6 @@ public class ProxyUtils {
         hopByHopHeaders.add("upgrade");
     }
 
-    /**
-     * Utility class for a no-op {@link ChannelFutureListener}.
-     */
-    public static final ChannelFutureListener NO_OP_LISTENER = new ChannelFutureListener() {
-        public void operationComplete(final ChannelFuture future)
-                throws Exception {
-            LOG.info("No op listener - write finished");
-        }
-    };
-
-    /**
-     * Constant for the headers for an OK response to an HTTP connect request.
-     */
-    public static final String CONNECT_OK_HEADERS = "Connection: Keep-Alive\r\n"
-            + "Proxy-Connection: Keep-Alive\r\n" + via + "\r\n";
-
-    /**
-     * Constant for the headers for a proxy error response.
-     */
-    public static final String PROXY_ERROR_HEADERS = "Connection: close\r\n"
-            + "Proxy-Connection: close\r\n" + "Pragma: no-cache\r\n"
-            + "Cache-Control: no-cache\r\n" + via + "\r\n";
-
-    public static final HttpRequestFilter PASS_THROUGH_REQUEST_FILTER = new HttpRequestFilter() {
-        public void filter(final HttpRequest httpRequest) {
-        }
-    };
-
     // Should never be constructed.
     private ProxyUtils() {
     }
@@ -152,28 +119,6 @@ public class ProxyUtils {
         }
         final String noHostUri = noHttpUri.substring(slashIndex);
         return noHostUri;
-    }
-
-    /**
-     * Builds the cache URI from the request, including the host and the path.
-     * 
-     * @param httpRequest
-     *            The request.
-     * @return The cache URI.
-     */
-    public static String cacheUri(final HttpRequest httpRequest) {
-        final String host = httpRequest.headers().get(HttpHeaders.Names.HOST);
-        final String uri = httpRequest.getUri();
-        final String path;
-        if (HTTP_PREFIX.matcher(uri).matches()) {
-            path = stripHost(uri);
-        } else {
-            path = uri;
-        }
-
-        // TODO: We don't append http:// or https:// here. Is it really OK to
-        // ignore the protocol?
-        return host + path;
     }
 
     /**
@@ -227,113 +172,6 @@ public class ProxyUtils {
     }
 
     /**
-     * Make a copy of the response including all mutable fields.
-     * 
-     * @param original
-     *            The original response to copy from.
-     * @param copy
-     *            The copy.
-     * @return The copy with all mutable fields from the original.
-     */
-    public static HttpResponse copyMutableResponseFields(
-            final HttpResponse original) {
-
-        HttpResponse copy = null;
-        if (original instanceof DefaultFullHttpResponse) {
-            ByteBuf content = ((DefaultFullHttpResponse) original).content();
-            copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
-                    original.getStatus(), content);
-        } else {
-            copy = new DefaultHttpResponse(original.getProtocolVersion(),
-                    original.getStatus());
-        }
-        final Collection<String> headerNames = original.headers().names();
-        for (final String name : headerNames) {
-            final List<String> values = original.headers().getAll(name);
-            copy.headers().set(name, values);
-        }
-        return copy;
-    }
-
-    /**
-     * Writes a raw HTTP response to the channel.
-     * 
-     * @param channel
-     *            The channel.
-     * @param statusLine
-     *            The status line of the response.
-     * @param headers
-     *            The raw headers string.
-     */
-    public static ChannelFuture writeResponse(final Channel channel,
-            final String statusLine, final String headers) {
-        return writeResponse(channel, statusLine, headers, "");
-    }
-
-    /**
-     * Writes a raw HTTP response to the channel.
-     * 
-     * @param channel
-     *            The channel.
-     * @param statusLine
-     *            The status line of the response.
-     * @param headers
-     *            The raw headers string.
-     * @param responseBody
-     *            The response body.
-     */
-    public static ChannelFuture writeResponse(final Channel channel,
-            final String statusLine, final String headers,
-            final String responseBody) {
-        final String fullResponse = statusLine + headers + responseBody;
-        LOG.info("Writing full response:\n" + fullResponse);
-        try {
-            final ByteBuf buf = Unpooled.wrappedBuffer(fullResponse
-                    .getBytes("UTF-8"));
-            final ChannelFuture channelFuture = channel.writeAndFlush(buf);
-            channel.config().setAutoRead(true);
-            return channelFuture;
-        } catch (final UnsupportedEncodingException e) {
-            // Never.
-            return null;
-        }
-    }
-
-    /**
-     * Prints the headers of the message (for debugging).
-     * 
-     * @param msg
-     *            The {@link HttpMessage}.
-     */
-    public static void printHeaders(final HttpMessage msg) {
-        final String status = msg.getProtocolVersion().toString();
-        LOG.debug(status);
-        final StringBuilder sb = new StringBuilder();
-        final Set<String> headerNames = msg.headers().names();
-        for (final String name : headerNames) {
-            final String value = msg.headers().get(name);
-            sb.append(name);
-            sb.append(": ");
-            sb.append(value);
-            sb.append("\n");
-        }
-        LOG.debug("\n" + sb.toString());
-    }
-
-    /**
-     * Prints the specified header from the specified method.
-     * 
-     * @param msg
-     *            The HTTP message.
-     * @param name
-     *            The name of the header to print.
-     */
-    public static void printHeader(final HttpMessage msg, final String name) {
-        final String value = msg.headers().get(name);
-        LOG.debug(name + ": " + value);
-    }
-
-    /**
      * If an HttpObject implements the market interface LastHttpContent, it
      * represents the last chunk of a transfer.
      * 
@@ -358,34 +196,6 @@ public class ProxyUtils {
      */
     public static boolean isChunked(final HttpObject httpObject) {
         return !isLastChunk(httpObject);
-    }
-
-    private static ChannelFutureListener CLOSE = new ChannelFutureListener() {
-        public void operationComplete(final ChannelFuture future) {
-            final Channel ch = future.channel();
-            if (ch.isOpen()) {
-                ch.close();
-            }
-        }
-    };
-
-    /**
-     * Closes the specified channel after all queued write requests are flushed.
-     * 
-     * @param ch
-     *            The {@link Channel} to close.
-     */
-    public static void closeOnFlush(final Channel ch) {
-        LOG.debug("Requested close on flush: {}", ch);
-        if (ch.isOpen()) {
-            LOG.debug(
-                    "Channel open, sending empty content and requesting close of channel: {}",
-                    ch);
-            ch.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(
-                    ProxyUtils.CLOSE);
-        } else {
-            LOG.debug("Channel already closed, doing nothing: {}", ch);
-        }
     }
 
     /**
@@ -469,6 +279,35 @@ public class ProxyUtils {
     }
 
     /**
+     * Make a copy of the response including all mutable fields.
+     * 
+     * @param original
+     *            The original response to copy from.
+     * @param copy
+     *            The copy.
+     * @return The copy with all mutable fields from the original.
+     */
+    public static HttpResponse copyMutableResponseFields(
+            final HttpResponse original) {
+
+        HttpResponse copy = null;
+        if (original instanceof DefaultFullHttpResponse) {
+            ByteBuf content = ((DefaultFullHttpResponse) original).content();
+            copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
+                    original.getStatus(), content);
+        } else {
+            copy = new DefaultHttpResponse(original.getProtocolVersion(),
+                    original.getStatus());
+        }
+        final Collection<String> headerNames = original.headers().names();
+        for (final String name : headerNames) {
+            final List<String> values = original.headers().getAll(name);
+            copy.headers().set(name, values);
+        }
+        return copy;
+    }
+
+    /**
      * Creates a copy of an original HTTP request to avoid modifying it.
      * 
      * @param original
@@ -539,15 +378,16 @@ public class ProxyUtils {
         return copy;
     }
 
-    private static void copyHeaders(final HttpMessage original,
-            final HttpMessage copy) {
-        final Set<String> headerNames = original.headers().names();
-        for (final String name : headerNames) {
-            if (!hopByHopHeaders.contains(name.toLowerCase())) {
-                final List<String> values = original.headers().getAll(name);
-                copy.headers().set(name, values);
-            }
-        }
+    /**
+     * Creates a copy of an original HTTP request to void modifying it. This
+     * variant will unconditionally strip the proxy-formatted request.
+     * 
+     * @param original
+     *            The original request.
+     * @return The request copy.
+     */
+    public static HttpRequest copyHttpRequest(final HttpRequest original) {
+        return copyHttpRequest(original, false);
     }
 
     /**
@@ -564,18 +404,6 @@ public class ProxyUtils {
                 msg.headers().remove(name);
             }
         }
-    }
-
-    /**
-     * Creates a copy of an original HTTP request to void modifying it. This
-     * variant will unconditionally strip the proxy-formatted request.
-     * 
-     * @param original
-     *            The original request.
-     * @return The request copy.
-     */
-    public static HttpRequest copyHttpRequest(final HttpRequest original) {
-        return copyHttpRequest(original, false);
     }
 
     /**
@@ -628,13 +456,6 @@ public class ProxyUtils {
         return checkTrueOrFalse(val, "false", "off");
     }
 
-    private static boolean checkTrueOrFalse(final String val,
-            final String str1, final String str2) {
-        final String str = val.trim();
-        return StringUtils.isNotBlank(str)
-                && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
-    }
-
     public static boolean extractBooleanDefaultFalse(final Properties props,
             final String key) {
         final String throttle = props.getProperty(key);
@@ -662,21 +483,24 @@ public class ProxyUtils {
         return -1;
     }
 
-    /**
-     * Handles an idle event on a channel, closing the channel if necessary.
-     * 
-     * @param ctx
-     * @param idleState
-     */
-    public static void handleIdle(ChannelHandlerContext ctx, IdleState idleState) {
-        if (idleState == IdleState.READER_IDLE) {
-            LOG.info("Got reader idle -- closing -- " + ctx.channel());
-            ctx.channel().close();
-        } else if (idleState == IdleState.WRITER_IDLE) {
-            LOG.info("Got writer idle -- closing connection -- "
-                    + ctx.channel());
-            ctx.channel().close();
+    private static boolean checkTrueOrFalse(final String val,
+            final String str1, final String str2) {
+        final String str = val.trim();
+        return StringUtils.isNotBlank(str)
+                && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
+    }
+
+    private static void copyHeaders(final HttpMessage original,
+            final HttpMessage copy) {
+        final Set<String> headerNames = original.headers().names();
+        for (final String name : headerNames) {
+            if (!hopByHopHeaders.contains(name.toLowerCase())) {
+                final List<String> values = original.headers().getAll(name);
+                copy.headers().set(name, values);
+            }
         }
     }
+
+    
 
 }

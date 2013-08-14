@@ -255,10 +255,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.stopped.set(false);
         final HttpServerChannelInitializer initializer = new HttpServerChannelInitializer(
                 this.allChannels, this.chainProxyManager,
-                this.handshakeHandlerFactory,
-                new DefaultRelayChannelInitializerFactory(chainProxyManager,
-                        this.responseFilters, this.requestFilter,
-                        this.allChannels), this.clientWorker,
+                this.handshakeHandlerFactory, this.clientWorker,
                 this.proxyAuthenticator);
         serverBootstrap.channel(NioServerSocketChannel.class);
         serverBootstrap.childHandler(initializer);
