@@ -2,6 +2,7 @@ package org.littleshoot.proxy.newstyle;
 
 public enum ConnectionState {
     CONNECTING, // Connection attempting to connect
+    HANDSHAKING, // In the middle of doing an SSL handshake
     AWAITING_PROXY_AUTHENTICATION, // Connected but waiting for proxy
     // authentication,
     AWAITING_INITIAL, // Connected and awaiting initial message (e.g.

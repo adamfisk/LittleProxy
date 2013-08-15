@@ -7,6 +7,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
@@ -21,12 +22,12 @@ import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.concurrent.Future;
 
 import java.net.InetSocketAddress;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import org.littleshoot.proxy.LittleProxyConfig;
 import org.littleshoot.proxy.ProxyUtils;
 
 /**
@@ -105,11 +106,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Writing
      **************************************************************************/
 
-    public Future<Void> write(Object msg) {
+    public void write(Object msg) {
         LOG.debug("Requested write of {}", msg);
         if (DISCONNECTED == currentState) {
             // We're disconnected - connect and write the message
-            return connectAndWrite((HttpRequest) msg);
+            connectAndWrite((HttpRequest) msg);
         } else {
             synchronized (connectLock) {
                 if (CONNECTING == currentState) {
@@ -124,17 +125,17 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
             LOG.debug("Using existing connection to: {}", address);
             // Go ahead and try writing
-            return super.write(msg);
+            super.write(msg);
         }
     };
 
     @Override
-    protected Future<Void> writeHttp(HttpObject httpObject) {
+    protected void writeHttp(HttpObject httpObject) {
         if (httpObject instanceof HttpRequest) {
             // Remember that we issued this HttpRequest for later
             issuedRequests.add((HttpRequest) httpObject);
         }
-        return super.writeHttp(httpObject);
+        super.writeHttp(httpObject);
     }
 
     /***************************************************************************
@@ -142,14 +143,19 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      **************************************************************************/
 
     @Override
-    protected void connected(Channel channel) {
+    protected void connected(ChannelHandlerContext ctx) {
         boolean wasHttpCONNECT = initialRequest.getMethod() == HttpMethod.CONNECT;
+
         synchronized (connectLock) {
-            super.connected(channel);
-            if (!wasHttpCONNECT) {
-                super.write(initialRequest);
+            super.connected(ctx);
+            if (wasHttpCONNECT) {
+                if (!LittleProxyConfig.isUseSSLMitm()) {
+
+                }
             } else {
-                // TODO: handle upgrading to tunnel
+                // This is just a regular connection, go ahead and write the
+                // initial request
+                super.write(initialRequest);
             }
 
             // Once we've finished recording our connection and written our
@@ -157,8 +163,19 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // connection that it's okay to proceed.
             connectLock.notifyAll();
         }
+
         clientToProxyConnection.finishedConnectingToServer(this,
                 initialRequest, false);
+
+        if (wasHttpCONNECT) {
+            if (!LittleProxyConfig.isUseSSLMitm()) {
+                // Initiate tunneling
+                this.currentState = TUNNELING;
+                clientToProxyConnection.serverTunnelEstablished(this);
+            } else {
+                // TODO: handle MITM
+            }
+        }
     }
 
     @Override
@@ -245,7 +262,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * 
      * @param initialRequest
      */
-    private Future<Void> connectAndWrite(final HttpRequest initialRequest) {
+    private void connectAndWrite(final HttpRequest initialRequest) {
         LOG.debug("Starting new connection to: {}", address);
 
         currentState = CONNECTING;
@@ -264,8 +281,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         });
         cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 40 * 1000);
 
-        final ChannelFuture cf = cb.connect(address);
-        cf.addListener(new ChannelFutureListener() {
+        cb.connect(address).addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future)
                     throws Exception {
@@ -279,8 +295,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
             }
         });
-
-        return cf;
     }
 
     private void initChannelPipeline(ChannelPipeline pipeline,

@@ -1,7 +1,6 @@
 package org.littleshoot.proxy;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpRequest;
@@ -13,7 +12,6 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.netty.handler.timeout.IdleState;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -483,6 +481,10 @@ public class ProxyUtils {
         return -1;
     }
 
+    public static boolean isCONNECT(HttpRequest request) {
+        return HttpMethod.CONNECT.equals(request.getMethod());
+    }
+
     private static boolean checkTrueOrFalse(final String val,
             final String str1, final String str2) {
         final String str = val.trim();
@@ -500,7 +502,5 @@ public class ProxyUtils {
             }
         }
     }
-
-    
 
 }

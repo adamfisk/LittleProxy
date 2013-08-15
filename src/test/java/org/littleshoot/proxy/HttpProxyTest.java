@@ -39,6 +39,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.util.EntityUtils;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -193,8 +194,8 @@ public class HttpProxyTest {
             }
             
             final HttpPost httppost = new HttpPost(host);
-//            httppost.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-//            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
+            httppost.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
             final StringEntity entity = new StringEntity("adsf", "UTF-8");
             entity.setChunked(true);
             httppost.setEntity(entity);
@@ -227,8 +228,8 @@ public class HttpProxyTest {
             }
             
             HttpGet httppost = new HttpGet(HOST);
-//            httppost.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-//            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
+            httppost.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
             
             HttpResponse response = httpclient.execute(httppost);
             HttpEntity resEntity = response.getEntity();

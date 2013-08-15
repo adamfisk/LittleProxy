@@ -17,8 +17,6 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import org.littleshoot.proxy.ProxyUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * <p>
@@ -70,11 +68,11 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class ProxyConnection<I extends HttpObject> extends
         SimpleChannelInboundHandler<Object> {
-    protected static final Logger LOG = LoggerFactory
-            .getLogger(ProxyConnection.class);
+    protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
     protected final EventLoopGroup proxyToServerWorkerPool;
     protected final ChannelGroup allChannels;
+    protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
     protected volatile ConnectionState currentState;
 
@@ -107,8 +105,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * @param msg
      */
     private void read(Object msg) {
-        LOG.debug("Reading in state: {}    from {}    read: {}",
-                this.currentState, channel, msg);
+        LOG.debug("Reading: {}", msg);
         switch (this.currentState) {
         case AWAITING_INITIAL:
             this.currentState = this.readInitial((I) msg);
@@ -132,15 +129,19 @@ public abstract class ProxyConnection<I extends HttpObject> extends
                 // happen if the browser already sent us some chunks (e.g. from
                 // a POST) after an initial request that turned out to require
                 // authentication.
-                break;
             }
+            break;
         case CONNECTING:
             LOG.warn("Attempted to read from connection that's in the process of connecting.  This shouldn't happen.");
             break;
+        case HANDSHAKING:
+            LOG.warn(
+                    "Attempted to read from connection that's in the process of handshaking.  This shouldn't happen.",
+                    channel);
+            break;
         case DISCONNECT_REQUESTED:
         case DISCONNECTED:
-            LOG.info("Ignoring message since the connection to the browser "
-                    + "is closed or about to close");
+            LOG.info("Ignoring message since the connection to the browser is closed or about to close");
             break;
         }
     }
@@ -178,22 +179,21 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * over the socket.
      * 
      * @param msg
-     * @return a future for the asynchronous write operation
      */
-    public Future<Void> write(Object msg) {
-        LOG.debug("To: {} writing: {}", channel, msg);
+    public void write(Object msg) {
+        LOG.debug("Writing: {}", msg);
         if (msg instanceof ReferenceCounted) {
             LOG.debug("Retaining reference counted message");
             ((ReferenceCounted) msg).retain();
         }
         try {
             if (msg instanceof HttpObject) {
-                return writeHttp((HttpObject) msg);
+                writeHttp((HttpObject) msg);
             } else {
-                return writeRaw((ByteBuf) msg);
+                writeRaw((ByteBuf) msg);
             }
         } finally {
-            LOG.debug("To: {} wrote: {}", channel, msg);
+            LOG.debug("Wrote: {}", msg);
         }
     }
 
@@ -201,15 +201,13 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * Writes HttpObjects to the connection (asynchronous).
      * 
      * @param httpObject
-     * @return a future for the asynchronous write operation
      */
-    protected Future<Void> writeHttp(HttpObject httpObject) {
-        Future<Void> future = channel.writeAndFlush(httpObject);
+    protected void writeHttp(HttpObject httpObject) {
+        channel.writeAndFlush(httpObject);
         if (ProxyUtils.isLastChunk(httpObject)) {
             LOG.debug("Writing an empty buffer to signal the end of our chunked transfer");
-            future = channel.writeAndFlush(Unpooled.EMPTY_BUFFER);
+            channel.writeAndFlush(Unpooled.EMPTY_BUFFER);
         }
-        return future;
     }
 
     /**
@@ -218,24 +216,25 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * @param buf
      * @return a future for the asynchronous write operation
      */
-    protected Future<Void> writeRaw(ByteBuf buf) {
-        return channel.writeAndFlush(buf);
+    protected void writeRaw(ByteBuf buf) {
+        channel.writeAndFlush(buf);
     }
 
     /***************************************************************************
      * Lifecycle
      **************************************************************************/
 
-    protected void connected(Channel channel) {
+    protected void connected(ChannelHandlerContext ctx) {
         this.currentState = AWAITING_INITIAL;
-        this.channel = channel;
+        this.ctx = ctx;
+        this.channel = ctx.channel();
         this.allChannels.add(channel);
-        LOG.debug("Connected: {}", channel);
+        LOG.debug("Connected");
     }
 
     protected void disconnected() {
         this.currentState = DISCONNECTED;
-        LOG.debug("Disconnected: {}", channel);
+        LOG.debug("Disconnected");
     }
 
     protected void becameWriteable() {
@@ -262,7 +261,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * disconnecting.
      */
     public void disconnect() {
-        write(Unpooled.EMPTY_BUFFER).addListener(
+        channel.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(
                 new GenericFutureListener<Future<? super Void>>() {
                     @Override
                     public void operationComplete(Future<? super Void> future)
@@ -278,7 +277,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * Call this to stop reading.
      */
     protected void stopReading() {
-        LOG.debug("Stopped reading from {}", channel);
+        LOG.debug("Stopped reading");
         this.channel.config().setAutoRead(false);
     }
 
@@ -286,7 +285,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * Call this to resume reading.
      */
     protected void resumeReading() {
-        LOG.debug("Resumed reading from {}", channel);
+        LOG.debug("Resumed reading");
         this.channel.config().setAutoRead(true);
     }
 
@@ -306,7 +305,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     @Override
     public final void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        this.connected(ctx.channel());
+        this.connected(ctx);
     }
 
     /**
@@ -333,4 +332,5 @@ public abstract class ProxyConnection<I extends HttpObject> extends
             throws Exception {
         this.exceptionCaught(cause);
     }
+
 }

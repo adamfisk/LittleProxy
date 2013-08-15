@@ -28,9 +28,9 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
 
-    private static final int MAXIMUM_SERVER_THREADS = 60;
+    private static final int MAXIMUM_SERVER_THREADS = 10;
 
-    private static final int MAXIMUM_CLIENT_THREADS = 60;
+    private static final int MAXIMUM_CLIENT_THREADS = 40;
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
