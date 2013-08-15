@@ -1,6 +1,7 @@
 package org.littleshoot.proxy.newstyle;
 
 import org.slf4j.LoggerFactory;
+import org.slf4j.helpers.MessageFormatter;
 import org.slf4j.spi.LocationAwareLogger;
 
 /**
@@ -75,7 +76,12 @@ class ProxyConnectionLogger {
     }
 
     private void doLog(int level, String message, Object[] params, Throwable t) {
-        logger.log(null, fqcn, level, fullMessage(message), params, t);
+        String formattedMessage = fullMessage(message);
+        if (params != null && params.length > 0) {
+            formattedMessage = MessageFormatter.arrayFormat(formattedMessage,
+                    params).getMessage();
+        }
+        logger.log(null, fqcn, level, formattedMessage, null, t);
     }
 
     private String fullMessage(String message) {
