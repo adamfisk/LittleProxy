@@ -27,8 +27,11 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -68,6 +71,11 @@ import org.littleshoot.proxy.ProxyUtils;
 public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private static HttpResponseStatus CONNECTION_ESTABLISHED = new HttpResponseStatus(
             200, "HTTP/1.1 200 Connection established");
+
+    private static final Set<String> HOP_BY_HOP_HEADERS = new HashSet<String>(
+            Arrays.asList(new String[] { "connection", "keep-alive",
+                    "proxy-authenticate", "proxy-authorization", "te",
+                    "trailers", "upgrade" }));
 
     private final ChainProxyManager chainProxyManager;
     private final ProxyAuthenticator authenticator;
@@ -147,13 +155,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 }
             }
 
-            if (!LittleProxyConfig.isTransparent()) {
-                boolean isChained = chainProxyManager != null
-                        && chainProxyManager.getChainProxy(httpRequest) != null;
-                LOG.debug("Modifying request for proxy chaining");
-                httpRequest = ProxyUtils
-                        .copyHttpRequest(httpRequest, isChained);
-            }
+            modifyRequestHeadersToReflectProxying(httpRequest);
 
             // TODO: filter request
 
@@ -288,6 +290,19 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     // }
 
     // }
+
+    /**
+     * On disconnect of the client, disconnect all server connections.
+     */
+    @Override
+    protected void disconnected() {
+        super.disconnected();
+        for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
+                .values()) {
+            serverConnection.disconnect();
+        }
+        numberOfCurrentlyConnectedServers.set(0);
+    }
 
     protected void serverDisconnected(ProxyToServerConnection serverConnection) {
         numberOfCurrentlyConnectedServers.decrementAndGet();
@@ -626,6 +641,37 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * If and only if our proxy is not running in transparent mode, modify the
+     * request headers to reflect that it was proxied.
+     * 
+     * @param httpRequest
+     */
+    private void modifyRequestHeadersToReflectProxying(HttpRequest httpRequest) {
+        if (!LittleProxyConfig.isTransparent()) {
+            boolean isChained = chainProxyManager != null
+                    && chainProxyManager.getChainProxy(httpRequest) != null;
+            LOG.debug("Modifying request for proxy chaining");
+
+            if (!isChained) {
+                // Strip host from uri
+                String uri = httpRequest.getUri();
+                String adjustedUri = ProxyUtils.stripHost(uri);
+                LOG.info("Stripped host from uri: {}    yielding: {}", uri,
+                        adjustedUri);
+                httpRequest.setUri(adjustedUri);
+            }
+
+            HttpHeaders headers = httpRequest.headers();
+
+            removeSDCHEncoding(headers);
+            switchProxyConnectionHeader(headers);
+            stripConnectionTokens(headers);
+            stripHopByHopHeaders(headers);
+            ProxyUtils.addVia(httpRequest);
+        }
+    }
+
+    /**
+     * If and only if our proxy is not running in transparent mode, modify the
      * response headers to reflect that it was proxied.
      * 
      * @param httpResponse
@@ -634,8 +680,92 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void modifyResponseHeadersToReflectProxying(
             HttpResponse httpResponse) {
         if (!LittleProxyConfig.isTransparent()) {
-            ProxyUtils.stripHopByHopHeaders(httpResponse);
+            HttpHeaders headers = httpResponse.headers();
+            stripConnectionTokens(headers);
+            stripHopByHopHeaders(headers);
             ProxyUtils.addVia(httpResponse);
+
+            /*
+             * RFC2616 Section 14.18
+             * 
+             * A received message that does not have a Date header field MUST be
+             * assigned one by the recipient if the message will be cached by
+             * that recipient or gatewayed via a protocol which requires a Date.
+             */
+            if (!headers.contains("Date")) {
+                headers.set("Date", ProxyUtils.httpDate());
+            }
+        }
+    }
+
+    /**
+     * Remove sdch from encodings we accept since we can't decode it.
+     * 
+     * @param headers
+     *            The headers to modify
+     */
+    private void removeSDCHEncoding(HttpHeaders headers) {
+        final String ae = headers.get(HttpHeaders.Names.ACCEPT_ENCODING);
+        if (StringUtils.isNotBlank(ae)) {
+            //
+            final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
+            headers.set(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
+            LOG.debug("Removed sdch and inserted: {}", noSdch);
+        }
+    }
+
+    /**
+     * Switch the de-facto standard "Proxy-Connection" header to "Connection"
+     * when we pass it along to the remote host. This is largely undocumented
+     * but seems to be what most browsers and servers expect.
+     * 
+     * @param headers
+     *            The headers to modify
+     */
+    private void switchProxyConnectionHeader(HttpHeaders headers) {
+        final String proxyConnectionKey = "Proxy-Connection";
+        if (headers.contains(proxyConnectionKey)) {
+            final String header = headers.get(proxyConnectionKey);
+            headers.remove(proxyConnectionKey);
+            headers.set("Connection", header);
+        }
+    }
+
+    /**
+     * RFC2616 Section 14.10
+     * 
+     * HTTP/1.1 proxies MUST parse the Connection header field before a message
+     * is forwarded and, for each connection-token in this field, remove any
+     * header field(s) from the message with the same name as the
+     * connection-token.
+     * 
+     * @param headers
+     *            The headers to modify
+     */
+    private void stripConnectionTokens(HttpHeaders headers) {
+        if (headers.contains("Connection")) {
+            for (String headerValue : headers.getAll("Connection")) {
+                for (String connectionToken : headerValue.split(",")) {
+                    System.out.println("Removing: " + connectionToken);
+                    headers.remove(connectionToken);
+                }
+            }
+        }
+    }
+
+    /**
+     * Removes all headers that should not be forwarded. See RFC 2616 13.5.1
+     * End-to-end and Hop-by-hop Headers.
+     * 
+     * @param headers
+     *            The headers to modify
+     */
+    private void stripHopByHopHeaders(HttpHeaders headers) {
+        final Set<String> headerNames = headers.names();
+        for (final String name : headerNames) {
+            if (HOP_BY_HOP_HEADERS.contains(name.toLowerCase())) {
+                headers.remove(name);
+            }
         }
     }
 

@@ -1,9 +1,7 @@
 package org.littleshoot.proxy;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMessage;
@@ -19,11 +17,9 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
-import java.util.Set;
 import java.util.TimeZone;
 import java.util.regex.Pattern;
 
@@ -51,8 +47,6 @@ public class ProxyUtils {
      */
     public static final String PATTERN_RFC1036 = "EEEE, dd-MMM-yy HH:mm:ss zzz";
 
-    private static final Set<String> hopByHopHeaders = new HashSet<String>();
-
     // TODO:nir: should remove 'via' usage in case of 'transparent' proxy
     private static final String via;
     private static final String hostName;
@@ -70,19 +64,6 @@ public class ProxyUtils {
         sb.append(hostName);
         sb.append("\r\n");
         via = LittleProxyConfig.isTransparent() ? "" : sb.toString();
-
-        // hopByHopHeaders.add("proxy-connection");
-        hopByHopHeaders.add("connection");
-        hopByHopHeaders.add("keep-alive");
-        hopByHopHeaders.add("proxy-authenticate");
-        hopByHopHeaders.add("proxy-authorization");
-        hopByHopHeaders.add("te");
-        hopByHopHeaders.add("trailers");
-
-        // We pass Transfer-Encoding along in both directions, as we don't
-        // choose to modify it.
-        // hopByHopHeaders.add("transfer-encoding");
-        hopByHopHeaders.add("upgrade");
     }
 
     // Should never be constructed.
@@ -306,105 +287,6 @@ public class ProxyUtils {
     }
 
     /**
-     * Creates a copy of an original HTTP request to avoid modifying it.
-     * 
-     * @param original
-     *            The original request.
-     * @param keepProxyFormat
-     *            keep proxy-formatted URI (used in chaining)
-     * @return The request copy.
-     */
-    public static HttpRequest copyHttpRequest(final HttpRequest original,
-            boolean keepProxyFormat) {
-        final HttpMethod method = original.getMethod();
-        final String uri = original.getUri();
-        LOG.info("Raw URI before switching from proxy format: {}", uri);
-        final HttpRequest copy;
-
-        String adjustedUri = uri;
-        if (!keepProxyFormat) {
-            adjustedUri = ProxyUtils.stripHost(uri);
-        }
-
-        if (original instanceof DefaultFullHttpRequest) {
-            ByteBuf content = ((DefaultFullHttpRequest) original).content();
-            // Retain the original content so that we can pass it on inside the
-            // copy.
-            content.retain();
-            copy = new DefaultFullHttpRequest(original.getProtocolVersion(),
-                    method, adjustedUri, content);
-        } else {
-            copy = new DefaultHttpRequest(original.getProtocolVersion(),
-                    method, adjustedUri);
-        }
-
-        // We also need to follow 2616 section 13.5.1 End-to-end and
-        // Hop-by-hop Headers
-        // The following HTTP/1.1 headers are hop-by-hop headers:
-        // - Connection
-        // - Keep-Alive
-        // - Proxy-Authenticate
-        // - Proxy-Authorization
-        // - TE
-        // - Trailers
-        // - Transfer-Encoding
-        // - Upgrade
-
-        LOG.debug("Request copy method: {}", copy.getMethod());
-        copyHeaders(original, copy);
-
-        final String ae = copy.headers().get(HttpHeaders.Names.ACCEPT_ENCODING);
-        if (StringUtils.isNotBlank(ae)) {
-            // Remove sdch from encodings we accept since we can't decode it.
-            final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
-            copy.headers().set(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
-            LOG.debug("Removed sdch and inserted: {}", noSdch);
-        }
-
-        // Switch the de-facto standard "Proxy-Connection" header to
-        // "Connection" when we pass it along to the remote host. This is
-        // largely undocumented but seems to be what most browsers and servers
-        // expect.
-        final String proxyConnectionKey = "Proxy-Connection";
-        if (copy.headers().contains(proxyConnectionKey)) {
-            final String header = copy.headers().get(proxyConnectionKey);
-            copy.headers().remove(proxyConnectionKey);
-            copy.headers().set("Connection", header);
-        }
-
-        ProxyUtils.addVia(copy);
-        return copy;
-    }
-
-    /**
-     * Creates a copy of an original HTTP request to void modifying it. This
-     * variant will unconditionally strip the proxy-formatted request.
-     * 
-     * @param original
-     *            The original request.
-     * @return The request copy.
-     */
-    public static HttpRequest copyHttpRequest(final HttpRequest original) {
-        return copyHttpRequest(original, false);
-    }
-
-    /**
-     * Removes all headers that should not be forwarded. See RFC 2616 13.5.1
-     * End-to-end and Hop-by-hop Headers.
-     * 
-     * @param msg
-     *            The message to strip headers from.
-     */
-    public static void stripHopByHopHeaders(final HttpMessage msg) {
-        final Set<String> headerNames = msg.headers().names();
-        for (final String name : headerNames) {
-            if (hopByHopHeaders.contains(name.toLowerCase())) {
-                msg.headers().remove(name);
-            }
-        }
-    }
-
-    /**
      * Adds the Via header to specify that the message has passed through the
      * proxy.
      * 
@@ -504,17 +386,6 @@ public class ProxyUtils {
         final String str = val.trim();
         return StringUtils.isNotBlank(str)
                 && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
-    }
-
-    private static void copyHeaders(final HttpMessage original,
-            final HttpMessage copy) {
-        final Set<String> headerNames = original.headers().names();
-        for (final String name : headerNames) {
-            if (!hopByHopHeaders.contains(name.toLowerCase())) {
-                final List<String> values = original.headers().getAll(name);
-                copy.headers().set(name, values);
-            }
-        }
     }
 
 }
