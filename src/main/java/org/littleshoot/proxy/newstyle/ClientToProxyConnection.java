@@ -4,7 +4,6 @@ import static org.littleshoot.proxy.newstyle.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -15,6 +14,8 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
@@ -29,7 +30,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
-import org.jboss.netty.channel.DefaultChannelPipeline;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ChainProxyManager;
 import org.littleshoot.proxy.LittleProxyConfig;
@@ -123,7 +123,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             LOG.debug("Finding ProxyToServerConnection");
             currentServerConnection = this.serverConnectionsByHostAndPort
                     .get(hostAndPort);
-            if (currentServerConnection == null) {
+            if (currentServerConnection == null
+                    || currentServerConnection.is(TUNNELING)) {
                 try {
                     currentServerConnection = connect(httpRequest, hostAndPort);
                 } catch (UnknownHostException uhe) {
@@ -147,12 +148,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             LOG.debug("Writing request to ProxyToServerConnection");
             currentServerConnection.write(httpRequest);
 
-            // if (connectionToWeb instanceof TunnelingProxyToWebConnection) {
-            // return State.TUNNELING;
-            // }
-
-            return ProxyUtils.isChunked(httpRequest) ? AWAITING_CHUNK
-                    : AWAITING_INITIAL;
+            if (ProxyUtils.isCONNECT(httpRequest)) {
+                httpCONNECTrequested();
+                return NEGOTIATING_CONNECT;
+            } else if (ProxyUtils.isChunked(httpRequest)) {
+                return AWAITING_CHUNK;
+            } else {
+                return AWAITING_INITIAL;
+            }
         }
     }
 
@@ -203,7 +206,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         synchronized (serverConnection) {
             if (isSaturated()) {
-                LOG.debug("Browser connection is saturated, disabling reads from server");
+                LOG.debug("Client connection is saturated, disabling reads from server");
                 serverConnection.stopReading();
             }
         }
@@ -219,9 +222,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * While we're in the process of connecting to a server, stop reading.
      * 
-     * @param connection
+     * @param serverConnection
      */
-    protected void connectingToServer(ProxyToServerConnection connection) {
+    protected void connectingToServer(ProxyToServerConnection serverConnection) {
         this.stopReading();
         this.numberOfCurrentlyConnectingServers.incrementAndGet();
     }
@@ -229,15 +232,18 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * Once all servers have connected, resume reading.
      * 
-     * @param connection
+     * @param serverConnection
      * @param initialRequest
      *            the HttpRequest that prompted this connection
      * @param connectionSuccessful
      *            whether or not the attempt to connect was successful
      */
     protected void finishedConnectingToServer(
-            ProxyToServerConnection connection, HttpRequest initialRequest,
-            boolean connectionSuccessful) {
+            ProxyToServerConnection serverConnection,
+            HttpRequest initialRequest, boolean connectionSuccessful) {
+        LOG.debug("{} to server: {}",
+                connectionSuccessful ? "Finished connecting"
+                        : "Failed to connect", serverConnection.address);
         if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
             this.resumeReading();
         }
@@ -271,7 +277,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     // }
 
-    protected void serverDisconnected(ProxyToServerConnection connection) {
+    protected void serverDisconnected(ProxyToServerConnection serverConnection) {
         numberOfCurrentlyConnectedServers.decrementAndGet();
         disconnectClientIfNecessary();
     }
@@ -290,59 +296,53 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     @Override
     protected void exceptionCaught(Throwable cause) {
+        String message = "Caught an exception on ClientToProxyConnection";
         if (cause instanceof ClosedChannelException) {
-            LOG.error("Caught an exception on browser to proxy channel", cause);
+            LOG.error(message, cause);
         } else {
-            LOG.warn("Caught an exception on browser to proxy channel", cause);
+            LOG.warn(message, cause);
         }
         disconnect();
     }
 
     /***************************************************************************
      * HTTP CONNECT Tunneling and SSL MITM Lifecycle
+     * 
+     * The tunnel is established following these steps:
+     * 
+     * 1. Client sends CONNECT request via ClientToProxyConnection 2.
+     * ServerToProxyConnection removes HTTP-related handlers from its pipeline
+     * 3. ClientToProxyConnection removes HTTP-related handlers from its
+     * pipeline 4. ClientToProxyConnection sends Connect OK back to client
+     * 
+     * For MITM, the flow looks a little different:
+     * 
+     * 
      **************************************************************************/
 
-    /**
-     * <p>
-     * Once a tunnel is established to a server, we remove our Http encoders and
-     * decoders from the pipeline in order to start reading/writing raw buffers
-     * . After that, we let the client know that we're connected.
-     * </p>
-     * 
-     * <p>
-     * Note - we do not do this if LittleProxy is acting as MITM.
-     * </p>
-     * 
-     * <p>
-     * To avoid deadlocks inside of
-     * {@link DefaultChannelPipeline#remove(org.jboss.netty.channel.ChannelHandler)}
-     * , we do this work on the channel's event loop.
-     * </p>
-     * 
-     * @param connection
-     */
-    protected void serverTunnelEstablished(ProxyToServerConnection connection) {
-        if (!LittleProxyConfig.isUseSSLMitm()) {
-            switchToReadingRawBuffers();
-        } else {
-            respondCONNECTSuccessful();
-        }
+    private void httpCONNECTrequested() {
+        LOG.debug("CONNECT requested");
+        // stopReading();
     }
 
-    private void switchToReadingRawBuffers() {
-        ctx.executor().execute(new Runnable() {
+    protected void serverConnectionIsTunneling(
+            ProxyToServerConnection serverConnection) {
+        respondCONNECTSuccessful();
+        startTunneling().addListener(new GenericFutureListener<Future<?>>() {
             @Override
-            public void run() {
-                ChannelPipeline pipeline = ctx.pipeline();
-                pipeline.remove("encoder");
-                pipeline.remove("decoder");
-                ClientToProxyConnection.this.currentState = TUNNELING;
-                respondCONNECTSuccessful();
+            public void operationComplete(Future<?> future) throws Exception {
+                resumeReading();
+                if (future.isSuccess()) {
+                    LOG.debug("CONNECT successful");
+                } else {
+                    // TODO: handle failure to initiate tunneling
+                }
             }
         });
     }
 
     private void respondCONNECTSuccessful() {
+        LOG.debug("Responding with CONNECT successful");
         HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
                 CONNECTION_ESTABLISHED);
         response.headers().set("Connection", "Keep-Alive");
@@ -351,31 +351,52 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         write(response);
     }
 
-    /**
-     * While we're in the process of handshaking with a server, stop reading.
-     * 
-     * @param connection
-     */
-    protected void sslHandshakingWithServer(ProxyToServerConnection connection) {
-        this.stopReading();
-        this.numberOfCurrentlyConnectingServers.incrementAndGet();
-    }
-
-    /**
-     * When the SSL handshake has succeeded, handshake with the client.
-     * 
-     * @param connection
-     */
-    protected void sslHandshakeWithServerSucceeded(
-            ProxyToServerConnection connection) {
-
-    }
-
-    protected void sslHandshakeWithServerFailed(
-            ProxyToServerConnection connection) {
-
-        connection.disconnect();
-    }
+    // private Future<Channel> sslHandshakeWithClient() {
+    // LOG.info("Beginning client ssl handshake");
+    // final SslContextFactory scf = new SslContextFactory(
+    // new SelfSignedKeyStoreManager());
+    // final SSLEngine engine = scf.getServerContext().createSSLEngine();
+    // engine.setUseClientMode(false);
+    // SslHandler handler = new SslHandler(engine);
+    // channel.pipeline().addFirst("ssl", handler);
+    // Future<Channel> future = handler.handshakeFuture();
+    // future.addListener(new GenericFutureListener<Future<? super Channel>>() {
+    // @Override
+    // public void operationComplete(Future<? super Channel> future)
+    // throws Exception {
+    // LOG.info("Client to proxy SSL handshake done. Success is: {}",
+    // future.isSuccess());
+    // }
+    // });
+    // return future;
+    // }
+    //
+    // /**
+    // * While we're in the process of handshaking with a server, stop reading.
+    // *
+    // * @param connection
+    // */
+    // protected void sslHandshakingWithServer(ProxyToServerConnection
+    // connection) {
+    // this.stopReading();
+    // this.numberOfCurrentlyConnectingServers.incrementAndGet();
+    // }
+    //
+    // /**
+    // * When the SSL handshake has succeeded, handshake with the client.
+    // *
+    // * @param connection
+    // */
+    // protected void sslHandshakeWithServerSucceeded(
+    // ProxyToServerConnection connection) {
+    //
+    // }
+    //
+    // protected void sslHandshakeWithServerFailed(
+    // ProxyToServerConnection connection) {
+    //
+    // connection.disconnect();
+    // }
 
     /***************************************************************************
      * Private Implementation
@@ -467,8 +488,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
             HttpResponseStatus status, ByteBuf body, int contentLength) {
-        DefaultFullHttpResponse response = new DefaultFullHttpResponse(
-                HttpVersion.HTTP_1_1, status, body);
+        DefaultFullHttpResponse response = body != null ? new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1, status, body)
+                : new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
         if (body != null) {
             response.headers().set(HttpHeaders.Names.CONTENT_LENGTH,
                     contentLength);
@@ -537,7 +559,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * chunked. Netty turns these into pseudo-chunked responses in cases where
      * the response would otherwise fill up too much memory or where the length
      * of the response body is unknown. This is handy because it means we can
-     * start streaming response bodies back to the browser without reading the
+     * start streaming response bodies back to the client without reading the
      * entire response. The problem is that in these pseudo-cases the last chunk
      * is encoded to null, and this thwarts normal ChannelFutures from
      * propagating operationComplete events on writes to appropriate channel
@@ -594,7 +616,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /**
-     * This method takes care of closing browser to proxy and/or proxy to server
+     * This method takes care of closing client to proxy and/or proxy to server
      * connections after finishing a write.
      */
     private void closeConnectionsAfterWriteIfNecessary(
@@ -607,12 +629,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 currentHttpRequest, currentHttpResponse, httpObject);
 
         if (closeServerConnection) {
-            LOG.debug("Closing remote connection after writing to browser");
+            LOG.debug("Closing remote connection after writing to client");
             serverConnection.disconnect();
         }
 
         if (closeClientConnection) {
-            LOG.debug("Closing connection to browser after writes");
+            LOG.debug("Closing connection to client after writes");
             this.disconnect();
         }
     }
@@ -625,7 +647,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             // through to the same close semantics we'd otherwise use.
             if (httpObject != null) {
                 if (!ProxyUtils.isLastChunk(httpObject)) {
-                    LOG.debug("Not closing on middle chunk for {}", req.getUri());
+                    LOG.debug("Not closing on middle chunk for {}",
+                            req.getUri());
                     return false;
                 } else {
                     LOG.debug("Last chunk... using normal closing rules");
@@ -636,11 +659,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (!HttpHeaders.isKeepAlive(req)) {
             LOG.debug("Closing since request is not keep alive:");
             // Here we simply want to close the connection because the
-            // browser itself has requested it be closed in the request.
+            // client itself has requested it be closed in the request.
             return true;
         }
-        LOG.debug("Not closing browser/client to proxy connection "
-                + "for request: {}", req);
+        LOG.debug("Not closing client to proxy connection for request: {}", req);
         return false;
     }
 
@@ -688,14 +710,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (!HttpHeaders.isKeepAlive(req)) {
             LOG.debug("Closing since request is not keep alive:{}, ", req);
             // Here we simply want to close the connection because the
-            // browser itself has requested it be closed in the request.
+            // client itself has requested it be closed in the request.
             return true;
         }
         if (!HttpHeaders.isKeepAlive(res)) {
             LOG.debug("Closing since response is not keep alive:{}", res);
             // In this case, we want to honor the Connection: close header
             // from the remote server and close that connection. We don't
-            // necessarily want to close the connection to the browser, however
+            // necessarily want to close the connection to the client, however
             // as it's possible it has other connections open.
             return true;
         }

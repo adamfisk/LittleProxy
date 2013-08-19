@@ -15,19 +15,19 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 import java.net.InetSocketAddress;
 import java.util.LinkedList;
 import java.util.Queue;
 
-import org.littleshoot.proxy.LittleProxyConfig;
 import org.littleshoot.proxy.ProxyUtils;
 
 /**
@@ -37,7 +37,7 @@ import org.littleshoot.proxy.ProxyUtils;
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private final ClientToProxyConnection clientToProxyConnection;
-    private final InetSocketAddress address;
+    protected final InetSocketAddress address;
 
     /**
      * While we're in the process of connecting, it's possible that we'll
@@ -108,12 +108,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     public void write(Object msg) {
         LOG.debug("Requested write of {}", msg);
-        if (DISCONNECTED == currentState) {
+        if (is(DISCONNECTED)) {
             // We're disconnected - connect and write the message
             connectAndWrite((HttpRequest) msg);
         } else {
             synchronized (connectLock) {
-                if (CONNECTING == currentState) {
+                if (is(CONNECTING)) {
                     // We're in the processing of connecting, wait for it to
                     // finish
                     try {
@@ -124,7 +124,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 }
             }
             LOG.debug("Using existing connection to: {}", address);
-            // Go ahead and try writing
             super.write(msg);
         }
     };
@@ -132,6 +131,19 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void writeHttp(HttpObject httpObject) {
         if (httpObject instanceof HttpRequest) {
+            if (ProxyUtils.isCONNECT(httpObject)) {
+                LOG.debug("Received CONNECT request, initiating TUNNELING mode");
+                startTunneling().addListener(
+                        new GenericFutureListener<Future<?>>() {
+                            public void operationComplete(Future<?> future)
+                                    throws Exception {
+                                clientToProxyConnection
+                                        .serverConnectionIsTunneling(ProxyToServerConnection.this);
+                            };
+                        });
+                return;
+            }
+
             // Remember that we issued this HttpRequest for later
             issuedRequests.add((HttpRequest) httpObject);
         }
@@ -144,37 +156,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void connected(ChannelHandlerContext ctx) {
-        boolean wasHttpCONNECT = initialRequest.getMethod() == HttpMethod.CONNECT;
+        clientToProxyConnection.finishedConnectingToServer(this,
+                initialRequest, true);
 
         synchronized (connectLock) {
             super.connected(ctx);
-            if (wasHttpCONNECT) {
-                if (!LittleProxyConfig.isUseSSLMitm()) {
-
-                }
-            } else {
-                // This is just a regular connection, go ahead and write the
-                // initial request
-                super.write(initialRequest);
-            }
-
+            write(initialRequest);
             // Once we've finished recording our connection and written our
             // initial request, we can notify anyone who is waiting on the
             // connection that it's okay to proceed.
             connectLock.notifyAll();
-        }
-
-        clientToProxyConnection.finishedConnectingToServer(this,
-                initialRequest, false);
-
-        if (wasHttpCONNECT) {
-            if (!LittleProxyConfig.isUseSSLMitm()) {
-                // Initiate tunneling
-                this.currentState = TUNNELING;
-                clientToProxyConnection.serverTunnelEstablished(this);
-            } else {
-                // TODO: handle MITM
-            }
         }
     }
 
@@ -307,14 +298,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // specified timeouts in seconds. If we're sending data, the
         // write timeout should be reasonably low. If we're reading
         // data, however, the read timeout is more relevant.
-        final HttpMethod method = httpRequest.getMethod();
 
         // Could be any protocol if it's connect, so hard to say what the
         // timeout should be, if any.
-        if (!method.equals(HttpMethod.CONNECT)) {
+        if (!ProxyUtils.isCONNECT(httpRequest)) {
             final int readTimeoutSeconds;
             final int writeTimeoutSeconds;
-            if (method.equals(HttpMethod.POST) || method.equals(HttpMethod.PUT)) {
+            if (ProxyUtils.isPOST(httpRequest) || ProxyUtils.isPUT(httpRequest)) {
                 readTimeoutSeconds = 0;
                 writeTimeoutSeconds = 70;
             } else {

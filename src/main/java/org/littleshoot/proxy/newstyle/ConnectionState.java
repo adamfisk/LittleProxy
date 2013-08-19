@@ -5,6 +5,8 @@ public enum ConnectionState {
     HANDSHAKING, // In the middle of doing an SSL handshake
     AWAITING_PROXY_AUTHENTICATION, // Connected but waiting for proxy
     // authentication,
+    NEGOTIATING_CONNECT, // In the process of negotiating an HTTP CONNECT from
+                         // the client
     AWAITING_INITIAL, // Connected and awaiting initial message (e.g.
                       // HttpRequest or HttpResponse)
     AWAITING_CHUNK, // Connected and awaiting HttpContent chunk

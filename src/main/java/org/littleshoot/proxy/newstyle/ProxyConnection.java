@@ -5,6 +5,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
@@ -126,13 +127,16 @@ public abstract class ProxyConnection<I extends HttpObject> extends
             } else {
                 // Anything that's not an HttpRequest that came in while we're
                 // pending authentication gets dropped on the floor. This can
-                // happen if the browser already sent us some chunks (e.g. from
-                // a POST) after an initial request that turned out to require
-                // authentication.
+                // happen if the connected host already sent us some chunks
+                // (e.g. from a POST) after an initial request that turned out
+                // to require authentication.
             }
             break;
         case CONNECTING:
             LOG.warn("Attempted to read from connection that's in the process of connecting.  This shouldn't happen.");
+            break;
+        case NEGOTIATING_CONNECT:
+            LOG.warn("Attempted to read from connection that's in the process of negotiating an HTTP CONNECT.  This shouldn't happen.");
             break;
         case HANDSHAKING:
             LOG.warn(
@@ -141,7 +145,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
             break;
         case DISCONNECT_REQUESTED:
         case DISCONNECTED:
-            LOG.info("Ignoring message since the connection to the browser is closed or about to close");
+            LOG.info("Ignoring message since the connection is closed or about to close");
             break;
         }
     }
@@ -220,6 +224,36 @@ public abstract class ProxyConnection<I extends HttpObject> extends
         channel.writeAndFlush(buf);
     }
 
+    /**
+     * <p>
+     * This method enables tunneling on this connection by dropping the HTTP
+     * related encoders and decoders, as well as idle timers. This method also
+     * resumes reading on the underlying channel.
+     * </p>
+     * 
+     * <p>
+     * Note - the work is done on the context's executor because
+     * {@link ChannelPipeline#remove(String)} can deadlock if called directly.
+     * </p>
+     * 
+     * @return a Future that tells us when tunneling has been enabled
+     */
+    protected Future startTunneling() {
+        return ctx.executor().submit(new Runnable() {
+            @Override
+            public void run() {
+                ChannelPipeline pipeline = ctx.pipeline();
+                if (pipeline.get("encoder") != null) {
+                    pipeline.remove("encoder");
+                }
+                if (pipeline.get("decoder") != null) {
+                    pipeline.remove("decoder");
+                }
+                ProxyConnection.this.currentState = TUNNELING;
+            }
+        });
+    }
+
     /***************************************************************************
      * Lifecycle
      **************************************************************************/
@@ -271,6 +305,16 @@ public abstract class ProxyConnection<I extends HttpObject> extends
                         }
                     }
                 });
+    }
+
+    /**
+     * Utility for checking current state
+     * 
+     * @param state
+     * @return
+     */
+    protected boolean is(ConnectionState state) {
+        return currentState == state;
     }
 
     /**

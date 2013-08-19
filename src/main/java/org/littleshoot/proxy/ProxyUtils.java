@@ -481,8 +481,22 @@ public class ProxyUtils {
         return -1;
     }
 
-    public static boolean isCONNECT(HttpRequest request) {
-        return HttpMethod.CONNECT.equals(request.getMethod());
+    public static boolean isCONNECT(HttpObject httpObject) {
+        return httpObject instanceof HttpRequest
+                && HttpMethod.CONNECT.equals(((HttpRequest) httpObject)
+                        .getMethod());
+    }
+
+    public static boolean isPOST(HttpObject httpObject) {
+        return httpObject instanceof HttpRequest
+                && HttpMethod.POST.equals(((HttpRequest) httpObject)
+                        .getMethod());
+    }
+
+    public static boolean isPUT(HttpObject httpObject) {
+        return httpObject instanceof HttpRequest
+                && HttpMethod.PUT
+                        .equals(((HttpRequest) httpObject).getMethod());
     }
 
     private static boolean checkTrueOrFalse(final String val,
