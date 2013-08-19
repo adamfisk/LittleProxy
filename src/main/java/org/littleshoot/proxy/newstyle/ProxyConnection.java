@@ -13,11 +13,17 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+
 import org.littleshoot.proxy.ProxyUtils;
+import org.littleshoot.proxy.SelfSignedKeyStoreManager;
+import org.littleshoot.proxy.SslContextFactory;
 
 /**
  * <p>
@@ -257,12 +263,49 @@ public abstract class ProxyConnection<I extends HttpObject> extends
         });
     }
 
+    /**
+     * Enables SSL on this connection as a client.
+     * 
+     * @return a future for when the SSL handshake is complete
+     */
+    protected Future<Channel> enableSSLAsClient() {
+        LOG.debug("Enabling SSL as Client");
+        return enableSSL(true);
+    }
+
+    /**
+     * Enables SSL on this connection as a server.
+     * 
+     * @return a future for when the SSL handshake is complete
+     */
+    protected Future<Channel> enableSSLAsServer() {
+        LOG.debug("Enabling SSL as Server");
+        Future<Channel> future = enableSSL(false);
+        resumeReading();
+        return future;
+    }
+
+    private Future<Channel> enableSSL(boolean isClient) {
+        LOG.debug("Enabling SSL");
+        ChannelPipeline pipeline = ctx.pipeline();
+        SslContextFactory scf = new SslContextFactory(
+                new SelfSignedKeyStoreManager());
+        SSLContext context = isClient ? scf.getClientContext() : scf
+                .getServerContext();
+        SSLEngine engine = context.createSSLEngine();
+        engine.setUseClientMode(isClient);
+        SslHandler handler = new SslHandler(engine);
+        pipeline.addFirst("ssl", handler);
+        return handler.handshakeFuture();
+    }
+
     /***************************************************************************
      * Lifecycle
      **************************************************************************/
 
     protected void connected(ChannelHandlerContext ctx) {
-        this.currentState = AWAITING_INITIAL;
+        this.currentState = is(CONNECTING) ? AWAITING_INITIAL
+                : this.currentState;
         this.ctx = ctx;
         this.channel = ctx.channel();
         this.allChannels.add(channel);

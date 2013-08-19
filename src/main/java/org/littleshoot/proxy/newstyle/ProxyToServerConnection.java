@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Queue;
 
 import org.littleshoot.proxy.HttpFilter;
+import org.littleshoot.proxy.LittleProxyConfig;
 import org.littleshoot.proxy.ProxyUtils;
 
 /**
@@ -164,19 +165,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void writeHttp(HttpObject httpObject) {
         if (httpObject instanceof HttpRequest) {
-            if (ProxyUtils.isCONNECT(httpObject)) {
-                LOG.debug("Received CONNECT request, initiating TUNNELING mode");
-                startTunneling().addListener(
-                        new GenericFutureListener<Future<?>>() {
-                            public void operationComplete(Future<?> future)
-                                    throws Exception {
-                                clientToProxyConnection
-                                        .serverConnectionIsTunneling(ProxyToServerConnection.this);
-                            };
-                        });
-                return;
-            }
-
             // Remember that we issued this HttpRequest for later
             issuedRequests.add((HttpRequest) httpObject);
         }
@@ -189,16 +177,17 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void connected(ChannelHandlerContext ctx) {
-        clientToProxyConnection.finishedConnectingToServer(this,
-                initialRequest, true);
+        this.ctx = ctx;
 
-        synchronized (connectLock) {
-            super.connected(ctx);
-            write(initialRequest);
-            // Once we've finished recording our connection and written our
-            // initial request, we can notify anyone who is waiting on the
-            // connection that it's okay to proceed.
-            connectLock.notifyAll();
+        if (ProxyUtils.isCONNECT(initialRequest)) {
+            LOG.debug("Handling CONNECT request");
+            if (LittleProxyConfig.isUseSSLMitm()) {
+                startMITM();
+            } else {
+                startTunneling();
+            }
+        } else {
+            finishConnecting(true);
         }
     }
 
@@ -312,8 +301,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 if (!future.isSuccess()) {
                     LOG.debug("Could not connect to " + address, future.cause());
                     clientToProxyConnection
-                            .finishedConnectingToServer(
-                                    ProxyToServerConnection.this,
+                            .serverConnected(ProxyToServerConnection.this,
                                     initialRequest, false);
                 }
 
@@ -328,7 +316,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         // We decompress and aggregate chunks for responses from
         // sites we're applying filtering rules to.
-        if (shouldFilterResponseTo(httpRequest)) {
+        if (!ProxyUtils.isCONNECT(httpRequest)
+                && shouldFilterResponseTo(httpRequest)) {
             pipeline.addLast("inflater", new HttpContentDecompressor());
             pipeline.addLast("aggregator", new HttpObjectAggregator(
                     this.responseFilter.getMaxResponseSize()));// 2048576));
@@ -358,6 +347,52 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
 
         pipeline.addLast("handler", this);
+    }
+
+    protected Future<?> startTunneling() {
+        LOG.debug("Preparing to tunnel");
+        return super.startTunneling().addListener(
+                new GenericFutureListener<Future<?>>() {
+                    public void operationComplete(Future<?> future)
+                            throws Exception {
+                        // TODO: handle CONNECT to chained proxy
+                        finishConnecting(false);
+                    };
+                });
+    }
+
+    private void startMITM() {
+        LOG.debug("Preparing to act as Man-in-the-Middle");
+        enableSSLAsClient().addListener(
+                new GenericFutureListener<Future<? super Channel>>() {
+                    @Override
+                    public void operationComplete(Future<? super Channel> future)
+                            throws Exception {
+                        LOG.debug("Proxy to server SSL handshake done. Success is: "
+                                + future.isSuccess());
+                        finishConnecting(false);
+                    }
+                });
+    }
+
+    private void finishConnecting(boolean shouldWriteInitialRequest) {
+        clientToProxyConnection.serverConnected(this, initialRequest, true);
+
+        synchronized (connectLock) {
+            super.connected(ctx);
+
+            if (shouldWriteInitialRequest) {
+                LOG.debug("Writing initial request");
+                write(initialRequest);
+            } else {
+                LOG.debug("Dropping initial request");
+            }
+
+            // Once we've finished recording our connection and written our
+            // initial request, we can notify anyone who is waiting on the
+            // connection that it's okay to proceed.
+            connectLock.notifyAll();
+        }
     }
 
     private void filterResponseIfNecessary(HttpResponse httpResponse) {
