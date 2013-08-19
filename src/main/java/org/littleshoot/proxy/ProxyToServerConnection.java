@@ -1,6 +1,6 @@
-package org.littleshoot.proxy.newstyle;
+package org.littleshoot.proxy;
 
-import static org.littleshoot.proxy.newstyle.ConnectionState.*;
+import static org.littleshoot.proxy.ConnectionState.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -31,10 +31,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
-
-import org.littleshoot.proxy.HttpFilter;
-import org.littleshoot.proxy.LittleProxyConfig;
-import org.littleshoot.proxy.ProxyUtils;
 
 /**
  * Represents a connection from our proxy to a server on the web.
@@ -180,12 +176,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         this.ctx = ctx;
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
-            LOG.debug("Handling CONNECT request");
-            if (LittleProxyConfig.isUseSSLMitm()) {
-                startMITM();
-            } else {
-                startTunneling();
-            }
+            startCONNECT();
         } else {
             finishConnecting(true);
         }
@@ -349,9 +340,57 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("handler", this);
     }
 
-    protected Future<?> startTunneling() {
+    /**
+     * <p>
+     * Starts the flow for establishing a CONNECT tunnel. The handling is
+     * different depending on whether we're doing a simple tunnel or acting as
+     * man-in-the-middle (MITM).
+     * </p>
+     * 
+     * <p>
+     * With a simple tunnel, the proxy simply passes bytes directly between
+     * client and server. With an MITM tunnel, the proxy terminates an SSL
+     * connection from the client and another to the server. Every HTTP message
+     * that is sent between the two is independently handled and forwarded,
+     * allowing the proxy to inspect and/or modify those messages.
+     * </p>
+     * 
+     * <p>
+     * Establishing a tunnel is considered part of the overall connection
+     * establishment flow, and this connection will remain in the
+     * {@link ConnectionState#CONNECTING} state until the tunnel has been
+     * established.
+     * </p>
+     * 
+     * <p>
+     * See {@link ClientToProxyConnection#finishCONNECT()} for the end of this
+     * flow.
+     * </p>
+     */
+    private void startCONNECT() {
+        LOG.debug("Handling CONNECT request");
+        if (LittleProxyConfig.isUseSSLMitm()) {
+            startCONNECTWithMITM();
+        } else {
+            startCONNECTWithTunneling();
+        }
+    }
+
+    /**
+     * <p>
+     * Start the flow for establishing a simple CONNECT tunnel.
+     * </p>
+     * 
+     * <p>
+     * See {@link ClientToProxyConnection#finishCONNECTWithTunneling()} for the
+     * end of this flow.
+     * </p>
+     * 
+     * @return
+     */
+    private Future<?> startCONNECTWithTunneling() {
         LOG.debug("Preparing to tunnel");
-        return super.startTunneling().addListener(
+        return startTunneling().addListener(
                 new GenericFutureListener<Future<?>>() {
                     public void operationComplete(Future<?> future)
                             throws Exception {
@@ -361,7 +400,19 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 });
     }
 
-    private void startMITM() {
+    /**
+     * <p>
+     * Start the flow for establishing a man-in-the-middle tunnel.
+     * </p>
+     * 
+     * <p>
+     * See {@link ClientToProxyConnection#finishCONNECTWithMITM()} for the end
+     * of this flow.
+     * </p>
+     * 
+     * @return
+     */
+    private void startCONNECTWithMITM() {
         LOG.debug("Preparing to act as Man-in-the-Middle");
         enableSSLAsClient().addListener(
                 new GenericFutureListener<Future<? super Channel>>() {
@@ -375,13 +426,23 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 });
     }
 
-    private void finishConnecting(boolean shouldWriteInitialRequest) {
+    /**
+     * <p>
+     * Do all the stuff that needs to be done after connecting/establishing a
+     * tunnel.
+     * </p>
+     * 
+     * @param shouldForwardInitialRequest
+     *            whether or not we should forward the initial HttpRequest to
+     *            the server after the connection has been established.
+     */
+    private void finishConnecting(boolean shouldForwardInitialRequest) {
         clientToProxyConnection.serverConnected(this, initialRequest, true);
 
         synchronized (connectLock) {
             super.connected(ctx);
 
-            if (shouldWriteInitialRequest) {
+            if (shouldForwardInitialRequest) {
                 LOG.debug("Writing initial request");
                 write(initialRequest);
             } else {

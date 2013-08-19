@@ -1,4 +1,4 @@
-package org.littleshoot.proxy.newstyle;
+package org.littleshoot.proxy;
 
 public enum ConnectionState {
     CONNECTING, // Connection attempting to connect

@@ -1,6 +1,6 @@
-package org.littleshoot.proxy.newstyle;
+package org.littleshoot.proxy;
 
-import static org.littleshoot.proxy.newstyle.ConnectionState.*;
+import static org.littleshoot.proxy.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -42,15 +42,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
-import org.littleshoot.proxy.ChainProxyManager;
-import org.littleshoot.proxy.HandshakeHandler;
-import org.littleshoot.proxy.HandshakeHandlerFactory;
-import org.littleshoot.proxy.HttpFilter;
-import org.littleshoot.proxy.HttpRequestFilter;
-import org.littleshoot.proxy.HttpResponseFilters;
-import org.littleshoot.proxy.LittleProxyConfig;
-import org.littleshoot.proxy.ProxyAuthenticator;
-import org.littleshoot.proxy.ProxyUtils;
 
 /**
  * <p>
@@ -272,73 +263,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         : "Failed to connect", serverConnection.address);
         if (connectionSuccessful) {
             if (ProxyUtils.isCONNECT(initialRequest)) {
-                LOG.debug("Handling CONNECT request");
-                respondCONNECTSuccessful().addListener(
-                        new ChannelFutureListener() {
-                            @Override
-                            public void operationComplete(ChannelFuture future)
-                                    throws Exception {
-                                if (LittleProxyConfig.isUseSSLMitm()) {
-                                    finishMITM();
-                                } else {
-                                    finishTunneling();
-                                }
-                            }
-                        });
+                finishCONNECT();
             } else {
-                finishServerConnection(connectionSuccessful);
+                recordServerConnection(connectionSuccessful);
             }
         } else {
-            finishServerConnection(false);
+            recordServerConnection(false);
         }
-    }
-
-    private void finishServerConnection(boolean connectionSuccessful) {
-        if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
-            resumeReading();
-        }
-        if (connectionSuccessful) {
-            numberOfCurrentlyConnectedServers.incrementAndGet();
-        }
-    }
-
-    private void finishTunneling() {
-        LOG.debug("Finishing tunneling");
-        startTunneling().addListener(new GenericFutureListener<Future<?>>() {
-            @Override
-            public void operationComplete(Future<?> future) throws Exception {
-                finishServerConnection(future.isSuccess());
-                if (future.isSuccess()) {
-                    LOG.debug("Tunnel Established");
-                }
-            }
-        });
-    }
-
-    private void finishMITM() {
-        LOG.debug("Finishing SSL MITM");
-        enableSSLAsServer().addListener(
-                new GenericFutureListener<Future<? super Channel>>() {
-                    @Override
-                    public void operationComplete(Future<? super Channel> future)
-                            throws Exception {
-                        ClientToProxyConnection.this.currentState = AWAITING_INITIAL;
-                        finishServerConnection(future.isSuccess());
-                        if (future.isSuccess()) {
-                            LOG.debug("SSL MITM Established");
-                        }
-                    }
-                });
-    }
-
-    private ChannelFuture respondCONNECTSuccessful() {
-        LOG.debug("Responding with CONNECT successful");
-        HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
-                CONNECTION_ESTABLISHED);
-        response.headers().set("Connection", "Keep-Alive");
-        response.headers().set("Proxy-Connection", "Keep-Alive");
-        ProxyUtils.addVia(response);
-        return ctx.channel().writeAndFlush(response);
     }
 
     // protected void connectionToServerFailed(HttpRequest initialRequest) {
@@ -406,89 +337,106 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         disconnect();
     }
 
-    //@formatter:off
-    /***************************************************************************
-     * HTTP CONNECT Tunneling and SSL MITM Lifecycle
-     * 
-     * The tunnel is established following these steps:
-     * 
-     * 1. ClientToProxyConnection stops reading data from client
-     * 2. Client sends CONNECT request via ClientToProxyConnection
-     * 3. ServerToProxyConnection removes HTTP-related handlers from its
-     *    pipeline
-     * 4. ClientToProxyConnection sends a 200 Connection OK to the client
-     * 5. ClientToProxyConnection removes HTTP-related handlers from its
-     *    pipeline
-     * 6. ClientToProxyConnection resumes reading data from client
-     * 
-     * For MITM, the flow looks a little different:
-     * 
-     * 1. ClientToProxyConnection stops reading data from client
-     * 2. Client sends CONNECT request via ClientToProxyConnection
-     * 3. ServerToProxyConnection removes HTTP-related handlers from its
-     *    pipeline
-     * 4. ServerToProxyConnection enables client-mode SSL and handshakes with
-     *    the server
-     * 5. ClientToProxyConnection sends a 200 Connection OK to the client
-     * 6. ClientToProxyConnection enables server-mode SSL and waits for client
-     *    to handshake with it
-     * 7. ClientToProxyConnection removes HTTP-related handlers from its
-     *    pipeline
-     * 8. ClientToProxyConnection resumes reading data from client
-     * 
-     **************************************************************************/
-    //@formatter:on
-
-    // private Future<Channel> sslHandshakeWithClient() {
-    // LOG.info("Beginning client ssl handshake");
-    // final SslContextFactory scf = new SslContextFactory(
-    // new SelfSignedKeyStoreManager());
-    // final SSLEngine engine = scf.getServerContext().createSSLEngine();
-    // engine.setUseClientMode(false);
-    // SslHandler handler = new SslHandler(engine);
-    // channel.pipeline().addFirst("ssl", handler);
-    // Future<Channel> future = handler.handshakeFuture();
-    // future.addListener(new GenericFutureListener<Future<? super Channel>>() {
-    // @Override
-    // public void operationComplete(Future<? super Channel> future)
-    // throws Exception {
-    // LOG.info("Client to proxy SSL handshake done. Success is: {}",
-    // future.isSuccess());
-    // }
-    // });
-    // return future;
-    // }
-    //
-    // /**
-    // * While we're in the process of handshaking with a server, stop reading.
-    // *
-    // * @param connection
-    // */
-    // protected void sslHandshakingWithServer(ProxyToServerConnection
-    // connection) {
-    // this.stopReading();
-    // this.numberOfCurrentlyConnectingServers.incrementAndGet();
-    // }
-    //
-    // /**
-    // * When the SSL handshake has succeeded, handshake with the client.
-    // *
-    // * @param connection
-    // */
-    // protected void sslHandshakeWithServerSucceeded(
-    // ProxyToServerConnection connection) {
-    //
-    // }
-    //
-    // protected void sslHandshakeWithServerFailed(
-    // ProxyToServerConnection connection) {
-    //
-    // connection.disconnect();
-    // }
-
     /***************************************************************************
      * Connection Management
      **************************************************************************/
+
+    private ChannelFuture respondCONNECTSuccessful() {
+        LOG.debug("Responding with CONNECT successful");
+        HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
+                CONNECTION_ESTABLISHED);
+        response.headers().set("Connection", "Keep-Alive");
+        response.headers().set("Proxy-Connection", "Keep-Alive");
+        ProxyUtils.addVia(response);
+        return ctx.channel().writeAndFlush(response);
+    }
+
+    /**
+     * <p>
+     * Ends the flow for establishing a CONNECT tunnel. The handling is
+     * different depending on whether we're doing a simple tunnel or acting as
+     * MITM.
+     * </p>
+     * 
+     * <p>
+     * See {@link ProxyToServerConnection#startCONNECT()} for the beginning of
+     * this flow.
+     * </p>
+     */
+    private void finishCONNECT() {
+        LOG.debug("Handling CONNECT request");
+        respondCONNECTSuccessful().addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future)
+                    throws Exception {
+                if (LittleProxyConfig.isUseSSLMitm()) {
+                    finishCONNECTWithMITM();
+                } else {
+                    finishCONNECTWithTunneling();
+                }
+            }
+        });
+    }
+
+    /**
+     * <p>
+     * Ends the flow for establishing a simple CONNECT tunnel.
+     * </p>
+     * 
+     * <p>
+     * See {@link ProxyToServerConnection#startCONNECTWithTunneling()} for the
+     * beginning of this flow.
+     * </p>
+     */
+    private void finishCONNECTWithTunneling() {
+        LOG.debug("Finishing tunneling");
+        startTunneling().addListener(new GenericFutureListener<Future<?>>() {
+            @Override
+            public void operationComplete(Future<?> future) throws Exception {
+                recordServerConnection(future.isSuccess());
+                if (future.isSuccess()) {
+                    LOG.debug("Tunnel Established");
+                }
+            }
+        });
+    }
+
+    /**
+     * <p>
+     * Ends the flow for establishing a man-in-the-middle tunnel.
+     * </p>
+     * 
+     * <p>
+     * See {@link ProxyToServerConnection#startCONNECTWithMITM()} for the
+     * beginning of this flow.
+     * </p>
+     */
+    private void finishCONNECTWithMITM() {
+        LOG.debug("Finishing SSL MITM");
+        enableSSLAsServer().addListener(
+                new GenericFutureListener<Future<? super Channel>>() {
+                    @Override
+                    public void operationComplete(Future<? super Channel> future)
+                            throws Exception {
+                        ClientToProxyConnection.this.currentState = AWAITING_INITIAL;
+                        recordServerConnection(future.isSuccess());
+                        if (future.isSuccess()) {
+                            LOG.debug("SSL MITM Established");
+                        }
+                    }
+                });
+    }
+
+    private void recordServerConnection(boolean connectionSuccessful) {
+        if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
+            resumeReading();
+        }
+        if (connectionSuccessful) {
+            numberOfCurrentlyConnectedServers.incrementAndGet();
+        } else {
+            // TODO: handle failed connection
+        }
+    }
 
     private void initChannelPipeline(ChannelPipeline pipeline) {
         LOG.debug("Configuring ChannelPipeline");

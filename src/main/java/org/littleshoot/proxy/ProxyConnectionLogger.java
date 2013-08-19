@@ -1,4 +1,4 @@
-package org.littleshoot.proxy.newstyle;
+package org.littleshoot.proxy;
 
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;

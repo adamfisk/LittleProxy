@@ -1,6 +1,6 @@
-package org.littleshoot.proxy.newstyle;
+package org.littleshoot.proxy;
 
-import static org.littleshoot.proxy.newstyle.ConnectionState.*;
+import static org.littleshoot.proxy.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -20,10 +20,6 @@ import io.netty.util.concurrent.GenericFutureListener;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
-
-import org.littleshoot.proxy.ProxyUtils;
-import org.littleshoot.proxy.SelfSignedKeyStoreManager;
-import org.littleshoot.proxy.SslContextFactory;
 
 /**
  * <p>
