@@ -1,18 +1,8 @@
 package org.littleshoot.proxy;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
-import org.eclipse.jetty.server.Server;
+import static org.junit.Assert.*;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -21,7 +11,17 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.assertEquals;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
+import org.eclipse.jetty.server.Server;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HttpFilterTest {
 
@@ -50,7 +50,7 @@ public class HttpFilterTest {
                 return 1024 * 1024;
             }
 
-            public HttpResponse filterResponse(final HttpRequest httpRequest,
+            public void filterResponse(final HttpRequest httpRequest,
                 final HttpResponse response) {
                 filterCalls.incrementAndGet();
                 if (httpRequest != null) {
@@ -58,7 +58,6 @@ public class HttpFilterTest {
                 } else {
                     log.error("REQUEST IS NULL!!");
                 }
-                return response;
             }
         };
         final HttpResponseFilters responseFilters = 

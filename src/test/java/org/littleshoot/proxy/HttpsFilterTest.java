@@ -68,14 +68,13 @@ public class HttpsFilterTest {
                 return 1024 * 1024;
             }
 
-            public HttpResponse filterResponse(final HttpRequest httpRequest, final HttpResponse response) {
+            public void filterResponse(final HttpRequest httpRequest, final HttpResponse response) {
                 filterCalls.incrementAndGet();
                 if (httpRequest != null) {
                     associatedRequests.add(httpRequest);
                 } else {
                     log.error("REQUEST IS NULL!!");
                 }
-                return response;
             }
         };
 

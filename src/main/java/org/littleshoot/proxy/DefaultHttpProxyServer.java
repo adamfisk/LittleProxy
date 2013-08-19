@@ -260,7 +260,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             protected void initChannel(Channel ch) throws Exception {
                 new ClientToProxyConnection(clientWorker, allChannels,
                         chainProxyManager, proxyAuthenticator,
-                        handshakeHandlerFactory, ch.pipeline());
+                        handshakeHandlerFactory, requestFilter,
+                        responseFilters, ch.pipeline());
             };
         };
         serverBootstrap.channel(NioServerSocketChannel.class);

@@ -9,12 +9,12 @@ import io.netty.handler.codec.http.HttpResponse;
 public interface HttpResponseFilter {
 
     /**
-     * Filters the response. The implementor can of course choose to return the
-     * response unmodified.
+     * Filters the response, modifying it in place.
      * 
-     * @param request The request associated with the response.
-     * @param response The response to process.
-     * @return The processed response, possibly modified.
+     * @param request
+     *            The request associated with the response.
+     * @param response
+     *            The response to process.
      */
-    HttpResponse filterResponse(HttpRequest request, HttpResponse response);
+    void filterResponse(HttpRequest request, HttpResponse response);
 }

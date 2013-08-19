@@ -7,7 +7,9 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
+import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObject;
@@ -41,6 +43,9 @@ import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ChainProxyManager;
 import org.littleshoot.proxy.HandshakeHandler;
 import org.littleshoot.proxy.HandshakeHandlerFactory;
+import org.littleshoot.proxy.HttpFilter;
+import org.littleshoot.proxy.HttpRequestFilter;
+import org.littleshoot.proxy.HttpResponseFilters;
 import org.littleshoot.proxy.LittleProxyConfig;
 import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.ProxyUtils;
@@ -80,6 +85,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private final ChainProxyManager chainProxyManager;
     private final ProxyAuthenticator authenticator;
     private final HandshakeHandlerFactory handshakeHandlerFactory;
+    private final HttpRequestFilter requestFilter;
+    private final HttpResponseFilters responseFilters;
 
     /**
      * Keep track of all ProxyToServerConnections by host+port.
@@ -109,11 +116,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             ChannelGroup channelGroup, ChainProxyManager chainProxyManager,
             ProxyAuthenticator authenticator,
             HandshakeHandlerFactory handshakeHandlerFactory,
-            ChannelPipeline pipeline) {
+            HttpRequestFilter requestFilter,
+            HttpResponseFilters responseFilters, ChannelPipeline pipeline) {
         super(AWAITING_INITIAL, proxyToServerWorkerPool, channelGroup);
         this.chainProxyManager = chainProxyManager;
         this.authenticator = authenticator;
         this.handshakeHandlerFactory = handshakeHandlerFactory;
+        this.requestFilter = requestFilter;
+        this.responseFilters = responseFilters;
         initChannelPipeline(pipeline);
         LOG.debug("Created ClientToProxyConnection");
     }
@@ -155,12 +165,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 }
             }
 
+            HttpRequest originalRequest = copy(httpRequest);
             modifyRequestHeadersToReflectProxying(httpRequest);
+            filterRequestIfNecessary(httpRequest);
 
             // TODO: filter request
 
             LOG.debug("Writing request to ProxyToServerConnection");
-            currentServerConnection.write(httpRequest);
+            currentServerConnection.write(httpRequest, originalRequest);
 
             if (ProxyUtils.isCONNECT(httpRequest)) {
                 httpCONNECTrequested();
@@ -429,7 +441,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     // }
 
     /***************************************************************************
-     * Private Implementation
+     * Connection Management
      **************************************************************************/
 
     private void initChannelPipeline(ChannelPipeline pipeline) {
@@ -455,11 +467,140 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             final String hostAndPort) throws UnknownHostException {
         LOG.debug("Establishing new ProxyToServerConnection");
         InetSocketAddress address = addressFor(hostAndPort);
+        HttpFilter responseFilter = null;
+        if (responseFilters != null) {
+            responseFilter = responseFilters.getFilter(hostAndPort);
+        }
         ProxyToServerConnection connection = new ProxyToServerConnection(
-                proxyToServerWorkerPool, allChannels, this, address);
+                proxyToServerWorkerPool, allChannels, this, address,
+                responseFilter);
         serverConnectionsByHostAndPort.put(hostAndPort, connection);
         return connection;
     }
+
+    /**
+     * If all server connections have been disconnected, disconnect the client.
+     */
+    private void disconnectClientIfNecessary() {
+        if (numberOfCurrentlyConnectedServers.get() == 0) {
+            // All servers are disconnected, disconnect from client
+            disconnect();
+        }
+    }
+
+    /**
+     * This method takes care of closing client to proxy and/or proxy to server
+     * connections after finishing a write.
+     */
+    private void closeConnectionsAfterWriteIfNecessary(
+            final ProxyToServerConnection serverConnection,
+            HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
+            HttpObject httpObject) {
+        final boolean closeServerConnection = shouldCloseServerConnection(
+                currentHttpRequest, currentHttpResponse, httpObject);
+        final boolean closeClientConnection = shouldCloseClientConnection(
+                currentHttpRequest, currentHttpResponse, httpObject);
+
+        if (closeServerConnection) {
+            LOG.debug("Closing remote connection after writing to client");
+            serverConnection.disconnect();
+        }
+
+        if (closeClientConnection) {
+            LOG.debug("Closing connection to client after writes");
+            disconnect();
+        }
+    }
+
+    private boolean shouldCloseClientConnection(final HttpRequest req,
+            final HttpResponse res, final HttpObject httpObject) {
+        if (ProxyUtils.isChunked(res)) {
+            // If the response is chunked, we want to return false unless it's
+            // the last chunk. If it is the last chunk, then we want to pass
+            // through to the same close semantics we'd otherwise use.
+            if (httpObject != null) {
+                if (!ProxyUtils.isLastChunk(httpObject)) {
+                    LOG.debug("Not closing on middle chunk for {}",
+                            req.getUri());
+                    return false;
+                } else {
+                    LOG.debug("Last chunk... using normal closing rules");
+                }
+            }
+        }
+
+        if (!HttpHeaders.isKeepAlive(req)) {
+            LOG.debug("Closing since request is not keep alive:");
+            // Here we simply want to close the connection because the
+            // client itself has requested it be closed in the request.
+            return true;
+        }
+        LOG.debug("Not closing client to proxy connection for request: {}", req);
+        return false;
+    }
+
+    /**
+     * Determines if the remote connection should be closed based on the request
+     * and response pair. If the request is HTTP 1.0 with no keep-alive header,
+     * for example, the connection should be closed.
+     * 
+     * This in part determines if we should close the connection. Here's the
+     * relevant section of RFC 2616:
+     * 
+     * "HTTP/1.1 defines the "close" connection option for the sender to signal
+     * that the connection will be closed after completion of the response. For
+     * example,
+     * 
+     * Connection: close
+     * 
+     * in either the request or the response header fields indicates that the
+     * connection SHOULD NOT be considered `persistent' (section 8.1) after the
+     * current request/response is complete."
+     * 
+     * @param req
+     *            The request.
+     * @param res
+     *            The response.
+     * @param msg
+     *            The message.
+     * @return Returns true if the connection should close.
+     */
+    private boolean shouldCloseServerConnection(final HttpRequest req,
+            final HttpResponse res, final HttpObject msg) {
+        if (ProxyUtils.isChunked(res)) {
+            // If the response is chunked, we want to return false unless it's
+            // the last chunk. If it is the last chunk, then we want to pass
+            // through to the same close semantics we'd otherwise use.
+            if (msg != null) {
+                if (!ProxyUtils.isLastChunk(msg)) {
+                    LOG.debug("Not closing on middle chunk");
+                    return false;
+                } else {
+                    LOG.debug("Last chunk...using normal closing rules");
+                }
+            }
+        }
+        if (!HttpHeaders.isKeepAlive(req)) {
+            LOG.debug("Closing since request is not keep alive:{}, ", req);
+            // Here we simply want to close the connection because the
+            // client itself has requested it be closed in the request.
+            return true;
+        }
+        if (!HttpHeaders.isKeepAlive(res)) {
+            LOG.debug("Closing since response is not keep alive:{}", res);
+            // In this case, we want to honor the Connection: close header
+            // from the remote server and close that connection. We don't
+            // necessarily want to close the connection to the client, however
+            // as it's possible it has other connections open.
+            return true;
+        }
+        LOG.debug("Not closing -- response probably keep alive for:\n{}", res);
+        return false;
+    }
+
+    /***************************************************************************
+     * Authentication
+     **************************************************************************/
 
     private boolean authenticationRequired(HttpRequest request) {
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
@@ -520,104 +661,19 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         write(response);
     }
 
-    private void writeBadGateway(final HttpRequest request) {
-        final String body = "Bad Gateway: " + request.getUri();
-        DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.BAD_GATEWAY, body);
-        response.headers().set(HttpHeaders.Names.CONNECTION, "close");
-        write(response);
-    }
+    /***************************************************************************
+     * Request/Response Rewriting
+     **************************************************************************/
 
-    private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
-            HttpResponseStatus status, String body) {
-        byte[] bytes = body.getBytes(Charset.forName("UTF-8"));
-        ByteBuf content = Unpooled.copiedBuffer(bytes);
-        return responseFor(httpVersion, status, content, bytes.length);
-    }
-
-    private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
-            HttpResponseStatus status, ByteBuf body, int contentLength) {
-        DefaultFullHttpResponse response = body != null ? new DefaultFullHttpResponse(
-                HttpVersion.HTTP_1_1, status, body)
-                : new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
-        if (body != null) {
-            response.headers().set(HttpHeaders.Names.CONTENT_LENGTH,
-                    contentLength);
-            response.headers().set("Content-Type", "text/html; charset=UTF-8");
-        }
-        return response;
-    }
-
-    private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
-            HttpResponseStatus status) {
-        return responseFor(httpVersion, status, (ByteBuf) null, 0);
-    }
-
-    /**
-     * Identify the host and port for a request.
-     * 
-     * @param request
-     * @return
-     */
-    private String identifyHostAndPort(HttpRequest request) {
-        if (this.chainProxyManager != null) {
-            return this.chainProxyManager.getChainProxy(request);
-        }
-
-        String hostAndPort = ProxyUtils.parseHostAndPort(request);
-        if (StringUtils.isBlank(hostAndPort)) {
-            final List<String> hosts = request.headers().getAll(
-                    HttpHeaders.Names.HOST);
-            if (hosts != null && !hosts.isEmpty()) {
-                hostAndPort = hosts.get(0);
-            }
-        }
-
-        return hostAndPort;
-    }
-
-    private InetSocketAddress addressFor(String hostAndPort)
-            throws UnknownHostException {
-        final String host;
-        final int port;
-        if (hostAndPort.contains(":")) {
-            host = StringUtils.substringBefore(hostAndPort, ":");
-            final String portString = StringUtils.substringAfter(hostAndPort,
-                    ":");
-            port = Integer.parseInt(portString);
+    private HttpRequest copy(HttpRequest original) {
+        if (original instanceof DefaultFullHttpRequest) {
+            ByteBuf content = ((DefaultFullHttpRequest) original).content();
+            return new DefaultFullHttpRequest(original.getProtocolVersion(),
+                    original.getMethod(), original.getUri(), content);
         } else {
-            host = hostAndPort;
-            port = 80;
+            return new DefaultHttpRequest(original.getProtocolVersion(),
+                    original.getMethod(), original.getUri());
         }
-
-        if (LittleProxyConfig.isUseDnsSec()) {
-            return VerifiedAddressFactory.newInetSocketAddress(host, port,
-                    LittleProxyConfig.isUseDnsSec());
-
-        } else {
-            final InetAddress ia = InetAddress.getByName(host);
-            final String address = ia.getHostAddress();
-            return new InetSocketAddress(address, port);
-        }
-    }
-
-    /**
-     * Write an empty buffer at the end of a chunked transfer. We need to do
-     * this to handle the way Netty creates HttpChunks from responses that
-     * aren't in fact chunked from the remote server using Transfer-Encoding:
-     * chunked. Netty turns these into pseudo-chunked responses in cases where
-     * the response would otherwise fill up too much memory or where the length
-     * of the response body is unknown. This is handy because it means we can
-     * start streaming response bodies back to the client without reading the
-     * entire response. The problem is that in these pseudo-cases the last chunk
-     * is encoded to null, and this thwarts normal ChannelFutures from
-     * propagating operationComplete events on writes to appropriate channel
-     * listeners. We work around this by writing an empty buffer in those cases
-     * and using the empty buffer's future instead to handle any operations we
-     * need to when responses are fully written back to clients.
-     */
-    private void writeEmptyBuffer() {
-        write(Unpooled.EMPTY_BUFFER);
     }
 
     /**
@@ -636,6 +692,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 LOG.debug("Fixing HTTP version.");
                 httpResponse.setProtocolVersion(HttpVersion.HTTP_1_1);
             }
+        }
+    }
+
+    private void filterRequestIfNecessary(HttpRequest httpRequest) {
+        if (requestFilter != null) {
+            requestFilter.filter(httpRequest);
         }
     }
 
@@ -769,124 +831,108 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
-    /**
-     * If all server connections have been disconnected, disconnect the client.
-     */
-    private void disconnectClientIfNecessary() {
-        if (numberOfCurrentlyConnectedServers.get() == 0) {
-            // All servers are disconnected, disconnect from client
-            disconnect();
+    /***************************************************************************
+     * Miscellaneous
+     **************************************************************************/
+
+    private void writeBadGateway(final HttpRequest request) {
+        final String body = "Bad Gateway: " + request.getUri();
+        DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
+                HttpResponseStatus.BAD_GATEWAY, body);
+        response.headers().set(HttpHeaders.Names.CONNECTION, "close");
+        write(response);
+    }
+
+    private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
+            HttpResponseStatus status, String body) {
+        byte[] bytes = body.getBytes(Charset.forName("UTF-8"));
+        ByteBuf content = Unpooled.copiedBuffer(bytes);
+        return responseFor(httpVersion, status, content, bytes.length);
+    }
+
+    private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
+            HttpResponseStatus status, ByteBuf body, int contentLength) {
+        DefaultFullHttpResponse response = body != null ? new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1, status, body)
+                : new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
+        if (body != null) {
+            response.headers().set(HttpHeaders.Names.CONTENT_LENGTH,
+                    contentLength);
+            response.headers().set("Content-Type", "text/html; charset=UTF-8");
         }
+        return response;
+    }
+
+    private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
+            HttpResponseStatus status) {
+        return responseFor(httpVersion, status, (ByteBuf) null, 0);
     }
 
     /**
-     * This method takes care of closing client to proxy and/or proxy to server
-     * connections after finishing a write.
+     * Identify the host and port for a request.
+     * 
+     * @param request
+     * @return
      */
-    private void closeConnectionsAfterWriteIfNecessary(
-            final ProxyToServerConnection serverConnection,
-            HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
-            HttpObject httpObject) {
-        final boolean closeServerConnection = shouldCloseServerConnection(
-                currentHttpRequest, currentHttpResponse, httpObject);
-        final boolean closeClientConnection = shouldCloseClientConnection(
-                currentHttpRequest, currentHttpResponse, httpObject);
-
-        if (closeServerConnection) {
-            LOG.debug("Closing remote connection after writing to client");
-            serverConnection.disconnect();
+    private String identifyHostAndPort(HttpRequest request) {
+        if (this.chainProxyManager != null) {
+            return this.chainProxyManager.getChainProxy(request);
         }
 
-        if (closeClientConnection) {
-            LOG.debug("Closing connection to client after writes");
-            disconnect();
-        }
-    }
-
-    private boolean shouldCloseClientConnection(final HttpRequest req,
-            final HttpResponse res, final HttpObject httpObject) {
-        if (ProxyUtils.isChunked(res)) {
-            // If the response is chunked, we want to return false unless it's
-            // the last chunk. If it is the last chunk, then we want to pass
-            // through to the same close semantics we'd otherwise use.
-            if (httpObject != null) {
-                if (!ProxyUtils.isLastChunk(httpObject)) {
-                    LOG.debug("Not closing on middle chunk for {}",
-                            req.getUri());
-                    return false;
-                } else {
-                    LOG.debug("Last chunk... using normal closing rules");
-                }
+        String hostAndPort = ProxyUtils.parseHostAndPort(request);
+        if (StringUtils.isBlank(hostAndPort)) {
+            final List<String> hosts = request.headers().getAll(
+                    HttpHeaders.Names.HOST);
+            if (hosts != null && !hosts.isEmpty()) {
+                hostAndPort = hosts.get(0);
             }
         }
 
-        if (!HttpHeaders.isKeepAlive(req)) {
-            LOG.debug("Closing since request is not keep alive:");
-            // Here we simply want to close the connection because the
-            // client itself has requested it be closed in the request.
-            return true;
+        return hostAndPort;
+    }
+
+    private InetSocketAddress addressFor(String hostAndPort)
+            throws UnknownHostException {
+        final String host;
+        final int port;
+        if (hostAndPort.contains(":")) {
+            host = StringUtils.substringBefore(hostAndPort, ":");
+            final String portString = StringUtils.substringAfter(hostAndPort,
+                    ":");
+            port = Integer.parseInt(portString);
+        } else {
+            host = hostAndPort;
+            port = 80;
         }
-        LOG.debug("Not closing client to proxy connection for request: {}", req);
-        return false;
+
+        if (LittleProxyConfig.isUseDnsSec()) {
+            return VerifiedAddressFactory.newInetSocketAddress(host, port,
+                    LittleProxyConfig.isUseDnsSec());
+
+        } else {
+            final InetAddress ia = InetAddress.getByName(host);
+            final String address = ia.getHostAddress();
+            return new InetSocketAddress(address, port);
+        }
     }
 
     /**
-     * Determines if the remote connection should be closed based on the request
-     * and response pair. If the request is HTTP 1.0 with no keep-alive header,
-     * for example, the connection should be closed.
-     * 
-     * This in part determines if we should close the connection. Here's the
-     * relevant section of RFC 2616:
-     * 
-     * "HTTP/1.1 defines the "close" connection option for the sender to signal
-     * that the connection will be closed after completion of the response. For
-     * example,
-     * 
-     * Connection: close
-     * 
-     * in either the request or the response header fields indicates that the
-     * connection SHOULD NOT be considered `persistent' (section 8.1) after the
-     * current request/response is complete."
-     * 
-     * @param req
-     *            The request.
-     * @param res
-     *            The response.
-     * @param msg
-     *            The message.
-     * @return Returns true if the connection should close.
+     * Write an empty buffer at the end of a chunked transfer. We need to do
+     * this to handle the way Netty creates HttpChunks from responses that
+     * aren't in fact chunked from the remote server using Transfer-Encoding:
+     * chunked. Netty turns these into pseudo-chunked responses in cases where
+     * the response would otherwise fill up too much memory or where the length
+     * of the response body is unknown. This is handy because it means we can
+     * start streaming response bodies back to the client without reading the
+     * entire response. The problem is that in these pseudo-cases the last chunk
+     * is encoded to null, and this thwarts normal ChannelFutures from
+     * propagating operationComplete events on writes to appropriate channel
+     * listeners. We work around this by writing an empty buffer in those cases
+     * and using the empty buffer's future instead to handle any operations we
+     * need to when responses are fully written back to clients.
      */
-    private boolean shouldCloseServerConnection(final HttpRequest req,
-            final HttpResponse res, final HttpObject msg) {
-        if (ProxyUtils.isChunked(res)) {
-            // If the response is chunked, we want to return false unless it's
-            // the last chunk. If it is the last chunk, then we want to pass
-            // through to the same close semantics we'd otherwise use.
-            if (msg != null) {
-                if (!ProxyUtils.isLastChunk(msg)) {
-                    LOG.debug("Not closing on middle chunk");
-                    return false;
-                } else {
-                    LOG.debug("Last chunk...using normal closing rules");
-                }
-            }
-        }
-        if (!HttpHeaders.isKeepAlive(req)) {
-            LOG.debug("Closing since request is not keep alive:{}, ", req);
-            // Here we simply want to close the connection because the
-            // client itself has requested it be closed in the request.
-            return true;
-        }
-        if (!HttpHeaders.isKeepAlive(res)) {
-            LOG.debug("Closing since response is not keep alive:{}", res);
-            // In this case, we want to honor the Connection: close header
-            // from the remote server and close that connection. We don't
-            // necessarily want to close the connection to the client, however
-            // as it's possible it has other connections open.
-            return true;
-        }
-        LOG.debug("Not closing -- response probably keep alive for:\n{}", res);
-        return false;
+    private void writeEmptyBuffer() {
+        write(Unpooled.EMPTY_BUFFER);
     }
 
 }

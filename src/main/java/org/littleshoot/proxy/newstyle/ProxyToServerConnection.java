@@ -15,7 +15,9 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
@@ -25,9 +27,12 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import java.net.InetSocketAddress;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 
+import org.littleshoot.proxy.HttpFilter;
 import org.littleshoot.proxy.ProxyUtils;
 
 /**
@@ -38,6 +43,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private final ClientToProxyConnection clientToProxyConnection;
     protected final InetSocketAddress address;
+    private final HttpFilter responseFilter;
 
     /**
      * While we're in the process of connecting, it's possible that we'll
@@ -66,13 +72,25 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private HttpResponse currentHttpResponse;
 
+    /**
+     * Associates written HttpRequests to copies of the original HttpRequest
+     * (before rewriting).
+     */
+    private Map<HttpRequest, HttpRequest> originalHttpRequests = new HashMap<HttpRequest, HttpRequest>();
+
+    /**
+     * Tracks whether or not to filter responses based on the request.
+     */
+    private Map<HttpRequest, Boolean> filterResponsesByRequests = new HashMap<HttpRequest, Boolean>();
+
     public ProxyToServerConnection(EventLoopGroup proxyToServerWorkerPool,
             ChannelGroup channelGroup,
             ClientToProxyConnection clientToProxyConnection,
-            InetSocketAddress address) {
+            InetSocketAddress address, HttpFilter responseFilter) {
         super(DISCONNECTED, proxyToServerWorkerPool, channelGroup);
         this.clientToProxyConnection = clientToProxyConnection;
         this.address = address;
+        this.responseFilter = responseFilter;
     }
 
     /***************************************************************************
@@ -85,7 +103,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         rememberCurrentRequest();
         rememberCurrentResponse(httpResponse);
-
+        filterResponseIfNecessary(httpResponse);
         respondWith(httpResponse);
 
         return ProxyUtils.isChunked(httpResponse) ? AWAITING_CHUNK
@@ -105,6 +123,21 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /***************************************************************************
      * Writing
      **************************************************************************/
+
+    /**
+     * Write an HttpRequest to the server.
+     * 
+     * @param rewrittenHttpRequest
+     *            the request that will get written to the Server, including any
+     *            rewriting that has happened
+     * @param originalHttpRequest
+     *            a copy of the original request
+     */
+    public void write(HttpRequest rewrittenHttpRequest,
+            HttpRequest originalHttpRequest) {
+        originalHttpRequests.put(rewrittenHttpRequest, originalHttpRequest);
+        this.write(rewrittenHttpRequest);
+    }
 
     public void write(Object msg) {
         LOG.debug("Requested write of {}", msg);
@@ -206,6 +239,14 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Private Implementation
      **************************************************************************/
 
+    private void filterResponseIfNecessary(HttpResponse httpResponse) {
+        if (shouldFilterResponseTo(this.currentHttpRequest)) {
+            this.responseFilter.filterResponse(
+                    this.originalHttpRequests.get(this.currentHttpRequest),
+                    httpResponse);
+        }
+    }
+
     /**
      * An HTTP response is associated with a single request, so we can pop the
      * correct request off the queue.
@@ -292,6 +333,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             HttpRequest httpRequest) {
         pipeline.addLast("decoder", new HttpResponseDecoder(8192, 8192 * 2,
                 8192 * 2));
+
+        // We decompress and aggregate chunks for responses from
+        // sites we're applying filtering rules to.
+        if (shouldFilterResponseTo(httpRequest)) {
+            pipeline.addLast("inflater", new HttpContentDecompressor());
+            pipeline.addLast("aggregator", new HttpObjectAggregator(
+                    this.responseFilter.getMaxResponseSize()));// 2048576));
+        }
+
         pipeline.addLast("encoder", new HttpRequestEncoder());
 
         // We close idle connections to remote servers after the
@@ -316,5 +366,19 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
 
         pipeline.addLast("handler", this);
+    }
+
+    private boolean shouldFilterResponseTo(HttpRequest httpRequest) {
+        // If we've already checked whether to filter responses for a given
+        // request, use the original result
+        Boolean result = filterResponsesByRequests.get(httpRequest);
+        if (result == null) {
+            // This is our first time checking whether responses to this request
+            // need to be filtered. Check, and then remember for later.
+            result = this.responseFilter != null
+                    && this.responseFilter.filterResponses(httpRequest);
+            filterResponsesByRequests.put(httpRequest, result);
+        }
+        return result;
     }
 }
