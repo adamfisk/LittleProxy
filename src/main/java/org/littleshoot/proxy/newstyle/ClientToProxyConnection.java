@@ -4,6 +4,7 @@ import static org.littleshoot.proxy.newstyle.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -11,9 +12,12 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
@@ -32,6 +36,8 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ChainProxyManager;
+import org.littleshoot.proxy.HandshakeHandler;
+import org.littleshoot.proxy.HandshakeHandlerFactory;
 import org.littleshoot.proxy.LittleProxyConfig;
 import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.ProxyUtils;
@@ -48,7 +54,8 @@ import org.littleshoot.proxy.ProxyUtils;
  * continually reused. The ProxyToServerConnection goes through its own
  * lifecycle of connects and disconnects, with different underlying
  * {@link Channel}s, but only a single ProxyToServerConnection object is used
- * per server.
+ * per server. The one exception to this is CONNECT tunneling - if a connection
+ * has been used for CONNECT tunneling, that connection will never be reused.
  * </p>
  * 
  * <p>
@@ -64,6 +71,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     private final ChainProxyManager chainProxyManager;
     private final ProxyAuthenticator authenticator;
+    private final HandshakeHandlerFactory handshakeHandlerFactory;
 
     /**
      * Keep track of all ProxyToServerConnections by host+port.
@@ -91,10 +99,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     public ClientToProxyConnection(EventLoopGroup proxyToServerWorkerPool,
             ChannelGroup channelGroup, ChainProxyManager chainProxyManager,
-            ProxyAuthenticator authenticator) {
+            ProxyAuthenticator authenticator,
+            HandshakeHandlerFactory handshakeHandlerFactory,
+            ChannelPipeline pipeline) {
         super(AWAITING_INITIAL, proxyToServerWorkerPool, channelGroup);
         this.chainProxyManager = chainProxyManager;
         this.authenticator = authenticator;
+        this.handshakeHandlerFactory = handshakeHandlerFactory;
+        initChannelPipeline(pipeline);
         LOG.debug("Created ClientToProxyConnection");
     }
 
@@ -105,8 +117,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     @Override
     protected ConnectionState readInitial(HttpRequest httpRequest) {
         LOG.debug("Got request: {}", httpRequest);
-        boolean authenticationRequired = this
-                .authenticationRequired(httpRequest);
+        boolean authenticationRequired = authenticationRequired(httpRequest);
         if (authenticationRequired) {
             LOG.debug("Not authenticated!!");
             return AWAITING_PROXY_AUTHENTICATION;
@@ -126,7 +137,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             if (currentServerConnection == null
                     || currentServerConnection.is(TUNNELING)) {
                 try {
-                    currentServerConnection = connect(httpRequest, hostAndPort);
+                    currentServerConnection = connectToServer(httpRequest,
+                            hostAndPort);
                 } catch (UnknownHostException uhe) {
                     LOG.info("Bad Host {}", httpRequest.getUri());
                     writeBadGateway(httpRequest);
@@ -225,7 +237,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param serverConnection
      */
     protected void connectingToServer(ProxyToServerConnection serverConnection) {
-        this.stopReading();
+        stopReading();
         this.numberOfCurrentlyConnectingServers.incrementAndGet();
     }
 
@@ -245,7 +257,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 connectionSuccessful ? "Finished connecting"
                         : "Failed to connect", serverConnection.address);
         if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
-            this.resumeReading();
+            resumeReading();
         }
         if (connectionSuccessful) {
             numberOfCurrentlyConnectedServers.incrementAndGet();
@@ -405,7 +417,26 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Private Implementation
      **************************************************************************/
 
-    private ProxyToServerConnection connect(final HttpRequest request,
+    private void initChannelPipeline(ChannelPipeline pipeline) {
+        LOG.debug("Configuring ChannelPipeline");
+
+        if (this.handshakeHandlerFactory != null) {
+            LOG.debug("Adding SSL handler");
+            final HandshakeHandler hh = this.handshakeHandlerFactory
+                    .newHandshakeHandler();
+            pipeline.addLast(hh.getId(), hh.getChannelHandler());
+        }
+
+        // We want to allow longer request lines, headers, and chunks
+        // respectively.
+        pipeline.addLast("decoder", new HttpRequestDecoder(8192, 8192 * 2,
+                8192 * 2));
+        pipeline.addLast("encoder", new HttpResponseEncoder());
+        pipeline.addLast("idle", new IdleStateHandler(0, 0, 70));
+        pipeline.addLast("handler", this);
+    }
+
+    private ProxyToServerConnection connectToServer(final HttpRequest request,
             final String hostAndPort) throws UnknownHostException {
         LOG.debug("Establishing new ProxyToServerConnection");
         InetSocketAddress address = addressFor(hostAndPort);
@@ -471,7 +502,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         response.headers().set("Proxy-Authenticate",
                 "Basic realm=\"Restricted Files\"");
         response.headers().set("Date", ProxyUtils.httpDate());
-        this.write(response);
+        write(response);
     }
 
     private void writeBadGateway(final HttpRequest request) {
@@ -479,7 +510,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.BAD_GATEWAY, body);
         response.headers().set(HttpHeaders.Names.CONNECTION, "close");
-        this.write(response);
+        write(response);
     }
 
     private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
@@ -638,7 +669,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         if (closeClientConnection) {
             LOG.debug("Closing connection to client after writes");
-            this.disconnect();
+            disconnect();
         }
     }
 

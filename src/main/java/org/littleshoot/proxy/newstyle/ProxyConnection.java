@@ -109,21 +109,21 @@ public abstract class ProxyConnection<I extends HttpObject> extends
         LOG.debug("Reading: {}", msg);
         switch (this.currentState) {
         case AWAITING_INITIAL:
-            this.currentState = this.readInitial((I) msg);
+            this.currentState = readInitial((I) msg);
             break;
         case AWAITING_CHUNK:
             HttpContent chunk = (HttpContent) msg;
-            this.readChunk(chunk);
+            readChunk(chunk);
             this.currentState = ProxyUtils.isLastChunk(chunk) ? AWAITING_INITIAL
                     : AWAITING_CHUNK;
             break;
         case TUNNELING:
-            this.readRaw((ByteBuf) msg);
+            readRaw((ByteBuf) msg);
             break;
         case AWAITING_PROXY_AUTHENTICATION:
             if (msg instanceof HttpRequest) {
                 // Once we get an HttpRequest, try to process it as usual
-                this.currentState = this.readInitial((I) msg);
+                this.currentState = readInitial((I) msg);
             } else {
                 // Anything that's not an HttpRequest that came in while we're
                 // pending authentication gets dropped on the floor. This can
@@ -249,6 +249,9 @@ public abstract class ProxyConnection<I extends HttpObject> extends
                 if (pipeline.get("decoder") != null) {
                     pipeline.remove("decoder");
                 }
+                if (pipeline.get("idle") != null) {
+                    pipeline.remove("idle");
+                }
                 ProxyConnection.this.currentState = TUNNELING;
             }
         });
@@ -339,7 +342,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     @Override
     protected final void channelRead0(ChannelHandlerContext ctx, Object msg)
             throws Exception {
-        this.read(msg);
+        read(msg);
     }
 
     /**
@@ -349,7 +352,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     @Override
     public final void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        this.connected(ctx);
+        connected(ctx);
     }
 
     /**
@@ -360,21 +363,21 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     public final void channelInactive(ChannelHandlerContext ctx)
             throws Exception {
         super.channelInactive(ctx);
-        this.disconnected();
+        disconnected();
     }
 
     @Override
     public final void channelWritabilityChanged(ChannelHandlerContext ctx)
             throws Exception {
         if (this.channel.isWritable()) {
-            this.becameWriteable();
+            becameWriteable();
         }
     }
 
     @Override
     public final void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
             throws Exception {
-        this.exceptionCaught(cause);
+        exceptionCaught(cause);
     }
 
 }

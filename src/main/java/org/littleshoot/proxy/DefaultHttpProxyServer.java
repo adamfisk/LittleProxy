@@ -1,8 +1,10 @@
 package org.littleshoot.proxy;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
@@ -20,6 +22,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.littleshoot.proxy.newstyle.ClientToProxyConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -253,10 +256,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public void start(final boolean localOnly, final boolean anyAddress) {
         log.info("Starting proxy on port: " + this.port);
         this.stopped.set(false);
-        final HttpServerChannelInitializer initializer = new HttpServerChannelInitializer(
-                this.allChannels, this.chainProxyManager,
-                this.handshakeHandlerFactory, this.clientWorker,
-                this.proxyAuthenticator);
+        ChannelInitializer<Channel> initializer = new ChannelInitializer<Channel>() {
+            protected void initChannel(Channel ch) throws Exception {
+                new ClientToProxyConnection(clientWorker, allChannels,
+                        chainProxyManager, proxyAuthenticator,
+                        handshakeHandlerFactory, ch.pipeline());
+            };
+        };
         serverBootstrap.channel(NioServerSocketChannel.class);
         serverBootstrap.childHandler(initializer);
 
