@@ -79,9 +79,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private Map<HttpRequest, HttpRequest> originalHttpRequests = new HashMap<HttpRequest, HttpRequest>();
 
     /**
-     * Tracks whether or not to filter responses based on the request.
+     * Cache of whether or not to filter responses based on the request.
      */
-    private Map<HttpRequest, Boolean> filterResponsesByRequests = new HashMap<HttpRequest, Boolean>();
+    private Map<HttpRequest, Boolean> shouldFilterResponseCache = new HashMap<HttpRequest, Boolean>();
 
     public ProxyToServerConnection(EventLoopGroup proxyToServerWorkerPool,
             ChannelGroup channelGroup,
@@ -205,7 +205,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void disconnected() {
         super.disconnected();
-
+        clientToProxyConnection.serverDisconnected(this);
     }
 
     @Override
@@ -238,14 +238,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /***************************************************************************
      * Private Implementation
      **************************************************************************/
-
-    private void filterResponseIfNecessary(HttpResponse httpResponse) {
-        if (shouldFilterResponseTo(this.currentHttpRequest)) {
-            this.responseFilter.filterResponse(
-                    this.originalHttpRequests.get(this.currentHttpRequest),
-                    httpResponse);
-        }
-    }
 
     /**
      * An HTTP response is associated with a single request, so we can pop the
@@ -368,16 +360,40 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("handler", this);
     }
 
+    private void filterResponseIfNecessary(HttpResponse httpResponse) {
+        if (shouldFilterResponseTo(this.currentHttpRequest)) {
+            this.responseFilter.filterResponse(
+                    this.originalHttpRequests.get(this.currentHttpRequest),
+                    httpResponse);
+        }
+    }
+
+    /**
+     * <p>
+     * Determines whether or not responses to the given request should be
+     * filtered. If we were given an {@link HttpFilter} in our constructor, and
+     * that filter's {@link HttpFilter#filterResponses(HttpRequest)} method
+     * returns true, then we will filter.
+     * </p>
+     * 
+     * <p>
+     * To avoid calling {@link HttpFilter#filterResponses(HttpRequest)} multiple
+     * times, this method caches the results of that call by HttpRequest.
+     * </p>
+     * 
+     * @param httpRequest
+     * @return
+     */
     private boolean shouldFilterResponseTo(HttpRequest httpRequest) {
         // If we've already checked whether to filter responses for a given
         // request, use the original result
-        Boolean result = filterResponsesByRequests.get(httpRequest);
+        Boolean result = shouldFilterResponseCache.get(httpRequest);
         if (result == null) {
             // This is our first time checking whether responses to this request
             // need to be filtered. Check, and then remember for later.
             result = this.responseFilter != null
                     && this.responseFilter.filterResponses(httpRequest);
-            filterResponsesByRequests.put(httpRequest, result);
+            shouldFilterResponseCache.put(httpRequest, result);
         }
         return result;
     }

@@ -313,7 +313,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 .values()) {
             serverConnection.disconnect();
         }
-        numberOfCurrentlyConnectedServers.set(0);
     }
 
     protected void serverDisconnected(ProxyToServerConnection serverConnection) {

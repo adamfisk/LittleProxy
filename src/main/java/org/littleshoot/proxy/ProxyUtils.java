@@ -24,7 +24,6 @@ import java.util.TimeZone;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,15 +39,8 @@ public class ProxyUtils {
     /**
      * Date format pattern used to parse HTTP date headers in RFC 1123 format.
      */
-    public static final String PATTERN_RFC1123 = "EEE, dd MMM yyyy HH:mm:ss zzz";
+    private static final String PATTERN_RFC1123 = "EEE, dd MMM yyyy HH:mm:ss zzz";
 
-    /**
-     * Date format pattern used to parse HTTP date headers in RFC 1036 format.
-     */
-    public static final String PATTERN_RFC1036 = "EEEE, dd-MMM-yy HH:mm:ss zzz";
-
-    // TODO:nir: should remove 'via' usage in case of 'transparent' proxy
-    private static final String via;
     private static final String hostName;
 
     static {
@@ -63,7 +55,6 @@ public class ProxyUtils {
         sb.append("Via: 1.1 ");
         sb.append(hostName);
         sb.append("\r\n");
-        via = LittleProxyConfig.isTransparent() ? "" : sb.toString();
     }
 
     // Should never be constructed.
@@ -73,8 +64,6 @@ public class ProxyUtils {
     // Schemes are case-insensitive:
     // http://tools.ietf.org/html/rfc3986#section-3.1
     private static Pattern HTTP_PREFIX = Pattern.compile("http.*",
-            Pattern.CASE_INSENSITIVE);
-    private static Pattern HTTPS_PREFIX = Pattern.compile("https.*",
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -234,30 +223,6 @@ public class ProxyUtils {
     }
 
     /**
-     * Parses the port from an address.
-     * 
-     * @param httpRequest
-     *            The request containing the URI.
-     * @return The port. If not port is explicitly specified, returns the the
-     *         default port 80 if the protocol is HTTP and 443 if the protocol
-     *         is HTTPS.
-     */
-    public static int parsePort(final HttpRequest httpRequest) {
-        final String uri = httpRequest.getUri();
-        if (uri.contains(":")) {
-            final String portStr = StringUtils.substringAfter(uri, ":");
-            return Integer.parseInt(portStr);
-        } else if (HTTP_PREFIX.matcher(uri).matches()) {
-            return 80;
-        } else if (HTTPS_PREFIX.matcher(uri).matches()) {
-            return 443;
-        } else {
-            // Unsupported protocol -- return 80 for now.
-            return 80;
-        }
-    }
-
-    /**
      * Make a copy of the response including all mutable fields.
      * 
      * @param original
@@ -352,15 +317,6 @@ public class ProxyUtils {
             return throttle.trim().equalsIgnoreCase("true");
         }
         return true;
-    }
-
-    public static long extractLong(final Properties props, final String key) {
-        final String readThrottleString = props.getProperty(key);
-        if (StringUtils.isNotBlank(readThrottleString)
-                && NumberUtils.isNumber(readThrottleString)) {
-            return Long.parseLong(readThrottleString);
-        }
-        return -1;
     }
 
     public static boolean isCONNECT(HttpObject httpObject) {
