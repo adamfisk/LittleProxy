@@ -328,9 +328,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             final int writeTimeoutSeconds;
             if (ProxyUtils.isPOST(httpRequest) || ProxyUtils.isPUT(httpRequest)) {
                 readTimeoutSeconds = 0;
-                writeTimeoutSeconds = 70;
+                writeTimeoutSeconds = LittleProxyConfig
+                        .getIdleConnectionTimeout();
             } else {
-                readTimeoutSeconds = 70;
+                readTimeoutSeconds = LittleProxyConfig
+                        .getIdleConnectionTimeout();
+                ;
                 writeTimeoutSeconds = 0;
             }
             pipeline.addLast("idle", new IdleStateHandler(readTimeoutSeconds,

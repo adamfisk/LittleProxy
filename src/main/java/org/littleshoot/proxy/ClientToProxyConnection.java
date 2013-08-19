@@ -453,7 +453,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         pipeline.addLast("decoder", new HttpRequestDecoder(8192, 8192 * 2,
                 8192 * 2));
         pipeline.addLast("encoder", new HttpResponseEncoder());
-        pipeline.addLast("idle", new IdleStateHandler(0, 0, 70));
+        pipeline.addLast(
+                "idle",
+                new IdleStateHandler(0, 0, LittleProxyConfig
+                        .getIdleConnectionTimeout()));
         pipeline.addLast("handler", this);
     }
 
@@ -802,7 +805,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (headers.contains("Connection")) {
             for (String headerValue : headers.getAll("Connection")) {
                 for (String connectionToken : headerValue.split(",")) {
-                    System.out.println("Removing: " + connectionToken);
                     headers.remove(connectionToken);
                 }
             }

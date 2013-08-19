@@ -14,6 +14,7 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -390,8 +391,8 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      */
     @Override
     public final void channelActive(ChannelHandlerContext ctx) throws Exception {
-        super.channelActive(ctx);
         connected(ctx);
+        super.channelActive(ctx);
     }
 
     /**
@@ -401,8 +402,8 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     @Override
     public final void channelInactive(ChannelHandlerContext ctx)
             throws Exception {
-        super.channelInactive(ctx);
         disconnected();
+        super.channelInactive(ctx);
     }
 
     @Override
@@ -411,12 +412,23 @@ public abstract class ProxyConnection<I extends HttpObject> extends
         if (this.channel.isWritable()) {
             becameWriteable();
         }
+        super.channelWritabilityChanged(ctx);
     }
 
     @Override
     public final void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
             throws Exception {
         exceptionCaught(cause);
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt)
+            throws Exception {
+        super.userEventTriggered(ctx, evt);
+        if (evt instanceof IdleStateEvent) {
+            LOG.info("Got idle, disconnecting");
+            disconnect();
+        }
     }
 
 }
