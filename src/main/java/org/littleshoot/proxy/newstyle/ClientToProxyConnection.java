@@ -305,20 +305,23 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         disconnect();
     }
 
+    //@formatter:off
     /***************************************************************************
      * HTTP CONNECT Tunneling and SSL MITM Lifecycle
      * 
      * The tunnel is established following these steps:
      * 
-     * 1. Client sends CONNECT request via ClientToProxyConnection 2.
-     * ServerToProxyConnection removes HTTP-related handlers from its pipeline
+     * 1. Client sends CONNECT request via ClientToProxyConnection
+     * 2. ServerToProxyConnection removes HTTP-related handlers from its pipeline
      * 3. ClientToProxyConnection removes HTTP-related handlers from its
-     * pipeline 4. ClientToProxyConnection sends Connect OK back to client
+     * pipeline
+     * 4. ClientToProxyConnection sends Connect OK back to client
      * 
      * For MITM, the flow looks a little different:
      * 
      * 
      **************************************************************************/
+    //@formatter:on
 
     private void httpCONNECTrequested() {
         LOG.debug("CONNECT requested");
