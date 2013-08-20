@@ -433,7 +433,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     @Override
                     public void operationComplete(Future<? super Channel> future)
                             throws Exception {
-                        ClientToProxyConnection.this.currentState = AWAITING_INITIAL;
+                        become(AWAITING_INITIAL);
                         recordServerConnection(initialRequest,
                                 future.isSuccess());
                         if (future.isSuccess()) {

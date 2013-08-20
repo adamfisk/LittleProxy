@@ -322,7 +322,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private void connectAndWrite(final HttpRequest initialRequest) {
         LOG.debug("Starting new connection to: {}", address);
 
-        currentState = CONNECTING;
+        become(CONNECTING);
 
         // Remember our initial request so that we can write it after connecting
         this.initialRequest = initialRequest;
@@ -468,7 +468,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private void startCONNECTWithChainedProxy(HttpRequest httpRequest) {
         LOG.debug("Preparing to tunnel via chained proxy, forwarding CONNECT");
         
-        this.currentState = AWAITING_CONNECT_OK;
+        become(AWAITING_CONNECT_OK);
         ctx.channel().writeAndFlush(httpRequest);
     }
 
@@ -534,7 +534,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * failed.
      */
     private void unableToConnect() {
-        this.currentState = DISCONNECTED;
+        become(DISCONNECTED);
         clientToProxyConnection.serverConnected(ProxyToServerConnection.this,
                 initialRequest, false);
     }

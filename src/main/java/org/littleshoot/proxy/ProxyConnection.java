@@ -80,7 +80,8 @@ public abstract class ProxyConnection<I extends HttpObject> extends
 
     protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
-    protected volatile ConnectionState currentState;
+
+    private volatile ConnectionState currentState;
 
     /**
      * Construct a new ProxyConnection.
@@ -99,7 +100,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     protected ProxyConnection(ConnectionState initialState,
             EventLoopGroup proxyToServerWorkerPool, ChannelGroup allChannels,
             ChainProxyManager chainProxyManager) {
-        this.currentState = initialState;
+        become(initialState);
         this.proxyToServerWorkerPool = proxyToServerWorkerPool;
         this.allChannels = allChannels;
         this.chainProxyManager = chainProxyManager;
@@ -116,14 +117,15 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      */
     protected void read(Object msg) {
         LOG.debug("Reading: {}", msg);
-        switch (this.currentState) {
+        ConnectionState nextState = getCurrentState();
+        switch (getCurrentState()) {
         case AWAITING_INITIAL:
-            this.currentState = readInitial((I) msg);
+            nextState = readInitial((I) msg);
             break;
         case AWAITING_CHUNK:
             HttpContent chunk = (HttpContent) msg;
             readChunk(chunk);
-            this.currentState = ProxyUtils.isLastChunk(chunk) ? AWAITING_INITIAL
+            nextState = ProxyUtils.isLastChunk(chunk) ? AWAITING_INITIAL
                     : AWAITING_CHUNK;
             break;
         case TUNNELING:
@@ -132,7 +134,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
         case AWAITING_PROXY_AUTHENTICATION:
             if (msg instanceof HttpRequest) {
                 // Once we get an HttpRequest, try to process it as usual
-                this.currentState = readInitial((I) msg);
+                nextState = readInitial((I) msg);
             } else {
                 // Anything that's not an HttpRequest that came in while we're
                 // pending authentication gets dropped on the floor. This can
@@ -157,6 +159,8 @@ public abstract class ProxyConnection<I extends HttpObject> extends
             LOG.info("Ignoring message since the connection is closed or about to close");
             break;
         }
+        
+        become(nextState);
     }
 
     /**
@@ -261,7 +265,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
                 if (pipeline.get("idle") != null) {
                     pipeline.remove("idle");
                 }
-                ProxyConnection.this.currentState = TUNNELING;
+                become(TUNNELING);
             }
         });
     }
@@ -308,8 +312,8 @@ public abstract class ProxyConnection<I extends HttpObject> extends
 
     protected void connected(ChannelHandlerContext ctx) {
         saveContext(ctx);
-        this.currentState = is(CONNECTING) ? AWAITING_INITIAL
-                : this.currentState;
+        become(is(CONNECTING) ? AWAITING_INITIAL
+                : getCurrentState());
         LOG.debug("Connected");
     }
 
@@ -325,7 +329,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     }
 
     protected void disconnected() {
-        this.currentState = DISCONNECTED;
+        become(DISCONNECTED);
         LOG.debug("Disconnected");
     }
 
@@ -368,13 +372,26 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     }
 
     /**
-     * Utility for checking current state
+     * Utility for checking current state.
      * 
      * @param state
      * @return
      */
     protected boolean is(ConnectionState state) {
         return currentState == state;
+    }
+
+    /**
+     * Udpates the current state to the given value.
+     * 
+     * @param state
+     */
+    protected void become(ConnectionState state) {
+        this.currentState = state;
+    }
+    
+    protected ConnectionState getCurrentState() {
+        return currentState;
     }
 
     /**

@@ -85,7 +85,7 @@ class ProxyConnectionLogger {
     }
 
     private String fullMessage(String message) {
-        message = "(" + connection.currentState + "): " + message;
+        message = "(" + connection.getCurrentState() + "): " + message;
         if (connection.channel != null) {
             message = connection.channel + " " + message;
         }
