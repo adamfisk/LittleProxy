@@ -76,7 +76,6 @@ public abstract class ProxyConnection<I extends HttpObject> extends
 
     protected final EventLoopGroup proxyToServerWorkerPool;
     protected final ChannelGroup allChannels;
-    protected final ChainProxyManager chainProxyManager;
 
     protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
@@ -94,16 +93,12 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * @param allChannels
      *            a ChannelGroup that records all channels in use (useful for
      *            closing these later)
-     * @param chainProxyManager
-     *            (optional) manager for accessing chained proxies
      */
     protected ProxyConnection(ConnectionState initialState,
-            EventLoopGroup proxyToServerWorkerPool, ChannelGroup allChannels,
-            ChainProxyManager chainProxyManager) {
+            EventLoopGroup proxyToServerWorkerPool, ChannelGroup allChannels) {
         become(initialState);
         this.proxyToServerWorkerPool = proxyToServerWorkerPool;
         this.allChannels = allChannels;
-        this.chainProxyManager = chainProxyManager;
     }
 
     /***************************************************************************
@@ -162,7 +157,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
             LOG.warn("AWAITING_CONNECT_OK should have been handled by ProxyToServerConnection.read()");
             break;
         }
-        
+
         become(nextState);
     }
 
@@ -315,8 +310,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
 
     protected void connected(ChannelHandlerContext ctx) {
         saveContext(ctx);
-        become(is(CONNECTING) ? AWAITING_INITIAL
-                : getCurrentState());
+        become(is(CONNECTING) ? AWAITING_INITIAL : getCurrentState());
         LOG.debug("Connected");
     }
 
@@ -392,7 +386,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     protected void become(ConnectionState state) {
         this.currentState = state;
     }
-    
+
     protected ConnectionState getCurrentState() {
         return currentState;
     }
@@ -411,30 +405,6 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     protected void resumeReading() {
         LOG.debug("Resumed reading");
         this.channel.config().setAutoRead(true);
-    }
-
-    /**
-     * Determine whether the given request should be handled by a chained proxy.
-     * 
-     * @param httpRequest
-     * @return
-     */
-    protected boolean shouldChain(HttpRequest httpRequest) {
-        return getChainProxyHostAndPort(httpRequest) != null;
-    }
-
-    /**
-     * Get the host and port for the chained proxy.
-     * 
-     * @param httpRequest
-     * @return
-     */
-    protected String getChainProxyHostAndPort(HttpRequest httpRequest) {
-        if (chainProxyManager == null) {
-            return null;
-        } else {
-            return chainProxyManager.getChainProxy(httpRequest);
-        }
     }
 
     /***************************************************************************

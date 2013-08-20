@@ -39,8 +39,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Sharable
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
-    private final ClientToProxyConnection clientToProxyConnection;
-    private final InetSocketAddress address;
+    private final ClientToProxyConnection clientConnection;
+    private volatile InetSocketAddress address;
     private final HttpFilter responseFilter;
 
     /**
@@ -91,12 +91,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private AtomicBoolean isMITM = new AtomicBoolean(false);
 
     public ProxyToServerConnection(EventLoopGroup proxyToServerWorkerPool,
-            ChannelGroup channelGroup, ChainProxyManager chainProxyManager,
-            ClientToProxyConnection clientToProxyConnection,
+            ChannelGroup channelGroup,
+            ClientToProxyConnection clientConnection,
             InetSocketAddress address, HttpFilter responseFilter) {
-        super(DISCONNECTED, proxyToServerWorkerPool, channelGroup,
-                chainProxyManager);
-        this.clientToProxyConnection = clientToProxyConnection;
+        super(DISCONNECTED, proxyToServerWorkerPool, channelGroup);
+        this.clientConnection = clientConnection;
         this.address = address;
         this.responseFilter = responseFilter;
     }
@@ -150,7 +149,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void readRaw(ByteBuf buf) {
-        clientToProxyConnection.write(buf);
+        clientConnection.write(buf);
     }
 
     /***************************************************************************
@@ -207,16 +206,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Lifecycle
      **************************************************************************/
 
-    /**
-     * A ProxyToServerConnection is considered reusable if it's not tunneling
-     * and not acting as MITM.
-     * 
-     * @return
-     */
-    public boolean isReusable() {
-        return !isMITM.get() && !is(TUNNELING);
-    }
-
     @Override
     protected void connected(ChannelHandlerContext ctx) {
         saveContext(ctx);
@@ -231,7 +220,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void disconnected() {
         super.disconnected();
-        clientToProxyConnection.serverDisconnected(this);
+        clientConnection.serverDisconnected(this);
     }
 
     @Override
@@ -309,7 +298,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     private void respondWith(HttpObject httpObject) {
-        clientToProxyConnection.respond(this, currentHttpRequest,
+        clientConnection.respond(this, currentHttpRequest,
                 currentHttpResponse, httpObject);
     }
 
@@ -327,7 +316,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // Remember our initial request so that we can write it after connecting
         this.initialRequest = initialRequest;
 
-        clientToProxyConnection.connectingToServer(this);
+        clientConnection.connectingToServer(this);
 
         final Bootstrap cb = new Bootstrap().group(proxyToServerWorkerPool);
         cb.channel(NioSocketChannel.class);
@@ -348,6 +337,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 }
             }
         });
+    }
+    
+    protected void retryConnecting(final InetSocketAddress newAddress, final HttpRequest initialRequest) {
+        this.address = newAddress;
+        this.connectAndWrite(initialRequest);
     }
 
     private void initChannelPipeline(ChannelPipeline pipeline,
@@ -426,7 +420,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private void startCONNECT(HttpRequest httpRequest) {
         LOG.debug("Handling CONNECT request");
 
-        if (shouldChain(httpRequest)) {
+        if (clientConnection.shouldChain(httpRequest)) {
             startCONNECTWithChainedProxy(httpRequest);
         } else if (LittleProxyConfig.isUseSSLMitm()) {
             startCONNECTWithMITM();
@@ -509,7 +503,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      *            the server after the connection has been established.
      */
     private void finishConnecting(boolean shouldForwardInitialRequest) {
-        clientToProxyConnection.serverConnected(this, initialRequest, true);
+        clientConnection.serverConnected(this, initialRequest, true);
 
         synchronized (connectLock) {
             super.connected(ctx);
@@ -534,7 +528,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void unableToConnect() {
         become(DISCONNECTED);
-        clientToProxyConnection.serverConnected(ProxyToServerConnection.this,
+        clientConnection.serverConnected(ProxyToServerConnection.this,
                 initialRequest, false);
     }
 

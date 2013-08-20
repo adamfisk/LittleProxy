@@ -19,6 +19,7 @@ import org.junit.Test;
  * counts.
  */
 public class IdleTest {
+    private static final int NUMBER_OF_CONNECTIONS_TO_OPEN = 2000;
     private static final int WEB_SERVER_PORT = 9091;
     private static final int PROXY_PORT = 9091;
 
@@ -52,7 +53,7 @@ public class IdleTest {
         long initialFileDescriptors = getOpenFileDescriptorsAndPrintMemoryUsage();
         Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(
                 "127.0.0.1", PROXY_PORT));
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < NUMBER_OF_CONNECTIONS_TO_OPEN; i++) {
             new URL("http://localhost:" + WEB_SERVER_PORT)
                     .openConnection(proxy).connect();
         }
