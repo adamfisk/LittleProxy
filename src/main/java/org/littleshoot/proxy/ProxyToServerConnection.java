@@ -48,7 +48,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * receive a new message to write. This lock helps us synchronize and wait
      * for the connection to be established before writing the next message.
      */
-    private Object connectLock = new Object();
+    private final Object connectLock = new Object();
 
     /**
      * This is the initial request received prior to connecting. We keep track
@@ -78,17 +78,17 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Associates written HttpRequests to copies of the original HttpRequest
      * (before rewriting).
      */
-    private Map<HttpRequest, HttpRequest> originalHttpRequests = new ConcurrentHashMap<HttpRequest, HttpRequest>();
+    private final Map<HttpRequest, HttpRequest> originalHttpRequests = new ConcurrentHashMap<HttpRequest, HttpRequest>();
 
     /**
      * Cache of whether or not to filter responses based on the request.
      */
-    private Map<HttpRequest, Boolean> shouldFilterResponseCache = new ConcurrentHashMap<HttpRequest, Boolean>();
+    private final Map<HttpRequest, Boolean> shouldFilterResponseCache = new ConcurrentHashMap<HttpRequest, Boolean>();
 
     /**
      * Keeps track of whether or not we're acting as MITM.
      */
-    private AtomicBoolean isMITM = new AtomicBoolean(false);
+    private final AtomicBoolean isMITM = new AtomicBoolean(false);
 
     public ProxyToServerConnection(EventLoopGroup proxyToServerWorkerPool,
             ChannelGroup channelGroup,
@@ -225,9 +225,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void exceptionCaught(Throwable cause) {
-        final String message = "Caught exception on proxy -> web connection: "
+        String message = "Caught exception on proxy -> web connection: "
                 + channel;
-        final boolean reportAsError = cause == null
+        boolean reportAsError = cause == null
                 || cause.getMessage() == null
                 || !cause.getMessage().contains("Connection reset by peer");
 
@@ -318,7 +318,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         clientConnection.connectingToServer(this);
 
-        final Bootstrap cb = new Bootstrap().group(proxyToServerWorkerPool);
+        Bootstrap cb = new Bootstrap().group(proxyToServerWorkerPool);
         cb.channel(NioSocketChannel.class);
         cb.handler(new ChannelInitializer<Channel>() {
             protected void initChannel(Channel ch) throws Exception {
@@ -338,8 +338,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         });
     }
-    
-    protected void retryConnecting(final InetSocketAddress newAddress, final HttpRequest initialRequest) {
+
+    protected void retryConnecting(InetSocketAddress newAddress,
+            HttpRequest initialRequest) {
         this.address = newAddress;
         this.connectAndWrite(initialRequest);
     }
@@ -368,8 +369,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // Could be any protocol if it's connect, so hard to say what the
         // timeout should be, if any.
         if (!ProxyUtils.isCONNECT(httpRequest)) {
-            final int readTimeoutSeconds;
-            final int writeTimeoutSeconds;
+            int readTimeoutSeconds;
+            int writeTimeoutSeconds;
             if (ProxyUtils.isPOST(httpRequest) || ProxyUtils.isPUT(httpRequest)) {
                 readTimeoutSeconds = 0;
                 writeTimeoutSeconds = LittleProxyConfig

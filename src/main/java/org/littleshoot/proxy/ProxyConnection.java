@@ -453,7 +453,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     }
 
     @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt)
+    public final void userEventTriggered(ChannelHandlerContext ctx, Object evt)
             throws Exception {
         super.userEventTriggered(ctx, evt);
         if (evt instanceof IdleStateEvent) {

@@ -17,7 +17,7 @@ import org.slf4j.spi.LocationAwareLogger;
  * </p>
  */
 class ProxyConnectionLogger {
-    private ProxyConnection<?> connection;
+    private final ProxyConnection<?> connection;
     private final LocationAwareLogger logger;
     private final String fqcn = this.getClass().getCanonicalName();
 
