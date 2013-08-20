@@ -76,6 +76,8 @@ public abstract class ProxyConnection<I extends HttpObject> extends
 
     protected final EventLoopGroup proxyToServerWorkerPool;
     protected final ChannelGroup allChannels;
+    protected final ChainProxyManager chainProxyManager;
+
     protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
     protected volatile ConnectionState currentState;
@@ -91,12 +93,16 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * @param allChannels
      *            a ChannelGroup that records all channels in use (useful for
      *            closing these later)
+     * @param chainProxyManager
+     *            (optional) manager for accessing chained proxies
      */
     protected ProxyConnection(ConnectionState initialState,
-            EventLoopGroup proxyToServerWorkerPool, ChannelGroup allChannels) {
+            EventLoopGroup proxyToServerWorkerPool, ChannelGroup allChannels,
+            ChainProxyManager chainProxyManager) {
         this.currentState = initialState;
         this.proxyToServerWorkerPool = proxyToServerWorkerPool;
         this.allChannels = allChannels;
+        this.chainProxyManager = chainProxyManager;
     }
 
     /***************************************************************************
@@ -108,7 +114,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * 
      * @param msg
      */
-    private void read(Object msg) {
+    protected void read(Object msg) {
         LOG.debug("Reading: {}", msg);
         switch (this.currentState) {
         case AWAITING_INITIAL:
@@ -301,12 +307,21 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      **************************************************************************/
 
     protected void connected(ChannelHandlerContext ctx) {
+        saveContext(ctx);
         this.currentState = is(CONNECTING) ? AWAITING_INITIAL
                 : this.currentState;
+        LOG.debug("Connected");
+    }
+
+    /**
+     * Records our context and channel for later use.
+     * 
+     * @param ctx
+     */
+    protected void saveContext(ChannelHandlerContext ctx) {
         this.ctx = ctx;
         this.channel = ctx.channel();
         this.allChannels.add(channel);
-        LOG.debug("Connected");
     }
 
     protected void disconnected() {
@@ -338,16 +353,18 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * disconnecting.
      */
     public void disconnect() {
-        channel.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(
-                new GenericFutureListener<Future<? super Void>>() {
-                    @Override
-                    public void operationComplete(Future<? super Void> future)
-                            throws Exception {
-                        if (channel.isOpen()) {
-                            channel.close();
+        if (channel != null) {
+            channel.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(
+                    new GenericFutureListener<Future<? super Void>>() {
+                        @Override
+                        public void operationComplete(
+                                Future<? super Void> future) throws Exception {
+                            if (channel.isOpen()) {
+                                channel.close();
+                            }
                         }
-                    }
-                });
+                    });
+        }
     }
 
     /**
@@ -374,6 +391,30 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     protected void resumeReading() {
         LOG.debug("Resumed reading");
         this.channel.config().setAutoRead(true);
+    }
+
+    /**
+     * Determine whether the given request should be handled by a chained proxy.
+     * 
+     * @param httpRequest
+     * @return
+     */
+    protected boolean shouldChain(HttpRequest httpRequest) {
+        return getChainProxyHostAndPort(httpRequest) != null;
+    }
+
+    /**
+     * Get the host and port for the chained proxy.
+     * 
+     * @param httpRequest
+     * @return
+     */
+    protected String getChainProxyHostAndPort(HttpRequest httpRequest) {
+        if (chainProxyManager == null) {
+            return null;
+        } else {
+            return chainProxyManager.getChainProxy(httpRequest);
+        }
     }
 
     /***************************************************************************

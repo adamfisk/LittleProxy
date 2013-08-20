@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import java.io.File;
 import java.util.Arrays;
 
 import org.apache.commons.cli.CommandLine;
@@ -10,6 +11,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,40 +19,42 @@ import org.slf4j.LoggerFactory;
  * Launches a new HTTP proxy.
  */
 public class Launcher {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(Launcher.class);
 
     private static final String OPTION_DNSSEC = "dnssec";
-    
+
     private static final String OPTION_PORT = "port";
 
     private static final String OPTION_HELP = "help";
-    
+
     /**
      * Starts the proxy from the command line.
      * 
-     * @param args Any command line arguments.
+     * @param args
+     *            Any command line arguments.
      */
     public static void main(final String... args) {
+        pollLog4JConfigurationFileIfAvailable();
         LOG.info("Running LittleProxy with args: {}", Arrays.asList(args));
         final Options options = new Options();
-        options.addOption(null, OPTION_DNSSEC, true, 
-            "Request and verify DNSSEC signatures.");
-        options.addOption(null, OPTION_PORT, true, 
-            "Run on the specified port.");
+        options.addOption(null, OPTION_DNSSEC, true,
+                "Request and verify DNSSEC signatures.");
+        options.addOption(null, OPTION_PORT, true, "Run on the specified port.");
         options.addOption(null, OPTION_HELP, false,
-            "Display command line help.");
+                "Display command line help.");
         final CommandLineParser parser = new PosixParser();
         final CommandLine cmd;
         try {
             cmd = parser.parse(options, args);
             if (cmd.getArgs().length > 0) {
                 throw new UnrecognizedOptionException(
-                    "Extra arguments were provided in "+Arrays.asList(args));
+                        "Extra arguments were provided in "
+                                + Arrays.asList(args));
             }
-        }
-        catch (final ParseException e) {
-            printHelp(options, "Could not parse command line: "+Arrays.asList(args));
+        } catch (final ParseException e) {
+            printHelp(options,
+                    "Could not parse command line: " + Arrays.asList(args));
             return;
         }
         if (cmd.hasOption(OPTION_HELP)) {
@@ -66,7 +70,8 @@ public class Launcher {
                 LOG.info("Not using DNSSEC");
                 LittleProxyConfig.setUseDnsSec(false);
             } else {
-                printHelp(options, "Unexpected value for "+OPTION_DNSSEC+"=:"+val);
+                printHelp(options, "Unexpected value for " + OPTION_DNSSEC
+                        + "=:" + val);
                 return;
             }
         }
@@ -77,27 +82,34 @@ public class Launcher {
             try {
                 port = Integer.parseInt(val);
             } catch (final NumberFormatException e) {
-                printHelp(options, "Unexpected port "+val);
+                printHelp(options, "Unexpected port " + val);
                 return;
             }
         } else {
             port = defaultPort;
         }
-        
-        System.out.println("About to start server on port: "+port);
+
+        System.out.println("About to start server on port: " + port);
         final HttpProxyServer server = new DefaultHttpProxyServer(port);
         System.out.println("About to start...");
         server.start();
     }
-    
-    private static void printHelp(final Options options, 
-        final String errorMessage) {
+
+    private static void printHelp(final Options options,
+            final String errorMessage) {
         if (!StringUtils.isBlank(errorMessage)) {
             LOG.error(errorMessage);
             System.err.println(errorMessage);
         }
-    
+
         final HelpFormatter formatter = new HelpFormatter();
         formatter.printHelp("littleproxy", options);
+    }
+    
+    private static void pollLog4JConfigurationFileIfAvailable() {
+        File log4jConfigurationFile = new File("src/main/resources/log4j.properties");
+        if (log4jConfigurationFile.exists()) {
+            PropertyConfigurator.configureAndWatch(log4jConfigurationFile.getAbsolutePath(), 15);
+        }
     }
 }

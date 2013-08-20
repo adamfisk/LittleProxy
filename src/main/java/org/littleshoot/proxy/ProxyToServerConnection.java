@@ -27,10 +27,11 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import java.net.InetSocketAddress;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Represents a connection from our proxy to a server on the web.
@@ -39,7 +40,7 @@ import java.util.Queue;
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private final ClientToProxyConnection clientToProxyConnection;
-    protected final InetSocketAddress address;
+    private final InetSocketAddress address;
     private final HttpFilter responseFilter;
 
     /**
@@ -49,7 +50,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private Object connectLock = new Object();
 
-    private HttpRequest initialRequest;
+    /**
+     * This is the initial request received prior to connecting. We keep track
+     * of it so that we can process it after connection finishes.
+     */
+    private volatile HttpRequest initialRequest;
 
     /**
      * Keeps track of HttpRequests that have been issued so that we can
@@ -61,30 +66,36 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * While we're doing a chunked transfer, this keeps track of the HttpRequest
      * to which we're responding.
      */
-    private HttpRequest currentHttpRequest;
+    private volatile HttpRequest currentHttpRequest;
 
     /**
      * While we're doing a chunked transfer, this keeps track of the initial
      * HttpResponse object for our transfer (which is useful for its headers).
      */
-    private HttpResponse currentHttpResponse;
+    private volatile HttpResponse currentHttpResponse;
 
     /**
      * Associates written HttpRequests to copies of the original HttpRequest
      * (before rewriting).
      */
-    private Map<HttpRequest, HttpRequest> originalHttpRequests = new HashMap<HttpRequest, HttpRequest>();
+    private Map<HttpRequest, HttpRequest> originalHttpRequests = new ConcurrentHashMap<HttpRequest, HttpRequest>();
 
     /**
      * Cache of whether or not to filter responses based on the request.
      */
-    private Map<HttpRequest, Boolean> shouldFilterResponseCache = new HashMap<HttpRequest, Boolean>();
+    private Map<HttpRequest, Boolean> shouldFilterResponseCache = new ConcurrentHashMap<HttpRequest, Boolean>();
+
+    /**
+     * Keeps track of whether or not we're acting as MITM.
+     */
+    private AtomicBoolean isMITM = new AtomicBoolean(false);
 
     public ProxyToServerConnection(EventLoopGroup proxyToServerWorkerPool,
-            ChannelGroup channelGroup,
+            ChannelGroup channelGroup, ChainProxyManager chainProxyManager,
             ClientToProxyConnection clientToProxyConnection,
             InetSocketAddress address, HttpFilter responseFilter) {
-        super(DISCONNECTED, proxyToServerWorkerPool, channelGroup);
+        super(DISCONNECTED, proxyToServerWorkerPool, channelGroup,
+                chainProxyManager);
         this.clientToProxyConnection = clientToProxyConnection;
         this.address = address;
         this.responseFilter = responseFilter;
@@ -93,6 +104,31 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /***************************************************************************
      * Reading
      **************************************************************************/
+
+    @Override
+    protected void read(Object msg) {
+        if (is(AWAITING_CONNECT_OK)) {
+            LOG.debug("Reading: {}", msg);
+            // Here we're handling the response from a chained proxy to our
+            // earlier CONNECT request
+            boolean connectOk = false;
+            if (msg instanceof HttpResponse) {
+                HttpResponse httpResponse = (HttpResponse) msg;
+                int statusCode = httpResponse.getStatus().code();
+                if (statusCode >= 200 && statusCode <= 299) {
+                    connectOk = true;
+                }
+            }
+            if (connectOk) {
+                // The chained proxy is now tunneling, so we start tunneling too
+                startCONNECTWithTunneling();
+            } else {
+                unableToConnect();
+            }
+        } else {
+            super.read(msg);
+        }
+    }
 
     @Override
     protected ConnectionState readInitial(HttpResponse httpResponse) {
@@ -171,12 +207,22 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Lifecycle
      **************************************************************************/
 
+    /**
+     * A ProxyToServerConnection is considered reusable if it's not tunneling
+     * and not acting as MITM.
+     * 
+     * @return
+     */
+    public boolean isReusable() {
+        return !isMITM.get() && !is(TUNNELING);
+    }
+
     @Override
     protected void connected(ChannelHandlerContext ctx) {
-        this.ctx = ctx;
+        saveContext(ctx);
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
-            startCONNECT();
+            startCONNECT(initialRequest);
         } else {
             finishConnecting(true);
         }
@@ -213,6 +259,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // to something like an unresolved address, for example, or a timeout.
         // There will not have been be any requests written on an unopened
         // connection, so there should not be any further action to take here.
+    }
+
+    /***************************************************************************
+     * State Management
+     **************************************************************************/
+    public InetSocketAddress getAddress() {
+        return address;
     }
 
     /***************************************************************************
@@ -291,11 +344,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     throws Exception {
                 if (!future.isSuccess()) {
                     LOG.debug("Could not connect to " + address, future.cause());
-                    clientToProxyConnection
-                            .serverConnected(ProxyToServerConnection.this,
-                                    initialRequest, false);
+                    unableToConnect();
                 }
-
             }
         });
     }
@@ -369,10 +419,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * See {@link ClientToProxyConnection#finishCONNECT()} for the end of this
      * flow.
      * </p>
+     * 
+     * @param httpRequest
+     *            the HttpRequest that prompted us to start the CONNECT flow
      */
-    private void startCONNECT() {
+    private void startCONNECT(HttpRequest httpRequest) {
         LOG.debug("Handling CONNECT request");
-        if (LittleProxyConfig.isUseSSLMitm()) {
+
+        if (shouldChain(httpRequest)) {
+            startCONNECTWithChainedProxy(httpRequest);
+        } else if (LittleProxyConfig.isUseSSLMitm()) {
             startCONNECTWithMITM();
         } else {
             startCONNECTWithTunneling();
@@ -389,18 +445,31 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * end of this flow.
      * </p>
      * 
-     * @return
      */
-    private Future<?> startCONNECTWithTunneling() {
+    private void startCONNECTWithTunneling() {
         LOG.debug("Preparing to tunnel");
-        return startTunneling().addListener(
-                new GenericFutureListener<Future<?>>() {
-                    public void operationComplete(Future<?> future)
-                            throws Exception {
-                        // TODO: handle CONNECT to chained proxy
-                        finishConnecting(false);
-                    };
-                });
+        
+        startTunneling().addListener(new GenericFutureListener<Future<?>>() {
+            public void operationComplete(Future<?> future) throws Exception {
+                // TODO: handle CONNECT to chained proxy
+                finishConnecting(false);
+            };
+        });
+    }
+
+    /**
+     * When we get a CONNECT that needs to go to a chained proxy, we go into
+     * state AWAITING_CONNECTION_OK and forward the CONNECT. Once we get a
+     * connection OK (200 status), we consider our connection complete and
+     * switch to tunneling mode.
+     * 
+     * @param httpRequest
+     */
+    private void startCONNECTWithChainedProxy(HttpRequest httpRequest) {
+        LOG.debug("Preparing to tunnel via chained proxy, forwarding CONNECT");
+        
+        this.currentState = AWAITING_CONNECT_OK;
+        ctx.channel().writeAndFlush(httpRequest);
     }
 
     /**
@@ -417,6 +486,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void startCONNECTWithMITM() {
         LOG.debug("Preparing to act as Man-in-the-Middle");
+        this.isMITM.set(true);
         enableSSLAsClient().addListener(
                 new GenericFutureListener<Future<? super Channel>>() {
                     @Override
@@ -457,6 +527,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // connection that it's okay to proceed.
             connectLock.notifyAll();
         }
+    }
+
+    /**
+     * Go back to DISCONNECTED status and let the client know that connecting
+     * failed.
+     */
+    private void unableToConnect() {
+        this.currentState = DISCONNECTED;
+        clientToProxyConnection.serverConnected(ProxyToServerConnection.this,
+                initialRequest, false);
     }
 
     private void filterResponseIfNecessary(HttpResponse httpResponse) {

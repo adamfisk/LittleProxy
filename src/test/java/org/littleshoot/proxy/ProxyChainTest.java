@@ -17,7 +17,9 @@ import org.junit.Test;
 public class ProxyChainTest {
 
     private static final int WEB_SERVER_PORT = 20080;
+    private static final int WEB_SERVER_SSL_PORT = 20081;
     private static final HttpHost WEB_SERVER_HOST = new HttpHost("127.0.0.1", WEB_SERVER_PORT);
+    private static final HttpHost WEB_SERVER_SSL_HOST = new HttpHost("127.0.0.1", WEB_SERVER_SSL_PORT, "https");
     private static final int PROXY_PORT = 8081;
     private static final String PROXY_HOST_AND_PORT = "127.0.0.1:8081";
     private static final int ANOTHER_PROXY_PORT = 8082;
@@ -29,7 +31,7 @@ public class ProxyChainTest {
     
     @Before
     public void setUp() throws Exception {
-        webServer = startWebServer(WEB_SERVER_PORT);
+        webServer = startWebServer(WEB_SERVER_PORT, WEB_SERVER_SSL_PORT);
         proxyServer = startProxyServer(PROXY_PORT);
         anotherProxyServer = startProxyServer(ANOTHER_PROXY_PORT, PROXY_HOST_AND_PORT);
     }
@@ -69,6 +71,18 @@ public class ProxyChainTest {
         // Then
         assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
         assertNotNull(response.getFirstHeader("Via"));
+    }
+    
+    @Test
+    public void testChainedProxySSL() throws Exception {
+        // Given
+        httpclient = createProxiedHttpClient(ANOTHER_PROXY_PORT, true);
+        
+        // When
+        final HttpResponse response = httpclient.execute(WEB_SERVER_SSL_HOST, new HttpGet("/"));
+
+        // Then
+        assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
     }
 
 }
