@@ -106,11 +106,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             0);
 
     /**
-     * Keep track of how many servers are currently saturated.
-     */
-    private final Map<ProxyToServerConnection, Boolean> currentlySaturatedServers = new ConcurrentHashMap<ProxyToServerConnection, Boolean>();
-
-    /**
      * Keep track of how many times we were able to reuse a connection.
      */
     private final AtomicInteger numberOfReusedServerConnections = new AtomicInteger(
@@ -290,36 +285,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /**
-     * Callback for when a server became saturated
-     * 
-     * @param serverConnection
-     */
-    synchronized protected void serverBecameSaturated(
-            ProxyToServerConnection serverConnection) {
-        if (serverConnection.isSaturated()) {
-            LOG.debug("Connection to server became saturated, stopping reading");
-            currentlySaturatedServers.put(serverConnection, true);
-            stopReading();
-        }
-    }
-
-    /**
-     * Callback for when a previously saturated server became writeable again.
-     * 
-     * @param serverConnection
-     */
-    synchronized protected void serverBecameWriteable(
-            ProxyToServerConnection serverConnection) {
-        if (!serverConnection.isSaturated()) {
-            currentlySaturatedServers.remove(serverConnection);
-            if (currentlySaturatedServers.size() == 0) {
-                LOG.debug("All server connections writeable, resuming reading");
-                resumeReading();
-            }
-        }
-    }
-
-    /**
      * On disconnect of the client, disconnect all server connections.
      */
     @Override
@@ -338,7 +303,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * When the ClientToProxyConnection becomes saturated, stop reading on all
-     * associated ProxyToServerConnections
+     * associated ProxyToServerConnections.
      */
     @Override
     synchronized protected void becameSaturated() {
@@ -355,7 +320,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * When the ClientToProxyConnection becomes writeable, resume reading on all
-     * associated ProxyToServerConnections
+     * associated ProxyToServerConnections.
      */
     @Override
     synchronized protected void becameWriteable() {
@@ -367,6 +332,41 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     serverConnection.resumeReading();
                 }
             }
+        }
+    }
+
+    /**
+     * When a server becomes saturated, we stop reading from the client.
+     * 
+     * @param serverConnection
+     */
+    synchronized protected void serverBecameSaturated(
+            ProxyToServerConnection serverConnection) {
+        if (serverConnection.isSaturated()) {
+            LOG.debug("Connection to server became saturated, stopping reading");
+            stopReading();
+        }
+    }
+
+    /**
+     * When a server becomes writeable, we check to see if all servers are
+     * writeable and if they are, we resume reading.
+     * 
+     * @param serverConnection
+     */
+    synchronized protected void serverBecameWriteable(
+            ProxyToServerConnection serverConnection) {
+        boolean anyServersSaturated = false;
+        for (ProxyToServerConnection otherServerConnection : serverConnectionsByHostAndPort
+                .values()) {
+            if (otherServerConnection.isSaturated()) {
+                anyServersSaturated = true;
+                break;
+            }
+        }
+        if (!anyServersSaturated) {
+            LOG.debug("All server connections writeable, resuming reading");
+            resumeReading();
         }
     }
 
