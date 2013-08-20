@@ -218,6 +218,18 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     @Override
+    protected void becameSaturated() {
+        super.becameSaturated();
+        this.clientConnection.serverBecameSaturated(this);
+    }
+
+    @Override
+    protected void becameWriteable() {
+        super.becameWriteable();
+        this.clientConnection.serverBecameWriteable(this);
+    }
+
+    @Override
     protected void disconnected() {
         super.disconnected();
         clientConnection.serverDisconnected(this);
@@ -225,8 +237,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void exceptionCaught(Throwable cause) {
-        String message = "Caught exception on proxy -> web connection: "
-                + channel;
+        String message = "Caught exception on proxy -> web connection";
         boolean reportAsError = cause == null
                 || cause.getMessage() == null
                 || !cause.getMessage().contains("Connection reset by peer");
@@ -236,7 +247,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         } else {
             LOG.warn(message, cause);
         }
-        if (channel.isActive()) {
+        if (!is(DISCONNECTED)) {
             if (reportAsError) {
                 LOG.error("Disconnecting open connection");
             } else {
@@ -463,7 +474,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         LOG.debug("Preparing to tunnel via chained proxy, forwarding CONNECT");
 
         become(AWAITING_CONNECT_OK);
-        ctx.channel().writeAndFlush(httpRequest);
+        writeToChannel(httpRequest);
     }
 
     /**

@@ -1,6 +1,10 @@
 package org.littleshoot.proxy;
 
+import io.netty.handler.codec.http.HttpRequest;
+
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.security.SecureRandom;
@@ -26,8 +30,6 @@ import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.ssl.SslSocketConnector;
-
-import io.netty.handler.codec.http.HttpRequest;
 
 public class TestUtils {
 
@@ -79,8 +81,7 @@ public class TestUtils {
 
     /**
      * Creates and starts embedded web server that is running on given port,
-     * including an SSL connector on the other given port. Each response has
-     * empty body with HTTP OK status.
+     * including an SSL connector on the other given port. Each response 
      * 
      * @param port
      *            The port
@@ -96,8 +97,18 @@ public class TestUtils {
             public void handle(String target, Request baseRequest,
                     HttpServletRequest request, HttpServletResponse response)
                     throws IOException, ServletException {
+                long numberOfBytesRead = 0;
+                InputStream in = new BufferedInputStream(request
+                        .getInputStream());
+                while (in.read() != -1) {
+                    numberOfBytesRead += 1;
+                }
+                System.out.println("Done reading # of bytes: "
+                        + numberOfBytesRead);
                 response.setStatus(HttpServletResponse.SC_OK);
                 baseRequest.setHandled(true);
+                response.getWriter().write(
+                        "Received " + numberOfBytesRead + " bytes\n");
             }
         });
         if (sslPort != null) {

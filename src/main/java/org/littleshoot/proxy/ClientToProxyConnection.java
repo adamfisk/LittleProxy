@@ -106,6 +106,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             0);
 
     /**
+     * Keep track of how many servers are currently saturated.
+     */
+    private final Map<ProxyToServerConnection, Boolean> currentlySaturatedServers = new ConcurrentHashMap<ProxyToServerConnection, Boolean>();
+
+    /**
      * Keep track of how many times we were able to reuse a connection.
      */
     private final AtomicInteger numberOfReusedServerConnections = new AtomicInteger(
@@ -237,13 +242,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             writeEmptyBuffer();
         }
 
-        synchronized (serverConnection) {
-            if (isSaturated()) {
-                LOG.debug("Client connection is saturated, disabling reads from server");
-                serverConnection.stopReading();
-            }
-        }
-
         closeConnectionsAfterWriteIfNecessary(serverConnection,
                 currentHttpRequest, currentHttpResponse, httpObject);
     }
@@ -292,6 +290,36 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /**
+     * Callback for when a server became saturated
+     * 
+     * @param serverConnection
+     */
+    synchronized protected void serverBecameSaturated(
+            ProxyToServerConnection serverConnection) {
+        if (serverConnection.isSaturated()) {
+            LOG.debug("Connection to server became saturated, stopping reading");
+            currentlySaturatedServers.put(serverConnection, true);
+            stopReading();
+        }
+    }
+
+    /**
+     * Callback for when a previously saturated server became writeable again.
+     * 
+     * @param serverConnection
+     */
+    synchronized protected void serverBecameWriteable(
+            ProxyToServerConnection serverConnection) {
+        if (!serverConnection.isSaturated()) {
+            currentlySaturatedServers.remove(serverConnection);
+            if (currentlySaturatedServers.size() == 0) {
+                LOG.debug("All server connections writeable, resuming reading");
+                resumeReading();
+            }
+        }
+    }
+
+    /**
      * On disconnect of the client, disconnect all server connections.
      */
     @Override
@@ -308,14 +336,36 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         disconnectClientIfNecessary();
     }
 
+    /**
+     * When the ClientToProxyConnection becomes saturated, stop reading on all
+     * associated ProxyToServerConnections
+     */
     @Override
-    protected void becameWriteable() {
-        // When the ClientToProxyConnection becomes writeable, resume reading
-        // on all associated ProxyToServerConnections
+    synchronized protected void becameSaturated() {
+        super.becameSaturated();
         for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
                 .values()) {
             synchronized (serverConnection) {
-                serverConnection.resumeReading();
+                if (this.isSaturated()) {
+                    serverConnection.stopReading();
+                }
+            }
+        }
+    }
+
+    /**
+     * When the ClientToProxyConnection becomes writeable, resume reading on all
+     * associated ProxyToServerConnections
+     */
+    @Override
+    synchronized protected void becameWriteable() {
+        super.becameWriteable();
+        for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
+                .values()) {
+            synchronized (serverConnection) {
+                if (!this.isSaturated()) {
+                    serverConnection.resumeReading();
+                }
             }
         }
     }
@@ -324,9 +374,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void exceptionCaught(Throwable cause) {
         String message = "Caught an exception on ClientToProxyConnection";
         if (cause instanceof ClosedChannelException) {
-            LOG.error(message, cause);
-        } else {
             LOG.warn(message, cause);
+        } else {
+            LOG.error(message, cause);
         }
         disconnect();
     }
@@ -397,7 +447,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         response.headers().set("Connection", "Keep-Alive");
         response.headers().set("Proxy-Connection", "Keep-Alive");
         ProxyUtils.addVia(response);
-        return ctx.channel().writeAndFlush(response);
+        return writeToChannel(response);
     }
 
     /**

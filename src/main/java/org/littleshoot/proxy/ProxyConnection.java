@@ -4,6 +4,8 @@ import static org.littleshoot.proxy.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
@@ -218,10 +220,10 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * @param httpObject
      */
     protected void writeHttp(HttpObject httpObject) {
-        channel.writeAndFlush(httpObject);
+        writeToChannel(httpObject);
         if (ProxyUtils.isLastChunk(httpObject)) {
             LOG.debug("Writing an empty buffer to signal the end of our chunked transfer");
-            channel.writeAndFlush(Unpooled.EMPTY_BUFFER);
+            writeToChannel(Unpooled.EMPTY_BUFFER);
         }
     }
 
@@ -232,7 +234,47 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * @return a future for the asynchronous write operation
      */
     protected void writeRaw(ByteBuf buf) {
-        channel.writeAndFlush(buf);
+        writeToChannel(buf);
+    }
+
+    protected ChannelFuture writeToChannel(Object msg) {
+        ChannelFuture future = channel.writeAndFlush(msg);
+        future.addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future)
+                    throws Exception {
+                if (!channel.isWritable()) {
+                    becameSaturated();
+                }
+            }
+        });
+        return future;
+    }
+
+    /***************************************************************************
+     * Lifecycle
+     **************************************************************************/
+
+    protected void connected(ChannelHandlerContext ctx) {
+        saveContext(ctx);
+        become(is(CONNECTING) ? AWAITING_INITIAL : getCurrentState());
+        LOG.debug("Connected");
+    }
+
+    /**
+     * Records our context and channel for later use.
+     * 
+     * @param ctx
+     */
+    protected void saveContext(ChannelHandlerContext ctx) {
+        this.ctx = ctx;
+        this.channel = ctx.channel();
+        this.allChannels.add(channel);
+    }
+
+    protected void disconnected() {
+        become(DISCONNECTED);
+        LOG.debug("Disconnected");
     }
 
     /**
@@ -304,33 +346,18 @@ public abstract class ProxyConnection<I extends HttpObject> extends
         return handler.handshakeFuture();
     }
 
-    /***************************************************************************
-     * Lifecycle
-     **************************************************************************/
-
-    protected void connected(ChannelHandlerContext ctx) {
-        saveContext(ctx);
-        become(is(CONNECTING) ? AWAITING_INITIAL : getCurrentState());
-        LOG.debug("Connected");
+    /**
+     * Callback that's invoked if this connection becomes saturated.
+     */
+    protected void becameSaturated() {
+        LOG.debug("Became saturated");
     }
 
     /**
-     * Records our context and channel for later use.
-     * 
-     * @param ctx
+     * Callback that's invoked when this connection becomes writeable again.
      */
-    protected void saveContext(ChannelHandlerContext ctx) {
-        this.ctx = ctx;
-        this.channel = ctx.channel();
-        this.allChannels.add(channel);
-    }
-
-    protected void disconnected() {
-        become(DISCONNECTED);
-        LOG.debug("Disconnected");
-    }
-
     protected void becameWriteable() {
+        LOG.debug("Became writeable");
     }
 
     /**
@@ -345,17 +372,13 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     /***************************************************************************
      * State/Management
      **************************************************************************/
-    public boolean isSaturated() {
-        return !this.channel.isWritable();
-    }
-
     /**
      * Disconnects. This will wait for pending writes to be flushed before
      * disconnecting.
      */
     public void disconnect() {
         if (channel != null) {
-            channel.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(
+            writeToChannel(Unpooled.EMPTY_BUFFER).addListener(
                     new GenericFutureListener<Future<? super Void>>() {
                         @Override
                         public void operationComplete(
@@ -366,6 +389,10 @@ public abstract class ProxyConnection<I extends HttpObject> extends
                         }
                     });
         }
+    }
+    
+    protected boolean isSaturated() {
+        return !this.channel.isWritable();
     }
 
     /**
