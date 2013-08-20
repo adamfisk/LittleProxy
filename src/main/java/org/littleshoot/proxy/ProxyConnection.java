@@ -158,6 +158,9 @@ public abstract class ProxyConnection<I extends HttpObject> extends
         case DISCONNECTED:
             LOG.info("Ignoring message since the connection is closed or about to close");
             break;
+        case AWAITING_CONNECT_OK:
+            LOG.warn("AWAITING_CONNECT_OK should have been handled by ProxyToServerConnection.read()");
+            break;
         }
         
         become(nextState);

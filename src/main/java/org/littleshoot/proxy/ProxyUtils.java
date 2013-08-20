@@ -206,14 +206,6 @@ public class ProxyUtils {
         return hostAndPort;
     }
 
-    public static String parseHost(final HttpRequest request) {
-        final String host = request.headers().get(HttpHeaders.Names.HOST);
-        if (StringUtils.isNotBlank(host)) {
-            return host;
-        }
-        return parseHost(request.getUri());
-    }
-
     public static String parseHost(final String request) {
         final String hostAndPort = ProxyUtils.parseHostAndPort(request);
         if (hostAndPort.contains(":")) {

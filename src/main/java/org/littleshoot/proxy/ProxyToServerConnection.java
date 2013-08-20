@@ -278,7 +278,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void rememberCurrentRequest() {
         LOG.debug("Remembering the current request.");
-        // TODO: I'm a little unclear as to when the request queue would
+        // I'm a little unclear as to when the request queue would
         // ever actually be empty, but it is from time to time in practice.
         // We've seen this particularly when behind proxies that govern
         // access control on local networks, likely related to redirects.
@@ -448,10 +448,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void startCONNECTWithTunneling() {
         LOG.debug("Preparing to tunnel");
-        
+
         startTunneling().addListener(new GenericFutureListener<Future<?>>() {
             public void operationComplete(Future<?> future) throws Exception {
-                // TODO: handle CONNECT to chained proxy
                 finishConnecting(false);
             };
         });
@@ -467,7 +466,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void startCONNECTWithChainedProxy(HttpRequest httpRequest) {
         LOG.debug("Preparing to tunnel via chained proxy, forwarding CONNECT");
-        
+
         become(AWAITING_CONNECT_OK);
         ctx.channel().writeAndFlush(httpRequest);
     }
