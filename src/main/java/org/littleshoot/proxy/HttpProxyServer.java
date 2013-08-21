@@ -36,4 +36,11 @@ public interface HttpProxyServer {
      */
     void setProxyAuthenticator(ProxyAuthenticator proxyAuthenticator);
 
+    /**
+     * Add an ActivityTracker for tracking proxying activity.
+     * 
+     * @param activityTracker
+     */
+    void addActivityTracker(ActivityTracker activityTracker);
+
 }

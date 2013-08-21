@@ -114,6 +114,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      */
     protected void read(Object msg) {
         LOG.debug("Reading: {}", msg);
+
         ConnectionState nextState = getCurrentState();
         switch (getCurrentState()) {
         case AWAITING_INITIAL:
@@ -390,7 +391,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
                     });
         }
     }
-    
+
     protected boolean isSaturated() {
         return !this.channel.isWritable();
     }

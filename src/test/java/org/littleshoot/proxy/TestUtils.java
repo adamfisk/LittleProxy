@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -9,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
@@ -33,36 +35,89 @@ import org.eclipse.jetty.server.ssl.SslSocketConnector;
 
 public class TestUtils {
 
-    private TestUtils() {}
+    private TestUtils() {
+    }
 
     /**
-     *  Creates and starts a proxy server that listens on given port.
-     * @param port The port
+     * Creates and starts a proxy server that listens on given port.
+     * 
+     * @param port
+     *            The port
      * @return The instance of proxy server
      */
     public static HttpProxyServer startProxyServer(int port) {
-        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(port);
+        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(
+                port);
         proxyServer.start(true, true);
         return proxyServer;
     }
 
     /**
-     *  Creates and starts a proxy server that listens on given port.
-     * @param port The port
-     * @param chainProxyHostAndPort Proxy relay
+     * Creates and starts a proxy server that listens on given port.
+     * 
+     * @param port
+     *            The port
+     * @param chainProxyHostAndPort
+     *            Proxy relay
      * @return The instance of proxy server
      */
-    public static HttpProxyServer startProxyServer(int port, final String chainProxyHostAndPort) {
-        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(port, null, new ChainProxyManager() {
-            public String getChainProxy(HttpRequest httpRequest) {
-                return chainProxyHostAndPort;
-            }
+    public static HttpProxyServer startProxyServer(int port,
+            final String chainProxyHostAndPort) {
+        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(
+                port, null, new ChainProxyManager() {
+                    public String getChainProxy(HttpRequest httpRequest) {
+                        return chainProxyHostAndPort;
+                    }
 
-            public void onCommunicationError(String hostAndPort) {
-            }
-        }, null, null);
+                    public void onCommunicationError(String hostAndPort) {
+                    }
+                }, null, null);
         proxyServer.start(true, true);
         return proxyServer;
+    }
+
+    public static HttpProxyServer addActivityTracking(HttpProxyServer server) {
+        server.addActivityTracker(new ActivityTracker() {
+            private AtomicLong totalBytesReceivedFromClients = new AtomicLong(0);
+            private AtomicLong totalRequestsSentToServers = new AtomicLong(0);
+            private AtomicLong totalBytesReceivedFromServers = new AtomicLong(0);
+            private AtomicLong totalResponsesReceivedFromServers = new AtomicLong(
+                    0);
+
+            @Override
+            public void bytesReceivedFromClient(
+                    InetSocketAddress clientAddress, String serverHostAndPort,
+                    String chainedProxyHostAndPort, int numberOfBytes) {
+                System.out.println("Total bytes received from clients: "
+                        + totalBytesReceivedFromClients.addAndGet(numberOfBytes));
+            }
+
+            @Override
+            public void requestSent(InetSocketAddress clientAddress,
+                    String serverHostAndPort, String chainedProxyHostAndPort,
+                    HttpRequest httpRequest) {
+                System.out.println("Total requests sent to servers: "
+                        + totalRequestsSentToServers.incrementAndGet());
+            }
+
+            @Override
+            public void bytesReceivedFromServer(
+                    InetSocketAddress clientAddress, String serverHostAndPort,
+                    String chainedProxyHostAndPort, int numberOfBytes) {
+                System.out.println("Total bytes received from servers: "
+                        + totalBytesReceivedFromServers.addAndGet(numberOfBytes));
+            }
+
+            @Override
+            public void responseReceived(InetSocketAddress clientAddress,
+                    String serverHostAndPort, String chainedProxyHostAndPort,
+                    HttpResponse httpResponse) {
+                System.out.println("Total responses received from servers: "
+                        + totalResponsesReceivedFromServers.incrementAndGet());
+            }
+
+        });
+        return server;
     }
 
     /**
@@ -81,7 +136,7 @@ public class TestUtils {
 
     /**
      * Creates and starts embedded web server that is running on given port,
-     * including an SSL connector on the other given port. Each response 
+     * including an SSL connector on the other given port. Each response
      * 
      * @param port
      *            The port
@@ -91,7 +146,8 @@ public class TestUtils {
      * @throws Exception
      *             if failed to start
      */
-    public static Server startWebServer(final int port, final Integer sslPort) throws Exception {
+    public static Server startWebServer(final int port, final Integer sslPort)
+            throws Exception {
         final Server httpServer = new Server(port);
         httpServer.setHandler(new AbstractHandler() {
             public void handle(String target, Request baseRequest,
@@ -115,11 +171,13 @@ public class TestUtils {
             // Add SSL connector
             org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
 
-            org.littleshoot.proxy.SslContextFactory scf = new org.littleshoot.proxy.SslContextFactory(new SelfSignedKeyStoreManager());
+            org.littleshoot.proxy.SslContextFactory scf = new org.littleshoot.proxy.SslContextFactory(
+                    new SelfSignedKeyStoreManager());
             SSLContext sslContext = scf.getServerContext();
 
             sslContextFactory.setSslContext(sslContext);
-            SslSocketConnector connector = new SslSocketConnector(sslContextFactory);
+            SslSocketConnector connector = new SslSocketConnector(
+                    sslContextFactory);
             connector.setPort(sslPort);
             httpServer.addConnector(connector);
         }
@@ -135,10 +193,11 @@ public class TestUtils {
      *            the proxy port
      * @return instance of HttpClient
      */
-    public static HttpClient createProxiedHttpClient(final int port) throws Exception {
+    public static HttpClient createProxiedHttpClient(final int port)
+            throws Exception {
         return createProxiedHttpClient(port, false);
     }
-    
+
     /**
      * Creates instance HttpClient that is configured to use proxy server. The
      * proxy server should run on 127.0.0.1 and given port
@@ -150,7 +209,8 @@ public class TestUtils {
      *            self-signed certificates
      * @return instance of HttpClient
      */
-    public static HttpClient createProxiedHttpClient(final int port, final boolean supportSSL) throws Exception {
+    public static HttpClient createProxiedHttpClient(final int port,
+            final boolean supportSSL) throws Exception {
         final HttpClient httpclient = new DefaultHttpClient();
         // Note: we use 127.0.0.1 here because on OS X, using straight up
         // localhost yields a connect exception.
@@ -158,20 +218,28 @@ public class TestUtils {
         httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
                 proxy);
         if (supportSSL) {
-            SSLSocketFactory sf = new SSLSocketFactory(new TrustSelfSignedStrategy());
+            SSLSocketFactory sf = new SSLSocketFactory(
+                    new TrustSelfSignedStrategy());
             sf.setHostnameVerifier(new X509HostnameVerifier() {
                 public boolean verify(String arg0, SSLSession arg1) {
                     return true;
                 }
-                public void verify(String host, String[] cns, String[] subjectAlts) throws SSLException {
+
+                public void verify(String host, String[] cns,
+                        String[] subjectAlts) throws SSLException {
                 }
-                public void verify(String host, X509Certificate cert) throws SSLException {
+
+                public void verify(String host, X509Certificate cert)
+                        throws SSLException {
                 }
-                public void verify(String host, SSLSocket ssl) throws IOException {
+
+                public void verify(String host, SSLSocket ssl)
+                        throws IOException {
                 }
             });
             Scheme scheme = new Scheme("https", 443, sf);
-            httpclient.getConnectionManager().getSchemeRegistry().register(scheme);
+            httpclient.getConnectionManager().getSchemeRegistry()
+                    .register(scheme);
         }
         return httpclient;
     }
@@ -179,7 +247,7 @@ public class TestUtils {
     public static int randomPort() {
         final SecureRandom secureRandom = new SecureRandom();
         for (int i = 0; i < 20; i++) {
-            // The +1 on the random int is because 
+            // The +1 on the random int is because
             // Math.abs(Integer.MIN_VALUE) == Integer.MIN_VALUE -- caught
             // by FindBugs.
             final int randomPort = 1024 + (Math.abs(secureRandom.nextInt() + 1) % 60000);
@@ -199,7 +267,7 @@ public class TestUtils {
                 }
             }
         }
-        
+
         // If we can't grab one of our securely chosen random ports, use
         // whatever port the OS assigns.
         ServerSocket sock = null;

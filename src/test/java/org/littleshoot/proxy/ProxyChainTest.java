@@ -34,7 +34,7 @@ public class ProxyChainTest {
     @Before
     public void setUp() throws Exception {
         webServer = startWebServer(WEB_SERVER_PORT, WEB_SERVER_SSL_PORT);
-        proxyServer = startProxyServer(PROXY_PORT);
+        proxyServer = addActivityTracking(startProxyServer(PROXY_PORT));
         anotherProxyServer = startProxyServer(ANOTHER_PROXY_PORT,
                 PROXY_HOST_AND_PORT);
     }

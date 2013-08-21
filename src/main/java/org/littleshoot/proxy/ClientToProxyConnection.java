@@ -16,7 +16,6 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -32,6 +31,7 @@ import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -75,11 +75,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     "proxy-authenticate", "proxy-authorization", "te",
                     "trailers", "upgrade" }));
 
+    private final ChainProxyManager chainProxyManager;
     private final ProxyAuthenticator authenticator;
     private final HandshakeHandlerFactory handshakeHandlerFactory;
     private final HttpRequestFilter requestFilter;
     private final HttpResponseFilters responseFilters;
-    private final ChainProxyManager chainProxyManager;
+    private final Collection<ActivityTracker> activityTrackers;
 
     /**
      * Keep track of all ProxyToServerConnections by host+port.
@@ -122,13 +123,16 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             ProxyAuthenticator authenticator,
             HandshakeHandlerFactory handshakeHandlerFactory,
             HttpRequestFilter requestFilter,
-            HttpResponseFilters responseFilters, ChannelPipeline pipeline) {
+            HttpResponseFilters responseFilters,
+            Collection<ActivityTracker> activityTrackers,
+            ChannelPipeline pipeline) {
         super(AWAITING_INITIAL, proxyToServerWorkerPool, channelGroup);
         this.authenticator = authenticator;
         this.handshakeHandlerFactory = handshakeHandlerFactory;
         this.requestFilter = requestFilter;
         this.responseFilters = responseFilters;
         this.chainProxyManager = chainProxyManager;
+        this.activityTrackers = activityTrackers;
         initChannelPipeline(pipeline);
         LOG.debug("Created ClientToProxyConnection");
     }
@@ -138,6 +142,20 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      **************************************************************************/
 
     @Override
+    protected void read(Object msg) {
+        if (msg instanceof ConnectionTracer) {
+            // Record statistic for ConnectionTracer and then ignore it
+            if (currentServerConnection != null) {
+                bytesReceivedFromClient(currentServerConnection,
+                        (ConnectionTracer) msg);
+            }
+        } else {
+            // Process as usual
+            super.read(msg);
+        }
+    }
+
+    @Override
     protected ConnectionState readInitial(HttpRequest httpRequest) {
         LOG.debug("Got request: {}", httpRequest);
         boolean authenticationRequired = authenticationRequired(httpRequest);
@@ -145,7 +163,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             LOG.debug("Not authenticated!!");
             return AWAITING_PROXY_AUTHENTICATION;
         } else {
-            String hostAndPort = identifyHostAndPort(httpRequest);
+            String serverHostAndPort = identifyHostAndPort(httpRequest);
+            String chainedProxyHostAndPort = getChainProxyHostAndPort(httpRequest);
+            String hostAndPort = chainedProxyHostAndPort != null ? chainedProxyHostAndPort
+                    : serverHostAndPort;
+
             LOG.debug("Identifying server for: {}", hostAndPort);
 
             if (hostAndPort == null || StringUtils.isBlank(hostAndPort)) {
@@ -165,7 +187,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 }
                 try {
                     currentServerConnection = connectToServer(httpRequest,
-                            hostAndPort);
+                            hostAndPort, serverHostAndPort,
+                            chainedProxyHostAndPort);
                 } catch (UnknownHostException uhe) {
                     LOG.info("Bad Host {}", httpRequest.getUri());
                     writeBadGateway(httpRequest);
@@ -230,6 +253,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpResponse httpResponse = (HttpResponse) httpObject;
             fixHttpVersionHeaderIfNecessary(httpResponse);
             modifyResponseHeadersToReflectProxying(httpResponse);
+            // Record stats
+            responseReceivedFromServer(serverConnection, httpResponse);
         }
 
         write(httpObject);
@@ -343,7 +368,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     synchronized protected void serverBecameSaturated(
             ProxyToServerConnection serverConnection) {
         if (serverConnection.isSaturated()) {
-            LOG.debug("Connection to server became saturated, stopping reading");
+            LOG.info("Connection to server became saturated, stopping reading");
             stopReading();
         }
     }
@@ -365,7 +390,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             }
         }
         if (!anyServersSaturated) {
-            LOG.debug("All server connections writeable, resuming reading");
+            LOG.info("All server connections writeable, resuming reading");
             resumeReading();
         }
     }
@@ -426,15 +451,18 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      **************************************************************************/
 
     private ProxyToServerConnection connectToServer(HttpRequest request,
-            String hostAndPort) throws UnknownHostException {
+            String hostAndPort, String serverHostAndPort,
+            String chainedProxyHostAndPort)
+            throws UnknownHostException {
         LOG.debug("Establishing new ProxyToServerConnection");
         InetSocketAddress address = addressFor(hostAndPort);
         HttpFilter responseFilter = null;
         if (responseFilters != null) {
-            responseFilter = responseFilters.getFilter(hostAndPort);
+            responseFilter = responseFilters.getFilter(serverHostAndPort);
         }
         ProxyToServerConnection connection = new ProxyToServerConnection(
                 proxyToServerWorkerPool, allChannels, this, address,
+                serverHostAndPort, chainedProxyHostAndPort,
                 responseFilter);
         serverConnectionsByHostAndPort.put(hostAndPort, connection);
         return connection;
@@ -623,7 +651,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         // We want to allow longer request lines, headers, and chunks
         // respectively.
-        pipeline.addLast("decoder", new HttpRequestDecoder(8192, 8192 * 2,
+        pipeline.addLast("decoder", new ProxyHttpRequestDecoder(8192, 8192 * 2,
                 8192 * 2));
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast(
@@ -871,7 +899,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 // Strip host from uri
                 String uri = httpRequest.getUri();
                 String adjustedUri = ProxyUtils.stripHost(uri);
-                LOG.info("Stripped host from uri: {}    yielding: {}", uri,
+                LOG.debug("Stripped host from uri: {}    yielding: {}", uri,
                         adjustedUri);
                 httpRequest.setUri(adjustedUri);
             }
@@ -1029,13 +1057,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private String identifyHostAndPort(HttpRequest httpRequest) {
-        String hostAndPort = getChainProxyHostAndPort(httpRequest);
-        if (hostAndPort != null) {
-            // We're using a chained proxy
-            return hostAndPort;
-        }
-
-        hostAndPort = ProxyUtils.parseHostAndPort(httpRequest);
+        String hostAndPort = ProxyUtils.parseHostAndPort(httpRequest);
         if (StringUtils.isBlank(hostAndPort)) {
             List<String> hosts = httpRequest.headers().getAll(
                     HttpHeaders.Names.HOST);
@@ -1089,6 +1111,65 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private void writeEmptyBuffer() {
         write(Unpooled.EMPTY_BUFFER);
+    }
+
+    /***************************************************************************
+     * Activity Tracking/Statistics
+     **************************************************************************/
+    protected void bytesReceivedFromClient(
+            ProxyToServerConnection serverConnection,
+            ConnectionTracer tracer) {
+        int bytes = tracer.getBytesOnWire();
+        InetSocketAddress clientAddress = getClientAddress();
+        String serverHostAndPort = serverConnection.getServerHostAndPort();
+        String chainedProxyHostAndPort = serverConnection
+                .getChainedProxyHostAndPort();
+        for (ActivityTracker tracker : activityTrackers) {
+            tracker.bytesReceivedFromClient(clientAddress, serverHostAndPort,
+                    chainedProxyHostAndPort, bytes);
+        }
+    }
+
+    protected void requestSentToServer(
+            ProxyToServerConnection serverConnection, HttpRequest httpRequest) {
+        InetSocketAddress clientAddress = getClientAddress();
+        String serverHostAndPort = serverConnection.getServerHostAndPort();
+        String chainedProxyHostAndPort = serverConnection
+                .getChainedProxyHostAndPort();
+        for (ActivityTracker tracker : activityTrackers) {
+            tracker.requestSent(clientAddress, serverHostAndPort,
+                    chainedProxyHostAndPort, httpRequest);
+        }
+    }
+
+    protected void bytesReceivedFromServer(
+            ProxyToServerConnection serverConnection,
+            ConnectionTracer tracer) {
+        int bytes = tracer.getBytesOnWire();
+        InetSocketAddress clientAddress = getClientAddress();
+        String serverHostAndPort = serverConnection.getServerHostAndPort();
+        String chainedProxyHostAndPort = serverConnection
+                .getChainedProxyHostAndPort();
+        for (ActivityTracker tracker : activityTrackers) {
+            tracker.bytesReceivedFromServer(clientAddress, serverHostAndPort,
+                    chainedProxyHostAndPort, bytes);
+        }
+    }
+
+    protected void responseReceivedFromServer(
+            ProxyToServerConnection serverConnection, HttpResponse httpResponse) {
+        InetSocketAddress clientAddress = getClientAddress();
+        String serverHostAndPort = serverConnection.getServerHostAndPort();
+        String chainedProxyHostAndPort = serverConnection
+                .getChainedProxyHostAndPort();
+        for (ActivityTracker tracker : activityTrackers) {
+            tracker.responseReceived(clientAddress, serverHostAndPort,
+                    chainedProxyHostAndPort, httpResponse);
+        }
+    }
+
+    private InetSocketAddress getClientAddress() {
+        return (InetSocketAddress) channel.remoteAddress();
     }
 
 }

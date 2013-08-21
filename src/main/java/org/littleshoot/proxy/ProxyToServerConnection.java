@@ -21,7 +21,6 @@ import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -41,6 +40,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private final ClientToProxyConnection clientConnection;
     private volatile InetSocketAddress address;
+    private final String serverHostAndPort;
+    private volatile String chainedProxyHostAndPort;
     private final HttpFilter responseFilter;
 
     /**
@@ -93,10 +94,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     public ProxyToServerConnection(EventLoopGroup proxyToServerWorkerPool,
             ChannelGroup channelGroup,
             ClientToProxyConnection clientConnection,
-            InetSocketAddress address, HttpFilter responseFilter) {
+            InetSocketAddress address, String serverHostAndPort,
+            String chainedProxyHostAndPort, HttpFilter responseFilter) {
         super(DISCONNECTED, proxyToServerWorkerPool, channelGroup);
         this.clientConnection = clientConnection;
         this.address = address;
+        this.serverHostAndPort = serverHostAndPort;
+        this.chainedProxyHostAndPort = chainedProxyHostAndPort;
         this.responseFilter = responseFilter;
     }
 
@@ -106,7 +110,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void read(Object msg) {
-        if (is(AWAITING_CONNECT_OK)) {
+        if (msg instanceof ConnectionTracer) {
+            // Record statistic for ConnectionTracer and then ignore it
+            clientConnection.bytesReceivedFromServer(this,
+                    (ConnectionTracer) msg);
+        } else if (is(AWAITING_CONNECT_OK)) {
             LOG.debug("Reading: {}", msg);
             // Here we're handling the response from a chained proxy to our
             // earlier CONNECT request
@@ -196,8 +204,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void writeHttp(HttpObject httpObject) {
         if (httpObject instanceof HttpRequest) {
+            HttpRequest httpRequest = (HttpRequest) httpObject;
             // Remember that we issued this HttpRequest for later
-            issuedRequests.add((HttpRequest) httpObject);
+            issuedRequests.add(httpRequest);
+            // Track stats
+            clientConnection.requestSentToServer(this, httpRequest);
         }
         super.writeHttp(httpObject);
     }
@@ -266,6 +277,14 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      **************************************************************************/
     public InetSocketAddress getAddress() {
         return address;
+    }
+
+    public String getServerHostAndPort() {
+        return serverHostAndPort;
+    }
+
+    public String getChainedProxyHostAndPort() {
+        return chainedProxyHostAndPort;
     }
 
     /***************************************************************************
@@ -353,12 +372,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected void retryConnecting(InetSocketAddress newAddress,
             HttpRequest initialRequest) {
         this.address = newAddress;
+        this.chainedProxyHostAndPort = null;
         this.connectAndWrite(initialRequest);
     }
 
     private void initChannelPipeline(ChannelPipeline pipeline,
             HttpRequest httpRequest) {
-        pipeline.addLast("decoder", new HttpResponseDecoder(8192, 8192 * 2,
+        pipeline.addLast("decoder", new ProxyHttpResponseDecoder(8192, 8192 * 2,
                 8192 * 2));
 
         // We decompress and aggregate chunks for responses from

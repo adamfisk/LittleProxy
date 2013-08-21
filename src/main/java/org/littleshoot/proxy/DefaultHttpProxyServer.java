@@ -16,8 +16,10 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -70,6 +72,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * for client channels.
      */
     private final EventLoopGroup clientWorker;
+
+    /**
+     * Track all ActivityTrackers that track proxying activity.
+     */
+    private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
 
     /**
      * Creates a new proxy server.
@@ -260,7 +267,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 new ClientToProxyConnection(clientWorker, allChannels,
                         chainProxyManager, proxyAuthenticator,
                         handshakeHandlerFactory, requestFilter,
-                        responseFilters, ch.pipeline());
+                        responseFilters, activityTrackers, ch.pipeline());
             };
         };
         serverBootstrap.channel(NioServerSocketChannel.class);
@@ -351,6 +358,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     public void setProxyAuthenticator(ProxyAuthenticator proxyAuthenticator) {
         this.proxyAuthenticator = proxyAuthenticator;
+    }
+
+    @Override
+    public void addActivityTracker(ActivityTracker activityTracker) {
+        this.activityTrackers.add(activityTracker);
     }
 
     private static final ThreadFactory CLIENT_THREAD_FACTORY = new ThreadFactory() {
