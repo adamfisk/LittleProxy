@@ -35,6 +35,9 @@ public class IdleAwareHandler extends ChannelDuplexHandler {
         } else if (idleState == IdleState.WRITER_IDLE) {
             log.info("Got writer idle -- closing connection -- " + this);
             ctx.channel().close();
+        } else if (idleState == IdleState.ALL_IDLE) {
+            log.info("Got all idle -- closing connection -- " + this);
+            ctx.channel().close();
         }
     }
 
