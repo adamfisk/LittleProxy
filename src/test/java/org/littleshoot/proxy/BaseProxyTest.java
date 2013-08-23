@@ -43,8 +43,6 @@ import org.apache.http.util.EntityUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Base for tests that test the proxy. This base class encapsulates all of the
@@ -55,7 +53,8 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class BaseProxyTest {
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    // TODO: use our own back-end
+    // TODO: add SSL test case
 
     private static final String HOST = "http://opsgenie.com/status/ping";
     protected static final int PROXY_SERVER_PORT = 54827;

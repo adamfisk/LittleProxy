@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Assert;
 
 /**
- * Tests just proxy chained to a downstream proxy. In addition to the usual
+ * Tests a proxy chained to a downstream proxy. In addition to the usual
  * assertions, this also asserts that every request sent by the upstream proxy
  * was received by the downstream proxy.
  */
