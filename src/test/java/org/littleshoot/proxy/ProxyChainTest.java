@@ -34,7 +34,7 @@ public class ProxyChainTest {
     @Before
     public void setUp() throws Exception {
         webServer = startWebServer(WEB_SERVER_PORT, WEB_SERVER_SSL_PORT);
-        proxyServer = addActivityTracking(startProxyServer(PROXY_PORT));
+        proxyServer = startProxyServer(PROXY_PORT);
         anotherProxyServer = startProxyServer(ANOTHER_PROXY_PORT,
                 PROXY_HOST_AND_PORT);
     }
@@ -95,12 +95,12 @@ public class ProxyChainTest {
         assertEquals(HttpServletResponse.SC_OK, response.getStatusLine()
                 .getStatusCode());
     }
-    
+
     @Test
     public void testFallbackWhenChainedUnavailable() throws Exception {
         // Disable the chained proxy server
         proxyServer.stop();
-        
+
         // Given
         httpclient = createProxiedHttpClient(ANOTHER_PROXY_PORT);
 
@@ -113,7 +113,5 @@ public class ProxyChainTest {
                 .getStatusCode());
         assertNotNull(response.getFirstHeader("Via"));
     }
-
-    
 
 }

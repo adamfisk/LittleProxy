@@ -3,56 +3,54 @@ package org.littleshoot.proxy;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
-import java.net.InetSocketAddress;
-
 /**
- * Interface for receiving callbacks about activity in the proxy.
+ * Interface for receiving information about activity in the proxy.
  */
 public interface ActivityTracker {
     /**
      * Record that bytes were received from the client.
      * 
-     * @param clientAddress
-     * @param serverHostAndPort
-     * @param chainedProxyHostAndPort
+     * @param flowContext
+     *            provides contextual information about the flow
      * @param numberOfBytes
      */
-    void bytesReceivedFromClient(InetSocketAddress clientAddress, String serverHostAndPort,
-            String chainedProxyHostAndPort, int numberOfBytes);
+    void bytesReceivedFromClient(FlowContext flowContext, int numberOfBytes);
+
+    /**
+     * Record that a request was received from the client to the proxy.
+     * 
+     * @param flowContext
+     *            provides contextual information about the flow
+     * @param httpRequest
+     */
+    void requestReceivedFromClient(FlowContext flowContext,
+            HttpRequest httpRequest);
 
     /**
      * Record that a request was sent from client to server.
      * 
-     * @param clientAddress
-     * @param serverHostAndPort
-     * @param chainedProxyHostAndPort
+     * @param flowContext
+     *            provides contextual information about the flow
      * @param httpRequest
      */
-    void requestSent(InetSocketAddress clientAddress, String serverHostAndPort,
-            String chainedProxyHostAndPort, HttpRequest httpRequest);
+    void requestSent(FlowContext flowContext, HttpRequest httpRequest);
 
     /**
      * Record that bytes were received from server the server.
      * 
-     * @param clientAddress
-     * @param serverHostAndPort
-     * @param chainedProxyHostAndPort
+     * @param flowContext
+     *            provides contextual information about the flow
      * @param numberOfBytes
      */
-    void bytesReceivedFromServer(InetSocketAddress clientAddress,
-            String serverHostAndPort,
-            String chainedProxyHostAndPort, int numberOfBytes);
+    void bytesReceivedFromServer(FlowContext flowContext, int numberOfBytes);
 
     /**
      * Record that a response was received from the server.
      * 
-     * @param clientAddress
-     * @param serverHostAndPort
-     * @param chainedProxyHostAndPort
+     * @param flowContext
+     *            provides contextual information about the flow
      * @param httpResponse
      */
-    void responseReceived(InetSocketAddress clientAddress,
-            String serverHostAndPort,
-            String chainedProxyHostAndPort, HttpResponse httpResponse);
+    void responseReceived(FlowContext flowContext, HttpResponse httpResponse);
 
 }

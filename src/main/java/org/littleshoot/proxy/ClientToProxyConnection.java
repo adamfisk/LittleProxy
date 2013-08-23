@@ -146,7 +146,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (msg instanceof ConnectionTracer) {
             // Record statistic for ConnectionTracer and then ignore it
             if (currentServerConnection != null) {
-                bytesReceivedFromClient(currentServerConnection,
+                recordBytesReceivedFromClient(currentServerConnection,
                         (ConnectionTracer) msg);
             }
         } else {
@@ -167,6 +167,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             String chainedProxyHostAndPort = getChainProxyHostAndPort(httpRequest);
             String hostAndPort = chainedProxyHostAndPort != null ? chainedProxyHostAndPort
                     : serverHostAndPort;
+
+            recordRequestReceivedFromClient(serverHostAndPort,
+                    chainedProxyHostAndPort,
+                    httpRequest);
 
             LOG.debug("Identifying server for: {}", hostAndPort);
 
@@ -254,7 +258,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             fixHttpVersionHeaderIfNecessary(httpResponse);
             modifyResponseHeadersToReflectProxying(httpResponse);
             // Record stats
-            responseReceivedFromServer(serverConnection, httpResponse);
+            recordResponseReceivedFromServer(serverConnection, httpResponse);
         }
 
         write(httpObject);
@@ -624,7 +628,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void fallbackToDirectConnection(
             ProxyToServerConnection serverConnection,
             HttpRequest initialRequest) {
-        LOG.debug("Failed to connect via chained proxy, falling back to direct connection");
+        LOG.info("Failed to connect via chained proxy, falling back to direct connection");
         // If we failed to connect to a chained proxy, disable proxy
         // chaining for this request and try again
         disableChainingFor(initialRequest);
@@ -1116,59 +1120,53 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /***************************************************************************
      * Activity Tracking/Statistics
      **************************************************************************/
-    protected void bytesReceivedFromClient(
+    protected void recordBytesReceivedFromClient(
             ProxyToServerConnection serverConnection,
             ConnectionTracer tracer) {
         int bytes = tracer.getBytesOnWire();
-        InetSocketAddress clientAddress = getClientAddress();
-        String serverHostAndPort = serverConnection.getServerHostAndPort();
-        String chainedProxyHostAndPort = serverConnection
-                .getChainedProxyHostAndPort();
+        FlowContext flowContext = new FlowContext(this, serverConnection);
         for (ActivityTracker tracker : activityTrackers) {
-            tracker.bytesReceivedFromClient(clientAddress, serverHostAndPort,
-                    chainedProxyHostAndPort, bytes);
+            tracker.bytesReceivedFromClient(flowContext, bytes);
         }
     }
 
-    protected void requestSentToServer(
+    protected void recordRequestReceivedFromClient(
+            String serverHostAndPort, String chainedProxyHostAndPort,
+            HttpRequest httpRequest) {
+        FlowContext flowContext = new FlowContext(getClientAddress(),
+                serverHostAndPort, chainedProxyHostAndPort);
+        for (ActivityTracker tracker : activityTrackers) {
+            tracker.requestReceivedFromClient(flowContext, httpRequest);
+        }
+    }
+
+    protected void recordRequestSentToServer(
             ProxyToServerConnection serverConnection, HttpRequest httpRequest) {
-        InetSocketAddress clientAddress = getClientAddress();
-        String serverHostAndPort = serverConnection.getServerHostAndPort();
-        String chainedProxyHostAndPort = serverConnection
-                .getChainedProxyHostAndPort();
+        FlowContext flowContext = new FlowContext(this, serverConnection);
         for (ActivityTracker tracker : activityTrackers) {
-            tracker.requestSent(clientAddress, serverHostAndPort,
-                    chainedProxyHostAndPort, httpRequest);
+            tracker.requestSent(flowContext, httpRequest);
         }
     }
 
-    protected void bytesReceivedFromServer(
+    protected void recordBytesReceivedFromServer(
             ProxyToServerConnection serverConnection,
             ConnectionTracer tracer) {
         int bytes = tracer.getBytesOnWire();
-        InetSocketAddress clientAddress = getClientAddress();
-        String serverHostAndPort = serverConnection.getServerHostAndPort();
-        String chainedProxyHostAndPort = serverConnection
-                .getChainedProxyHostAndPort();
+        FlowContext flowContext = new FlowContext(this, serverConnection);
         for (ActivityTracker tracker : activityTrackers) {
-            tracker.bytesReceivedFromServer(clientAddress, serverHostAndPort,
-                    chainedProxyHostAndPort, bytes);
+            tracker.bytesReceivedFromServer(flowContext, bytes);
         }
     }
 
-    protected void responseReceivedFromServer(
+    protected void recordResponseReceivedFromServer(
             ProxyToServerConnection serverConnection, HttpResponse httpResponse) {
-        InetSocketAddress clientAddress = getClientAddress();
-        String serverHostAndPort = serverConnection.getServerHostAndPort();
-        String chainedProxyHostAndPort = serverConnection
-                .getChainedProxyHostAndPort();
+        FlowContext flowContext = new FlowContext(this, serverConnection);
         for (ActivityTracker tracker : activityTrackers) {
-            tracker.responseReceived(clientAddress, serverHostAndPort,
-                    chainedProxyHostAndPort, httpResponse);
+            tracker.responseReceived(flowContext, httpResponse);
         }
     }
 
-    private InetSocketAddress getClientAddress() {
+    protected InetSocketAddress getClientAddress() {
         return (InetSocketAddress) channel.remoteAddress();
     }
 

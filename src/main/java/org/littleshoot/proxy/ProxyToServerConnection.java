@@ -112,7 +112,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected void read(Object msg) {
         if (msg instanceof ConnectionTracer) {
             // Record statistic for ConnectionTracer and then ignore it
-            clientConnection.bytesReceivedFromServer(this,
+            clientConnection.recordBytesReceivedFromServer(this,
                     (ConnectionTracer) msg);
         } else if (is(AWAITING_CONNECT_OK)) {
             LOG.debug("Reading: {}", msg);
@@ -208,7 +208,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // Remember that we issued this HttpRequest for later
             issuedRequests.add(httpRequest);
             // Track stats
-            clientConnection.requestSentToServer(this, httpRequest);
+            clientConnection.recordRequestSentToServer(this, httpRequest);
         }
         super.writeHttp(httpObject);
     }

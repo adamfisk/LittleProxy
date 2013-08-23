@@ -1,7 +1,6 @@
 package org.littleshoot.proxy;
 
 import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -10,7 +9,6 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
-import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
@@ -48,12 +46,31 @@ public class TestUtils {
     public static HttpProxyServer startProxyServer(int port) {
         final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(
                 port);
+        return startProxyServerWithCredentials(port, null, null);
+    }
+
+    /**
+     * Creates and starts a proxy server that listens on given port and
+     * authenticates clients with the given username and password.
+     * 
+     * @param port
+     *            The port
+     * @param username
+     * @param password
+     * @return The instance of proxy server
+     */
+    public static HttpProxyServer startProxyServerWithCredentials(int port,
+            String username, String password) {
+        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(
+                port);
+        addAuthentication(proxyServer, username, password);
         proxyServer.start(true, true);
         return proxyServer;
     }
 
     /**
-     * Creates and starts a proxy server that listens on given port.
+     * Creates and starts a proxy server that listens on the given port and
+     * chains requests to the proxy at the given chainProxyHostAndPort.
      * 
      * @param port
      *            The port
@@ -76,48 +93,45 @@ public class TestUtils {
         return proxyServer;
     }
 
-    public static HttpProxyServer addActivityTracking(HttpProxyServer server) {
-        server.addActivityTracker(new ActivityTracker() {
-            private AtomicLong totalBytesReceivedFromClients = new AtomicLong(0);
-            private AtomicLong totalRequestsSentToServers = new AtomicLong(0);
-            private AtomicLong totalBytesReceivedFromServers = new AtomicLong(0);
-            private AtomicLong totalResponsesReceivedFromServers = new AtomicLong(
-                    0);
+    /**
+     * Creates and starts a proxy server that listens on the given port, chains
+     * requests to the proxy at the given chainProxyHostAndPort, and
+     * authenticates clients using the given username and password.
+     * 
+     * @param port
+     *            The port
+     * @param chainProxyHostAndPort
+     *            Proxy relay
+     * @param username
+     * @param password
+     * @return The instance of proxy server
+     */
+    public static HttpProxyServer startProxyServerWithCredentials(int port,
+            final String chainProxyHostAndPort, String username,
+            String password) {
+        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(
+                port, null, new ChainProxyManager() {
+                    public String getChainProxy(HttpRequest httpRequest) {
+                        return chainProxyHostAndPort;
+                    }
 
-            @Override
-            public void bytesReceivedFromClient(
-                    InetSocketAddress clientAddress, String serverHostAndPort,
-                    String chainedProxyHostAndPort, int numberOfBytes) {
-                System.out.println("Total bytes received from clients: "
-                        + totalBytesReceivedFromClients.addAndGet(numberOfBytes));
-            }
+                    public void onCommunicationError(String hostAndPort) {
+                    }
+                }, null, null);
+        addAuthentication(proxyServer, username, password);
+        proxyServer.start(true, true);
+        return proxyServer;
+    }
 
-            @Override
-            public void requestSent(InetSocketAddress clientAddress,
-                    String serverHostAndPort, String chainedProxyHostAndPort,
-                    HttpRequest httpRequest) {
-                System.out.println("Total requests sent to servers: "
-                        + totalRequestsSentToServers.incrementAndGet());
-            }
-
-            @Override
-            public void bytesReceivedFromServer(
-                    InetSocketAddress clientAddress, String serverHostAndPort,
-                    String chainedProxyHostAndPort, int numberOfBytes) {
-                System.out.println("Total bytes received from servers: "
-                        + totalBytesReceivedFromServers.addAndGet(numberOfBytes));
-            }
-
-            @Override
-            public void responseReceived(InetSocketAddress clientAddress,
-                    String serverHostAndPort, String chainedProxyHostAndPort,
-                    HttpResponse httpResponse) {
-                System.out.println("Total responses received from servers: "
-                        + totalResponsesReceivedFromServers.incrementAndGet());
-            }
-
-        });
-        return server;
+    private static void addAuthentication(HttpProxyServer proxyServer,
+            final String username, final String password) {
+        if (username != null && password != null) {
+            proxyServer.setProxyAuthenticator(new ProxyAuthenticator() {
+                public boolean authenticate(String u, String p) {
+                    return username.equals(u) && password.equals(p);
+                }
+            });
+        }
     }
 
     /**
