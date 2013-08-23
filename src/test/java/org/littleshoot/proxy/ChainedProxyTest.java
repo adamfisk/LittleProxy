@@ -5,7 +5,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Assert;
 
 /**
- * Tests just a proxy chained to a downstream proxy.
+ * Tests just proxy chained to a downstream proxy. In addition to the usual
+ * assertions, this also asserts that every request sent by the upstream proxy
+ * was received by the downstream proxy.
  */
 public class ChainedProxyTest extends BaseProxyTest {
     private static final int DOWNSTREAM_PROXY_PORT = PROXY_SERVER_PORT + 1;
