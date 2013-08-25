@@ -1,6 +1,6 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
 
-import static org.littleshoot.proxy.ConnectionState.*;
+import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -42,6 +42,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
+import org.littleshoot.proxy.ActivityTracker;
+import org.littleshoot.proxy.ChainProxyManager;
+import org.littleshoot.proxy.FlowContext;
+import org.littleshoot.proxy.HandshakeHandler;
+import org.littleshoot.proxy.HandshakeHandlerFactory;
+import org.littleshoot.proxy.HttpFilter;
+import org.littleshoot.proxy.HttpRequestFilter;
+import org.littleshoot.proxy.HttpResponseFilters;
+import org.littleshoot.proxy.ProxyAuthenticator;
 
 /**
  * <p>
@@ -118,7 +127,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private final Map<HttpRequest, Boolean> requestsForWhichProxyChainingIsDisabled = new ConcurrentHashMap<HttpRequest, Boolean>();
 
-    public ClientToProxyConnection(EventLoopGroup proxyToServerWorkerPool,
+    ClientToProxyConnection(EventLoopGroup proxyToServerWorkerPool,
             ChannelGroup channelGroup, ChainProxyManager chainProxyManager,
             ProxyAuthenticator authenticator,
             HandshakeHandlerFactory handshakeHandlerFactory,
@@ -211,7 +220,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
             LOG.debug("Writing request to ProxyToServerConnection");
             currentServerConnection.write(httpRequest, originalRequest);
-
+            
             if (ProxyUtils.isCONNECT(httpRequest)) {
                 return NEGOTIATING_CONNECT;
             } else if (ProxyUtils.isChunked(httpRequest)) {
@@ -250,7 +259,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param httpObject
      *            the data with which to respond
      */
-    public void respond(ProxyToServerConnection serverConnection,
+    void respond(ProxyToServerConnection serverConnection,
             HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
             HttpObject httpObject) {
         if (httpObject instanceof HttpResponse) {
@@ -1166,7 +1175,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
-    protected InetSocketAddress getClientAddress() {
+    public InetSocketAddress getClientAddress() {
         return (InetSocketAddress) channel.remoteAddress();
     }
 

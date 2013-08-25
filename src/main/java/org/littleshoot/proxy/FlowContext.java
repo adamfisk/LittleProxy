@@ -2,6 +2,9 @@ package org.littleshoot.proxy;
 
 import java.net.InetSocketAddress;
 
+import org.littleshoot.proxy.impl.ClientToProxyConnection;
+import org.littleshoot.proxy.impl.ProxyToServerConnection;
+
 /**
  * Encapsulates contextual information for flow information that's being
  * reported to a {@link ActivityTracker}.

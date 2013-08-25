@@ -1,4 +1,4 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -24,6 +24,14 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.littleshoot.proxy.ActivityTracker;
+import org.littleshoot.proxy.ChainProxyManager;
+import org.littleshoot.proxy.HandshakeHandlerFactory;
+import org.littleshoot.proxy.HttpFilter;
+import org.littleshoot.proxy.HttpProxyServer;
+import org.littleshoot.proxy.HttpRequestFilter;
+import org.littleshoot.proxy.HttpResponseFilters;
+import org.littleshoot.proxy.ProxyAuthenticator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -325,8 +333,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         log.info("Closing all channels...");
 
-        // See http://static.netty.io/3.5/guide/#start.12
-
         final ChannelGroupFuture future = allChannels.close();
         future.awaitUninterruptibly(10 * 1000);
 
@@ -341,15 +347,18 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             }
         }
 
-        serverBoss.shutdownGracefully();
-        serverWorker.shutdownGracefully();
-        clientWorker.shutdownGracefully();
+        log.info("Shutting down event loops");
+        for (EventLoopGroup group : new EventLoopGroup[] { serverBoss,
+                serverWorker, clientWorker }) {
+            group.shutdownGracefully();
+        }
+        
         for (EventLoopGroup group : new EventLoopGroup[] { serverBoss,
                 serverWorker, clientWorker }) {
             try {
                 group.awaitTermination(60, TimeUnit.SECONDS);
             } catch (InterruptedException ie) {
-                // ignore
+                log.warn("Interrupted while shutting down event loop");
             }
         }
 

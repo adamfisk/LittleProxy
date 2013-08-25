@@ -34,6 +34,10 @@ import org.eclipse.jetty.server.ssl.SslSocketConnector;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.littleshoot.proxy.impl.LittleProxyConfig;
+import org.littleshoot.proxy.impl.ProxyUtils;
+import org.littleshoot.proxy.impl.SelfSignedKeyStoreManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,7 +102,7 @@ public class HttpsFilterTest {
         webServer = new Server(WEB_SERVER_PORT);
         org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
 
-        org.littleshoot.proxy.SslContextFactory scf = new org.littleshoot.proxy.SslContextFactory(new SelfSignedKeyStoreManager());
+        org.littleshoot.proxy.impl.SslContextFactory scf = new org.littleshoot.proxy.impl.SslContextFactory(new SelfSignedKeyStoreManager());
         SSLContext sslContext = scf.getServerContext();
 
         sslContextFactory.setSslContext(sslContext);
@@ -182,7 +186,7 @@ public class HttpsFilterTest {
         final HttpHost proxy = new HttpHost("127.0.0.1", PROXY_PORT, "http");
         http.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
         http.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 30000);
-        http.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
+        //http.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
 
         final HttpGet get = new HttpGet(url);
         final org.apache.http.HttpResponse hr = http.execute(get);

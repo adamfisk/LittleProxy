@@ -47,15 +47,32 @@ public class ChainedProxyTest extends BaseProxyTest {
     }
 
     @Override
-    protected void tearDown() {
+    protected void tearDown() throws Exception {
+        this.downstreamProxy.stop();
+    }
+
+    @Override
+    public void testSimplePostRequest() throws Exception {
+        super.testSimplePostRequest();
+        assertThatDownstreamProxyReceivedSentRequests();
+    }
+
+    @Override
+    public void testSimpleGetRequest() throws Exception {
+        super.testSimpleGetRequest();
+        assertThatDownstreamProxyReceivedSentRequests();
+    }
+
+    @Override
+    public void testProxyWithBadAddress() throws Exception {
+        super.testProxyWithBadAddress();
+        assertThatDownstreamProxyReceivedSentRequests();
+    }
+
+    private void assertThatDownstreamProxyReceivedSentRequests() {
         Assert.assertEquals(
                 "Downstream proxy should have seen every request sent by upstream proxy",
                 REQUESTS_SENT_BY_UPSTREAM.get(),
                 REQUESTS_RECEIVED_BY_DOWNSTREAM.get());
-        try {
-            super.tearDown();
-        } finally {
-            this.downstreamProxy.stop();
-        }
     }
 }

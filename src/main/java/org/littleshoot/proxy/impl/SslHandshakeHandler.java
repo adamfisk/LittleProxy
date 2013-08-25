@@ -1,4 +1,6 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
+
+import org.littleshoot.proxy.HandshakeHandler;
 
 import io.netty.channel.ChannelHandler;
 import io.netty.handler.ssl.SslHandler;

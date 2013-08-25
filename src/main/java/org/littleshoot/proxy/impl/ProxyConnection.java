@@ -1,6 +1,6 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
 
-import static org.littleshoot.proxy.ConnectionState.*;
+import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -72,7 +72,7 @@ import javax.net.ssl.SSLEngine;
  * 
  * @param <I>
  */
-public abstract class ProxyConnection<I extends HttpObject> extends
+abstract class ProxyConnection<I extends HttpObject> extends
         SimpleChannelInboundHandler<Object> {
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
@@ -198,7 +198,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * 
      * @param msg
      */
-    public void write(Object msg) {
+    void write(Object msg) {
         LOG.debug("Writing: {}", msg);
         if (msg instanceof ReferenceCounted) {
             LOG.debug("Retaining reference counted message");
@@ -257,20 +257,8 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      **************************************************************************/
 
     protected void connected(ChannelHandlerContext ctx) {
-        saveContext(ctx);
         become(is(CONNECTING) ? AWAITING_INITIAL : getCurrentState());
         LOG.debug("Connected");
-    }
-
-    /**
-     * Records our context and channel for later use.
-     * 
-     * @param ctx
-     */
-    protected void saveContext(ChannelHandlerContext ctx) {
-        this.ctx = ctx;
-        this.channel = ctx.channel();
-        this.allChannels.add(channel);
     }
 
     protected void disconnected() {
@@ -377,7 +365,7 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * Disconnects. This will wait for pending writes to be flushed before
      * disconnecting.
      */
-    public void disconnect() {
+    void disconnect() {
         if (channel != null) {
             writeToChannel(Unpooled.EMPTY_BUFFER).addListener(
                     new GenericFutureListener<Future<? super Void>>() {
@@ -444,14 +432,28 @@ public abstract class ProxyConnection<I extends HttpObject> extends
         read(msg);
     }
 
+    @Override
+    public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        try {
+            this.ctx = ctx;
+            this.channel = ctx.channel();
+            this.allChannels.add(ctx.channel());
+        } finally {
+            super.channelRegistered(ctx);
+        }
+    }
+
     /**
      * Only once the Netty Channel is active to we recognize the ProxyConnection
      * as connected.
      */
     @Override
     public final void channelActive(ChannelHandlerContext ctx) throws Exception {
-        connected(ctx);
-        super.channelActive(ctx);
+        try {
+            connected(ctx);
+        } finally {
+            super.channelActive(ctx);
+        }
     }
 
     /**
@@ -459,19 +461,24 @@ public abstract class ProxyConnection<I extends HttpObject> extends
      * ProxyConnection as disconnected.
      */
     @Override
-    public final void channelInactive(ChannelHandlerContext ctx)
-            throws Exception {
-        disconnected();
-        super.channelInactive(ctx);
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+            try {
+            disconnected();
+        } finally {
+            super.channelInactive(ctx);
+        }
     }
 
     @Override
     public final void channelWritabilityChanged(ChannelHandlerContext ctx)
             throws Exception {
-        if (this.channel.isWritable()) {
-            becameWriteable();
+        try {
+            if (this.channel.isWritable()) {
+                becameWriteable();
+            }
+        } finally {
+            super.channelWritabilityChanged(ctx);
         }
-        super.channelWritabilityChanged(ctx);
     }
 
     @Override
@@ -483,10 +490,13 @@ public abstract class ProxyConnection<I extends HttpObject> extends
     @Override
     public final void userEventTriggered(ChannelHandlerContext ctx, Object evt)
             throws Exception {
-        super.userEventTriggered(ctx, evt);
-        if (evt instanceof IdleStateEvent) {
-            LOG.info("Got idle, disconnecting");
-            disconnect();
+        try {
+            if (evt instanceof IdleStateEvent) {
+                LOG.info("Got idle, disconnecting");
+                disconnect();
+            }
+        } finally {
+            super.userEventTriggered(ctx, evt);
         }
     }
 

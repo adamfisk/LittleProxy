@@ -1,4 +1,4 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
 
 
 public class SelfSignedSslHandshakeHandlerFactory 

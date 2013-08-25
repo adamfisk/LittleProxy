@@ -47,7 +47,7 @@ public class VariableSpeedClientServerTest {
         final HttpHost proxy = new HttpHost("127.0.0.1", PROXY_PORT, "http");
         client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,proxy);
         client.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 50000);
-        client.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 120000);
+        //client.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 120000);
         
         final String endpoint = "http://127.0.0.1:"+PORT+"/";
         final HttpGet get = new HttpGet(endpoint);

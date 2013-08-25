@@ -1,4 +1,4 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;

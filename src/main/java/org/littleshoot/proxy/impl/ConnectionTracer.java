@@ -1,18 +1,18 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
 
 /**
  * Connection tracer that we send through the system to maintain statistics on
  * how many bytes were sent on the wire.
  */
-public class ConnectionTracer {
+class ConnectionTracer {
     private int bytesOnWire;
 
-    public ConnectionTracer(int bytesOnWire) {
+    ConnectionTracer(int bytesOnWire) {
         super();
         this.bytesOnWire = bytesOnWire;
     }
 
-    public int getBytesOnWire() {
+    int getBytesOnWire() {
         return bytesOnWire;
     }
 

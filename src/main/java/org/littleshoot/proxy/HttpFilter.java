@@ -7,7 +7,7 @@ import io.netty.handler.codec.http.HttpResponse;
  * Interface for rules for filtering HTTP traffic.
  */
 public interface HttpFilter extends HttpRequestMatcher {
-
+    
     /**
      * Filters the HTTP response.
      * 

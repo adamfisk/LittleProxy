@@ -10,6 +10,10 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.StringUtils;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.littleshoot.proxy.impl.LittleProxyConfig;
+import org.littleshoot.proxy.impl.ProxyUtils;
+import org.littleshoot.proxy.impl.SelfSignedSslHandshakeHandlerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

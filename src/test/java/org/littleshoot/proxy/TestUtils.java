@@ -30,6 +30,8 @@ import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.ssl.SslSocketConnector;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.littleshoot.proxy.impl.SelfSignedKeyStoreManager;
 
 public class TestUtils {
 
@@ -136,7 +138,8 @@ public class TestUtils {
 
     /**
      * Creates and starts embedded web server that is running on given port.
-     * Each response has empty body with HTTP OK status.
+     * Each response has a body that indicates how many bytes were received with
+     * a message like "Received x bytes\n".
      * 
      * @param port
      *            The port
@@ -150,7 +153,9 @@ public class TestUtils {
 
     /**
      * Creates and starts embedded web server that is running on given port,
-     * including an SSL connector on the other given port. Each response
+     * including an SSL connector on the other given port. Each response has a
+     * body that indicates how many bytes were received with a message like
+     * "Received x bytes\n".
      * 
      * @param port
      *            The port
@@ -185,7 +190,7 @@ public class TestUtils {
             // Add SSL connector
             org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
 
-            org.littleshoot.proxy.SslContextFactory scf = new org.littleshoot.proxy.SslContextFactory(
+            org.littleshoot.proxy.impl.SslContextFactory scf = new org.littleshoot.proxy.impl.SslContextFactory(
                     new SelfSignedKeyStoreManager());
             SSLContext sslContext = scf.getServerContext();
 
@@ -193,6 +198,20 @@ public class TestUtils {
             SslSocketConnector connector = new SslSocketConnector(
                     sslContextFactory);
             connector.setPort(sslPort);
+            /*
+             * <p>Ox: For some reason, on OS X, a non-zero timeout can causes
+             * sporadic issues. <a href="http://stackoverflow.com/questions
+             * /16191236/tomcat-startup-fails
+             * -due-to-java-net-socketexception-invalid-argument-on-mac-o">This
+             * StackOverflow thread</a> has some insights into it, but I don't
+             * quite get it.</p>
+             * 
+             * <p>This can cause problems with Jetty's SSL handshaking, so I
+             * have to set the handshake timeout and the maxIdleTime to 0 so
+             * that the SSLSocket has an infinite timeout.</p>
+             */
+            connector.setHandshakeTimeout(0);
+            connector.setMaxIdleTime(0);
             httpServer.addConnector(connector);
         }
         httpServer.start();

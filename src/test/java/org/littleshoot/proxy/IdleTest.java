@@ -13,13 +13,14 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.littleshoot.proxy.impl.LittleProxyConfig;
 
 /**
  * Note - this test only works on UNIX systems because it checks file descriptor
  * counts.
  */
 public class IdleTest {
-    private static final int NUMBER_OF_CONNECTIONS_TO_OPEN = 2000;
+    private static final int NUMBER_OF_CONNECTIONS_TO_OPEN = 100;
     private static final int WEB_SERVER_PORT = 9091;
     private static final int PROXY_PORT = 9091;
 

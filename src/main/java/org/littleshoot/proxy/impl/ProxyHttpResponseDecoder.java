@@ -1,4 +1,4 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -6,13 +6,13 @@ import io.netty.handler.codec.http.HttpResponseDecoder;
 
 import java.util.List;
 
-public class ProxyHttpResponseDecoder extends HttpResponseDecoder {
+class ProxyHttpResponseDecoder extends HttpResponseDecoder {
 
-    public ProxyHttpResponseDecoder() {
+    ProxyHttpResponseDecoder() {
         super();
     }
 
-    public ProxyHttpResponseDecoder(int maxInitialLineLength,
+    ProxyHttpResponseDecoder(int maxInitialLineLength,
             int maxHeaderSize,
             int maxChunkSize) {
         super(maxInitialLineLength, maxHeaderSize, maxChunkSize);

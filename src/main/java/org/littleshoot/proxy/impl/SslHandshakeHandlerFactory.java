@@ -1,6 +1,9 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
 
 import javax.net.ssl.SSLEngine;
+
+import org.littleshoot.proxy.HandshakeHandler;
+import org.littleshoot.proxy.HandshakeHandlerFactory;
 
 import io.netty.handler.ssl.SslHandler;
 

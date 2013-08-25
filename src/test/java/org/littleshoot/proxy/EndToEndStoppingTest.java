@@ -25,8 +25,11 @@ import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
+
 import io.netty.handler.codec.http.HttpRequest;
+
 import org.junit.Test;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.openqa.selenium.Proxy;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;

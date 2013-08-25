@@ -1,6 +1,6 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.impl;
 
-import static org.littleshoot.proxy.ConnectionState.*;
+import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.littleshoot.proxy.HttpFilter;
 
 /**
  * Represents a connection from our proxy to a server on the web.
@@ -91,7 +93,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private final AtomicBoolean isMITM = new AtomicBoolean(false);
 
-    public ProxyToServerConnection(EventLoopGroup proxyToServerWorkerPool,
+    ProxyToServerConnection(EventLoopGroup proxyToServerWorkerPool,
             ChannelGroup channelGroup,
             ClientToProxyConnection clientConnection,
             InetSocketAddress address, String serverHostAndPort,
@@ -173,17 +175,23 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * @param originalHttpRequest
      *            a copy of the original request
      */
-    public void write(HttpRequest rewrittenHttpRequest,
+    void write(HttpRequest rewrittenHttpRequest,
             HttpRequest originalHttpRequest) {
         originalHttpRequests.put(rewrittenHttpRequest, originalHttpRequest);
         this.write(rewrittenHttpRequest);
     }
 
-    public void write(Object msg) {
+    void write(Object msg) {
         LOG.debug("Requested write of {}", msg);
         if (is(DISCONNECTED)) {
             // We're disconnected - connect and write the message
-            connectAndWrite((HttpRequest) msg);
+            if (msg instanceof HttpRequest) {
+                connectAndWrite((HttpRequest) msg);
+            } else {
+                LOG.warn(
+                        "Received non-httprequest while disconnected, this shouldn't happen: {}",
+                        msg);
+            }
         } else {
             synchronized (connectLock) {
                 if (is(CONNECTING)) {
@@ -219,8 +227,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void connected(ChannelHandlerContext ctx) {
-        saveContext(ctx);
-
         if (ProxyUtils.isCONNECT(initialRequest)) {
             startCONNECT(initialRequest);
         } else {
@@ -378,7 +384,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private void initChannelPipeline(ChannelPipeline pipeline,
             HttpRequest httpRequest) {
-        pipeline.addLast("decoder", new ProxyHttpResponseDecoder(8192, 8192 * 2,
+        pipeline.addLast("decoder", new ProxyHttpResponseDecoder(8192,
+                8192 * 2,
                 8192 * 2));
 
         // We decompress and aggregate chunks for responses from

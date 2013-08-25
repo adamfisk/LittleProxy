@@ -9,15 +9,17 @@ public interface ChainProxyManager {
 
     /**
      * 
-     * @param httpRequest The HTTP request.
+     * @param httpRequest
+     *            The HTTP request.
      * @return The Chain Proxy with Host and Port.
      */
     String getChainProxy(HttpRequest httpRequest);
-    
-    
+
     /**
      * Callback to report proxy problems
-     * @param hostAndPort host and port of the proxy
+     * 
+     * @param hostAndPort
+     *            host and port of the proxy
      */
     void onCommunicationError(String hostAndPort);
 

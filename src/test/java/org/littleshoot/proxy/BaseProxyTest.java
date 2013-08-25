@@ -22,8 +22,13 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
+
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
@@ -36,13 +41,20 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.conn.ssl.X509HostnameVerifier;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.util.EntityUtils;
+import org.eclipse.jetty.server.Server;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.littleshoot.proxy.impl.NetworkUtils;
+import org.littleshoot.proxy.impl.ProxyUtils;
 
 /**
  * Base for tests that test the proxy. This base class encapsulates all of the
@@ -53,31 +65,54 @@ import org.junit.Test;
  */
 public abstract class BaseProxyTest {
 
-    // TODO: use our own back-end
-    // TODO: add SSL test case
-
-    private static final String HOST = "http://opsgenie.com/status/ping";
+    protected static final int WEB_SERVER_PORT = 54800;
+    protected static final int WEB_SERVER_HTTPS_PORT = 54801;
     protected static final int PROXY_SERVER_PORT = 54827;
+
+    protected static final HttpHost WEB_HOST = new HttpHost("127.0.0.1",
+            WEB_SERVER_PORT);
+    protected static final HttpHost HTTPS_WEB_HOST = new HttpHost(
+            "127.0.0.1", WEB_SERVER_HTTPS_PORT, "https");
+
+    protected static final String DEFAULT_RESOURCE = "/";
 
     /**
      * The server used by the tests.
      */
     protected HttpProxyServer proxyServer;
 
+    /**
+     * The web server that provides the back-end.
+     */
+    private Server webServer;
+
     @Before
-    public void runSetUp() {
+    public void runSetUp() throws Exception {
+        webServer = TestUtils.startWebServer(WEB_SERVER_PORT,
+                WEB_SERVER_HTTPS_PORT);
         setUp();
     }
 
-    protected abstract void setUp();
+    protected abstract void setUp() throws Exception;
 
     @After
-    public void runTearDown() {
-        tearDown();
+    public void runTearDown() throws Exception {
+        try {
+            tearDown();
+        } finally {
+            try {
+                if (this.proxyServer != null) {
+                    this.proxyServer.stop();
+                }
+            } finally {
+                if (this.webServer != null) {
+                    webServer.stop();
+                }
+            }
+        }
     }
 
-    protected void tearDown() {
-        this.proxyServer.stop();
+    protected void tearDown() throws Exception {
     }
 
     /**
@@ -101,18 +136,38 @@ public abstract class BaseProxyTest {
     }
 
     @Test
-    public void testSimplePostRequest() throws Exception {
-        String baseResponse = httpPostWithApacheClient(false);
-        String proxyResponse =
-                httpPostWithApacheClient(true);
-        assertEquals(baseResponse, proxyResponse);
+    public void testSimpleGetRequest() throws Exception {
+        compareProxiedAndUnproxiedGET(WEB_HOST, DEFAULT_RESOURCE);
     }
 
     @Test
-    public void testSimpleGetRequest() throws Exception {
-        String baseResponse = httpGetWithApacheClient(false);
-        String proxyResponse = httpGetWithApacheClient(true);
-        assertEquals(baseResponse, proxyResponse);
+    public void testSimpleGetRequestOverHTTPS() throws Exception {
+        compareProxiedAndUnproxiedGET(HTTPS_WEB_HOST, DEFAULT_RESOURCE);
+    }
+
+    @Test
+    public void testSimplePostRequest() throws Exception {
+        compareProxiedAndUnproxiedPOST(WEB_HOST, DEFAULT_RESOURCE);
+    }
+
+    @Test
+    public void testSimplePostRequestOverHTTPS() throws Exception {
+        compareProxiedAndUnproxiedPOST(HTTPS_WEB_HOST, DEFAULT_RESOURCE);
+    }
+
+    @Test
+    public void testProxyWithBadAddress()
+            throws Exception {
+        final String response =
+                httpPostWithApacheClient(new HttpHost("test.localhost"),
+                        DEFAULT_RESOURCE, true);
+
+        // The second expected response is what squid returns here.
+        assertTrue(
+                "Received: " + response,
+                response.startsWith("Bad Gateway")
+                        ||
+                        response.contains("The requested URL could not be retrieved"));
     }
 
     /**
@@ -148,7 +203,6 @@ public abstract class BaseProxyTest {
         final FileWriter baseFileWriter = new FileWriter(baseFile);
         baseFileWriter.write(baseStr);
         baseFileWriter.close();
-        // System.out.println("RESPONSE:\n"+baseStr);
 
         final ByteArrayInputStream proxyBais = new ByteArrayInputStream(
                 proxyResponse);
@@ -160,51 +214,25 @@ public abstract class BaseProxyTest {
         final FileWriter proxyFileWriter = new FileWriter(proxyFile);
         proxyFileWriter.write(proxyStr);
         proxyFileWriter.close();
-        // System.out.println("RESPONSE:\n"+proxyStr);
 
         assertEquals("Decoded proxy string does not equal expected",
                 baseStr, proxyStr);
     }
 
-    @Test
-    public void testProxyWithApacheHttpClientChunkedRequests() throws Exception {
-        String baseResponse = httpPostWithApacheClient(false);
-        String proxyResponse = httpPostWithApacheClient(true);
-        assertEquals(baseResponse, proxyResponse);
-    }
-
-    @Test
-    public void testProxyWithApacheHttpClientChunkedRequestsBadAddress()
+    private String httpPostWithApacheClient(
+            HttpHost host, String resourceUrl, boolean isProxied)
             throws Exception {
-        final String response =
-                httpPostWithApacheClient(true, "http://test.localhost");
-
-        // The second expected response is what squid returns here.
-        assertTrue(
-                "Received: " + response,
-                response.startsWith("Bad Gateway")
-                        ||
-                        response.contains("The requested URL could not be retrieved"));
-    }
-
-    private String httpPostWithApacheClient(final boolean isProxy)
-            throws IOException {
-        return httpPostWithApacheClient(isProxy, HOST);
-    }
-
-    private String httpPostWithApacheClient(final boolean isProxy,
-            final String host) throws IOException {
         String username = getUsername();
         String password = getPassword();
-        final DefaultHttpClient httpclient = new DefaultHttpClient();
+        final DefaultHttpClient httpClient = buildHttpClient();
         try {
-            if (isProxy) {
+            if (isProxied) {
                 final HttpHost proxy = new HttpHost("127.0.0.1",
                         PROXY_SERVER_PORT);
-                httpclient.getParams().setParameter(
+                httpClient.getParams().setParameter(
                         ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if (username != null && password != null) {
-                    httpclient.getCredentialsProvider()
+                    httpClient.getCredentialsProvider()
                             .setCredentials(
                                     new AuthScope("127.0.0.1",
                                             PROXY_SERVER_PORT),
@@ -213,36 +241,37 @@ public abstract class BaseProxyTest {
                 }
             }
 
-            final HttpPost httppost = new HttpPost(host);
-            httppost.getParams().setParameter(
+            final HttpPost request = new HttpPost(resourceUrl);
+            request.getParams().setParameter(
                     CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT,
-                    15000);
+            // request.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT,
+            // 15000);
             final StringEntity entity = new StringEntity("adsf", "UTF-8");
             entity.setChunked(true);
-            httppost.setEntity(entity);
+            request.setEntity(entity);
 
-            final HttpResponse response = httpclient.execute(httppost);
+            final HttpResponse response = httpClient.execute(host, request);
             final HttpEntity resEntity = response.getEntity();
             final String str = EntityUtils.toString(resEntity);
             return str;
         } finally {
-            httpclient.getConnectionManager().shutdown();
+            httpClient.getConnectionManager().shutdown();
         }
     }
 
-    private String httpGetWithApacheClient(final boolean isProxy)
-            throws IOException {
+    private String httpGetWithApacheClient(HttpHost host,
+            String resourceUrl, boolean isProxied)
+            throws Exception {
         String username = getUsername();
         String password = getPassword();
-        DefaultHttpClient httpclient = new DefaultHttpClient();
+        DefaultHttpClient httpClient = buildHttpClient();
         try {
-            if (isProxy) {
+            if (isProxied) {
                 HttpHost proxy = new HttpHost("127.0.0.1", PROXY_SERVER_PORT);
-                httpclient.getParams().setParameter(
+                httpClient.getParams().setParameter(
                         ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if (username != null && password != null) {
-                    httpclient.getCredentialsProvider()
+                    httpClient.getCredentialsProvider()
                             .setCredentials(
                                     new AuthScope("127.0.0.1",
                                             PROXY_SERVER_PORT),
@@ -251,18 +280,62 @@ public abstract class BaseProxyTest {
                 }
             }
 
-            HttpGet httppost = new HttpGet(HOST);
-            httppost.getParams().setParameter(
+            HttpGet request = new HttpGet(resourceUrl);
+            request.getParams().setParameter(
                     CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-            httppost.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT,
-                    15000);
+            // request.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT,
+            // 15000);
 
-            HttpResponse response = httpclient.execute(httppost);
+            HttpResponse response = httpClient.execute(host, request);
             HttpEntity resEntity = response.getEntity();
             return EntityUtils.toString(resEntity);
         } finally {
-            httpclient.getConnectionManager().shutdown();
+            httpClient.getConnectionManager().shutdown();
         }
+    }
+
+    private DefaultHttpClient buildHttpClient() throws Exception {
+        DefaultHttpClient httpClient = new DefaultHttpClient();
+        SSLSocketFactory sf = new SSLSocketFactory(
+                new TrustSelfSignedStrategy(), new X509HostnameVerifier() {
+                    public boolean verify(String arg0, SSLSession arg1) {
+                        return true;
+                    }
+
+                    public void verify(String host, String[] cns,
+                            String[] subjectAlts)
+                            throws SSLException {
+                    }
+
+                    public void verify(String host, X509Certificate cert)
+                            throws SSLException {
+                    }
+
+                    public void verify(String host, SSLSocket ssl)
+                            throws IOException {
+                    }
+                });
+        Scheme scheme = new Scheme("https", 443, sf);
+        httpClient.getConnectionManager().getSchemeRegistry().register(scheme);
+        return httpClient;
+    }
+
+    private void compareProxiedAndUnproxiedPOST(HttpHost host,
+            String resourceUrl) throws Exception {
+        String unproxiedResponse = httpPostWithApacheClient(host,
+                resourceUrl, false);
+        String proxiedResponse = httpPostWithApacheClient(host,
+                resourceUrl, true);
+        assertEquals(unproxiedResponse, proxiedResponse);
+    }
+
+    private void compareProxiedAndUnproxiedGET(HttpHost host,
+            String resourceUrl) throws Exception {
+        String unproxiedResponse = httpGetWithApacheClient(host,
+                resourceUrl, false);
+        String proxiedResponse = httpGetWithApacheClient(host,
+                resourceUrl, true);
+        assertEquals(unproxiedResponse, proxiedResponse);
     }
 
     private byte[] rawResponse(final String url, final int port,
