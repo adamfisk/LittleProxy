@@ -399,14 +399,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         pipeline.addLast("encoder", new HttpRequestEncoder());
 
-        // We close idle connections to remote servers after the
-        // specified timeouts in seconds. If we're sending data, the
-        // write timeout should be reasonably low. If we're reading
-        // data, however, the read timeout is more relevant.
-
-        // Could be any protocol if it's connect, so hard to say what the
-        // timeout should be, if any.
-        if (!ProxyUtils.isCONNECT(httpRequest)) {
+        // Set idle timeout
+        if (ProxyUtils.isCONNECT(httpRequest)) {
+            // Could be any protocol if it's connect, so hard to say what the
+            // timeout should be, if any.  Don't set one.
+        } else {
+            // We close idle connections to remote servers after the
+            // specified timeouts in seconds. If we're sending data, the
+            // write timeout should be reasonably low. If we're reading
+            // data, however, the read timeout is more relevant.
             int readTimeoutSeconds;
             int writeTimeoutSeconds;
             if (ProxyUtils.isPOST(httpRequest) || ProxyUtils.isPUT(httpRequest)) {

@@ -462,7 +462,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-            try {
+        try {
             disconnected();
         } finally {
             super.channelInactive(ctx);
@@ -492,6 +492,9 @@ abstract class ProxyConnection<I extends HttpObject> extends
             throws Exception {
         try {
             if (evt instanceof IdleStateEvent) {
+                // Note - we don't care what kind of IdleState we got
+                // Thanks to <a href="https://github.com/qbast">qbast</a> for
+                // pointing this out.
                 LOG.info("Got idle, disconnecting");
                 disconnect();
             }
