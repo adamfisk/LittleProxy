@@ -38,6 +38,11 @@ public class TestUtils {
     private TestUtils() {
     }
 
+    public static HttpProxyServer startProxyServer(
+            int port) {
+        return startProxyServer(TransportProtocol.TCP, port);
+    }
+
     /**
      * Creates and starts a proxy server that listens on given port.
      * 
@@ -45,54 +50,63 @@ public class TestUtils {
      *            The port
      * @return The instance of proxy server
      */
-    public static HttpProxyServer startProxyServer(int port) {
-        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(
-                port);
-        return startProxyServerWithCredentials(port, null, null);
+    public static HttpProxyServer startProxyServer(
+            TransportProtocol transportProtocol, int port) {
+        return startProxyServerWithCredentials(transportProtocol, port, null,
+                null);
+    }
+
+    public static HttpProxyServer startProxyServerWithCredentials(
+            int port,
+            String username, String password) {
+        return startProxyServerWithCredentials(TransportProtocol.TCP, port,
+                username, password);
     }
 
     /**
      * Creates and starts a proxy server that listens on given port and
      * authenticates clients with the given username and password.
      * 
+     * @param transportProtocol
+     *            the data transport protocol to use
      * @param port
      *            The port
      * @param username
      * @param password
      * @return The instance of proxy server
      */
-    public static HttpProxyServer startProxyServerWithCredentials(int port,
+    public static HttpProxyServer startProxyServerWithCredentials(
+            TransportProtocol transportProtocol, int port,
             String username, String password) {
-        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(
-                port);
-        addAuthentication(proxyServer, username, password);
-        proxyServer.start(true, true);
-        return proxyServer;
+        return startProxyServerWithCredentials(transportProtocol, port, null,
+                username, password);
+    }
+
+    public static HttpProxyServer startProxyServer(
+            int port,
+            final String chainProxyHostAndPort) {
+        return startProxyServer(TransportProtocol.TCP, port,
+                chainProxyHostAndPort);
     }
 
     /**
      * Creates and starts a proxy server that listens on the given port and
      * chains requests to the proxy at the given chainProxyHostAndPort.
      * 
+     * @param transportProtocol
+     *            the data transport protocol to use
      * @param port
      *            The port
      * @param chainProxyHostAndPort
      *            Proxy relay
      * @return The instance of proxy server
      */
-    public static HttpProxyServer startProxyServer(int port,
+    public static HttpProxyServer startProxyServer(
+            TransportProtocol transportProtocol, int port,
             final String chainProxyHostAndPort) {
-        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(
-                port, null, new ChainProxyManager() {
-                    public String getChainProxy(HttpRequest httpRequest) {
-                        return chainProxyHostAndPort;
-                    }
-
-                    public void onCommunicationError(String hostAndPort) {
-                    }
-                }, null, null);
-        proxyServer.start(true, true);
-        return proxyServer;
+        return startProxyServerWithCredentials(transportProtocol, port,
+                chainProxyHostAndPort,
+                null, null);
     }
 
     /**
@@ -100,6 +114,8 @@ public class TestUtils {
      * requests to the proxy at the given chainProxyHostAndPort, and
      * authenticates clients using the given username and password.
      * 
+     * @param transportProtocol
+     *            the data transport protocol to use
      * @param port
      *            The port
      * @param chainProxyHostAndPort
@@ -108,18 +124,27 @@ public class TestUtils {
      * @param password
      * @return The instance of proxy server
      */
-    public static HttpProxyServer startProxyServerWithCredentials(int port,
+    public static HttpProxyServer startProxyServerWithCredentials(
+            TransportProtocol transportProtocol, int port,
             final String chainProxyHostAndPort, String username,
             String password) {
-        final DefaultHttpProxyServer proxyServer = new DefaultHttpProxyServer(
-                port, null, new ChainProxyManager() {
-                    public String getChainProxy(HttpRequest httpRequest) {
-                        return chainProxyHostAndPort;
-                    }
+        DefaultHttpProxyServer proxyServer;
+        if (chainProxyHostAndPort != null) {
+            proxyServer = new DefaultHttpProxyServer(
+                    transportProtocol, port, null,
+                    new ChainedProxyManagerAdapter() {
+                        public String getHostAndPort(HttpRequest httpRequest) {
+                            return chainProxyHostAndPort;
+                        }
 
-                    public void onCommunicationError(String hostAndPort) {
-                    }
-                }, null, null);
+                        @Override
+                        public TransportProtocol getTransportProtocol() {
+                            return TransportProtocol.UDT;
+                        }
+                    }, null, null);
+        } else {
+            proxyServer = new DefaultHttpProxyServer(transportProtocol, port);
+        }
         addAuthentication(proxyServer, username, password);
         proxyServer.start(true, true);
         return proxyServer;

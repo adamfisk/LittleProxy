@@ -1,37 +1,46 @@
 package org.littleshoot.proxy.impl;
 
+import static org.littleshoot.proxy.TransportProtocol.*;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.udt.nio.NioUdtByteAcceptorChannel;
+import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.channels.spi.SelectorProvider;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.littleshoot.proxy.ActivityTracker;
-import org.littleshoot.proxy.ChainProxyManager;
+import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.HandshakeHandlerFactory;
 import org.littleshoot.proxy.HttpFilter;
 import org.littleshoot.proxy.HttpProxyServer;
 import org.littleshoot.proxy.HttpRequestFilter;
 import org.littleshoot.proxy.HttpResponseFilters;
 import org.littleshoot.proxy.ProxyAuthenticator;
+import org.littleshoot.proxy.TransportProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,20 +49,22 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
 
-    private static final int MAXIMUM_SERVER_THREADS = 10;
+    private static final int MAXIMUM_INCOMING_THREADS = 10;
 
-    private static final int MAXIMUM_CLIENT_THREADS = 40;
+    private static final int MAXIMUM_OUTGOING_THREADS = 40;
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     private final ChannelGroup allChannels = new DefaultChannelGroup(
             "HTTP-Proxy-Server", GlobalEventExecutor.INSTANCE);
 
+    private final TransportProtocol transportProtocol;
+
     private final int port;
 
     private ProxyAuthenticator proxyAuthenticator;
 
-    private final ChainProxyManager chainProxyManager;
+    private final ChainedProxyManager chainProxyManager;
 
     private final HandshakeHandlerFactory handshakeHandlerFactory;
 
@@ -64,22 +75,23 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final HttpResponseFilters responseFilters;
 
     /**
-     * This entire server instance needs to use a single boss EventLoopGroup for
-     * the server.
+     * This EventLoopGroup is used for accepting incoming connections from all
+     * clients.
      */
-    private final EventLoopGroup serverBoss;
+    private final EventLoopGroup clientToProxyBossPool;
 
     /**
-     * This entire server instance needs to use a single worker EventLoopGroup
-     * for the server.
+     * This EventLoopGroup is used for processing incoming connections from all
+     * clients.
      */
-    private final EventLoopGroup serverWorker;
+    private final EventLoopGroup clientToProxyWorkerPool;
 
     /**
-     * This entire server instance needs to use a single client EventLoopGroup
-     * for client channels.
+     * These EventLoopGroups are used for making outgoing connections to
+     * servers. A different EventLoopGroup is used for each TransportProtocol,
+     * since these have to be configured differently.
      */
-    private final EventLoopGroup clientWorker;
+    private final Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools = new ConcurrentHashMap<TransportProtocol, EventLoopGroup>();
 
     /**
      * Track all ActivityTrackers that track proxying activity.
@@ -89,11 +101,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     /**
      * Creates a new proxy server.
      * 
+     * @param transportProtocol
+     *            The protocol to use for data transport
      * @param port
      *            The port the server should run on.
      */
-    public DefaultHttpProxyServer(final int port) {
-        this(port, new HttpResponseFilters() {
+    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
+            final int port) {
+        this(transportProtocol, port, new HttpResponseFilters() {
             public HttpFilter getFilter(String hostAndPort) {
                 return null;
             }
@@ -103,32 +118,34 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     /**
      * Creates a new proxy server.
      * 
+     * @param transportProtocol
+     *            The protocol to use for data transport
      * @param port
      *            The port the server should run on.
      * @param responseFilters
      *            The {@link Map} of request domains to match with associated
      *            {@link HttpFilter}s for filtering responses to those requests.
      */
-    public DefaultHttpProxyServer(final int port,
+    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
+            final int port,
             final HttpResponseFilters responseFilters) {
-        this(port, responseFilters, null, null, null, new NioEventLoopGroup(
-                MAXIMUM_CLIENT_THREADS, CLIENT_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS,
-                        SERVER_THREAD_FACTORY), new NioEventLoopGroup(
-                        MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY));
+        this(transportProtocol, port, responseFilters, null, null, null);
     }
 
     /**
      * Creates a new proxy server.
      * 
+     * @param transportProtocol
+     *            The protocol to use for data transport
      * @param port
      *            The port the server should run on.
      * @param requestFilter
      *            The filter for HTTP requests.
      */
-    public DefaultHttpProxyServer(final int port,
+    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
+            final int port,
             final HttpRequestFilter requestFilter) {
-        this(port, requestFilter, new HttpResponseFilters() {
+        this(transportProtocol, port, requestFilter, new HttpResponseFilters() {
             public HttpFilter getFilter(String hostAndPort) {
                 return null;
             }
@@ -138,6 +155,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     /**
      * Creates a new proxy server.
      * 
+     * @param transportProtocol
+     *            The protocol to use for data transport
      * @param port
      *            The port the server should run on.
      * @param requestFilter
@@ -145,46 +164,33 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param responseFilters
      *            HTTP filters to apply.
      */
-    public DefaultHttpProxyServer(final int port,
+    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
+            final int port,
             final HttpRequestFilter requestFilter,
             final HttpResponseFilters responseFilters) {
-        this(port, responseFilters, null, null, requestFilter,
-                new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS,
-                        CLIENT_THREAD_FACTORY), new NioEventLoopGroup(
-                        MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS,
-                        SERVER_THREAD_FACTORY));
+        this(transportProtocol, port, responseFilters, null, null,
+                requestFilter);
     }
 
     /**
      * 
+     * @param transportProtocol
+     *            The protocol to use for data transport
      * @param port
      *            The port the server should run on.
      * @param requestFilter
      *            Optional filter for modifying incoming requests. Often
-     *            <code>null</code>.
-     * @param clientWorker
-     *            The EventLoopGroup for creating outgoing channels to external
-     *            sites.
-     * @param serverBoss
-     *            The EventLoopGroup for accepting incoming connections
-     * @param serverWorker
-     *            The EventLoopGroup for processing incoming connections
-     */
-    public DefaultHttpProxyServer(final int port,
-            final HttpRequestFilter requestFilter,
-            final EventLoopGroup clientWorker, final EventLoopGroup serverBoss,
-            final EventLoopGroup serverWorker) {
-        this(port, new HttpResponseFilters() {
-            public HttpFilter getFilter(String hostAndPort) {
-                return null;
-            }
-        }, null, null, requestFilter, clientWorker, serverBoss, serverWorker);
-    }
-
-    /**
-     * Creates a new proxy server.
+     *            <code>null</code>. public DefaultHttpProxyServer(final
+     *            TransportProtocol transportProtocol, final int port, final
+     *            HttpRequestFilter requestFilter) { this(transportProtocol,
+     *            port, new HttpResponseFilters() { public HttpFilter
+     *            getFilter(String hostAndPort) { return null; } }, null, null,
+     *            requestFilter); }
      * 
+     *            /** Creates a new proxy server.
+     * 
+     * @param transportProtocol
+     *            The protocol to use for data transport
      * @param port
      *            The port the server should run on.
      * @param responseFilters
@@ -198,60 +204,47 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param requestFilter
      *            Optional filter for modifying incoming requests. Often
      *            <code>null</code>.
+     * 
      */
-    public DefaultHttpProxyServer(final int port,
+    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
+            final int port,
             final HttpResponseFilters responseFilters,
-            final ChainProxyManager chainProxyManager,
+            final ChainedProxyManager chainProxyManager,
             final HandshakeHandlerFactory handshakeHandlerFactory,
             final HttpRequestFilter requestFilter) {
-        this(port, responseFilters, chainProxyManager, handshakeHandlerFactory,
-                requestFilter, new NioEventLoopGroup(MAXIMUM_CLIENT_THREADS,
-                        CLIENT_THREAD_FACTORY), new NioEventLoopGroup(
-                        MAXIMUM_SERVER_THREADS, SERVER_THREAD_FACTORY),
-                new NioEventLoopGroup(MAXIMUM_SERVER_THREADS,
-                        SERVER_THREAD_FACTORY));
-    }
-
-    /**
-     * Creates a new proxy server.
-     * 
-     * @param port
-     *            The port the server should run on.
-     * @param responseFilters
-     *            The {@link Map} of request domains to match with associated
-     *            {@link HttpFilter}s for filtering responses to those requests.
-     * @param chainProxyManager
-     *            The proxy to send requests to if chaining proxies. Typically
-     *            <code>null</code>.
-     * @param ksm
-     *            The key manager if running the proxy over SSL.
-     * @param requestFilter
-     *            Optional filter for modifying incoming requests. Often
-     *            <code>null</code>.
-     * 
-     * @param clientWorker
-     *            The EventLoopGroup for creating outgoing channels to external
-     *            sites.
-     * @param serverBoss
-     *            The EventLoopGroup for accepting incoming connections
-     * @param serverWorker
-     *            The EventLoopGroup for processing incoming connections
-     */
-    public DefaultHttpProxyServer(final int port,
-            final HttpResponseFilters responseFilters,
-            final ChainProxyManager chainProxyManager,
-            final HandshakeHandlerFactory handshakeHandlerFactory,
-            final HttpRequestFilter requestFilter,
-            final EventLoopGroup clientWorker, final EventLoopGroup serverBoss,
-            final EventLoopGroup serverWorker) {
+        this.transportProtocol = transportProtocol;
         this.port = port;
         this.responseFilters = responseFilters;
         this.handshakeHandlerFactory = handshakeHandlerFactory;
         this.requestFilter = requestFilter;
         this.chainProxyManager = chainProxyManager;
-        this.clientWorker = clientWorker;
-        this.serverBoss = serverBoss;
-        this.serverWorker = serverWorker;
+
+        SelectorProvider selectorProvider = null;
+        switch (transportProtocol) {
+        case TCP:
+            selectorProvider = SelectorProvider.provider();
+            break;
+        case UDT:
+            selectorProvider = NioUdtProvider.BYTE_PROVIDER;
+            break;
+        default:
+            throw new RuntimeException(String.format(
+                    "Unknown transportProtocol: %1$s", transportProtocol));
+        }
+
+        this.clientToProxyBossPool = new NioEventLoopGroup(
+                MAXIMUM_INCOMING_THREADS,
+                CLIENT_TO_PROXY_THREAD_FACTORY, selectorProvider);
+        this.clientToProxyWorkerPool = new NioEventLoopGroup(
+                MAXIMUM_INCOMING_THREADS,
+                CLIENT_TO_PROXY_THREAD_FACTORY, selectorProvider);
+        this.proxyToServerWorkerPools.put(TCP, new NioEventLoopGroup(
+                MAXIMUM_OUTGOING_THREADS,
+                PROXY_TO_SERVER_THREAD_FACTORY, SelectorProvider.provider()));
+        this.proxyToServerWorkerPools.put(UDT, new NioEventLoopGroup(
+                MAXIMUM_OUTGOING_THREADS,
+                PROXY_TO_SERVER_THREAD_FACTORY, NioUdtProvider.BYTE_PROVIDER));
+
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
             public void uncaughtException(final Thread t, final Throwable e) {
                 log.error("Uncaught throwable", e);
@@ -259,8 +252,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         });
 
         // Use our thread names so users know there are LittleProxy threads.
-        this.serverBootstrap = new ServerBootstrap().group(serverBoss,
-                serverWorker);
+        this.serverBootstrap = new ServerBootstrap().group(
+                clientToProxyBossPool,
+                clientToProxyWorkerPool);
     }
 
     public void start() {
@@ -272,13 +266,27 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.stopped.set(false);
         ChannelInitializer<Channel> initializer = new ChannelInitializer<Channel>() {
             protected void initChannel(Channel ch) throws Exception {
-                new ClientToProxyConnection(clientWorker, allChannels,
+                new ClientToProxyConnection(allChannels,
+                        proxyToServerWorkerPools,
                         chainProxyManager, proxyAuthenticator,
                         handshakeHandlerFactory, requestFilter,
                         responseFilters, activityTrackers, ch.pipeline());
             };
         };
-        serverBootstrap.channel(NioServerSocketChannel.class);
+        switch (transportProtocol) {
+        case TCP:
+            log.info("Proxy listening with TCP transport");
+            serverBootstrap.channel(NioServerSocketChannel.class);
+            break;
+        case UDT:
+            log.info("Proxy listening with UDT transport");
+            serverBootstrap.channel(NioUdtByteAcceptorChannel.class)
+                    .option(ChannelOption.SO_BACKLOG, 10);
+            break;
+        default:
+            throw new RuntimeException(String.format(
+                    "Unknown transportProtocol: %1$s", transportProtocol));
+        }
         serverBootstrap.childHandler(initializer);
 
         // Binding only to localhost can significantly improve the security of
@@ -311,14 +319,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 stop();
             }
         }));
-
-        /*
-         * final ServerBootstrap sslBootstrap = new ServerBootstrap( new
-         * NioServerSocketChannelFactory( newServerThreadPool(),
-         * newServerThreadPool())); sslBootstrap.setPipelineFactory(new
-         * HttpsServerPipelineFactory()); sslBootstrap.bind(new
-         * InetSocketAddress("127.0.0.1", 8443));
-         */
     }
 
     private final AtomicBoolean stopped = new AtomicBoolean(false);
@@ -348,13 +348,15 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         log.info("Shutting down event loops");
-        for (EventLoopGroup group : new EventLoopGroup[] { serverBoss,
-                serverWorker, clientWorker }) {
+        List<EventLoopGroup> allEventLoopGroups = new ArrayList<EventLoopGroup>();
+        allEventLoopGroups.add(clientToProxyBossPool);
+        allEventLoopGroups.add(clientToProxyWorkerPool);
+        allEventLoopGroups.addAll(proxyToServerWorkerPools.values());
+        for (EventLoopGroup group : allEventLoopGroups) {
             group.shutdownGracefully();
         }
-        
-        for (EventLoopGroup group : new EventLoopGroup[] { serverBoss,
-                serverWorker, clientWorker }) {
+
+        for (EventLoopGroup group : allEventLoopGroups) {
             try {
                 group.awaitTermination(60, TimeUnit.SECONDS);
             } catch (InterruptedException ie) {
@@ -374,24 +376,24 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.activityTrackers.add(activityTracker);
     }
 
-    private static final ThreadFactory CLIENT_THREAD_FACTORY = new ThreadFactory() {
+    private static final ThreadFactory CLIENT_TO_PROXY_THREAD_FACTORY = new ThreadFactory() {
 
         private int num = 0;
 
         public Thread newThread(final Runnable r) {
             final Thread t = new Thread(r,
-                    "LittleProxy-NioClientSocketChannelFactory-Thread-" + num++);
+                    "LittleProxy-ClientToProxy-" + num++);
             return t;
         }
     };
 
-    private static final ThreadFactory SERVER_THREAD_FACTORY = new ThreadFactory() {
+    private static final ThreadFactory PROXY_TO_SERVER_THREAD_FACTORY = new ThreadFactory() {
 
         private int num = 0;
 
         public Thread newThread(final Runnable r) {
             final Thread t = new Thread(r,
-                    "LittleProxy-NioServerSocketChannelFactory-Thread-" + num++);
+                    "LittleProxy-ProxyToServer-" + num++);
             return t;
         }
     };

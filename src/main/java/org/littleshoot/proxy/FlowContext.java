@@ -10,13 +10,18 @@ import org.littleshoot.proxy.impl.ProxyToServerConnection;
  * reported to a {@link ActivityTracker}.
  */
 public class FlowContext {
-    private InetSocketAddress clientAddress;
-    private String serverHostAndPort;
-    private String chainedProxyHostAndPort;
+    private final InetSocketAddress clientAddress;
+    private final TransportProtocol transportProtocolToServer;
+    private final String serverHostAndPort;
+    private final String chainedProxyHostAndPort;
 
-    public FlowContext(InetSocketAddress clientAddress,
-            String serverHostAndPort, String chainedProxyHostAndPort) {
+    public FlowContext(
+            InetSocketAddress clientAddress,
+            TransportProtocol transportProtocolToServer,
+            String serverHostAndPort,
+            String chainedProxyHostAndPort) {
         super();
+        this.transportProtocolToServer = transportProtocolToServer;
         this.clientAddress = clientAddress;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxyHostAndPort = chainedProxyHostAndPort;
@@ -25,6 +30,7 @@ public class FlowContext {
     public FlowContext(ClientToProxyConnection clientConnection,
             ProxyToServerConnection serverConnection) {
         this(clientConnection.getClientAddress(), serverConnection
+                .getTransportProtocol(), serverConnection
                 .getServerHostAndPort(), serverConnection
                 .getChainedProxyHostAndPort());
     }
@@ -35,6 +41,10 @@ public class FlowContext {
 
     public String getServerHostAndPort() {
         return serverHostAndPort;
+    }
+
+    public TransportProtocol getTransportProtocolToServer() {
+        return transportProtocolToServer;
     }
 
     public String getChainedProxyHostAndPort() {

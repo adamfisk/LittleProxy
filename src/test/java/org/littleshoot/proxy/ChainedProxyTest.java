@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.Assert;
@@ -18,11 +19,13 @@ public class ChainedProxyTest extends BaseProxyTest {
             0l);
     private static final AtomicLong REQUESTS_RECEIVED_BY_DOWNSTREAM = new AtomicLong(
             0l);
+    private static final ConcurrentSkipListSet<TransportProtocol> TRANSPORTS_USED = new ConcurrentSkipListSet<TransportProtocol>();
 
     private static final ActivityTracker UPSTREAM_TRACKER = new ActivityTrackerAdapter() {
         public void requestSent(FlowContext flowContext,
                 io.netty.handler.codec.http.HttpRequest httpRequest) {
             REQUESTS_SENT_BY_UPSTREAM.incrementAndGet();
+            TRANSPORTS_USED.add(flowContext.getTransportProtocolToServer());
         }
     };
     private static final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
@@ -38,8 +41,9 @@ public class ChainedProxyTest extends BaseProxyTest {
     protected void setUp() {
         REQUESTS_SENT_BY_UPSTREAM.set(0);
         REQUESTS_RECEIVED_BY_DOWNSTREAM.set(0);
+        TRANSPORTS_USED.clear();
         this.downstreamProxy = TestUtils
-                .startProxyServer(DOWNSTREAM_PROXY_PORT);
+                .startProxyServer(TransportProtocol.UDT, DOWNSTREAM_PROXY_PORT);
         this.downstreamProxy.addActivityTracker(DOWNSTREAM_TRACKER);
         this.proxyServer = TestUtils.startProxyServer(PROXY_SERVER_PORT,
                 DOWNSTREAM_PROXY_HOST_AND_PORT);
@@ -74,5 +78,10 @@ public class ChainedProxyTest extends BaseProxyTest {
                 "Downstream proxy should have seen every request sent by upstream proxy",
                 REQUESTS_SENT_BY_UPSTREAM.get(),
                 REQUESTS_RECEIVED_BY_DOWNSTREAM.get());
+        Assert.assertEquals(
+                "Only 1 transport protocol should have been used to downstream proxy",
+                1, TRANSPORTS_USED.size());
+        Assert.assertTrue("UDT transport should have been used",
+                TRANSPORTS_USED.contains(TransportProtocol.UDT));
     }
 }

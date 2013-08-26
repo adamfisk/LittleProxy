@@ -1,5 +1,6 @@
 package org.littleshoot.proxy.impl;
 
+import static org.littleshoot.proxy.TransportProtocol.*;
 import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -43,7 +44,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ActivityTracker;
-import org.littleshoot.proxy.ChainProxyManager;
+import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.FlowContext;
 import org.littleshoot.proxy.HandshakeHandler;
 import org.littleshoot.proxy.HandshakeHandlerFactory;
@@ -51,6 +52,7 @@ import org.littleshoot.proxy.HttpFilter;
 import org.littleshoot.proxy.HttpRequestFilter;
 import org.littleshoot.proxy.HttpResponseFilters;
 import org.littleshoot.proxy.ProxyAuthenticator;
+import org.littleshoot.proxy.TransportProtocol;
 
 /**
  * <p>
@@ -84,7 +86,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     "proxy-authenticate", "proxy-authorization", "te",
                     "trailers", "upgrade" }));
 
-    private final ChainProxyManager chainProxyManager;
+    private final ChainedProxyManager chainProxyManager;
     private final ProxyAuthenticator authenticator;
     private final HandshakeHandlerFactory handshakeHandlerFactory;
     private final HttpRequestFilter requestFilter;
@@ -127,20 +129,22 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private final Map<HttpRequest, Boolean> requestsForWhichProxyChainingIsDisabled = new ConcurrentHashMap<HttpRequest, Boolean>();
 
-    ClientToProxyConnection(EventLoopGroup proxyToServerWorkerPool,
-            ChannelGroup channelGroup, ChainProxyManager chainProxyManager,
+    ClientToProxyConnection(
+            ChannelGroup channelGroup,
+            Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools,
+            ChainedProxyManager chainProxyManager,
             ProxyAuthenticator authenticator,
             HandshakeHandlerFactory handshakeHandlerFactory,
             HttpRequestFilter requestFilter,
             HttpResponseFilters responseFilters,
             Collection<ActivityTracker> activityTrackers,
             ChannelPipeline pipeline) {
-        super(AWAITING_INITIAL, proxyToServerWorkerPool, channelGroup);
+        super(AWAITING_INITIAL, channelGroup, proxyToServerWorkerPools);
+        this.chainProxyManager = chainProxyManager;
         this.authenticator = authenticator;
         this.handshakeHandlerFactory = handshakeHandlerFactory;
         this.requestFilter = requestFilter;
         this.responseFilters = responseFilters;
-        this.chainProxyManager = chainProxyManager;
         this.activityTrackers = activityTrackers;
         initChannelPipeline(pipeline);
         LOG.debug("Created ClientToProxyConnection");
@@ -174,10 +178,17 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         } else {
             String serverHostAndPort = identifyHostAndPort(httpRequest);
             String chainedProxyHostAndPort = getChainProxyHostAndPort(httpRequest);
-            String hostAndPort = chainedProxyHostAndPort != null ? chainedProxyHostAndPort
-                    : serverHostAndPort;
 
-            recordRequestReceivedFromClient(serverHostAndPort,
+            TransportProtocol transportProtocol = TCP;
+            String hostAndPort = serverHostAndPort;
+
+            if (chainedProxyHostAndPort != null) {
+                hostAndPort = chainedProxyHostAndPort;
+                transportProtocol = chainProxyManager.getTransportProtocol();
+            }
+
+            recordRequestReceivedFromClient(transportProtocol,
+                    serverHostAndPort,
                     chainedProxyHostAndPort,
                     httpRequest);
 
@@ -201,7 +212,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 try {
                     currentServerConnection = connectToServer(httpRequest,
                             hostAndPort, serverHostAndPort,
-                            chainedProxyHostAndPort);
+                            transportProtocol, chainedProxyHostAndPort);
                 } catch (UnknownHostException uhe) {
                     LOG.info("Bad Host {}", httpRequest.getUri());
                     writeBadGateway(httpRequest);
@@ -220,7 +231,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
             LOG.debug("Writing request to ProxyToServerConnection");
             currentServerConnection.write(httpRequest, originalRequest);
-            
+
             if (ProxyUtils.isCONNECT(httpRequest)) {
                 return NEGOTIATING_CONNECT;
             } else if (ProxyUtils.isChunked(httpRequest)) {
@@ -446,7 +457,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 .containsKey(httpRequest)) {
             return null;
         } else {
-            return chainProxyManager.getChainProxy(httpRequest);
+            return chainProxyManager.getHostAndPort(httpRequest);
         }
     }
 
@@ -465,6 +476,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     private ProxyToServerConnection connectToServer(HttpRequest request,
             String hostAndPort, String serverHostAndPort,
+            TransportProtocol transportProtocol,
             String chainedProxyHostAndPort)
             throws UnknownHostException {
         LOG.debug("Establishing new ProxyToServerConnection");
@@ -474,7 +486,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             responseFilter = responseFilters.getFilter(serverHostAndPort);
         }
         ProxyToServerConnection connection = new ProxyToServerConnection(
-                proxyToServerWorkerPool, allChannels, this, address,
+                allChannels, this, transportProtocol,
+                proxyToServerWorkerPools, address,
                 serverHostAndPort, chainedProxyHostAndPort,
                 responseFilter);
         serverConnectionsByHostAndPort.put(hostAndPort, connection);
@@ -643,7 +656,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         disableChainingFor(initialRequest);
         String hostAndPort = identifyHostAndPort(initialRequest);
         try {
-            serverConnection.retryConnecting(addressFor(hostAndPort),
+            serverConnection.retryConnecting(addressFor(hostAndPort), TCP,
+                    null,
                     initialRequest);
         } catch (UnknownHostException uhe) {
             LOG.info("Bad Host {}", initialRequest.getUri());
@@ -1140,10 +1154,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     protected void recordRequestReceivedFromClient(
-            String serverHostAndPort, String chainedProxyHostAndPort,
+            TransportProtocol transportProtocol, String serverHostAndPort,
+            String chainedProxyHostAndPort,
             HttpRequest httpRequest) {
         FlowContext flowContext = new FlowContext(getClientAddress(),
-                serverHostAndPort, chainedProxyHostAndPort);
+                transportProtocol, serverHostAndPort, chainedProxyHostAndPort);
         for (ActivityTracker tracker : activityTrackers) {
             tracker.requestReceivedFromClient(flowContext, httpRequest);
         }

@@ -21,8 +21,12 @@ import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
+import java.util.Map;
+
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+
+import org.littleshoot.proxy.TransportProtocol;
 
 /**
  * <p>
@@ -76,8 +80,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
         SimpleChannelInboundHandler<Object> {
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
-    protected final EventLoopGroup proxyToServerWorkerPool;
     protected final ChannelGroup allChannels;
+    protected final Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools;
 
     protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
@@ -89,18 +93,19 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * 
      * @param initialState
      *            the state in which this connection starts out
-     * @param proxyToServerWorkerPool
-     *            an {@link EventLoopGroup} that will be used by any outgoing
-     *            connections opened by this ProxyConnection.
      * @param allChannels
      *            a ChannelGroup that records all channels in use (useful for
      *            closing these later)
+     * @param proxyToServerWorkerPools
+     *            the EventLoopGroups that will be used to connect to servers,
+     *            one per {@link TransportProtocol}
      */
     protected ProxyConnection(ConnectionState initialState,
-            EventLoopGroup proxyToServerWorkerPool, ChannelGroup allChannels) {
+            ChannelGroup allChannels,
+            Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools) {
         become(initialState);
-        this.proxyToServerWorkerPool = proxyToServerWorkerPool;
         this.allChannels = allChannels;
+        this.proxyToServerWorkerPools = proxyToServerWorkerPools;
     }
 
     /***************************************************************************

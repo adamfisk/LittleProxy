@@ -14,6 +14,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.channel.udt.nio.NioUdtByteConnectorChannel;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpObject;
@@ -33,6 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.littleshoot.proxy.HttpFilter;
+import org.littleshoot.proxy.TransportProtocol;
 
 /**
  * Represents a connection from our proxy to a server on the web.
@@ -41,6 +43,7 @@ import org.littleshoot.proxy.HttpFilter;
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private final ClientToProxyConnection clientConnection;
+    private volatile TransportProtocol transportProtocol;
     private volatile InetSocketAddress address;
     private final String serverHostAndPort;
     private volatile String chainedProxyHostAndPort;
@@ -93,13 +96,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private final AtomicBoolean isMITM = new AtomicBoolean(false);
 
-    ProxyToServerConnection(EventLoopGroup proxyToServerWorkerPool,
+    ProxyToServerConnection(
             ChannelGroup channelGroup,
             ClientToProxyConnection clientConnection,
+            TransportProtocol transportProtocol,
+            Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools,
             InetSocketAddress address, String serverHostAndPort,
             String chainedProxyHostAndPort, HttpFilter responseFilter) {
-        super(DISCONNECTED, proxyToServerWorkerPool, channelGroup);
+        super(DISCONNECTED, channelGroup, proxyToServerWorkerPools);
         this.clientConnection = clientConnection;
+        this.transportProtocol = transportProtocol;
         this.address = address;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxyHostAndPort = chainedProxyHostAndPort;
@@ -281,6 +287,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /***************************************************************************
      * State Management
      **************************************************************************/
+    public TransportProtocol getTransportProtocol() {
+        return transportProtocol;
+    }
+
     public InetSocketAddress getAddress() {
         return address;
     }
@@ -354,8 +364,23 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         clientConnection.connectingToServer(this);
 
-        Bootstrap cb = new Bootstrap().group(proxyToServerWorkerPool);
-        cb.channel(NioSocketChannel.class);
+        Bootstrap cb = new Bootstrap().group(proxyToServerWorkerPools
+                .get(transportProtocol));
+
+        switch (transportProtocol) {
+        case TCP:
+            LOG.debug("Connecting to server with TCP");
+            cb.channel(NioSocketChannel.class);
+            break;
+        case UDT:
+            LOG.debug("Connecting to server with UDT");
+            cb.channel(NioUdtByteConnectorChannel.class);
+            break;
+        default:
+            throw new RuntimeException(String.format(
+                    "Unknown transportProtocol: %1$s", transportProtocol));
+        }
+
         cb.handler(new ChannelInitializer<Channel>() {
             protected void initChannel(Channel ch) throws Exception {
                 initChannelPipeline(ch.pipeline(), initialRequest);
@@ -376,9 +401,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     protected void retryConnecting(InetSocketAddress newAddress,
+            TransportProtocol transportProtocol,
+            String chainedProxyHostAndPort,
             HttpRequest initialRequest) {
         this.address = newAddress;
-        this.chainedProxyHostAndPort = null;
+        this.transportProtocol = transportProtocol;
+        this.chainedProxyHostAndPort = chainedProxyHostAndPort;
         this.connectAndWrite(initialRequest);
     }
 
@@ -402,7 +430,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // Set idle timeout
         if (ProxyUtils.isCONNECT(httpRequest)) {
             // Could be any protocol if it's connect, so hard to say what the
-            // timeout should be, if any.  Don't set one.
+            // timeout should be, if any. Don't set one.
         } else {
             // We close idle connections to remote servers after the
             // specified timeouts in seconds. If we're sending data, the

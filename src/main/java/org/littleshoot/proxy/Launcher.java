@@ -93,7 +93,8 @@ public class Launcher {
         }
 
         System.out.println("About to start server on port: " + port);
-        final HttpProxyServer server = new DefaultHttpProxyServer(port);
+        final HttpProxyServer server = new DefaultHttpProxyServer(
+                TransportProtocol.TCP, port);
         System.out.println("About to start...");
         server.start();
     }
@@ -108,11 +109,13 @@ public class Launcher {
         final HelpFormatter formatter = new HelpFormatter();
         formatter.printHelp("littleproxy", options);
     }
-    
+
     private static void pollLog4JConfigurationFileIfAvailable() {
-        File log4jConfigurationFile = new File("src/main/resources/log4j.properties");
+        File log4jConfigurationFile = new File(
+                "src/main/resources/log4j.properties");
         if (log4jConfigurationFile.exists()) {
-            PropertyConfigurator.configureAndWatch(log4jConfigurationFile.getAbsolutePath(), 15);
+            PropertyConfigurator.configureAndWatch(
+                    log4jConfigurationFile.getAbsolutePath(), 15);
         }
     }
 }
