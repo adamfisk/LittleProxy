@@ -20,7 +20,7 @@ import org.littleshoot.proxy.impl.LittleProxyConfig;
  * counts.
  */
 public class IdleTest {
-    private static final int NUMBER_OF_CONNECTIONS_TO_OPEN = 100;
+    private static final int NUMBER_OF_CONNECTIONS_TO_OPEN = 2000;
     private static final int WEB_SERVER_PORT = 9091;
     private static final int PROXY_PORT = 9091;
 
