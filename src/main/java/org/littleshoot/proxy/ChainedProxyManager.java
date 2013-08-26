@@ -32,7 +32,7 @@ public interface ChainedProxyManager {
 
     /**
      * If {@link #requiresTLSEncryption(HttpRequest)} returns true, LittleProxy
-     * will call this method to obtain an SSLContext for doing the encryption.
+     * will call this method to obtain an SSLContext used by the upstream proxy.
      * 
      * @return
      */
