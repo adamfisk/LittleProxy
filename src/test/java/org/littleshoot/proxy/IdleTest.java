@@ -13,7 +13,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.littleshoot.proxy.impl.LittleProxyConfig;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 /**
  * Note - this test only works on UNIX systems because it checks file descriptor
@@ -26,15 +26,17 @@ public class IdleTest {
 
     private int originalIdleTimeout;
     private Server webServer;
-    private HttpProxyServer proxyServer;
+    private DefaultHttpProxyServer proxyServer;
 
     @Before
     public void setup() throws Exception {
-        originalIdleTimeout = LittleProxyConfig.getIdleConnectionTimeout();
-        LittleProxyConfig.setIdleConnectionTimeout(10);
         webServer = new Server(WEB_SERVER_PORT);
         webServer.start();
-        proxyServer = TestUtils.startProxyServer(PROXY_PORT);
+        proxyServer = (DefaultHttpProxyServer) TestUtils
+                .startProxyServer(PROXY_PORT);
+        originalIdleTimeout = proxyServer.getIdleConnectionTimeout();
+        proxyServer.setIdleConnectionTimeout(10);
+
     }
 
     @After
@@ -44,7 +46,7 @@ public class IdleTest {
         } finally {
             proxyServer.stop();
         }
-        LittleProxyConfig.setIdleConnectionTimeout(originalIdleTimeout);
+        proxyServer.setIdleConnectionTimeout(originalIdleTimeout);
     }
 
     @Test

@@ -13,7 +13,7 @@ import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
-import org.littleshoot.proxy.impl.LittleProxyConfig;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer.DefaultHttpProxyServerBuilder;
 import org.littleshoot.proxy.impl.ProxyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,20 +64,6 @@ public class Launcher {
             printHelp(options, null);
             return;
         }
-        if (cmd.hasOption(OPTION_DNSSEC)) {
-            final String val = cmd.getOptionValue(OPTION_DNSSEC);
-            if (ProxyUtils.isTrue(val)) {
-                LOG.info("Using DNSSEC");
-                LittleProxyConfig.setUseDnsSec(true);
-            } else if (ProxyUtils.isFalse(val)) {
-                LOG.info("Not using DNSSEC");
-                LittleProxyConfig.setUseDnsSec(false);
-            } else {
-                printHelp(options, "Unexpected value for " + OPTION_DNSSEC
-                        + "=:" + val);
-                return;
-            }
-        }
         final int defaultPort = 8080;
         int port;
         if (cmd.hasOption(OPTION_PORT)) {
@@ -93,10 +79,26 @@ public class Launcher {
         }
 
         System.out.println("About to start server on port: " + port);
-        final HttpProxyServer server = DefaultHttpProxyServer
-                .configure()
-                .withPort(port)
-                .build();
+        DefaultHttpProxyServerBuilder builder = DefaultHttpProxyServer
+                .configureFromFile("./littleproxy.properties")
+                .withPort(port);
+
+        if (cmd.hasOption(OPTION_DNSSEC)) {
+            final String val = cmd.getOptionValue(OPTION_DNSSEC);
+            if (ProxyUtils.isTrue(val)) {
+                LOG.info("Using DNSSEC");
+                builder.withUseDnsSec(true);
+            } else if (ProxyUtils.isFalse(val)) {
+                LOG.info("Not using DNSSEC");
+                builder.withUseDnsSec(false);
+            } else {
+                printHelp(options, "Unexpected value for " + OPTION_DNSSEC
+                        + "=:" + val);
+                return;
+            }
+        }
+
+        HttpProxyServer server = builder.build();
         System.out.println("About to start...");
         server.start();
     }

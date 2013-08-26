@@ -11,8 +11,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtByteConnectorChannel;
 import io.netty.handler.codec.http.HttpContent;
@@ -98,13 +96,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private final AtomicBoolean isMITM = new AtomicBoolean(false);
 
     ProxyToServerConnection(
-            ChannelGroup channelGroup,
+            DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
             TransportProtocol transportProtocol,
-            Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools,
             InetSocketAddress address, String serverHostAndPort,
             String chainedProxyHostAndPort, HttpFilter responseFilter) {
-        super(DISCONNECTED, channelGroup, proxyToServerWorkerPools);
+        super(DISCONNECTED, proxyServer);
         this.clientConnection = clientConnection;
         this.transportProtocol = transportProtocol;
         this.address = address;
@@ -365,8 +362,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         clientConnection.connectingToServer(this);
 
-        Bootstrap cb = new Bootstrap().group(proxyToServerWorkerPools
-                .get(transportProtocol));
+        Bootstrap cb = new Bootstrap().group(this.proxyServer
+                .getProxyToServerWorkerFor(transportProtocol));
 
         switch (transportProtocol) {
         case TCP:
@@ -440,10 +437,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             int writeTimeoutSeconds;
             if (ProxyUtils.isPOST(httpRequest) || ProxyUtils.isPUT(httpRequest)) {
                 readTimeoutSeconds = 0;
-                writeTimeoutSeconds = LittleProxyConfig
+                writeTimeoutSeconds = this.proxyServer
                         .getIdleConnectionTimeout();
             } else {
-                readTimeoutSeconds = LittleProxyConfig
+                readTimeoutSeconds = this.proxyServer
                         .getIdleConnectionTimeout();
                 ;
                 writeTimeoutSeconds = 0;
@@ -490,7 +487,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         if (clientConnection.shouldChain(httpRequest)) {
             startCONNECTWithChainedProxy(httpRequest);
-        } else if (LittleProxyConfig.isUseSSLMitm()) {
+        } else if (this.proxyServer.isUseMITMInSSL()) {
             startCONNECTWithMITM();
         } else {
             startCONNECTWithTunneling();

@@ -8,8 +8,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpRequest;
@@ -33,7 +31,6 @@ import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,13 +44,8 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ActivityTracker;
-import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.FlowContext;
 import org.littleshoot.proxy.HttpFilter;
-import org.littleshoot.proxy.HttpRequestFilter;
-import org.littleshoot.proxy.HttpResponseFilters;
-import org.littleshoot.proxy.ProxyAuthenticator;
-import org.littleshoot.proxy.SSLContextSource;
 import org.littleshoot.proxy.TransportProtocol;
 
 /**
@@ -87,13 +79,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             Arrays.asList(new String[] { "connection", "keep-alive",
                     "proxy-authenticate", "proxy-authorization", "te",
                     "trailers", "upgrade" }));
-
-    private final SSLContextSource sslContextSource;
-    private final ChainedProxyManager chainProxyManager;
-    private final ProxyAuthenticator authenticator;
-    private final HttpRequestFilter requestFilter;
-    private final HttpResponseFilters responseFilters;
-    private final Collection<ActivityTracker> activityTrackers;
 
     /**
      * Keep track of all ProxyToServerConnections by host+port.
@@ -132,22 +117,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private final Map<HttpRequest, Boolean> requestsForWhichProxyChainingIsDisabled = new ConcurrentHashMap<HttpRequest, Boolean>();
 
     ClientToProxyConnection(
-            ChannelGroup channelGroup,
-            Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools,
-            SSLContextSource sslContextSource,
-            ChainedProxyManager chainProxyManager,
-            ProxyAuthenticator authenticator,
-            HttpRequestFilter requestFilter,
-            HttpResponseFilters responseFilters,
-            Collection<ActivityTracker> activityTrackers,
+            DefaultHttpProxyServer proxyServer,
             ChannelPipeline pipeline) {
-        super(AWAITING_INITIAL, channelGroup, proxyToServerWorkerPools);
-        this.sslContextSource = sslContextSource;
-        this.chainProxyManager = chainProxyManager;
-        this.authenticator = authenticator;
-        this.requestFilter = requestFilter;
-        this.responseFilters = responseFilters;
-        this.activityTrackers = activityTrackers;
+        super(AWAITING_INITIAL, proxyServer);
         initChannelPipeline(pipeline);
         LOG.debug("Created ClientToProxyConnection");
     }
@@ -186,7 +158,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
             if (chainedProxyHostAndPort != null) {
                 hostAndPort = chainedProxyHostAndPort;
-                transportProtocol = chainProxyManager.getTransportProtocol();
+                transportProtocol = proxyServer.getChainProxyManager()
+                        .getTransportProtocol();
             }
 
             recordRequestReceivedFromClient(transportProtocol,
@@ -453,13 +426,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     protected String getChainProxyHostAndPort(HttpRequest httpRequest) {
-        if (chainProxyManager == null) {
+        if (proxyServer.getChainProxyManager() == null) {
             return null;
         } else if (this.requestsForWhichProxyChainingIsDisabled
                 .containsKey(httpRequest)) {
             return null;
         } else {
-            return chainProxyManager.getHostAndPort(httpRequest);
+            return proxyServer.getChainProxyManager().getHostAndPort(
+                    httpRequest);
         }
     }
 
@@ -484,12 +458,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         LOG.debug("Establishing new ProxyToServerConnection");
         InetSocketAddress address = addressFor(hostAndPort);
         HttpFilter responseFilter = null;
-        if (responseFilters != null) {
-            responseFilter = responseFilters.getFilter(serverHostAndPort);
+        if (proxyServer.getResponseFilters() != null) {
+            responseFilter = proxyServer.getResponseFilters().getFilter(
+                    serverHostAndPort);
         }
         ProxyToServerConnection connection = new ProxyToServerConnection(
-                allChannels, this, transportProtocol,
-                proxyToServerWorkerPools, address,
+                this.proxyServer, this, transportProtocol, address,
                 serverHostAndPort, chainedProxyHostAndPort,
                 responseFilter);
         serverConnectionsByHostAndPort.put(hostAndPort, connection);
@@ -530,7 +504,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             @Override
             public void operationComplete(ChannelFuture future)
                     throws Exception {
-                if (LittleProxyConfig.isUseSSLMitm()) {
+                if (proxyServer.isUseMITMInSSL()) {
                     finishCONNECTWithMITM(serverConnection, initialRequest);
                 } else {
                     finishCONNECTWithTunneling(serverConnection, initialRequest);
@@ -671,9 +645,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void initChannelPipeline(ChannelPipeline pipeline) {
         LOG.debug("Configuring ChannelPipeline");
 
-        if (this.sslContextSource != null) {
+        if (proxyServer.getSslContextSource() != null) {
             LOG.debug("Adding SSL handler");
-            SSLEngine engine = this.sslContextSource.getSSLContext()
+            SSLEngine engine = proxyServer.getSslContextSource()
+                    .getSSLContext()
                     .createSSLEngine();
             engine.setUseClientMode(false);
             pipeline.addLast("ssl", new SslHandler(engine));
@@ -686,7 +661,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast(
                 "idle",
-                new IdleStateHandler(0, 0, LittleProxyConfig
+                new IdleStateHandler(0, 0, proxyServer
                         .getIdleConnectionTimeout()));
         pipeline.addLast("handler", this);
     }
@@ -817,7 +792,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     private boolean authenticationRequired(HttpRequest request) {
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
-            if (this.authenticator != null) {
+            if (proxyServer.getProxyAuthenticator() != null) {
                 writeAuthenticationRequired();
                 return true;
             }
@@ -836,7 +811,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     ":");
             String password = StringUtils.substringAfter(decodedString,
                     ":");
-            if (!authenticator.authenticate(userName, password)) {
+            if (!proxyServer.getProxyAuthenticator().authenticate(userName,
+                    password)) {
                 writeAuthenticationRequired();
                 return true;
             }
@@ -909,8 +885,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     private void filterRequestIfNecessary(HttpRequest httpRequest) {
-        if (requestFilter != null) {
-            requestFilter.filter(httpRequest);
+        if (proxyServer.getRequestFilter() != null) {
+            proxyServer.getRequestFilter().filter(httpRequest);
         }
     }
 
@@ -921,7 +897,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param httpRequest
      */
     private void modifyRequestHeadersToReflectProxying(HttpRequest httpRequest) {
-        if (!LittleProxyConfig.isTransparent()) {
+        if (!proxyServer.isTransparent()) {
             LOG.debug("Modifying request headers for proxying");
 
             if (!shouldChain(httpRequest)) {
@@ -953,7 +929,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private void modifyResponseHeadersToReflectProxying(
             HttpResponse httpResponse) {
-        if (!LittleProxyConfig.isTransparent()) {
+        if (!proxyServer.isTransparent()) {
             HttpHeaders headers = httpResponse.headers();
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
@@ -1113,9 +1089,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             port = 80;
         }
 
-        if (LittleProxyConfig.isUseDnsSec()) {
+        if (proxyServer.isUseDnsSec()) {
             return VerifiedAddressFactory.newInetSocketAddress(host, port,
-                    LittleProxyConfig.isUseDnsSec());
+                    proxyServer.isUseDnsSec());
 
         } else {
             InetAddress ia = InetAddress.getByName(host);
@@ -1151,7 +1127,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             ConnectionTracer tracer) {
         int bytes = tracer.getBytesOnWire();
         FlowContext flowContext = new FlowContext(this, serverConnection);
-        for (ActivityTracker tracker : activityTrackers) {
+        for (ActivityTracker tracker : proxyServer.getActivityTrackers()) {
             tracker.bytesReceivedFromClient(flowContext, bytes);
         }
     }
@@ -1162,7 +1138,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpRequest httpRequest) {
         FlowContext flowContext = new FlowContext(getClientAddress(),
                 transportProtocol, serverHostAndPort, chainedProxyHostAndPort);
-        for (ActivityTracker tracker : activityTrackers) {
+        for (ActivityTracker tracker : proxyServer.getActivityTrackers()) {
             tracker.requestReceivedFromClient(flowContext, httpRequest);
         }
     }
@@ -1170,7 +1146,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void recordRequestSentToServer(
             ProxyToServerConnection serverConnection, HttpRequest httpRequest) {
         FlowContext flowContext = new FlowContext(this, serverConnection);
-        for (ActivityTracker tracker : activityTrackers) {
+        for (ActivityTracker tracker : proxyServer.getActivityTrackers()) {
             tracker.requestSent(flowContext, httpRequest);
         }
     }
@@ -1180,7 +1156,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             ConnectionTracer tracer) {
         int bytes = tracer.getBytesOnWire();
         FlowContext flowContext = new FlowContext(this, serverConnection);
-        for (ActivityTracker tracker : activityTrackers) {
+        for (ActivityTracker tracker : proxyServer.getActivityTrackers()) {
             tracker.bytesReceivedFromServer(flowContext, bytes);
         }
     }
@@ -1188,7 +1164,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void recordResponseReceivedFromServer(
             ProxyToServerConnection serverConnection, HttpResponse httpResponse) {
         FlowContext flowContext = new FlowContext(this, serverConnection);
-        for (ActivityTracker tracker : activityTrackers) {
+        for (ActivityTracker tracker : proxyServer.getActivityTrackers()) {
             tracker.responseReceived(flowContext, httpResponse);
         }
     }

@@ -17,6 +17,10 @@ import io.netty.channel.udt.nio.NioUdtByteAcceptorChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -26,6 +30,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadFactory;
@@ -34,6 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.net.ssl.SSLContext;
 
+import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.HttpFilter;
@@ -56,7 +62,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private static final int MAXIMUM_OUTGOING_THREADS = 40;
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private static final Logger LOG = LoggerFactory
+            .getLogger(DefaultHttpProxyServer.class);
 
     private final ChannelGroup allChannels = new DefaultChannelGroup(
             "HTTP-Proxy-Server", GlobalEventExecutor.INSTANCE);
@@ -68,6 +75,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ChainedProxyManager chainProxyManager;
     private final HttpRequestFilter requestFilter;
     private final HttpResponseFilters responseFilters;
+    private final boolean useDnsSec;
+    private final boolean useMITMInSSL;
+    private final boolean acceptAllSSLCertificates;
+    private final boolean transparent;
+    private volatile int idleConnectionTimeout;
 
     /**
      * Main entry point for Netty.
@@ -98,8 +110,39 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
 
+    /**
+     * Configure a new {@link DefaultHttpProxyServer} starting from scratch.
+     * 
+     * @return
+     */
     public static DefaultHttpProxyServerBuilder configure() {
         return new DefaultHttpProxyServerBuilder();
+    }
+
+    /**
+     * Configure a new {@link DefaultHttpProxyServer} using defaults from the
+     * given file.
+     * 
+     * @param path
+     * @return
+     */
+    public static DefaultHttpProxyServerBuilder configureFromFile(String path) {
+        final File propsFile = new File(path);
+        Properties props = new Properties();
+
+        if (propsFile.isFile()) {
+            InputStream is = null;
+            try {
+                is = new FileInputStream(propsFile);
+                props.load(is);
+            } catch (final IOException e) {
+                LOG.warn("Could not load props file?", e);
+            } finally {
+                IOUtils.closeQuietly(is);
+            }
+        }
+
+        return new DefaultHttpProxyServerBuilder(props);
     }
 
     /**
@@ -147,8 +190,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             SSLContextSource sslContextSource,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
+            HttpRequestFilter requestFilter,
             HttpResponseFilters responseFilters,
-            HttpRequestFilter requestFilter) {
+            boolean useDnsSec,
+            boolean useMITMInSSL,
+            boolean acceptAllSSLCertificates,
+            boolean transparent,
+            int idleConnectionTimeout) {
         this.transportProtocol = transportProtocol;
         this.port = port;
         this.sslContextSource = sslContextSource;
@@ -156,6 +204,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.chainProxyManager = chainProxyManager;
         this.requestFilter = requestFilter;
         this.responseFilters = responseFilters;
+        this.useDnsSec = useDnsSec;
+        this.useMITMInSSL = useMITMInSSL;
+        this.acceptAllSSLCertificates = acceptAllSSLCertificates;
+        this.transparent = transparent;
+        this.idleConnectionTimeout = idleConnectionTimeout;
 
         SelectorProvider selectorProvider = null;
         switch (transportProtocol) {
@@ -184,7 +237,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
             public void uncaughtException(final Thread t, final Throwable e) {
-                log.error("Uncaught throwable", e);
+                LOG.error("Uncaught throwable", e);
             }
         });
 
@@ -194,29 +247,57 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 clientToProxyWorkerPool);
     }
 
+    public boolean isUseDnsSec() {
+        return useDnsSec;
+    }
+
+    public boolean isUseMITMInSSL() {
+        return useMITMInSSL;
+    }
+
+    public boolean isAcceptAllSSLCertificates() {
+        return acceptAllSSLCertificates;
+    }
+
+    public boolean isTransparent() {
+        return transparent;
+    }
+
+    public int getIdleConnectionTimeout() {
+        return idleConnectionTimeout;
+    }
+
+    public void setIdleConnectionTimeout(int idleConnectionTimeout) {
+        this.idleConnectionTimeout = idleConnectionTimeout;
+    }
+
+    @Override
+    public HttpProxyServer addActivityTracker(ActivityTracker activityTracker) {
+        this.activityTrackers.add(activityTracker);
+        return this;
+    }
+
     public void start() {
         start(false, true);
     }
 
     public void start(final boolean localOnly, final boolean anyAddress) {
-        log.info("Starting proxy on port: " + this.port);
+        LOG.info("Starting proxy on port: " + this.port);
         this.stopped.set(false);
         ChannelInitializer<Channel> initializer = new ChannelInitializer<Channel>() {
             protected void initChannel(Channel ch) throws Exception {
-                new ClientToProxyConnection(allChannels,
-                        proxyToServerWorkerPools, sslContextSource,
-                        chainProxyManager, proxyAuthenticator,
-                        requestFilter, responseFilters, activityTrackers,
+                new ClientToProxyConnection(
+                        DefaultHttpProxyServer.this,
                         ch.pipeline());
             };
         };
         switch (transportProtocol) {
         case TCP:
-            log.info("Proxy listening with TCP transport");
+            LOG.info("Proxy listening with TCP transport");
             serverBootstrap.channel(NioServerSocketChannel.class);
             break;
         case UDT:
-            log.info("Proxy listening with UDT transport");
+            LOG.info("Proxy listening with UDT transport");
             serverBootstrap.channel(NioUdtByteAcceptorChannel.class)
                     .option(ChannelOption.SO_BACKLOG, 10);
             break;
@@ -236,7 +317,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             try {
                 isa = new InetSocketAddress(NetworkUtils.getLocalHost(), port);
             } catch (final UnknownHostException e) {
-                log.error("Could not get local host?", e);
+                LOG.error("Could not get local host?", e);
                 isa = new InetSocketAddress(port);
             }
         }
@@ -260,14 +341,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final AtomicBoolean stopped = new AtomicBoolean(false);
 
     public void stop() {
-        log.info("Shutting down proxy");
+        LOG.info("Shutting down proxy");
         if (stopped.get()) {
-            log.info("Already stopped");
+            LOG.info("Already stopped");
             return;
         }
         stopped.set(true);
 
-        log.info("Closing all channels...");
+        LOG.info("Closing all channels...");
 
         final ChannelGroupFuture future = allChannels.close();
         future.awaitUninterruptibly(10 * 1000);
@@ -277,13 +358,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             while (iter.hasNext()) {
                 final ChannelFuture cf = iter.next();
                 if (!cf.isSuccess()) {
-                    log.warn("Cause of failure for {} is {}", cf.channel(),
+                    LOG.warn("Cause of failure for {} is {}", cf.channel(),
                             cf.cause());
                 }
             }
         }
 
-        log.info("Shutting down event loops");
+        LOG.info("Shutting down event loops");
         List<EventLoopGroup> allEventLoopGroups = new ArrayList<EventLoopGroup>();
         allEventLoopGroups.add(clientToProxyBossPool);
         allEventLoopGroups.add(clientToProxyWorkerPool);
@@ -296,17 +377,49 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             try {
                 group.awaitTermination(60, TimeUnit.SECONDS);
             } catch (InterruptedException ie) {
-                log.warn("Interrupted while shutting down event loop");
+                LOG.warn("Interrupted while shutting down event loop");
             }
         }
 
-        log.info("Done shutting down proxy");
+        LOG.info("Done shutting down proxy");
     }
 
-    @Override
-    public HttpProxyServer addActivityTracker(ActivityTracker activityTracker) {
-        this.activityTrackers.add(activityTracker);
-        return this;
+    /**
+     * Register a new {@link Channel} with this server, for later closing.
+     * 
+     * @param channel
+     */
+    protected void registerChannel(Channel channel) {
+        this.allChannels.add(channel);
+    }
+    
+    protected ChainedProxyManager getChainProxyManager() {
+        return chainProxyManager;
+    }
+    
+    protected SSLContextSource getSslContextSource() {
+        return sslContextSource;
+    }
+    
+    protected ProxyAuthenticator getProxyAuthenticator() {
+        return proxyAuthenticator;
+    }
+    
+    protected HttpRequestFilter getRequestFilter() {
+        return requestFilter;
+    }
+
+    protected HttpResponseFilters getResponseFilters() {
+        return responseFilters;
+    }
+    
+    protected Collection<ActivityTracker> getActivityTrackers() {
+        return activityTrackers;
+    }
+    
+    protected EventLoopGroup getProxyToServerWorkerFor(
+            TransportProtocol transportProtocol) {
+        return this.proxyToServerWorkerPools.get(transportProtocol);
     }
 
     private static final ThreadFactory CLIENT_TO_PROXY_THREAD_FACTORY = new ThreadFactory() {
@@ -345,8 +458,27 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private ChainedProxyManager chainProxyManager = null;
         private HttpRequestFilter requestFilter = null;
         private HttpResponseFilters responseFilters = null;
+        private boolean useDnsSec = false;
+        private boolean useMITMInSSL = false;
+        private boolean acceptAllSSLCertificates = false;
+        private boolean transparent = false;
+        private int idleConnectionTimeout = 70;
 
         private DefaultHttpProxyServerBuilder() {
+        }
+
+        private DefaultHttpProxyServerBuilder(Properties props) {
+            this.useDnsSec = ProxyUtils.extractBooleanDefaultFalse(
+                    props, "dnssec");
+            this.useMITMInSSL = ProxyUtils.extractBooleanDefaultTrue(
+                    props, "use_ssl_mitm");
+            this.acceptAllSSLCertificates = ProxyUtils
+                    .extractBooleanDefaultFalse(props,
+                            "accept_all_ssl_certificates");
+            this.transparent = ProxyUtils.extractBooleanDefaultFalse(
+                    props, "transparent");
+            this.idleConnectionTimeout = ProxyUtils.extractInt(props,
+                    "idle_connection_timeout");
         }
 
         public DefaultHttpProxyServerBuilder withTransportProtocol(
@@ -390,10 +522,40 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             return this;
         }
 
+        public DefaultHttpProxyServerBuilder withUseDnsSec(boolean useDnsSec) {
+            this.useDnsSec = useDnsSec;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withUseMITMInSSL(
+                boolean useMITMInSSL) {
+            this.useMITMInSSL = useMITMInSSL;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withAcceptAllSSLCertificates(
+                boolean acceptAllSSLCertificates) {
+            this.acceptAllSSLCertificates = acceptAllSSLCertificates;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withTransparent(boolean transparent) {
+            this.transparent = transparent;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withIdleConnectionTimeout(
+                int idleConnectionTimeout) {
+            this.idleConnectionTimeout = idleConnectionTimeout;
+            return this;
+        }
+
         public HttpProxyServer build() {
             return new DefaultHttpProxyServer(transportProtocol, port,
                     sslContextSource, proxyAuthenticator, chainProxyManager,
-                    responseFilters, requestFilter);
+                    requestFilter, responseFilters, useDnsSec, useMITMInSSL,
+                    acceptAllSSLCertificates, transparent,
+                    idleConnectionTimeout);
         }
     }
 }

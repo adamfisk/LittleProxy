@@ -8,9 +8,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
@@ -19,10 +17,6 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
-
-import java.util.Map;
-
-import org.littleshoot.proxy.TransportProtocol;
 
 /**
  * <p>
@@ -76,8 +70,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
         SimpleChannelInboundHandler<Object> {
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
-    protected final ChannelGroup allChannels;
-    protected final Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools;
+    protected final DefaultHttpProxyServer proxyServer;
 
     protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
@@ -89,19 +82,13 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * 
      * @param initialState
      *            the state in which this connection starts out
-     * @param allChannels
-     *            a ChannelGroup that records all channels in use (useful for
-     *            closing these later)
-     * @param proxyToServerWorkerPools
-     *            the EventLoopGroups that will be used to connect to servers,
-     *            one per {@link TransportProtocol}
+     * @param proxyServer
+     *            the {@link DefaultHttpProxyServer} in which we're running
      */
     protected ProxyConnection(ConnectionState initialState,
-            ChannelGroup allChannels,
-            Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools) {
+            DefaultHttpProxyServer proxyServer) {
         become(initialState);
-        this.allChannels = allChannels;
-        this.proxyToServerWorkerPools = proxyToServerWorkerPools;
+        this.proxyServer = proxyServer;
     }
 
     /***************************************************************************
@@ -326,15 +313,15 @@ abstract class ProxyConnection<I extends HttpObject> extends
         LOG.debug("Enabling SSL");
         ChannelPipeline pipeline = ctx.pipeline();
         // TODO: make this work again
-//        SslContextFactory scf = new SslContextFactory(
-//                new SelfSignedKeyStoreManager());
-//        SSLContext context = isClient ? scf.getClientContext() : scf
-//                .getServerContext();
-//        SSLEngine engine = context.createSSLEngine();
-//        engine.setUseClientMode(isClient);
-//        SslHandler handler = new SslHandler(engine);
-//        pipeline.addFirst("ssl", handler);
-//        return handler.handshakeFuture();
+        // SslContextFactory scf = new SslContextFactory(
+        // new SelfSignedKeyStoreManager());
+        // SSLContext context = isClient ? scf.getClientContext() : scf
+        // .getServerContext();
+        // SSLEngine engine = context.createSSLEngine();
+        // engine.setUseClientMode(isClient);
+        // SslHandler handler = new SslHandler(engine);
+        // pipeline.addFirst("ssl", handler);
+        // return handler.handshakeFuture();
         return null;
     }
 
@@ -440,7 +427,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
         try {
             this.ctx = ctx;
             this.channel = ctx.channel();
-            this.allChannels.add(ctx.channel());
+            this.proxyServer.registerChannel(ctx.channel());
         } finally {
             super.channelRegistered(ctx);
         }
