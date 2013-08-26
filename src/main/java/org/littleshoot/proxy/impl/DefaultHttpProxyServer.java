@@ -32,15 +32,18 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.net.ssl.SSLContext;
+
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
-import org.littleshoot.proxy.HandshakeHandlerFactory;
 import org.littleshoot.proxy.HttpFilter;
 import org.littleshoot.proxy.HttpProxyServer;
 import org.littleshoot.proxy.HttpRequestFilter;
 import org.littleshoot.proxy.HttpResponseFilters;
 import org.littleshoot.proxy.ProxyAuthenticator;
+import org.littleshoot.proxy.SSLContextSource;
 import org.littleshoot.proxy.TransportProtocol;
+import org.littleshoot.proxy.UnknownTransportProtocolError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,20 +62,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             "HTTP-Proxy-Server", GlobalEventExecutor.INSTANCE);
 
     private final TransportProtocol transportProtocol;
-
     private final int port;
-
-    private ProxyAuthenticator proxyAuthenticator;
-
+    private final SSLContextSource sslContextSource;
+    private final ProxyAuthenticator proxyAuthenticator;
     private final ChainedProxyManager chainProxyManager;
-
-    private final HandshakeHandlerFactory handshakeHandlerFactory;
-
     private final HttpRequestFilter requestFilter;
-
-    private final ServerBootstrap serverBootstrap;
-
     private final HttpResponseFilters responseFilters;
+
+    /**
+     * Main entry point for Netty.
+     */
+    private final ServerBootstrap serverBootstrap;
 
     /**
      * This EventLoopGroup is used for accepting incoming connections from all
@@ -98,78 +98,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
 
-    /**
-     * Creates a new proxy server.
-     * 
-     * @param transportProtocol
-     *            The protocol to use for data transport
-     * @param port
-     *            The port the server should run on.
-     */
-    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
-            final int port) {
-        this(transportProtocol, port, new HttpResponseFilters() {
-            public HttpFilter getFilter(String hostAndPort) {
-                return null;
-            }
-        });
-    }
-
-    /**
-     * Creates a new proxy server.
-     * 
-     * @param transportProtocol
-     *            The protocol to use for data transport
-     * @param port
-     *            The port the server should run on.
-     * @param responseFilters
-     *            The {@link Map} of request domains to match with associated
-     *            {@link HttpFilter}s for filtering responses to those requests.
-     */
-    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
-            final int port,
-            final HttpResponseFilters responseFilters) {
-        this(transportProtocol, port, responseFilters, null, null, null);
-    }
-
-    /**
-     * Creates a new proxy server.
-     * 
-     * @param transportProtocol
-     *            The protocol to use for data transport
-     * @param port
-     *            The port the server should run on.
-     * @param requestFilter
-     *            The filter for HTTP requests.
-     */
-    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
-            final int port,
-            final HttpRequestFilter requestFilter) {
-        this(transportProtocol, port, requestFilter, new HttpResponseFilters() {
-            public HttpFilter getFilter(String hostAndPort) {
-                return null;
-            }
-        });
-    }
-
-    /**
-     * Creates a new proxy server.
-     * 
-     * @param transportProtocol
-     *            The protocol to use for data transport
-     * @param port
-     *            The port the server should run on.
-     * @param requestFilter
-     *            The filter for HTTP requests.
-     * @param responseFilters
-     *            HTTP filters to apply.
-     */
-    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
-            final int port,
-            final HttpRequestFilter requestFilter,
-            final HttpResponseFilters responseFilters) {
-        this(transportProtocol, port, responseFilters, null, null,
-                requestFilter);
+    public static DefaultHttpProxyServerBuilder configure() {
+        return new DefaultHttpProxyServerBuilder();
     }
 
     /**
@@ -193,31 +123,39 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            The protocol to use for data transport
      * @param port
      *            The port the server should run on.
-     * @param responseFilters
-     *            The {@link Map} of request domains to match with associated
-     *            {@link HttpFilter}s for filtering responses to those requests.
+     * @param sslContextSource
+     *            (optional) if specified, this Proxy will encrypt inbound
+     *            connections from clients using an {@link SSLContext} obtained
+     *            from this {@link SSLContextSource}.
+     * @param proxyAuthenticator
+     *            (optional) If specified, requests to the proxy will be
+     *            authenticated using HTTP BASIC authentication per the provided
+     *            {@link ProxyAuthenticator}
      * @param chainProxyManager
      *            The proxy to send requests to if chaining proxies. Typically
      *            <code>null</code>.
-     * @param ksm
-     *            The key manager if running the proxy over SSL.
      * @param requestFilter
      *            Optional filter for modifying incoming requests. Often
      *            <code>null</code>.
+     * @param responseFilters
+     *            The {@link Map} of request domains to match with associated
+     *            {@link HttpFilter}s for filtering responses to those requests.
      * 
      */
-    public DefaultHttpProxyServer(final TransportProtocol transportProtocol,
-            final int port,
-            final HttpResponseFilters responseFilters,
-            final ChainedProxyManager chainProxyManager,
-            final HandshakeHandlerFactory handshakeHandlerFactory,
-            final HttpRequestFilter requestFilter) {
+    private DefaultHttpProxyServer(TransportProtocol transportProtocol,
+            int port,
+            SSLContextSource sslContextSource,
+            ProxyAuthenticator proxyAuthenticator,
+            ChainedProxyManager chainProxyManager,
+            HttpResponseFilters responseFilters,
+            HttpRequestFilter requestFilter) {
         this.transportProtocol = transportProtocol;
         this.port = port;
-        this.responseFilters = responseFilters;
-        this.handshakeHandlerFactory = handshakeHandlerFactory;
-        this.requestFilter = requestFilter;
+        this.sslContextSource = sslContextSource;
+        this.proxyAuthenticator = proxyAuthenticator;
         this.chainProxyManager = chainProxyManager;
+        this.requestFilter = requestFilter;
+        this.responseFilters = responseFilters;
 
         SelectorProvider selectorProvider = null;
         switch (transportProtocol) {
@@ -228,8 +166,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             selectorProvider = NioUdtProvider.BYTE_PROVIDER;
             break;
         default:
-            throw new RuntimeException(String.format(
-                    "Unknown transportProtocol: %1$s", transportProtocol));
+            throw new UnknownTransportProtocolError(transportProtocol);
         }
 
         this.clientToProxyBossPool = new NioEventLoopGroup(
@@ -267,10 +204,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         ChannelInitializer<Channel> initializer = new ChannelInitializer<Channel>() {
             protected void initChannel(Channel ch) throws Exception {
                 new ClientToProxyConnection(allChannels,
-                        proxyToServerWorkerPools,
+                        proxyToServerWorkerPools, sslContextSource,
                         chainProxyManager, proxyAuthenticator,
-                        handshakeHandlerFactory, requestFilter,
-                        responseFilters, activityTrackers, ch.pipeline());
+                        requestFilter, responseFilters, activityTrackers,
+                        ch.pipeline());
             };
         };
         switch (transportProtocol) {
@@ -284,8 +221,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     .option(ChannelOption.SO_BACKLOG, 10);
             break;
         default:
-            throw new RuntimeException(String.format(
-                    "Unknown transportProtocol: %1$s", transportProtocol));
+            throw new UnknownTransportProtocolError(transportProtocol);
         }
         serverBootstrap.childHandler(initializer);
 
@@ -367,13 +303,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         log.info("Done shutting down proxy");
     }
 
-    public void setProxyAuthenticator(ProxyAuthenticator proxyAuthenticator) {
-        this.proxyAuthenticator = proxyAuthenticator;
-    }
-
     @Override
-    public void addActivityTracker(ActivityTracker activityTracker) {
+    public HttpProxyServer addActivityTracker(ActivityTracker activityTracker) {
         this.activityTrackers.add(activityTracker);
+        return this;
     }
 
     private static final ThreadFactory CLIENT_TO_PROXY_THREAD_FACTORY = new ThreadFactory() {
@@ -398,4 +331,69 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
     };
 
+    /**
+     * Utility for configuring and building an {@link HttpProxyServer}. The
+     * HttpProxyServer is built using {@link #build()}. Sensible defaults are
+     * available for all parameters such that {@link #build()} could be called
+     * immediately if you wish.
+     */
+    public static class DefaultHttpProxyServerBuilder {
+        private TransportProtocol transportProtocol = TCP;
+        private int port = 8080;
+        private SSLContextSource sslContextSource = null;
+        private ProxyAuthenticator proxyAuthenticator = null;
+        private ChainedProxyManager chainProxyManager = null;
+        private HttpRequestFilter requestFilter = null;
+        private HttpResponseFilters responseFilters = null;
+
+        private DefaultHttpProxyServerBuilder() {
+        }
+
+        public DefaultHttpProxyServerBuilder withTransportProtocol(
+                TransportProtocol transportProtocol) {
+            this.transportProtocol = transportProtocol;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withPort(int port) {
+            this.port = port;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withSslContextSource(
+                SSLContextSource sslContextSource) {
+            this.sslContextSource = sslContextSource;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withProxyAuthenticator(
+                ProxyAuthenticator proxyAuthenticator) {
+            this.proxyAuthenticator = proxyAuthenticator;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withChainProxyManager(
+                ChainedProxyManager chainProxyManager) {
+            this.chainProxyManager = chainProxyManager;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withRequestFilter(
+                HttpRequestFilter requestFilter) {
+            this.requestFilter = requestFilter;
+            return this;
+        }
+
+        public DefaultHttpProxyServerBuilder withResponseFilters(
+                HttpResponseFilters responseFilters) {
+            this.responseFilters = responseFilters;
+            return this;
+        }
+
+        public HttpProxyServer build() {
+            return new DefaultHttpProxyServer(transportProtocol, port,
+                    sslContextSource, proxyAuthenticator, chainProxyManager,
+                    responseFilters, requestFilter);
+        }
+    }
 }

@@ -15,16 +15,12 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import java.util.Map;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
 
 import org.littleshoot.proxy.TransportProtocol;
 
@@ -329,15 +325,17 @@ abstract class ProxyConnection<I extends HttpObject> extends
     private Future<Channel> enableSSL(boolean isClient) {
         LOG.debug("Enabling SSL");
         ChannelPipeline pipeline = ctx.pipeline();
-        SslContextFactory scf = new SslContextFactory(
-                new SelfSignedKeyStoreManager());
-        SSLContext context = isClient ? scf.getClientContext() : scf
-                .getServerContext();
-        SSLEngine engine = context.createSSLEngine();
-        engine.setUseClientMode(isClient);
-        SslHandler handler = new SslHandler(engine);
-        pipeline.addFirst("ssl", handler);
-        return handler.handshakeFuture();
+        // TODO: make this work again
+//        SslContextFactory scf = new SslContextFactory(
+//                new SelfSignedKeyStoreManager());
+//        SSLContext context = isClient ? scf.getClientContext() : scf
+//                .getServerContext();
+//        SSLEngine engine = context.createSSLEngine();
+//        engine.setUseClientMode(isClient);
+//        SslHandler handler = new SslHandler(engine);
+//        pipeline.addFirst("ssl", handler);
+//        return handler.handshakeFuture();
+        return null;
     }
 
     /**

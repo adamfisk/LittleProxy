@@ -1,7 +1,8 @@
-package org.littleshoot.proxy.impl;
+package org.littleshoot.proxy.impl.old;
 
 
-public class SelfSignedSslHandshakeHandlerFactory 
+
+class SelfSignedSslHandshakeHandlerFactory 
     extends SslHandshakeHandlerFactory {
 
     public SelfSignedSslHandshakeHandlerFactory() {

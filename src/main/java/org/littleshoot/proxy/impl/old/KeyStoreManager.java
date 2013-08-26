@@ -1,4 +1,4 @@
-package org.littleshoot.proxy.impl;
+package org.littleshoot.proxy.impl.old;
 
 import java.io.InputStream;
 

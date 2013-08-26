@@ -29,18 +29,11 @@ public interface HttpProxyServer {
     void start(boolean localOnly, boolean anyAddress);
 
     /**
-     * Set the ProxyAuthenticator to use for authenticating users of the proxy.
-     * 
-     * @param proxyAuthenticator
-     *            The new ProxyAuthenticator
-     */
-    void setProxyAuthenticator(ProxyAuthenticator proxyAuthenticator);
-
-    /**
      * Add an ActivityTracker for tracking proxying activity.
      * 
      * @param activityTracker
+     * @return this HttpProxyServer for call chaining
      */
-    void addActivityTracker(ActivityTracker activityTracker);
+    HttpProxyServer addActivityTracker(ActivityTracker activityTracker);
 
 }

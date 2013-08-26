@@ -1,4 +1,4 @@
-package org.littleshoot.proxy.impl;
+package org.littleshoot.proxy.impl.old;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
  * KeyStore manager that automatically generates a self-signed certificate
  * on startup if it doesn't already exist.
  */
-public class SelfSignedKeyStoreManager implements KeyStoreManager {
+class SelfSignedKeyStoreManager implements KeyStoreManager {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     

@@ -53,8 +53,9 @@ public class EndToEndStoppingTest {
      */
     public static void main(final String[] args) throws Exception {
         int port = 9090;
-        HttpProxyServer proxyServer = new DefaultHttpProxyServer(
-                TransportProtocol.TCP, port);
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.configure()
+                .withPort(port)
+                .build();
         proxyServer.start();
 
         Proxy proxy = new Proxy();
@@ -147,20 +148,21 @@ public class EndToEndStoppingTest {
          * System.out.println("Request went through proxy"); } });
          */
 
-        final HttpProxyServer plain =
-                new DefaultHttpProxyServer(TransportProtocol.TCP, PROXY_PORT,
-                        new HttpRequestFilter() {
-                            @Override
-                            public void filter(HttpRequest httpRequest) {
-                                System.out
-                                        .println("Request went through proxy");
-                            }
-                        },
+        final HttpProxyServer plain = DefaultHttpProxyServer.configure()
+                .withPort(PROXY_PORT)
+                .withRequestFilter(new HttpRequestFilter() {
+                    @Override
+                    public void filter(HttpRequest httpRequest) {
+                        System.out
+                                .println("Request went through proxy");
+                    }
+                })
+                .withResponseFilters(
                         new HttpResponseFilters() {
                             public HttpFilter getFilter(String hostAndPort) {
                                 return null;
                             }
-                        });
+                        }).build();
         final HttpProxyServer proxy = plain;
 
         proxy.start();
@@ -184,8 +186,9 @@ public class EndToEndStoppingTest {
     // @Test
     public void testWithWebDriver() throws Exception {
         int port = 9090;
-        HttpProxyServer proxyServer = new DefaultHttpProxyServer(
-                TransportProtocol.TCP, port);
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.configure()
+                .withPort(port)
+                .build();
         proxyServer.start();
 
         Proxy proxy = new Proxy();

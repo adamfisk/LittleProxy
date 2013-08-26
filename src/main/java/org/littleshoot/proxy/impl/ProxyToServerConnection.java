@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.littleshoot.proxy.HttpFilter;
 import org.littleshoot.proxy.TransportProtocol;
+import org.littleshoot.proxy.UnknownTransportProtocolError;
 
 /**
  * Represents a connection from our proxy to a server on the web.
@@ -377,8 +378,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             cb.channel(NioUdtByteConnectorChannel.class);
             break;
         default:
-            throw new RuntimeException(String.format(
-                    "Unknown transportProtocol: %1$s", transportProtocol));
+            throw new UnknownTransportProtocolError(transportProtocol);
         }
 
         cb.handler(new ChannelInitializer<Channel>() {

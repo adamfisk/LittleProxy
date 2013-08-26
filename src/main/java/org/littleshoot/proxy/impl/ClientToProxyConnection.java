@@ -21,6 +21,7 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -40,18 +41,19 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.net.ssl.SSLEngine;
+
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.FlowContext;
-import org.littleshoot.proxy.HandshakeHandler;
-import org.littleshoot.proxy.HandshakeHandlerFactory;
 import org.littleshoot.proxy.HttpFilter;
 import org.littleshoot.proxy.HttpRequestFilter;
 import org.littleshoot.proxy.HttpResponseFilters;
 import org.littleshoot.proxy.ProxyAuthenticator;
+import org.littleshoot.proxy.SSLContextSource;
 import org.littleshoot.proxy.TransportProtocol;
 
 /**
@@ -86,9 +88,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     "proxy-authenticate", "proxy-authorization", "te",
                     "trailers", "upgrade" }));
 
+    private final SSLContextSource sslContextSource;
     private final ChainedProxyManager chainProxyManager;
     private final ProxyAuthenticator authenticator;
-    private final HandshakeHandlerFactory handshakeHandlerFactory;
     private final HttpRequestFilter requestFilter;
     private final HttpResponseFilters responseFilters;
     private final Collection<ActivityTracker> activityTrackers;
@@ -132,17 +134,17 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     ClientToProxyConnection(
             ChannelGroup channelGroup,
             Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools,
+            SSLContextSource sslContextSource,
             ChainedProxyManager chainProxyManager,
             ProxyAuthenticator authenticator,
-            HandshakeHandlerFactory handshakeHandlerFactory,
             HttpRequestFilter requestFilter,
             HttpResponseFilters responseFilters,
             Collection<ActivityTracker> activityTrackers,
             ChannelPipeline pipeline) {
         super(AWAITING_INITIAL, channelGroup, proxyToServerWorkerPools);
+        this.sslContextSource = sslContextSource;
         this.chainProxyManager = chainProxyManager;
         this.authenticator = authenticator;
-        this.handshakeHandlerFactory = handshakeHandlerFactory;
         this.requestFilter = requestFilter;
         this.responseFilters = responseFilters;
         this.activityTrackers = activityTrackers;
@@ -669,11 +671,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void initChannelPipeline(ChannelPipeline pipeline) {
         LOG.debug("Configuring ChannelPipeline");
 
-        if (this.handshakeHandlerFactory != null) {
+        if (this.sslContextSource != null) {
             LOG.debug("Adding SSL handler");
-            HandshakeHandler hh = this.handshakeHandlerFactory
-                    .newHandshakeHandler();
-            pipeline.addLast(hh.getId(), hh.getChannelHandler());
+            SSLEngine engine = this.sslContextSource.getSSLContext()
+                    .createSSLEngine();
+            engine.setUseClientMode(false);
+            pipeline.addLast("ssl", new SslHandler(engine));
         }
 
         // We want to allow longer request lines, headers, and chunks

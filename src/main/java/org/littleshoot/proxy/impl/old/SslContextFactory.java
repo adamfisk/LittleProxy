@@ -1,4 +1,4 @@
-package org.littleshoot.proxy.impl;
+package org.littleshoot.proxy.impl.old;
 
 import java.security.KeyStore;
 import java.security.Security;
@@ -10,7 +10,9 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
-public class SslContextFactory {
+import org.littleshoot.proxy.impl.LittleProxyConfig;
+
+class SslContextFactory {
 
     private static final String PROTOCOL = "TLS";
     private final SSLContext SERVER_CONTEXT;

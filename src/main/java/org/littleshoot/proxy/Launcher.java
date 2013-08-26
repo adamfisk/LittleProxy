@@ -93,8 +93,10 @@ public class Launcher {
         }
 
         System.out.println("About to start server on port: " + port);
-        final HttpProxyServer server = new DefaultHttpProxyServer(
-                TransportProtocol.TCP, port);
+        final HttpProxyServer server = DefaultHttpProxyServer
+                .configure()
+                .withPort(port)
+                .build();
         System.out.println("About to start...");
         server.start();
     }

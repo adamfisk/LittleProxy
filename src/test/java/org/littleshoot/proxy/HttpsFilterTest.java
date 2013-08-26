@@ -37,7 +37,7 @@ import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.littleshoot.proxy.impl.LittleProxyConfig;
 import org.littleshoot.proxy.impl.ProxyUtils;
-import org.littleshoot.proxy.impl.SelfSignedKeyStoreManager;
+import org.littleshoot.proxy.impl.old.SelfSignedKeyStoreManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,14 +99,14 @@ public class HttpsFilterTest {
         LittleProxyConfig.setUseMITMInSSL(true);
         LittleProxyConfig.setAcceptAllSSLCertificates(true);
         proxyServer =
-                new DefaultHttpProxyServer(TransportProtocol.TCP, PROXY_PORT,
+                new DefaultHttpProxyServer(TransportProtocol.TCP, PROXY_PORT, null,
                         responseFilters, null, null, null);
         proxyServer.start();
 
         webServer = new Server(WEB_SERVER_PORT);
         org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
 
-        org.littleshoot.proxy.impl.SslContextFactory scf = new org.littleshoot.proxy.impl.SslContextFactory(
+        org.littleshoot.proxy.impl.old.SslContextFactory scf = new org.littleshoot.proxy.impl.old.SslContextFactory(
                 new SelfSignedKeyStoreManager());
         SSLContext sslContext = scf.getServerContext();
 

@@ -1,11 +1,11 @@
-package org.littleshoot.proxy.impl;
+package org.littleshoot.proxy.impl.old;
 
 import org.littleshoot.proxy.HandshakeHandler;
 
 import io.netty.channel.ChannelHandler;
 import io.netty.handler.ssl.SslHandler;
 
-public class SslHandshakeHandler implements HandshakeHandler {
+class SslHandshakeHandler implements HandshakeHandler {
 
     private final String id;
     private final SslHandler sslHandler;

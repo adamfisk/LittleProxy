@@ -31,7 +31,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.ssl.SslSocketConnector;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
-import org.littleshoot.proxy.impl.SelfSignedKeyStoreManager;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer.DefaultHttpProxyServerBuilder;
 
 public class TestUtils {
 
@@ -126,13 +126,14 @@ public class TestUtils {
      */
     public static HttpProxyServer startProxyServerWithCredentials(
             TransportProtocol transportProtocol, int port,
-            final String chainProxyHostAndPort, String username,
-            String password) {
-        DefaultHttpProxyServer proxyServer;
+            final String chainProxyHostAndPort, final String username,
+            final String password) {
+        DefaultHttpProxyServerBuilder builder = DefaultHttpProxyServer
+                .configure()
+                .withPort(port);
         if (chainProxyHostAndPort != null) {
-            proxyServer = new DefaultHttpProxyServer(
-                    transportProtocol, port, null,
-                    new ChainedProxyManagerAdapter() {
+            builder.withTransportProtocol(transportProtocol)
+                    .withChainProxyManager(new ChainedProxyManagerAdapter() {
                         public String getHostAndPort(HttpRequest httpRequest) {
                             return chainProxyHostAndPort;
                         }
@@ -141,24 +142,18 @@ public class TestUtils {
                         public TransportProtocol getTransportProtocol() {
                             return TransportProtocol.UDT;
                         }
-                    }, null, null);
-        } else {
-            proxyServer = new DefaultHttpProxyServer(transportProtocol, port);
+                    });
         }
-        addAuthentication(proxyServer, username, password);
-        proxyServer.start(true, true);
-        return proxyServer;
-    }
-
-    private static void addAuthentication(HttpProxyServer proxyServer,
-            final String username, final String password) {
         if (username != null && password != null) {
-            proxyServer.setProxyAuthenticator(new ProxyAuthenticator() {
+            builder.withProxyAuthenticator(new ProxyAuthenticator() {
                 public boolean authenticate(String u, String p) {
                     return username.equals(u) && password.equals(p);
                 }
             });
         }
+        HttpProxyServer proxyServer = builder.build();
+        proxyServer.start(true, true);
+        return proxyServer;
     }
 
     /**
@@ -215,9 +210,8 @@ public class TestUtils {
             // Add SSL connector
             org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
 
-            org.littleshoot.proxy.impl.SslContextFactory scf = new org.littleshoot.proxy.impl.SslContextFactory(
-                    new SelfSignedKeyStoreManager());
-            SSLContext sslContext = scf.getServerContext();
+            SSLContextSource contextSource = new SelfSignedSSLContextSource();
+            SSLContext sslContext = contextSource.getSSLContext();
 
             sslContextFactory.setSslContext(sslContext);
             SslSocketConnector connector = new SslSocketConnector(

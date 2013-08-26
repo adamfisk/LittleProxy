@@ -71,9 +71,10 @@ public class HttpFilterTest {
                         return null;
                     }
                 };
-        final HttpProxyServer server =
-                new DefaultHttpProxyServer(TransportProtocol.TCP, PROXY_PORT,
-                        responseFilters);
+        final HttpProxyServer server = DefaultHttpProxyServer.configure()
+                .withPort(PROXY_PORT)
+                .withResponseFilters(responseFilters)
+                .build();
         server.start();
         boolean connected = false;
         final InetSocketAddress isa = new InetSocketAddress("127.0.0.1",

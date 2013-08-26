@@ -1,4 +1,4 @@
-package org.littleshoot.proxy.impl;
+package org.littleshoot.proxy.impl.old;
 
 import javax.net.ssl.SSLEngine;
 
@@ -7,7 +7,7 @@ import org.littleshoot.proxy.HandshakeHandlerFactory;
 
 import io.netty.handler.ssl.SslHandler;
 
-public class SslHandshakeHandlerFactory implements HandshakeHandlerFactory {
+class SslHandshakeHandlerFactory implements HandshakeHandlerFactory {
 
     private final KeyStoreManager ksm;
     
