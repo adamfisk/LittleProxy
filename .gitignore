@@ -11,3 +11,4 @@ log.txt
 target/
 .idea/
 jmeter.log
+lib/
