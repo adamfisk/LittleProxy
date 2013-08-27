@@ -15,7 +15,7 @@ import io.netty.handler.codec.http.HttpResponse;
  */
 public interface ActivityTracker {
     /**
-     * Record that bytes were received from the client to the proxy.
+     * Record that the proxy received bytes from the client.
      * 
      * @param flowContext
      *            provides contextual information about the flow
