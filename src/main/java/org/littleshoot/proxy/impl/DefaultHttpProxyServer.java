@@ -76,7 +76,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final HttpRequestFilter requestFilter;
     private final HttpResponseFilters responseFilters;
     private final boolean useDnsSec;
-    private final boolean useMITMInSSL;
     private final boolean acceptAllSSLCertificates;
     private final boolean transparent;
     private volatile int idleConnectionTimeout;
@@ -193,7 +192,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HttpRequestFilter requestFilter,
             HttpResponseFilters responseFilters,
             boolean useDnsSec,
-            boolean useMITMInSSL,
             boolean acceptAllSSLCertificates,
             boolean transparent,
             int idleConnectionTimeout) {
@@ -205,7 +203,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.requestFilter = requestFilter;
         this.responseFilters = responseFilters;
         this.useDnsSec = useDnsSec;
-        this.useMITMInSSL = useMITMInSSL;
         this.acceptAllSSLCertificates = acceptAllSSLCertificates;
         this.transparent = transparent;
         this.idleConnectionTimeout = idleConnectionTimeout;
@@ -249,10 +246,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     public boolean isUseDnsSec() {
         return useDnsSec;
-    }
-
-    public boolean isUseMITMInSSL() {
-        return useMITMInSSL;
     }
 
     public boolean isAcceptAllSSLCertificates() {
@@ -463,7 +456,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private HttpRequestFilter requestFilter = null;
         private HttpResponseFilters responseFilters = null;
         private boolean useDnsSec = false;
-        private boolean useMITMInSSL = false;
         private boolean acceptAllSSLCertificates = false;
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
@@ -474,8 +466,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private DefaultHttpProxyServerBootstrap(Properties props) {
             this.useDnsSec = ProxyUtils.extractBooleanDefaultFalse(
                     props, "dnssec");
-            this.useMITMInSSL = ProxyUtils.extractBooleanDefaultTrue(
-                    props, "use_ssl_mitm");
             this.acceptAllSSLCertificates = ProxyUtils
                     .extractBooleanDefaultFalse(props,
                             "accept_all_ssl_certificates");
@@ -531,12 +521,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withUseMITMInSSL(
-                boolean useMITMInSSL) {
-            this.useMITMInSSL = useMITMInSSL;
-            return this;
-        }
-
         public DefaultHttpProxyServerBootstrap withAcceptAllSSLCertificates(
                 boolean acceptAllSSLCertificates) {
             this.acceptAllSSLCertificates = acceptAllSSLCertificates;
@@ -572,7 +556,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             DefaultHttpProxyServer server = new DefaultHttpProxyServer(
                     transportProtocol, port,
                     sslContextSource, proxyAuthenticator, chainProxyManager,
-                    requestFilter, responseFilters, useDnsSec, useMITMInSSL,
+                    requestFilter, responseFilters, useDnsSec,
                     acceptAllSSLCertificates, transparent,
                     idleConnectionTimeout);
             server.start(localOnly, anyAddress);

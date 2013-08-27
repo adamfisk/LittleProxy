@@ -60,8 +60,7 @@ import org.littleshoot.proxy.impl.ProxyUtils;
  * Base for tests that test the proxy. This base class encapsulates all of the
  * tests and test conditions.. Sub-classes should provide different
  * {@link #setUp()} and {@link #tearDown()} methods for testing different
- * configurations of the proxy (e.g. single versus chained, MITM versus
- * tunneling, etc.).
+ * configurations of the proxy (e.g. single versus chained, tunneling, etc.).
  */
 public abstract class BaseProxyTest {
 

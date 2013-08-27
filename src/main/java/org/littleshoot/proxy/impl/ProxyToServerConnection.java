@@ -25,7 +25,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.net.ssl.SSLContext;
 
@@ -107,11 +106,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Cache of whether or not to filter responses based on the request.
      */
     private final Map<HttpRequest, Boolean> shouldFilterResponseCache = new ConcurrentHashMap<HttpRequest, Boolean>();
-
-    /**
-     * Keeps track of whether or not we're acting as MITM.
-     */
-    private final AtomicBoolean isMITM = new AtomicBoolean(false);
 
     ProxyToServerConnection(
             DefaultHttpProxyServer proxyServer,
@@ -386,9 +380,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 // If we're chaining to another proxy, send over the CONNECT
                 // request
                 this.connectionFlow.then(HTTPCONNECTWithChainedProxy);
-                // TODO: add back MITM support
-                // } else if (this.proxyServer.isUseMITMInSSL()) {
-                // startCONNECTWithMITM();
             }
 
             this.connectionFlow.then(StartTunneling)
