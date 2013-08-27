@@ -34,7 +34,20 @@ import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
 
 /**
+ * <p>
  * Represents a connection from our proxy to a server on the web.
+ * ProxyConnections are reused fairly liberally, and can go from disconnected to
+ * connected, back to disconnected and so on.
+ * </p>
+ * 
+ * <p>
+ * Connecting a {@link ProxyToServerConnection} can involve more than just
+ * connecting the underlying {@link Channel}. In particular, the connection may
+ * use encryption (i.e. TLS) and it may also establish an HTTP CONNECT tunnel.
+ * The various steps involved in fully establishing a connection are
+ * encapsulated in the property {@link #connectionFlow}, which is initialized in
+ * {@link #initializeConnectionFlow()}.
+ * </p>
  */
 @Sharable
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
@@ -123,11 +136,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void read(Object msg) {
         if (msg instanceof ConnectionTracer) {
-            // Record statistic for ConnectionTracer and then ignore it
+            LOG.debug("Recording statistics from ConnectionTracer and then swallowing it");
             clientConnection.recordBytesReceivedFromServer(this,
                     (ConnectionTracer) msg);
         } else if (isConnecting()) {
-            LOG.debug("Reading: {}", msg);
+            LOG.debug(
+                    "In the middle of connecting, forwarding message to connection flow: {}",
+                    msg);
             this.connectionFlow.read(msg);
         } else {
             super.read(msg);
@@ -176,22 +191,22 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         this.write(rewrittenHttpRequest);
     }
 
+    @Override
     void write(Object msg) {
         LOG.debug("Requested write of {}", msg);
         if (is(DISCONNECTED)) {
-            // We're disconnected - connect and write the message
             if (msg instanceof HttpRequest) {
+                LOG.debug("Current disconnected, connect and then write the message");
                 connectAndWrite((HttpRequest) msg);
             } else {
                 LOG.warn(
-                        "Received non-httprequest while disconnected, this shouldn't happen: {}",
+                        "Received something other than an HttpRequest while disconnected, this shouldn't happen: {}",
                         msg);
             }
         } else {
             synchronized (connectLock) {
-                if (is(CONNECTING)) {
-                    // We're in the processing of connecting, wait for it to
-                    // finish
+                if (isConnecting()) {
+                    LOG.debug("Attempted to write while still in the process of connecting.  Wait for connecting to finish.");
                     try {
                         connectLock.wait(30000);
                     } catch (InterruptedException ie) {
@@ -250,6 +265,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         } else {
             LOG.warn(message, cause);
         }
+
         if (!is(DISCONNECTED)) {
             if (reportAsError) {
                 LOG.error("Disconnecting open connection");
@@ -327,6 +343,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         currentHttpResponse = ProxyUtils.copyMutableResponseFields(response);
     }
 
+    /**
+     * Respond to the client with the given {@link HttpObject}.
+     * 
+     * @param httpObject
+     */
     private void respondWith(HttpObject httpObject) {
         clientConnection.respond(this, currentHttpRequest,
                 currentHttpResponse, httpObject);
@@ -354,17 +375,17 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private void initializeConnectionFlow() {
         this.connectionFlow = new ConnectionFlow(clientConnection, this,
                 connectLock)
-                .startWith(connectChannel);
+                .then(ConnectChannel);
 
         if (sslContext != null) {
-            this.connectionFlow.then(encryptChannel);
+            this.connectionFlow.then(EncryptChannel);
         }
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
             if (clientConnection.shouldChain(initialRequest)) {
                 // If we're chaining to another proxy, send over the CONNECT
                 // request
-                this.connectionFlow.then(httpCONNECTWithChainedProxy);
+                this.connectionFlow.then(HTTPCONNECTWithChainedProxy);
                 // TODO: add back MITM support
                 // } else if (this.proxyServer.isUseMITMInSSL()) {
                 // startCONNECTWithMITM();
@@ -376,7 +397,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
     }
 
-    private ConnectionFlowStep connectChannel = new ConnectionFlowStep(this,
+    /**
+     * Opens the socket connection.
+     */
+    private ConnectionFlowStep ConnectChannel = new ConnectionFlowStep(this,
             CONNECTING) {
 
         @Override
@@ -408,14 +432,20 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
     };
 
-    private ConnectionFlowStep encryptChannel = new ConnectionFlowStep(this,
+    /**
+     * Encrypts the channel.
+     */
+    private ConnectionFlowStep EncryptChannel = new ConnectionFlowStep(this,
             HANDSHAKING) {
         protected Future<?> execute() {
             return encrypt();
         }
     };
 
-    private ConnectionFlowStep httpCONNECTWithChainedProxy = new ConnectionFlowStep(
+    /**
+     * Writes the HTTP CONNECT to the server and waits for a 200 response.
+     */
+    private ConnectionFlowStep HTTPCONNECTWithChainedProxy = new ConnectionFlowStep(
             this, AWAITING_CONNECT_OK) {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
@@ -439,24 +469,41 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 }
             }
             if (connectOk) {
-                flow.go();
+                flow.advance();
             } else {
                 flow.fail();
             }
         }
-
     };
 
+    /**
+     * Try connecting to a new address, using a new set of connection
+     * parameters.
+     * 
+     * @param newAddress
+     * @param transportProtocol
+     * @param sslContext
+     * @param chainedProxyHostAndPort
+     * @param initialRequest
+     */
     protected void retryConnecting(InetSocketAddress newAddress,
             TransportProtocol transportProtocol,
+            SSLContext sslContext,
             String chainedProxyHostAndPort,
             HttpRequest initialRequest) {
         this.address = newAddress;
         this.transportProtocol = transportProtocol;
+        this.sslContext = sslContext;
         this.chainedProxyHostAndPort = chainedProxyHostAndPort;
         this.connectAndWrite(initialRequest);
     }
 
+    /**
+     * Initialize our {@link ChannelPipeline}.
+     * 
+     * @param pipeline
+     * @param httpRequest
+     */
     private void initChannelPipeline(ChannelPipeline pipeline,
             HttpRequest httpRequest) {
         pipeline.addLast("decoder", new ProxyHttpResponseDecoder(8192,
@@ -465,6 +512,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         // We decompress and aggregate chunks for responses from
         // sites we're applying filtering rules to.
+        // TODO: Ox - it might be nice to move this responsibility into the
+        // filters
+        // themselves so that a filter can choose to operate more in streaming
+        // fashion if it doesn't need the memory overhead of aggregating chunks.
         if (!ProxyUtils.isCONNECT(httpRequest)
                 && shouldFilterResponseTo(httpRequest)) {
             pipeline.addLast("inflater", new HttpContentDecompressor());
@@ -502,37 +553,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("handler", this);
     }
 
-    // /**
-    // * <p>
-    // * Start the flow for establishing a man-in-the-middle tunnel.
-    // * </p>
-    // *
-    // * <p>
-    // * See {@link ClientToProxyConnection#finishCONNECTWithMITM()} for the end
-    // * of this flow.
-    // * </p>
-    // *
-    // * @return
-    // */
-    // private void startCONNECTWithMITM() {
-    // LOG.debug("Preparing to act as Man-in-the-Middle");
-    // this.isMITM.set(true);
-    // encrypt().addListener(
-    // new GenericFutureListener<Future<? super Channel>>() {
-    // @Override
-    // public void operationComplete(Future<? super Channel> future)
-    // throws Exception {
-    // LOG.debug("Proxy to server SSL handshake done. Success is: "
-    // + future.isSuccess());
-    // finishConnecting(false);
-    // }
-    // });
-    // }
-
     /**
      * <p>
-     * Do all the stuff that needs to be done after connecting/establishing a
-     * tunnel.
+     * Do all the stuff that needs to be done after our {@link ConnectionFlow}
+     * has succeeded.
      * </p>
      * 
      * @param shouldForwardInitialRequest

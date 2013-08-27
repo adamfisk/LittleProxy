@@ -646,8 +646,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         String hostAndPort = identifyHostAndPort(initialRequest);
         try {
             serverConnection.retryConnecting(addressFor(hostAndPort), TCP,
-                    null,
-                    initialRequest);
+                    null, null, initialRequest);
         } catch (UnknownHostException uhe) {
             LOG.info("Bad Host {}", initialRequest.getUri());
             writeBadGateway(initialRequest);

@@ -8,7 +8,7 @@ import io.netty.util.concurrent.Future;
  */
 abstract class ConnectionFlowStep {
     private final ProxyConnectionLogger LOG;
-    private final ProxyConnection connection;
+    private final ProxyConnection<?> connection;
     private final ConnectionState state;
     private final boolean suppressInitialRequest;
 
@@ -22,7 +22,7 @@ abstract class ConnectionFlowStep {
      *            the state that the connection will show while we're processing
      *            this step
      */
-    ConnectionFlowStep(ProxyConnection connection,
+    ConnectionFlowStep(ProxyConnection<?> connection,
             ConnectionState state) {
         this(connection, state, false);
     }
@@ -40,7 +40,7 @@ abstract class ConnectionFlowStep {
      *            initial {@link HttpRequest} that spawned our connection from
      *            being set after we connect successfully
      */
-    ConnectionFlowStep(ProxyConnection connection,
+    ConnectionFlowStep(ProxyConnection<?> connection,
             ConnectionState state,
             boolean suppressInitialRequest) {
         super();
@@ -50,7 +50,7 @@ abstract class ConnectionFlowStep {
         this.LOG = connection.getLOG();
     }
 
-    ProxyConnection getConnection() {
+    ProxyConnection<?> getConnection() {
         return connection;
     }
 
@@ -63,6 +63,14 @@ abstract class ConnectionFlowStep {
     }
 
     /**
+     * Implement this method to actually do the work involved in this step of
+     * the flow.
+     * 
+     * @return
+     */
+    protected abstract Future execute();
+
+    /**
      * When the flow determines that this step was successful, it calls into
      * this method. The default implementation simply continues with the flow.
      * Other implementations may choose to not continue and instead wait for a
@@ -71,7 +79,7 @@ abstract class ConnectionFlowStep {
      * @param flow
      */
     void onSuccess(ConnectionFlow flow) {
-        flow.go();
+        flow.advance();
     }
 
     /**
@@ -98,14 +106,6 @@ abstract class ConnectionFlowStep {
     void read(ConnectionFlow flow, Object msg) {
         LOG.debug("Received message while in the middle of connecting: {}", msg);
     }
-
-    /**
-     * Implement this method to actually do the work involved in this step of
-     * the flow.
-     * 
-     * @return
-     */
-    protected abstract Future execute();
 
     @Override
     public String toString() {

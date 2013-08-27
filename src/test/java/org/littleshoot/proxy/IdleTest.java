@@ -93,10 +93,10 @@ public class IdleTest {
         MemoryUsage muNH = ManagementFactory.getMemoryMXBean()
                 .getNonHeapMemoryUsage();
         System.out.println("Init :" + mu.getInit() + "\nMax :" + mu.getMax()
-                + "\nUsed :" + mu.getUsed() + "\nCommited :"
+                + "\nUsed :" + mu.getUsed() + "\nCommitted :"
                 + mu.getCommitted() + "\nInit NH :" + muNH.getInit()
                 + "\nMax NH :" + muNH.getMax() + "\nUsed NH:" + muNH.getUsed()
-                + "\nCommited NH:" + muNH.getCommitted());
+                + "\nCommitted NH:" + muNH.getCommitted());
 
         // Below courtesy of:
         // http://neopatel.blogspot.com/2011/05/java-count-open-file-handles.html
