@@ -3,7 +3,14 @@ package org.littleshoot.proxy;
 import io.netty.handler.codec.http.HttpRequest;
 
 /**
+ * <p>
  * Interface for classes that manage chained proxies.
+ * </p>
+ * 
+ * <p>
+ * Sub-classes may wish to extend {@link ChainedProxyManagerAdapter} for
+ * sensible defaults.
+ * </p>
  */
 public interface ChainedProxyManager extends SSLContextSource {
 

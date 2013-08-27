@@ -4,7 +4,14 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
 /**
+ * <p>
  * Interface for receiving information about activity in the proxy.
+ * </p>
+ * 
+ * <p>
+ * Sub-classes may wish to extend {@link ActivityTrackerAdapter} for sensible
+ * defaults.
+ * </p>
  */
 public interface ActivityTracker {
     /**
