@@ -111,22 +111,22 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
 
     /**
-     * Configure a new {@link DefaultHttpProxyServer} starting from scratch.
+     * Bootstrap a new {@link DefaultHttpProxyServer} starting from scratch.
      * 
      * @return
      */
-    public static DefaultHttpProxyServerBuilder configure() {
-        return new DefaultHttpProxyServerBuilder();
+    public static DefaultHttpProxyServerBootstrap bootstrap() {
+        return new DefaultHttpProxyServerBootstrap();
     }
 
     /**
-     * Configure a new {@link DefaultHttpProxyServer} using defaults from the
+     * Bootstrap a new {@link DefaultHttpProxyServer} using defaults from the
      * given file.
      * 
      * @param path
      * @return
      */
-    public static DefaultHttpProxyServerBuilder configureFromFile(String path) {
+    public static DefaultHttpProxyServerBootstrap bootstrapFromFile(String path) {
         final File propsFile = new File(path);
         Properties props = new Properties();
 
@@ -142,7 +142,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             }
         }
 
-        return new DefaultHttpProxyServerBuilder(props);
+        return new DefaultHttpProxyServerBootstrap(props);
     }
 
     /**
@@ -277,11 +277,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return this;
     }
 
-    public HttpProxyServer start() {
-        return start(true, true);
-    }
-
-    public HttpProxyServer start(final boolean localOnly,
+    private HttpProxyServer start(final boolean localOnly,
             final boolean anyAddress) {
         LOG.info("Starting proxy on port: " + this.port);
         this.stopped.set(false);
@@ -458,7 +454,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * available for all parameters such that {@link #build()} could be called
      * immediately if you wish.
      */
-    public static class DefaultHttpProxyServerBuilder {
+    public static class DefaultHttpProxyServerBootstrap {
         private TransportProtocol transportProtocol = TCP;
         private int port = 8080;
         private SSLContextSource sslContextSource = null;
@@ -472,10 +468,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
 
-        private DefaultHttpProxyServerBuilder() {
+        private DefaultHttpProxyServerBootstrap() {
         }
 
-        private DefaultHttpProxyServerBuilder(Properties props) {
+        private DefaultHttpProxyServerBootstrap(Properties props) {
             this.useDnsSec = ProxyUtils.extractBooleanDefaultFalse(
                     props, "dnssec");
             this.useMITMInSSL = ProxyUtils.extractBooleanDefaultTrue(
@@ -489,92 +485,107 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     "idle_connection_timeout");
         }
 
-        public DefaultHttpProxyServerBuilder withTransportProtocol(
+        public DefaultHttpProxyServerBootstrap withTransportProtocol(
                 TransportProtocol transportProtocol) {
             this.transportProtocol = transportProtocol;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withPort(int port) {
+        public DefaultHttpProxyServerBootstrap withPort(int port) {
             this.port = port;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withSslContextSource(
+        public DefaultHttpProxyServerBootstrap withSslContextSource(
                 SSLContextSource sslContextSource) {
             this.sslContextSource = sslContextSource;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withProxyAuthenticator(
+        public DefaultHttpProxyServerBootstrap withProxyAuthenticator(
                 ProxyAuthenticator proxyAuthenticator) {
             this.proxyAuthenticator = proxyAuthenticator;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withChainProxyManager(
+        public DefaultHttpProxyServerBootstrap withChainProxyManager(
                 ChainedProxyManager chainProxyManager) {
             this.chainProxyManager = chainProxyManager;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withRequestFilter(
+        public DefaultHttpProxyServerBootstrap withRequestFilter(
                 HttpRequestFilter requestFilter) {
             this.requestFilter = requestFilter;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withResponseFilters(
+        public DefaultHttpProxyServerBootstrap withResponseFilters(
                 HttpResponseFilters responseFilters) {
             this.responseFilters = responseFilters;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withUseDnsSec(boolean useDnsSec) {
+        public DefaultHttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec) {
             this.useDnsSec = useDnsSec;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withUseMITMInSSL(
+        public DefaultHttpProxyServerBootstrap withUseMITMInSSL(
                 boolean useMITMInSSL) {
             this.useMITMInSSL = useMITMInSSL;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withAcceptAllSSLCertificates(
+        public DefaultHttpProxyServerBootstrap withAcceptAllSSLCertificates(
                 boolean acceptAllSSLCertificates) {
             this.acceptAllSSLCertificates = acceptAllSSLCertificates;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withTransparent(boolean transparent) {
+        public DefaultHttpProxyServerBootstrap withTransparent(
+                boolean transparent) {
             this.transparent = transparent;
             return this;
         }
 
-        public DefaultHttpProxyServerBuilder withIdleConnectionTimeout(
+        public DefaultHttpProxyServerBootstrap withIdleConnectionTimeout(
                 int idleConnectionTimeout) {
             this.idleConnectionTimeout = idleConnectionTimeout;
             return this;
         }
 
-        public DefaultHttpProxyServer build() {
-            return new DefaultHttpProxyServer(transportProtocol, port,
+        /**
+         * Starts the server.
+         * 
+         * @param localOnly
+         *            If true, the server will only allow connections from the
+         *            local computer. This can significantly improve security in
+         *            some cases.
+         * @param anyAddress
+         *            Whether or not to bind to "any" address - 0.0.0.0. This is
+         *            the default.
+         * @return the newly built and started server
+         */
+        public DefaultHttpProxyServer start(boolean localOnly,
+                boolean anyAddress) {
+            DefaultHttpProxyServer server = new DefaultHttpProxyServer(
+                    transportProtocol, port,
                     sslContextSource, proxyAuthenticator, chainProxyManager,
                     requestFilter, responseFilters, useDnsSec, useMITMInSSL,
                     acceptAllSSLCertificates, transparent,
                     idleConnectionTimeout);
+            server.start(localOnly, anyAddress);
+            return server;
         }
 
         /**
-         * Convenience method that builds and immediately starts the server.
+         * Builds and starts the server.
          * 
-         * @return
+         * @return the newly built and started server
          */
         public DefaultHttpProxyServer start() {
-            DefaultHttpProxyServer server = build();
-            server.start();
-            return server;
+            return start(true, true);
         }
     }
 }

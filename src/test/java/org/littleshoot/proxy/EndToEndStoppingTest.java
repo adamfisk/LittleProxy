@@ -53,10 +53,9 @@ public class EndToEndStoppingTest {
      */
     public static void main(final String[] args) throws Exception {
         int port = 9090;
-        HttpProxyServer proxyServer = DefaultHttpProxyServer.configure()
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(port)
-                .build();
-        proxyServer.start();
+                .start();
 
         Proxy proxy = new Proxy();
         proxy.setProxyType(Proxy.ProxyType.MANUAL);
@@ -148,7 +147,7 @@ public class EndToEndStoppingTest {
          * System.out.println("Request went through proxy"); } });
          */
 
-        final HttpProxyServer plain = DefaultHttpProxyServer.configure()
+        final HttpProxyServer plain = DefaultHttpProxyServer.bootstrap()
                 .withPort(PROXY_PORT)
                 .withRequestFilter(new HttpRequestFilter() {
                     @Override
@@ -162,10 +161,9 @@ public class EndToEndStoppingTest {
                             public HttpFilter getFilter(String hostAndPort) {
                                 return null;
                             }
-                        }).build();
+                        }).start();
         final HttpProxyServer proxy = plain;
 
-        proxy.start();
         // client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
         // new HttpHost("75.101.134.244", PROXY_PORT));
         // new HttpHost("localhost", PROXY_PORT, "https"));
@@ -186,10 +184,9 @@ public class EndToEndStoppingTest {
     // @Test
     public void testWithWebDriver() throws Exception {
         int port = 9090;
-        HttpProxyServer proxyServer = DefaultHttpProxyServer.configure()
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(port)
-                .build();
-        proxyServer.start();
+                .start();
 
         Proxy proxy = new Proxy();
         proxy.setProxyType(Proxy.ProxyType.MANUAL);

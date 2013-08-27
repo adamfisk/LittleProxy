@@ -32,7 +32,7 @@ public class IdleTest {
     public void setup() throws Exception {
         webServer = new Server(WEB_SERVER_PORT);
         webServer.start();
-        proxyServer = DefaultHttpProxyServer.configure()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(PROXY_PORT)
                 .start();
         originalIdleTimeout = proxyServer.getIdleConnectionTimeout();

@@ -9,7 +9,7 @@ public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest
         implements ProxyAuthenticator {
     @Override
     protected void setUp() {
-        this.proxyServer = DefaultHttpProxyServer.configure()
+        this.proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(PROXY_SERVER_PORT)
                 .withProxyAuthenticator(this)
                 .start();

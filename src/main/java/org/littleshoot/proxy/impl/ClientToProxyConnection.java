@@ -193,7 +193,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             hostAndPort = chainedProxyHostAndPort;
             transportProtocol = proxyServer.getChainProxyManager()
                     .getTransportProtocol();
-            if (proxyServer.getChainProxyManager().requiresTLSEncryption(
+            if (proxyServer.getChainProxyManager().requiresEncryption(
                     httpRequest)) {
                 proxyToServerSSLContext = proxyServer
                         .getChainProxyManager().getSSLContext();

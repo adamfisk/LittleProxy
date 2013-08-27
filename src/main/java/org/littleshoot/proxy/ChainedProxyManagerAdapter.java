@@ -12,7 +12,7 @@ public class ChainedProxyManagerAdapter implements ChainedProxyManager {
     }
 
     @Override
-    public boolean requiresTLSEncryption(HttpRequest httpRequest) {
+    public boolean requiresEncryption(HttpRequest httpRequest) {
         return false;
     }
 

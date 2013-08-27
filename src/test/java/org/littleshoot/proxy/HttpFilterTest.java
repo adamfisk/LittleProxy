@@ -71,11 +71,10 @@ public class HttpFilterTest {
                         return null;
                     }
                 };
-        final HttpProxyServer server = DefaultHttpProxyServer.configure()
+        final HttpProxyServer server = DefaultHttpProxyServer.bootstrap()
                 .withPort(PROXY_PORT)
                 .withResponseFilters(responseFilters)
-                .build();
-        server.start();
+                .start();
         boolean connected = false;
         final InetSocketAddress isa = new InetSocketAddress("127.0.0.1",
                 PROXY_PORT);

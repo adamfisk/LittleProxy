@@ -41,7 +41,7 @@ public class VariableSpeedClientServerTest {
     public void testServerFaster() throws Exception {
         startServer();
         Thread.yield();
-        DefaultHttpProxyServer.configure().withPort(PROXY_PORT).start();
+        DefaultHttpProxyServer.bootstrap().withPort(PROXY_PORT).start();
         Thread.yield();
         Thread.sleep(400);
         final DefaultHttpClient client = new DefaultHttpClient();

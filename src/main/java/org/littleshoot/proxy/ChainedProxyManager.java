@@ -26,9 +26,8 @@ public interface ChainedProxyManager extends SSLContextSource {
      * @param httpRequest
      *            The HTTP request.
      * @return true of the connection to the chained proxy should be encrypted
-     *         with TLS
      */
-    boolean requiresTLSEncryption(HttpRequest httpRequest);
+    boolean requiresEncryption(HttpRequest httpRequest);
 
     /**
      * Tell LittleProxy what kind of TransportProtocol to use to communicate

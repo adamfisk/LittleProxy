@@ -50,12 +50,12 @@ public class ChainedProxyTest extends BaseProxyTest {
         TRANSPORTS_USED.clear();
         final SSLContextSource sslContextSource = new SelfSignedSSLContextSource(
                 "chain_proxy_keystore_1.jks");
-        this.downstreamProxy = DefaultHttpProxyServer.configure()
+        this.downstreamProxy = DefaultHttpProxyServer.bootstrap()
                 .withPort(DOWNSTREAM_PROXY_PORT)
                 .withTransportProtocol(UDT)
                 .withSslContextSource(sslContextSource).start();
         this.downstreamProxy.addActivityTracker(DOWNSTREAM_TRACKER);
-        this.proxyServer = DefaultHttpProxyServer.configure()
+        this.proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(PROXY_SERVER_PORT)
                 .withChainProxyManager(new ChainedProxyManagerAdapter() {
                     public String getHostAndPort(HttpRequest httpRequest) {
@@ -68,7 +68,7 @@ public class ChainedProxyTest extends BaseProxyTest {
                     }
 
                     @Override
-                    public boolean requiresTLSEncryption(HttpRequest httpRequest) {
+                    public boolean requiresEncryption(HttpRequest httpRequest) {
                         return true;
                     }
 
