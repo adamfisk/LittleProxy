@@ -54,7 +54,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * HTTP proxy server.
+ * <p>
+ * Primary implementation of an {@link HttpProxyServer}.
+ * </p>
+ * 
+ * <p>
+ * {@link DefaultHttpProxyServer} is bootstrapped by calling
+ * {@link #bootstrap()} or {@link #bootstrapFromFile(String)}, and then calling
+ * {@link DefaultHttpProxyServerBootstrap#start()} or
+ * {@link DefaultHttpProxyServerBootstrap#start(boolean, boolean)}. For example:
+ * </p>
+ * 
+ * <pre>
+ * DefaultHttpProxyServer server =
+ *         DefaultHttpProxyServer
+ *                 .bootstrap()
+ *                 .withPort(8090)
+ *                 .start();
+ * </pre>
+ * 
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
 
