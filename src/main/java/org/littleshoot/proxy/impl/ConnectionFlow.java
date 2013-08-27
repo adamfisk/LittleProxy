@@ -111,7 +111,7 @@ class ConnectionFlow {
      * </ol>
      */
     private void processCurrentStep() {
-        final ProxyConnection<?> connection = currentStep.getConnection();
+        final ProxyConnection connection = currentStep.getConnection();
         final ProxyConnectionLogger LOG = connection.getLOG();
 
         LOG.debug("Processing connection flow step: {}", currentStep);

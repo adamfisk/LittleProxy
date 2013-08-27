@@ -15,7 +15,7 @@ import io.netty.handler.codec.http.HttpResponse;
  */
 public interface ActivityTracker {
     /**
-     * Record that bytes were received from the client.
+     * Record that bytes were received from the client to the proxy.
      * 
      * @param flowContext
      *            provides contextual information about the flow
@@ -24,7 +24,7 @@ public interface ActivityTracker {
     void bytesReceivedFromClient(FlowContext flowContext, int numberOfBytes);
 
     /**
-     * Record that a request was received from the client to the proxy.
+     * Record that proxy received an {@link HttpRequest} from the client.
      * 
      * @param flowContext
      *            provides contextual information about the flow
@@ -34,7 +34,7 @@ public interface ActivityTracker {
             HttpRequest httpRequest);
 
     /**
-     * Record that a request was sent from client to server.
+     * Record that proxy attempted to send a request to the server.
      * 
      * @param flowContext
      *            provides contextual information about the flow
@@ -43,7 +43,7 @@ public interface ActivityTracker {
     void requestSent(FlowContext flowContext, HttpRequest httpRequest);
 
     /**
-     * Record that bytes were received from server the server.
+     * Record that the proxy received bytes from the server.
      * 
      * @param flowContext
      *            provides contextual information about the flow
@@ -52,7 +52,7 @@ public interface ActivityTracker {
     void bytesReceivedFromServer(FlowContext flowContext, int numberOfBytes);
 
     /**
-     * Record that a response was received from the server.
+     * Record that the proxy received an {@link HttpResponse} from the server.
      * 
      * @param flowContext
      *            provides contextual information about the flow
