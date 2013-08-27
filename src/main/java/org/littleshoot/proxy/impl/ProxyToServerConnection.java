@@ -540,7 +540,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      *            the server after the connection has been established.
      */
     void connectionSucceeded(boolean shouldForwardInitialRequest) {
-        clientConnection.serverConnectionSucceeded(this);
+        clientConnection.serverConnectionSucceeded(this,
+                shouldForwardInitialRequest);
 
         synchronized (connectLock) {
             super.connected();

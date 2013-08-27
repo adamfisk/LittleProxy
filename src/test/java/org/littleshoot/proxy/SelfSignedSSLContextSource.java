@@ -10,6 +10,7 @@ import java.util.Arrays;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
@@ -80,9 +81,14 @@ public class SelfSignedSSLContextSource implements SSLContextSource {
                     KeyManagerFactory.getInstance(algorithm);
             kmf.init(ks, PASSWORD.toCharArray());
 
+            // Set up a trust manager factory to use our key store
+            TrustManagerFactory tmf = TrustManagerFactory
+                    .getInstance(algorithm);
+            tmf.init(ks);
+
             // Initialize the SSLContext to work with our key managers.
             sslContext = SSLContext.getInstance(PROTOCOL);
-            sslContext.init(kmf.getKeyManagers(), null, null);
+            sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
         } catch (final Exception e) {
             throw new Error(
                     "Failed to initialize the server-side SSLContext", e);

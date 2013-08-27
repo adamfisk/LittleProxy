@@ -295,10 +295,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * successfully, this method is called to let us know about it.
      * 
      * @param serverConnection
+     * @param shouldForwardInitialRequest
      */
     protected void serverConnectionSucceeded(
-            ProxyToServerConnection serverConnection) {
-        recordServerConnectionResult(serverConnection, true);
+            ProxyToServerConnection serverConnection,
+            boolean shouldForwardInitialRequest) {
+        recordServerConnectionResult(serverConnection,
+                shouldForwardInitialRequest, true);
     }
 
     /**
@@ -311,7 +314,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void serverConnectionFailed(
             ProxyToServerConnection serverConnection,
             ConnectionState lastStateBeforeFailure) {
-        recordServerConnectionResult(serverConnection, false);
+        recordServerConnectionResult(serverConnection, false, false);
     }
 
     /**
@@ -503,14 +506,17 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * </ol>
      * 
      * @param serverConnection
+     * @param shouldForwardInitialRequest
      * @param connectionSuccessful
      */
     private void recordServerConnectionResult(
             ProxyToServerConnection serverConnection,
+            boolean shouldForwardInitialRequest,
             boolean connectionSuccessful) {
         if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
             resumeReading();
-            become(AWAITING_INITIAL);
+            become(shouldForwardInitialRequest ? AWAITING_CHUNK
+                    : AWAITING_INITIAL);
         }
         if (connectionSuccessful) {
             LOG.debug("Connection to server succeeded: {}",

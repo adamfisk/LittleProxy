@@ -70,7 +70,7 @@ class ConnectionFlow {
                                     LOG.debug("ConnectionFlowStep succeeded");
                                     currentStep.onSuccess(ConnectionFlow.this);
                                 } else {
-                                    LOG.debug("ConnectionFlowStep failed: {}",
+                                    LOG.debug("ConnectionFlowStep failed",
                                             future.cause());
                                     fail();
                                 }
