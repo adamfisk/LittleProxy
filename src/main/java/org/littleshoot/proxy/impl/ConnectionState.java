@@ -48,18 +48,25 @@ enum ConnectionState {
      */
     DISCONNECTED();
 
-    private boolean partOfConnectFlow;
+    private boolean partOfConnectionFlow;
 
     ConnectionState(boolean partOfConnectionFlow) {
-        this.partOfConnectFlow = partOfConnectionFlow;
+        this.partOfConnectionFlow = partOfConnectionFlow;
     }
 
     ConnectionState() {
         this(false);
     }
 
-    public boolean isPartOfConnectFlow() {
-        return partOfConnectFlow;
+    /**
+     * Indicates whether this ConnectionState corresponds to a step in a
+     * {@link ConnectionFlow}. This is useful to distinguish so that we know
+     * whether or not we're in the process of establishing a connection.
+     * 
+     * @return
+     */
+    public boolean isPartOfConnectionFlow() {
+        return partOfConnectionFlow;
     }
 
 }

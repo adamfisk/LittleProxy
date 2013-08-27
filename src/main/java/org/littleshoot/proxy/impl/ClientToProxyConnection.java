@@ -117,11 +117,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             SSLContext sslContext,
             ChannelPipeline pipeline) {
         super(AWAITING_INITIAL, proxyServer, sslContext, false);
+
         initChannelPipeline(pipeline);
+
         if (sslContext != null) {
-            LOG.debug("Encrypting traffic from client using JSSE");
+            LOG.debug("Enabling encryption of traffic from client to proxy");
             encrypt(pipeline);
         }
+
         LOG.debug("Created ClientToProxyConnection");
     }
 
@@ -132,7 +135,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     @Override
     protected void read(Object msg) {
         if (msg instanceof ConnectionTracer) {
-            // Record statistic for ConnectionTracer and then ignore it
+            LOG.debug("Recording statistics from ConnectionTracer and then swallowing it");
             if (currentServerConnection != null) {
                 recordBytesReceivedFromClient(currentServerConnection,
                         (ConnectionTracer) msg);
@@ -144,91 +147,123 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     @Override
-    protected ConnectionState readInitial(HttpRequest httpRequest) {
+    protected ConnectionState readHTTPInitial(HttpRequest httpRequest) {
         LOG.debug("Got request: {}", httpRequest);
+
         boolean authenticationRequired = authenticationRequired(httpRequest);
+
         if (authenticationRequired) {
             LOG.debug("Not authenticated!!");
             return AWAITING_PROXY_AUTHENTICATION;
         } else {
-            String serverHostAndPort = identifyHostAndPort(httpRequest);
-            String chainedProxyHostAndPort = getChainProxyHostAndPort(httpRequest);
+            return doReadHTTPInitial(httpRequest);
+        }
+    }
 
-            TransportProtocol transportProtocol = TCP;
-            SSLContext proxyToServerSSLContext = null;
-            String hostAndPort = serverHostAndPort;
+    /**
+     * <p>
+     * Reads an {@link HttpRequest}.
+     * </p>
+     * 
+     * <p>
+     * If we don't yet have a {@link ProxyToServerConnection} for the desired
+     * server, this takes care of creating it.
+     * </p>
+     * 
+     * <p>
+     * Note - the "server" could be a chained proxy, not the final endpoint for
+     * the request.
+     * </p>
+     * 
+     * @param httpRequest
+     * @return
+     */
+    private ConnectionState doReadHTTPInitial(HttpRequest httpRequest) {
+        String serverHostAndPort = identifyHostAndPort(httpRequest);
+        String chainedProxyHostAndPort = getChainedProxyHostAndPort(httpRequest);
 
-            if (chainedProxyHostAndPort != null) {
-                hostAndPort = chainedProxyHostAndPort;
-                transportProtocol = proxyServer.getChainProxyManager()
-                        .getTransportProtocol();
-                if (proxyServer.getChainProxyManager().requiresTLSEncryption(
-                        httpRequest)) {
-                    proxyToServerSSLContext = proxyServer
-                            .getChainProxyManager().getSSLContext();
-                }
+        // Figure out the connection parameters
+        TransportProtocol transportProtocol = TCP;
+        SSLContext proxyToServerSSLContext = null;
+        String hostAndPort = serverHostAndPort;
+
+        LOG.debug("Identifying server for: {}", hostAndPort);
+
+        if (chainedProxyHostAndPort != null) {
+            hostAndPort = chainedProxyHostAndPort;
+            transportProtocol = proxyServer.getChainProxyManager()
+                    .getTransportProtocol();
+            if (proxyServer.getChainProxyManager().requiresTLSEncryption(
+                    httpRequest)) {
+                proxyToServerSSLContext = proxyServer
+                        .getChainProxyManager().getSSLContext();
             }
+        }
 
-            recordRequestReceivedFromClient(transportProtocol,
-                    serverHostAndPort,
-                    chainedProxyHostAndPort,
-                    httpRequest);
+        // We immediately record that we received this request, even before
+        // trying to pass it on, to make sure the statistics reflect it
+        recordRequestReceivedFromClient(transportProtocol,
+                serverHostAndPort,
+                chainedProxyHostAndPort,
+                httpRequest);
 
-            LOG.debug("Identifying server for: {}", hostAndPort);
+        LOG.debug("Ensuring that hostAndPort are available in {}",
+                httpRequest.getUri());
+        if (serverHostAndPort == null || StringUtils.isBlank(serverHostAndPort)) {
+            LOG.warn("No host and port found in {}", httpRequest.getUri());
+            writeBadGateway(httpRequest);
+            return DISCONNECT_REQUESTED;
+        }
 
-            if (hostAndPort == null || StringUtils.isBlank(hostAndPort)) {
-                LOG.warn("No host and port found in {}", httpRequest.getUri());
+        LOG.debug("Finding ProxyToServerConnection");
+        currentServerConnection = this.serverConnectionsByHostAndPort
+                .get(hostAndPort);
+        boolean newConnectionRequired = ProxyUtils.isCONNECT(httpRequest)
+                || currentServerConnection == null;
+        if (newConnectionRequired) {
+            if (currentServerConnection != null) {
+                LOG.debug("Not reusing existing ProxyToServerConnection because request is a CONNECT");
+            } else {
+                LOG.debug("Didn't find existing ProxyToServerConnection");
+            }
+            try {
+                currentServerConnection = connectToServer(httpRequest,
+                        transportProtocol,
+                        proxyToServerSSLContext,
+                        hostAndPort,
+                        serverHostAndPort,
+                        chainedProxyHostAndPort);
+            } catch (UnknownHostException uhe) {
+                LOG.info("Bad Host {}", httpRequest.getUri());
                 writeBadGateway(httpRequest);
+                resumeReading();
                 return DISCONNECT_REQUESTED;
             }
+        } else {
+            LOG.debug("Reusing existing server connection: {}",
+                    currentServerConnection);
+            numberOfReusedServerConnections.incrementAndGet();
+        }
 
-            LOG.debug("Finding ProxyToServerConnection");
-            currentServerConnection = this.serverConnectionsByHostAndPort
-                    .get(hostAndPort);
-            boolean newConnectionRequired = ProxyUtils.isCONNECT(httpRequest)
-                    || currentServerConnection == null;
-            if (newConnectionRequired) {
-                if (currentServerConnection != null) {
-                    LOG.debug("Not reusing existing connection because request is a CONNECT");
-                }
-                try {
-                    currentServerConnection = connectToServer(httpRequest,
-                            transportProtocol,
-                            proxyToServerSSLContext,
-                            hostAndPort,
-                            serverHostAndPort,
-                            chainedProxyHostAndPort);
-                } catch (UnknownHostException uhe) {
-                    LOG.info("Bad Host {}", httpRequest.getUri());
-                    writeBadGateway(httpRequest);
-                    resumeReading();
-                    return DISCONNECT_REQUESTED;
-                }
-            } else {
-                LOG.debug("Reusing existing server connection: {}",
-                        currentServerConnection);
-                numberOfReusedServerConnections.incrementAndGet();
-            }
+        HttpRequest originalRequest = copy(httpRequest);
+        modifyRequestHeadersToReflectProxying(httpRequest);
+        filterRequestIfNecessary(httpRequest);
 
-            HttpRequest originalRequest = copy(httpRequest);
-            modifyRequestHeadersToReflectProxying(httpRequest);
-            filterRequestIfNecessary(httpRequest);
+        LOG.debug("Writing request to ProxyToServerConnection");
+        currentServerConnection.write(httpRequest, originalRequest);
 
-            LOG.debug("Writing request to ProxyToServerConnection");
-            currentServerConnection.write(httpRequest, originalRequest);
-
-            if (ProxyUtils.isCONNECT(httpRequest)) {
-                return NEGOTIATING_CONNECT;
-            } else if (ProxyUtils.isChunked(httpRequest)) {
-                return AWAITING_CHUNK;
-            } else {
-                return AWAITING_INITIAL;
-            }
+        // Figure out our next state
+        if (ProxyUtils.isCONNECT(httpRequest)) {
+            return NEGOTIATING_CONNECT;
+        } else if (ProxyUtils.isChunked(httpRequest)) {
+            return AWAITING_CHUNK;
+        } else {
+            return AWAITING_INITIAL;
         }
     }
 
     @Override
-    protected void readChunk(HttpContent chunk) {
+    protected void readHTTPChunk(HttpContent chunk) {
         currentServerConnection.write(chunk);
     }
 
@@ -242,7 +277,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      **************************************************************************/
 
     /**
-     * Respond to the client.
+     * Semd a response to the client.
      * 
      * @param serverConnection
      *            the ProxyToServerConnection that's responding
@@ -267,6 +302,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         write(httpObject);
+
         if (ProxyUtils.isLastChunk(httpObject)) {
             writeEmptyBuffer();
         }
@@ -276,8 +312,46 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /***************************************************************************
-     * Lifecycle
+     * Connection Lifecycle
      **************************************************************************/
+
+    /**
+     * Tells the Client that its HTTP CONNECT request was successful.
+     */
+    protected ConnectionFlowStep RespondCONNECTSuccessful = new ConnectionFlowStep(
+            this, NEGOTIATING_CONNECT, true) {
+        protected Future<?> execute() {
+            LOG.debug("Responding with CONNECT successful");
+            HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
+                    CONNECTION_ESTABLISHED);
+            response.headers().set("Connection", "Keep-Alive");
+            response.headers().set("Proxy-Connection", "Keep-Alive");
+            ProxyUtils.addVia(response);
+            return writeToChannel(response);
+        };
+    };
+
+    /**
+     * On connect of the client, start waiting for an initial
+     * {@link HttpRequest}.
+     */
+    @Override
+    protected void connected() {
+        super.connected();
+        become(AWAITING_INITIAL);
+    }
+
+    /**
+     * On disconnect of the client, disconnect all server connections.
+     */
+    @Override
+    protected void disconnected() {
+        super.disconnected();
+        for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
+                .values()) {
+            serverConnection.disconnect();
+        }
+    }
 
     /**
      * Called when {@link ProxyToServerConnection} starts its connection flow.
@@ -300,7 +374,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void serverConnectionSucceeded(
             ProxyToServerConnection serverConnection,
             boolean shouldForwardInitialRequest) {
-        recordServerConnectionResult(serverConnection,
+        serverConnectionFinished(serverConnection,
                 shouldForwardInitialRequest, true);
     }
 
@@ -314,30 +388,67 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void serverConnectionFailed(
             ProxyToServerConnection serverConnection,
             ConnectionState lastStateBeforeFailure) {
-        recordServerConnectionResult(serverConnection, false, false);
+        serverConnectionFinished(serverConnection, false, false);
     }
 
     /**
-     * On connect of the client, start waiting for initial {@link HttpRequest}.
+     * <p>
+     * Called when an attempt to connect to a server finished, whether
+     * successful or not.
+     * </p>
+     * 
+     * <p>
+     * If we failed to connect to the server, one of two things can happen:
+     * </p>
+     * 
+     * <ol>
+     * <li>If the server was a chained proxy, we fall back to connecting to the
+     * ultimate endpoint directly.</li>
+     * <li>If the server was the ultimate endpoint, we return a 502 Bad Gateway
+     * to the client.</li>
+     * </ol>
+     * 
+     * @param serverConnection
+     * @param shouldForwardInitialRequest
+     * @param connectionSuccessful
      */
-    @Override
-    protected void connected() {
-        super.connected();
-        become(AWAITING_INITIAL);
-    }
+    private void serverConnectionFinished(
+            ProxyToServerConnection serverConnection,
+            boolean shouldForwardInitialRequest,
+            boolean connectionSuccessful) {
+        if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
+            LOG.debug("All servers have finished attempting to connecting, resuming reading from client.");
+            resumeReading();
+            become(shouldForwardInitialRequest ? getCurrentState()
+                    : AWAITING_INITIAL);
+        }
 
-    /**
-     * On disconnect of the client, disconnect all server connections.
-     */
-    @Override
-    protected void disconnected() {
-        super.disconnected();
-        for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
-                .values()) {
-            serverConnection.disconnect();
+        if (connectionSuccessful) {
+            LOG.debug("Connection to server succeeded: {}",
+                    serverConnection.getAddress());
+            numberOfCurrentlyConnectedServers.incrementAndGet();
+        } else {
+            HttpRequest initialRequest = serverConnection.getInitialRequest();
+            if (shouldChain(initialRequest)) {
+                fallbackToDirectConnection(serverConnection, initialRequest);
+            } else {
+                LOG.debug("Connection to server failed: {}",
+                        serverConnection.getAddress());
+                writeBadGateway(initialRequest);
+            }
         }
     }
 
+    /***************************************************************************
+     * Other Lifecycle
+     **************************************************************************/
+
+    /**
+     * On disconnect of the server, track that we have one fewer connected
+     * servers and then disconnect the client if necessary.
+     * 
+     * @param serverConnection
+     */
     protected void serverDisconnected(ProxyToServerConnection serverConnection) {
         numberOfCurrentlyConnectedServers.decrementAndGet();
         disconnectClientIfNecessary();
@@ -434,7 +545,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     protected boolean shouldChain(HttpRequest httpRequest) {
-        return getChainProxyHostAndPort(httpRequest) != null;
+        return getChainedProxyHostAndPort(httpRequest) != null;
     }
 
     /**
@@ -443,7 +554,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param httpRequest
      * @return
      */
-    protected String getChainProxyHostAndPort(HttpRequest httpRequest) {
+    protected String getChainedProxyHostAndPort(HttpRequest httpRequest) {
         if (proxyServer.getChainProxyManager() == null) {
             return null;
         } else if (this.requestsForWhichProxyChainingIsDisabled
@@ -456,7 +567,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /**
-     * Disables proxy chaining for the given request.
+     * Disables proxy chaining for the given request. This allows us to retry
+     * this request falling back to a direct-to-server connection.
      * 
      * @param request
      */
@@ -468,6 +580,28 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Connection Management
      **************************************************************************/
 
+    /**
+     * Creates a {@link ProxyToServerConnection}.
+     * 
+     * @param httpRequest
+     *            the {@link HttpRequest} that prompted us to connect
+     * @param transportProtocol
+     *            the protocol to use for the data transport
+     * @param sslContext
+     *            (optional) {@link SSLContext} to encrypt connection to server
+     *            (or chained proxy)
+     * @param hostAndPort
+     *            the host and port to which to connect (either ultimate
+     *            endpoint or another proxy if chaining is enabled)
+     * @param serverHostAndPort
+     *            the host and port of the ultimate destination server
+     * @param chainedProxyHostAndPort
+     *            (optional) the host and port of the chained proxy server if
+     *            chaining
+     * @return
+     * @throws UnknownHostException
+     *             if the hostAndPort can't be resolved
+     */
     private ProxyToServerConnection connectToServer(HttpRequest httpRequest,
             TransportProtocol transportProtocol, SSLContext sslContext,
             String hostAndPort, String serverHostAndPort,
@@ -475,72 +609,24 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             throws UnknownHostException {
         LOG.debug("Establishing new ProxyToServerConnection");
         InetSocketAddress address = addressFor(hostAndPort);
+
+        // Add response filtering if necessary
         HttpFilter responseFilter = null;
         if (proxyServer.getResponseFilters() != null) {
             responseFilter = proxyServer.getResponseFilters().getFilter(
                     serverHostAndPort);
         }
+
+        // Create connection
         ProxyToServerConnection connection = new ProxyToServerConnection(
                 this.proxyServer, this, transportProtocol, sslContext, address,
                 serverHostAndPort, chainedProxyHostAndPort,
                 responseFilter);
+
+        // Remember connection for later
         serverConnectionsByHostAndPort.put(hostAndPort, connection);
+
         return connection;
-    }
-
-    protected ConnectionFlowStep respondCONNECTSuccessful = new ConnectionFlowStep(
-            this, NEGOTIATING_CONNECT, true) {
-        protected Future<?> execute() {
-            LOG.debug("Responding with CONNECT successful");
-            HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
-                    CONNECTION_ESTABLISHED);
-            response.headers().set("Connection", "Keep-Alive");
-            response.headers().set("Proxy-Connection", "Keep-Alive");
-            ProxyUtils.addVia(response);
-            return writeToChannel(response);
-        };
-    };
-
-    /**
-     * <p>
-     * Record the result of trying to connect to a server. If we failed to
-     * connect to the server, one of two things can happen:
-     * </p>
-     * 
-     * <ol>
-     * <li>If the server was a chained proxy, we fall back to connecting to the
-     * ultimate endpoint directly.</li>
-     * <li>If the server was the ultimate endpoint, we return a 502 Bad Gateway
-     * to the client.</li>
-     * </ol>
-     * 
-     * @param serverConnection
-     * @param shouldForwardInitialRequest
-     * @param connectionSuccessful
-     */
-    private void recordServerConnectionResult(
-            ProxyToServerConnection serverConnection,
-            boolean shouldForwardInitialRequest,
-            boolean connectionSuccessful) {
-        if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
-            resumeReading();
-            become(shouldForwardInitialRequest ? getCurrentState()
-                    : AWAITING_INITIAL);
-        }
-        if (connectionSuccessful) {
-            LOG.debug("Connection to server succeeded: {}",
-                    serverConnection.getAddress());
-            numberOfCurrentlyConnectedServers.incrementAndGet();
-        } else {
-            HttpRequest initialRequest = serverConnection.getInitialRequest();
-            if (shouldChain(initialRequest)) {
-                fallbackToDirectConnection(serverConnection, initialRequest);
-            } else {
-                LOG.debug("Connection to server failed: {}",
-                        serverConnection.getAddress());
-                writeBadGateway(initialRequest);
-            }
-        }
     }
 
     /**
@@ -569,6 +655,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
+    /**
+     * Initialize the {@ChannelPipeline} for the client to
+     * proxy channel.
+     * 
+     * @param pipeline
+     */
     private void initChannelPipeline(ChannelPipeline pipeline) {
         LOG.debug("Configuring ChannelPipeline");
 
@@ -618,6 +710,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
+    /**
+     * Determine whether or not the client connection should be closed.
+     * 
+     * @param req
+     * @param res
+     * @param httpObject
+     * @return
+     */
     private boolean shouldCloseClientConnection(HttpRequest req,
             HttpResponse res, HttpObject httpObject) {
         if (ProxyUtils.isChunked(res)) {
@@ -708,6 +808,24 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Authentication
      **************************************************************************/
 
+    /**
+     * <p>
+     * Checks whether the given HttpRequest requires authentication.
+     * </p>
+     * 
+     * <p>
+     * If the request contains credentials, these are checked.
+     * </p>
+     * 
+     * <p>
+     * If authentication is still required, either because no credentials were
+     * provided or the credentials were wrong, this writes a 407 response to the
+     * client.
+     * </p>
+     * 
+     * @param request
+     * @return
+     */
     private boolean authenticationRequired(HttpRequest request) {
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
             if (proxyServer.getProxyAuthenticator() != null) {
@@ -772,6 +890,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Request/Response Rewriting
      **************************************************************************/
 
+    /**
+     * Copy the given {@link HttpRequest} verbatim.
+     * 
+     * @param original
+     * @return
+     */
     private HttpRequest copy(HttpRequest original) {
         if (original instanceof DefaultFullHttpRequest) {
             ByteBuf content = ((DefaultFullHttpRequest) original).content();
@@ -940,6 +1064,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Miscellaneous
      **************************************************************************/
 
+    /**
+     * Tells the client that something went wrong trying to proxy its request.
+     * 
+     * @param request
+     */
     private void writeBadGateway(HttpRequest request) {
         String body = "Bad Gateway: " + request.getUri();
         DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
@@ -949,6 +1078,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         disconnect();
     }
 
+    /**
+     * Factory for {@link DefaultFullHttpResponse}s.
+     * 
+     * @param httpVersion
+     * @param status
+     * @param body
+     * @return
+     */
     private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
             HttpResponseStatus status, String body) {
         byte[] bytes = body.getBytes(Charset.forName("UTF-8"));
@@ -956,6 +1093,15 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         return responseFor(httpVersion, status, content, bytes.length);
     }
 
+    /**
+     * Factory for {@link DefaultFullHttpResponse}s.
+     * 
+     * @param httpVersion
+     * @param status
+     * @param body
+     * @param contentLength
+     * @return
+     */
     private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
             HttpResponseStatus status, ByteBuf body, int contentLength) {
         DefaultFullHttpResponse response = body != null ? new DefaultFullHttpResponse(
@@ -969,6 +1115,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         return response;
     }
 
+    /**
+     * Factory for {@link DefaultFullHttpResponse}s.
+     * 
+     * @param httpVersion
+     * @param status
+     * @return
+     */
     private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
             HttpResponseStatus status) {
         return responseFor(httpVersion, status, (ByteBuf) null, 0);
@@ -993,6 +1146,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         return hostAndPort;
     }
 
+    /**
+     * Build an {@link InetSocketAddress} for the given hostAndPort.
+     * 
+     * @param hostAndPort
+     * @return
+     * @throws UnknownHostException
+     *             if hostAndPort could not be resolved
+     */
     private InetSocketAddress addressFor(String hostAndPort)
             throws UnknownHostException {
         String host;

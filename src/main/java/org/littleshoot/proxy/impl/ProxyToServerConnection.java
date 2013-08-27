@@ -135,7 +135,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     @Override
-    protected ConnectionState readInitial(HttpResponse httpResponse) {
+    protected ConnectionState readHTTPInitial(HttpResponse httpResponse) {
         LOG.debug("Received raw response: {}", httpResponse);
 
         rememberCurrentRequest();
@@ -148,7 +148,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     @Override
-    protected void readChunk(HttpContent chunk) {
+    protected void readHTTPChunk(HttpContent chunk) {
         respondWith(chunk);
     }
 
@@ -371,7 +371,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
 
             this.connectionFlow.then(startTunneling)
-                    .then(clientConnection.respondCONNECTSuccessful)
+                    .then(clientConnection.RespondCONNECTSuccessful)
                     .then(clientConnection.startTunneling);
         }
     }

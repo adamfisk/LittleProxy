@@ -121,28 +121,35 @@ abstract class ProxyConnection<I extends HttpObject> extends
         LOG.debug("Reading: {}", msg);
 
         if (tunneling) {
+            // In tunneling mode, this connection is simply shoveling bytes
             readRaw((ByteBuf) msg);
         } else {
-            readNormal(msg);
+            // If not tunneling, then we are always dealing with HttpObjects.
+            readHTTP((HttpObject) msg);
         }
     }
 
-    private void readNormal(Object msg) {
+    /**
+     * Handles reading {@link HttpObject}s.
+     * 
+     * @param httpObject
+     */
+    private void readHTTP(HttpObject httpObject) {
         ConnectionState nextState = getCurrentState();
         switch (getCurrentState()) {
         case AWAITING_INITIAL:
-            nextState = readInitial((I) msg);
+            nextState = readHTTPInitial((I) httpObject);
             break;
         case AWAITING_CHUNK:
-            HttpContent chunk = (HttpContent) msg;
-            readChunk(chunk);
+            HttpContent chunk = (HttpContent) httpObject;
+            readHTTPChunk(chunk);
             nextState = ProxyUtils.isLastChunk(chunk) ? AWAITING_INITIAL
                     : AWAITING_CHUNK;
             break;
         case AWAITING_PROXY_AUTHENTICATION:
-            if (msg instanceof HttpRequest) {
+            if (httpObject instanceof HttpRequest) {
                 // Once we get an HttpRequest, try to process it as usual
-                nextState = readInitial((I) msg);
+                nextState = readHTTPInitial((I) httpObject);
             } else {
                 // Anything that's not an HttpRequest that came in while
                 // we're pending authentication gets dropped on the floor. This
@@ -181,14 +188,14 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * @param httpObject
      * @return
      */
-    protected abstract ConnectionState readInitial(I httpObject);
+    protected abstract ConnectionState readHTTPInitial(I httpObject);
 
     /**
      * Implement this to handle reading a chunk in a chunked transfer.
      * 
      * @param chunk
      */
-    protected abstract void readChunk(HttpContent chunk);
+    protected abstract void readHTTPChunk(HttpContent chunk);
 
     /**
      * Implement this to handle reading a raw buffer as they are used in HTTP
@@ -210,10 +217,12 @@ abstract class ProxyConnection<I extends HttpObject> extends
      */
     void write(Object msg) {
         LOG.debug("Writing: {}", msg);
+
         if (msg instanceof ReferenceCounted) {
             LOG.debug("Retaining reference counted message");
             ((ReferenceCounted) msg).retain();
         }
+
         try {
             if (msg instanceof HttpObject) {
                 writeHttp((HttpObject) msg);
@@ -226,12 +235,13 @@ abstract class ProxyConnection<I extends HttpObject> extends
     }
 
     /**
-     * Writes HttpObjects to the connection (asynchronous).
+     * Writes HttpObjects to the connection asynchronously.
      * 
      * @param httpObject
      */
     protected void writeHttp(HttpObject httpObject) {
         writeToChannel(httpObject);
+
         if (ProxyUtils.isLastChunk(httpObject)) {
             LOG.debug("Writing an empty buffer to signal the end of our chunked transfer");
             writeToChannel(Unpooled.EMPTY_BUFFER);
@@ -248,6 +258,14 @@ abstract class ProxyConnection<I extends HttpObject> extends
         writeToChannel(buf);
     }
 
+    /**
+     * Encapsulates the writing to the channel. In addition to writing to the
+     * channel, this method makes sure that if the channel becomes saturated
+     * that the {@link #becameSaturated()} callback gets invoked.
+     * 
+     * @param msg
+     * @return
+     */
     protected ChannelFuture writeToChannel(Object msg) {
         ChannelFuture future = channel.writeAndFlush(msg);
         future.addListener(new ChannelFutureListener() {
@@ -266,10 +284,21 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Lifecycle
      **************************************************************************/
 
+    /**
+     * This method is called as soon as the underlying {@link Channel} is
+     * connected. Note that for proxies with complex {@link ConnectionFlow}s
+     * that include SSL handshaking and other such things, just because the
+     * {@link Channel} is connected doesn't mean that our connection is fully
+     * established.
+     */
     protected void connected() {
         LOG.debug("Connected");
     }
 
+    /**
+     * This method is called as soon as the underlying {@link Channel} becomes
+     * disconnected.
+     */
     protected void disconnected() {
         become(DISCONNECTED);
         LOG.debug("Disconnected");
@@ -278,13 +307,13 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * <p>
      * Enables tunneling on this connection by dropping the HTTP related
-     * encoders and decoders, as well as idle timers. This method also resumes
-     * reading on the underlying channel.
+     * encoders and decoders, as well as idle timers.
      * </p>
      * 
      * <p>
-     * Note - the work is done on the context's executor because
-     * {@link ChannelPipeline#remove(String)} can deadlock if called directly.
+     * Note - the work is done on the {@link ChannelHandlerContext}'s executor
+     * because {@link ChannelPipeline#remove(String)} can deadlock if called
+     * directly.
      * </p>
      */
     protected ConnectionFlowStep startTunneling = new ConnectionFlowStep(
@@ -310,14 +339,21 @@ abstract class ProxyConnection<I extends HttpObject> extends
     };
 
     /**
-     * Encrypts traffic on this connection.
+     * Encrypts traffic on this connection with SSL/TLS.
      * 
-     * @return
+     * @return a Future for when the SSL handshake has completed
      */
     protected Future<Channel> encrypt() {
         return encrypt(ctx.pipeline());
     }
 
+    /**
+     * Encrypts traffic on this connection with SSL/TLS.
+     * 
+     * @param pipeline
+     *            the ChannelPipeline on which to enable encryption
+     * @return a Future for when the SSL handshake has completed
+     */
     protected Future<Channel> encrypt(ChannelPipeline pipeline) {
         LOG.debug("Enabling encryption with SSLContext: {}", sslContext);
         SSLEngine engine = sslContext.createSSLEngine();
@@ -372,6 +408,12 @@ abstract class ProxyConnection<I extends HttpObject> extends
         }
     }
 
+    /**
+     * Indicates whether or not this connection is saturated (i.e. not
+     * writeable).
+     * 
+     * @return
+     */
     protected boolean isSaturated() {
         return !this.channel.isWritable();
     }
@@ -386,8 +428,14 @@ abstract class ProxyConnection<I extends HttpObject> extends
         return currentState == state;
     }
 
+    /**
+     * If this connection is currently in the process of going through a
+     * {@link ConnectionFlow}, this will return true.
+     * 
+     * @return
+     */
     protected boolean isConnecting() {
-        return currentState.isPartOfConnectFlow();
+        return currentState.isPartOfConnectionFlow();
     }
 
     /**
@@ -402,7 +450,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected ConnectionState getCurrentState() {
         return currentState;
     }
-    
+
     public boolean isTunneling() {
         return tunneling;
     }
@@ -491,14 +539,22 @@ abstract class ProxyConnection<I extends HttpObject> extends
         exceptionCaught(cause);
     }
 
+    /**
+     * <p>
+     * We're looking for {@link IdleStateEvent}s to see if we need to
+     * disconnect.
+     * </p>
+     * 
+     * <p>
+     * Note - we don't care what kind of IdleState we got. Thanks to <a
+     * href="https://github.com/qbast">qbast</a> for pointing this out.
+     * </p>
+     */
     @Override
     public final void userEventTriggered(ChannelHandlerContext ctx, Object evt)
             throws Exception {
         try {
             if (evt instanceof IdleStateEvent) {
-                // Note - we don't care what kind of IdleState we got
-                // Thanks to <a href="https://github.com/qbast">qbast</a> for
-                // pointing this out.
                 LOG.info("Got idle, disconnecting");
                 disconnect();
             }
