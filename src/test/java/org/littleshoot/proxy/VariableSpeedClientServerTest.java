@@ -1,6 +1,6 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -22,6 +22,7 @@ import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.util.EntityUtils;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 /**
  * Tests cases where either the client or the server is slower than the other.
@@ -40,7 +41,7 @@ public class VariableSpeedClientServerTest {
     public void testServerFaster() throws Exception {
         startServer();
         Thread.yield();
-        TestUtils.startProxyServer(PROXY_PORT);
+        DefaultHttpProxyServer.configure().withPort(PROXY_PORT).start();
         Thread.yield();
         Thread.sleep(400);
         final DefaultHttpClient client = new DefaultHttpClient();

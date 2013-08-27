@@ -7,8 +7,10 @@ public interface HttpProxyServer {
 
     /**
      * Starts the server.
+     * 
+     * @return itself
      */
-    void start();
+    HttpProxyServer start();
 
     /**
      * Stops the server.
@@ -25,8 +27,9 @@ public interface HttpProxyServer {
      * @param anyAddress
      *            Whether or not to bind to "any" address - 0.0.0.0. This is the
      *            default.
+     * @return itself
      */
-    void start(boolean localOnly, boolean anyAddress);
+    HttpProxyServer start(boolean localOnly, boolean anyAddress);
 
     /**
      * Add an ActivityTracker for tracking proxying activity.

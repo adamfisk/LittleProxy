@@ -100,7 +100,7 @@ public class Launcher {
 
         HttpProxyServer server = builder.build();
         System.out.println("About to start...");
-        server.start();
+        server.start(false, true);
     }
 
     private static void printHelp(final Options options,

@@ -1,9 +1,15 @@
 package org.littleshoot.proxy;
 
+import static org.littleshoot.proxy.TransportProtocol.*;
+import io.netty.handler.codec.http.HttpRequest;
+
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.net.ssl.SSLContext;
+
 import org.junit.Assert;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 /**
  * Tests a proxy chained to a downstream proxy. In addition to the usual
@@ -42,11 +48,35 @@ public class ChainedProxyTest extends BaseProxyTest {
         REQUESTS_SENT_BY_UPSTREAM.set(0);
         REQUESTS_RECEIVED_BY_DOWNSTREAM.set(0);
         TRANSPORTS_USED.clear();
-        this.downstreamProxy = TestUtils
-                .startProxyServer(TransportProtocol.UDT, DOWNSTREAM_PROXY_PORT);
+        final SSLContextSource sslContextSource = new SelfSignedSSLContextSource(
+                "chain_proxy_keystore_1.jks");
+        this.downstreamProxy = DefaultHttpProxyServer.configure()
+                .withPort(DOWNSTREAM_PROXY_PORT)
+                .withTransportProtocol(UDT)
+                .withSslContextSource(sslContextSource).start();
         this.downstreamProxy.addActivityTracker(DOWNSTREAM_TRACKER);
-        this.proxyServer = TestUtils.startProxyServer(PROXY_SERVER_PORT,
-                DOWNSTREAM_PROXY_HOST_AND_PORT);
+        this.proxyServer = DefaultHttpProxyServer.configure()
+                .withPort(PROXY_SERVER_PORT)
+                .withChainProxyManager(new ChainedProxyManagerAdapter() {
+                    public String getHostAndPort(HttpRequest httpRequest) {
+                        return DOWNSTREAM_PROXY_HOST_AND_PORT;
+                    }
+
+                    @Override
+                    public TransportProtocol getTransportProtocol() {
+                        return TransportProtocol.UDT;
+                    }
+
+                    @Override
+                    public boolean requiresTLSEncryption(HttpRequest httpRequest) {
+                        return true;
+                    }
+
+                    @Override
+                    public SSLContext getSSLContext() {
+                        return sslContextSource.getSSLContext();
+                    }
+                }).start();
         this.proxyServer.addActivityTracker(UPSTREAM_TRACKER);
     }
 
@@ -79,7 +109,7 @@ public class ChainedProxyTest extends BaseProxyTest {
                 REQUESTS_SENT_BY_UPSTREAM.get(),
                 REQUESTS_RECEIVED_BY_DOWNSTREAM.get());
         Assert.assertEquals(
-                "Only 1 transport protocol should have been used to downstream proxy",
+                "1 and only 1 transport protocol should have been used to downstream proxy",
                 1, TRANSPORTS_USED.size());
         Assert.assertTrue("UDT transport should have been used",
                 TRANSPORTS_USED.contains(TransportProtocol.UDT));

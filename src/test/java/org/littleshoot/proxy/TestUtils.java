@@ -1,7 +1,5 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.HttpRequest;
-
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,130 +28,10 @@ import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.ssl.SslSocketConnector;
-import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
-import org.littleshoot.proxy.impl.DefaultHttpProxyServer.DefaultHttpProxyServerBuilder;
 
 public class TestUtils {
 
     private TestUtils() {
-    }
-
-    public static HttpProxyServer startProxyServer(
-            int port) {
-        return startProxyServer(TransportProtocol.TCP, port);
-    }
-
-    /**
-     * Creates and starts a proxy server that listens on given port.
-     * 
-     * @param port
-     *            The port
-     * @return The instance of proxy server
-     */
-    public static HttpProxyServer startProxyServer(
-            TransportProtocol transportProtocol, int port) {
-        return startProxyServerWithCredentials(transportProtocol, port, null,
-                null);
-    }
-
-    public static HttpProxyServer startProxyServerWithCredentials(
-            int port,
-            String username, String password) {
-        return startProxyServerWithCredentials(TransportProtocol.TCP, port,
-                username, password);
-    }
-
-    /**
-     * Creates and starts a proxy server that listens on given port and
-     * authenticates clients with the given username and password.
-     * 
-     * @param transportProtocol
-     *            the data transport protocol to use
-     * @param port
-     *            The port
-     * @param username
-     * @param password
-     * @return The instance of proxy server
-     */
-    public static HttpProxyServer startProxyServerWithCredentials(
-            TransportProtocol transportProtocol, int port,
-            String username, String password) {
-        return startProxyServerWithCredentials(transportProtocol, port, null,
-                username, password);
-    }
-
-    public static HttpProxyServer startProxyServer(
-            int port,
-            final String chainProxyHostAndPort) {
-        return startProxyServer(TransportProtocol.TCP, port,
-                chainProxyHostAndPort);
-    }
-
-    /**
-     * Creates and starts a proxy server that listens on the given port and
-     * chains requests to the proxy at the given chainProxyHostAndPort.
-     * 
-     * @param transportProtocol
-     *            the data transport protocol to use
-     * @param port
-     *            The port
-     * @param chainProxyHostAndPort
-     *            Proxy relay
-     * @return The instance of proxy server
-     */
-    public static HttpProxyServer startProxyServer(
-            TransportProtocol transportProtocol, int port,
-            final String chainProxyHostAndPort) {
-        return startProxyServerWithCredentials(transportProtocol, port,
-                chainProxyHostAndPort,
-                null, null);
-    }
-
-    /**
-     * Creates and starts a proxy server that listens on the given port, chains
-     * requests to the proxy at the given chainProxyHostAndPort, and
-     * authenticates clients using the given username and password.
-     * 
-     * @param transportProtocol
-     *            the data transport protocol to use
-     * @param port
-     *            The port
-     * @param chainProxyHostAndPort
-     *            Proxy relay
-     * @param username
-     * @param password
-     * @return The instance of proxy server
-     */
-    public static HttpProxyServer startProxyServerWithCredentials(
-            TransportProtocol transportProtocol, int port,
-            final String chainProxyHostAndPort, final String username,
-            final String password) {
-        DefaultHttpProxyServerBuilder builder = DefaultHttpProxyServer
-                .configure()
-                .withPort(port);
-        if (chainProxyHostAndPort != null) {
-            builder.withTransportProtocol(transportProtocol)
-                    .withChainProxyManager(new ChainedProxyManagerAdapter() {
-                        public String getHostAndPort(HttpRequest httpRequest) {
-                            return chainProxyHostAndPort;
-                        }
-
-                        @Override
-                        public TransportProtocol getTransportProtocol() {
-                            return TransportProtocol.UDT;
-                        }
-                    });
-        }
-        if (username != null && password != null) {
-            builder.withProxyAuthenticator(new ProxyAuthenticator() {
-                public boolean authenticate(String u, String p) {
-                    return username.equals(u) && password.equals(p);
-                }
-            });
-        }
-        HttpProxyServer proxyServer = builder.build();
-        proxyServer.start(true, true);
-        return proxyServer;
     }
 
     /**

@@ -5,8 +5,6 @@ import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -19,10 +17,8 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
@@ -38,7 +34,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLContext;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -118,9 +114,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     ClientToProxyConnection(
             DefaultHttpProxyServer proxyServer,
+            SSLContext sslContext,
             ChannelPipeline pipeline) {
-        super(AWAITING_INITIAL, proxyServer);
+        super(AWAITING_INITIAL, proxyServer, sslContext, false);
         initChannelPipeline(pipeline);
+        if (sslContext != null) {
+            LOG.debug("Encrypting traffic from client using SSL");
+            encrypt(pipeline);
+        }
         LOG.debug("Created ClientToProxyConnection");
     }
 
@@ -154,12 +155,18 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             String chainedProxyHostAndPort = getChainProxyHostAndPort(httpRequest);
 
             TransportProtocol transportProtocol = TCP;
+            SSLContext proxyToServerSSLContext = null;
             String hostAndPort = serverHostAndPort;
 
             if (chainedProxyHostAndPort != null) {
                 hostAndPort = chainedProxyHostAndPort;
                 transportProtocol = proxyServer.getChainProxyManager()
                         .getTransportProtocol();
+                if (proxyServer.getChainProxyManager().requiresTLSEncryption(
+                        httpRequest)) {
+                    proxyToServerSSLContext = proxyServer
+                            .getChainProxyManager().getSSLContext();
+                }
             }
 
             recordRequestReceivedFromClient(transportProtocol,
@@ -186,8 +193,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 }
                 try {
                     currentServerConnection = connectToServer(httpRequest,
-                            hostAndPort, serverHostAndPort,
-                            transportProtocol, chainedProxyHostAndPort);
+                            transportProtocol,
+                            proxyToServerSSLContext,
+                            hostAndPort,
+                            serverHostAndPort,
+                            chainedProxyHostAndPort);
                 } catch (UnknownHostException uhe) {
                     LOG.info("Bad Host {}", httpRequest.getUri());
                     writeBadGateway(httpRequest);
@@ -270,42 +280,38 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      **************************************************************************/
 
     /**
-     * While we're in the process of connecting to a server, stop reading.
+     * Called when {@link ProxyToServerConnection} starts its connection flow.
      * 
      * @param serverConnection
      */
-    protected void connectingToServer(ProxyToServerConnection serverConnection) {
+    protected void serverConnectionFlowStarted(
+            ProxyToServerConnection serverConnection) {
         stopReading();
         this.numberOfCurrentlyConnectingServers.incrementAndGet();
     }
 
     /**
-     * Once all servers have connected, resume reading.
+     * If the {@link ProxyToServerConnection} completes its connection lifecycle
+     * successfully, this method is called to let us know about it.
      * 
      * @param serverConnection
-     *            the ProxyToServerConnection that connected
-     * @param initialRequest
-     *            the HttpRequest that prompted this connection
-     * @param connectionSuccessful
-     *            whether or not the attempt to connect was successful
      */
-    protected void serverConnected(ProxyToServerConnection serverConnection,
-            HttpRequest initialRequest,
-            boolean connectionSuccessful) {
-        LOG.debug("{} to server: {}",
-                connectionSuccessful ? "Finished connecting"
-                        : "Failed to connect", serverConnection.getAddress());
-        if (connectionSuccessful) {
-            if (ProxyUtils.isCONNECT(initialRequest)) {
-                finishCONNECT(serverConnection, initialRequest);
-            } else {
-                recordServerConnectionResult(serverConnection, initialRequest,
-                        connectionSuccessful);
-            }
-        } else {
-            recordServerConnectionResult(serverConnection, initialRequest,
-                    false);
-        }
+    protected void serverConnectionSucceeded(
+            ProxyToServerConnection serverConnection) {
+        recordServerConnectionResult(serverConnection, true);
+    }
+
+    /**
+     * If the {@link ProxyToServerConnection} fails to complete its connection
+     * lifecycle successfully, this method is called to let us know about it.
+     * 
+     * @param serverConnection
+     * @param lastStateBeforeFailure
+     */
+    protected void serverConnectionFailed(
+            ProxyToServerConnection serverConnection,
+            ConnectionState lastStateBeforeFailure) {
+        recordServerConnectionResult(serverConnection, false);
     }
 
     /**
@@ -450,9 +456,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Connection Management
      **************************************************************************/
 
-    private ProxyToServerConnection connectToServer(HttpRequest request,
+    private ProxyToServerConnection connectToServer(HttpRequest httpRequest,
+            TransportProtocol transportProtocol, SSLContext sslContext,
             String hostAndPort, String serverHostAndPort,
-            TransportProtocol transportProtocol,
             String chainedProxyHostAndPort)
             throws UnknownHostException {
         LOG.debug("Establishing new ProxyToServerConnection");
@@ -463,124 +469,29 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     serverHostAndPort);
         }
         ProxyToServerConnection connection = new ProxyToServerConnection(
-                this.proxyServer, this, transportProtocol, address,
+                this.proxyServer, this, transportProtocol, sslContext, address,
                 serverHostAndPort, chainedProxyHostAndPort,
                 responseFilter);
         serverConnectionsByHostAndPort.put(hostAndPort, connection);
         return connection;
     }
 
-    private ChannelFuture respondCONNECTSuccessful() {
-        LOG.debug("Responding with CONNECT successful");
-        HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
-                CONNECTION_ESTABLISHED);
-        response.headers().set("Connection", "Keep-Alive");
-        response.headers().set("Proxy-Connection", "Keep-Alive");
-        ProxyUtils.addVia(response);
-        return writeToChannel(response);
-    }
+    protected ConnectionFlowStep respondCONNECTSuccessful = new ConnectionFlowStep(
+            this, NEGOTIATING_CONNECT, true) {
+        protected Future<?> execute() {
+            LOG.debug("Responding with CONNECT successful");
+            HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
+                    CONNECTION_ESTABLISHED);
+            response.headers().set("Connection", "Keep-Alive");
+            response.headers().set("Proxy-Connection", "Keep-Alive");
+            ProxyUtils.addVia(response);
+            return writeToChannel(response);
+        };
+    };
 
     /**
      * <p>
-     * Ends the flow for establishing a CONNECT tunnel. The handling is
-     * different depending on whether we're doing a simple tunnel or acting as
-     * MITM.
-     * </p>
-     * 
-     * <p>
-     * See {@link ProxyToServerConnection#startCONNECT()} for the beginning of
-     * this flow.
-     * </p>
-     * 
-     * @param serverConnection
-     *            the ProxyToServerConnection that connected
-     * @param initialRequest
-     *            the HTTPRequest that prompted us to do a CONNECT
-     */
-    private void finishCONNECT(final ProxyToServerConnection serverConnection,
-            final HttpRequest initialRequest) {
-        LOG.debug("Handling CONNECT request");
-        respondCONNECTSuccessful().addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture future)
-                    throws Exception {
-                if (proxyServer.isUseMITMInSSL()) {
-                    finishCONNECTWithMITM(serverConnection, initialRequest);
-                } else {
-                    finishCONNECTWithTunneling(serverConnection, initialRequest);
-                }
-            }
-        });
-    }
-
-    /**
-     * <p>
-     * Ends the flow for establishing a simple CONNECT tunnel.
-     * </p>
-     * 
-     * <p>
-     * See {@link ProxyToServerConnection#startCONNECTWithTunneling()} for the
-     * beginning of this flow.
-     * </p>
-     * 
-     * @param serverConnection
-     *            the ProxyToServerConnection that connected
-     * @param initialRequest
-     *            the HttpRequest that prompted us to do a CONNECT
-     */
-    private void finishCONNECTWithTunneling(
-            final ProxyToServerConnection serverConnection,
-            final HttpRequest initialRequest) {
-        LOG.debug("Finishing tunneling");
-        startTunneling().addListener(new GenericFutureListener<Future<?>>() {
-            @Override
-            public void operationComplete(Future<?> future) throws Exception {
-                recordServerConnectionResult(serverConnection, initialRequest,
-                        future.isSuccess());
-                if (future.isSuccess()) {
-                    LOG.debug("Tunnel Established");
-                }
-            }
-        });
-    }
-
-    /**
-     * <p>
-     * Ends the flow for establishing a man-in-the-middle tunnel.
-     * </p>
-     * 
-     * <p>
-     * See {@link ProxyToServerConnection#startCONNECTWithMITM()} for the
-     * beginning of this flow.
-     * </p>
-     * 
-     * @param serverConnection
-     *            the ProxyToServerConnection that connected
-     * @param initialRequest
-     *            the HTTPRequest that prompted us to do a CONNECT
-     */
-    private void finishCONNECTWithMITM(
-            final ProxyToServerConnection serverConnection,
-            final HttpRequest initialRequest) {
-        LOG.debug("Finishing SSL MITM");
-        enableSSLAsServer().addListener(
-                new GenericFutureListener<Future<? super Channel>>() {
-                    @Override
-                    public void operationComplete(Future<? super Channel> future)
-                            throws Exception {
-                        become(AWAITING_INITIAL);
-                        recordServerConnectionResult(serverConnection,
-                                initialRequest, future.isSuccess());
-                        if (future.isSuccess()) {
-                            LOG.debug("SSL MITM Established");
-                        }
-                    }
-                });
-    }
-
-    /**
-     * <p>
-     * Record the result of traying to connect to a server. If we failed to
+     * Record the result of trying to connect to a server. If we failed to
      * connect to the server, one of two things can happen:
      * </p>
      * 
@@ -592,20 +503,21 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * </ol>
      * 
      * @param serverConnection
-     * @param initialRequest
      * @param connectionSuccessful
      */
     private void recordServerConnectionResult(
             ProxyToServerConnection serverConnection,
-            HttpRequest initialRequest, boolean connectionSuccessful) {
+            boolean connectionSuccessful) {
         if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
             resumeReading();
+            become(AWAITING_INITIAL);
         }
         if (connectionSuccessful) {
             LOG.debug("Connection to server succeeded: {}",
                     serverConnection.getAddress());
             numberOfCurrentlyConnectedServers.incrementAndGet();
         } else {
+            HttpRequest initialRequest = serverConnection.getInitialRequest();
             if (shouldChain(initialRequest)) {
                 fallbackToDirectConnection(serverConnection, initialRequest);
             } else {
@@ -644,15 +556,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     private void initChannelPipeline(ChannelPipeline pipeline) {
         LOG.debug("Configuring ChannelPipeline");
-
-        if (proxyServer.getSslContextSource() != null) {
-            LOG.debug("Adding SSL handler");
-            SSLEngine engine = proxyServer.getSslContextSource()
-                    .getSSLContext()
-                    .createSSLEngine();
-            engine.setUseClientMode(false);
-            pipeline.addLast("ssl", new SslHandler(engine));
-        }
 
         // We want to allow longer request lines, headers, and chunks
         // respectively.

@@ -1,5 +1,9 @@
 package org.littleshoot.proxy;
 
+import io.netty.handler.codec.http.HttpRequest;
+
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+
 /**
  * Tests a proxy chained to a missing downstream proxy. When the downstream
  * proxy is unavailable, the upstream proxy should just fall back to a direct
@@ -12,7 +16,14 @@ public class ChainedProxyWithFallbackTest extends BaseProxyTest {
 
     @Override
     protected void setUp() {
-        this.proxyServer = TestUtils.startProxyServer(PROXY_SERVER_PORT,
-                DOWNSTREAM_PROXY_HOST_AND_PORT);
+        this.proxyServer = DefaultHttpProxyServer.configure()
+                .withPort(PROXY_SERVER_PORT)
+                .withChainProxyManager(new ChainedProxyManagerAdapter() {
+                    @Override
+                    public String getHostAndPort(HttpRequest httpRequest) {
+                        return DOWNSTREAM_PROXY_HOST_AND_PORT;
+                    }
+                })
+                .start();
     }
 }

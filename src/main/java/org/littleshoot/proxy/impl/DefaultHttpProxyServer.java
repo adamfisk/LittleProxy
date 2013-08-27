@@ -277,17 +277,23 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return this;
     }
 
-    public void start() {
-        start(false, true);
+    public HttpProxyServer start() {
+        return start(true, true);
     }
 
-    public void start(final boolean localOnly, final boolean anyAddress) {
+    public HttpProxyServer start(final boolean localOnly,
+            final boolean anyAddress) {
         LOG.info("Starting proxy on port: " + this.port);
         this.stopped.set(false);
         ChannelInitializer<Channel> initializer = new ChannelInitializer<Channel>() {
             protected void initChannel(Channel ch) throws Exception {
+                SSLContext sslContext = null;
+                if (sslContextSource != null) {
+                    sslContext = sslContextSource.getSSLContext();
+                }
                 new ClientToProxyConnection(
                         DefaultHttpProxyServer.this,
+                        sslContext,
                         ch.pipeline());
             };
         };
@@ -336,6 +342,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 stop();
             }
         }));
+
+        return this;
     }
 
     private final AtomicBoolean stopped = new AtomicBoolean(false);
@@ -392,19 +400,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     protected void registerChannel(Channel channel) {
         this.allChannels.add(channel);
     }
-    
+
     protected ChainedProxyManager getChainProxyManager() {
         return chainProxyManager;
     }
-    
+
     protected SSLContextSource getSslContextSource() {
         return sslContextSource;
     }
-    
+
     protected ProxyAuthenticator getProxyAuthenticator() {
         return proxyAuthenticator;
     }
-    
+
     protected HttpRequestFilter getRequestFilter() {
         return requestFilter;
     }
@@ -412,11 +420,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     protected HttpResponseFilters getResponseFilters() {
         return responseFilters;
     }
-    
+
     protected Collection<ActivityTracker> getActivityTrackers() {
         return activityTrackers;
     }
-    
+
     protected EventLoopGroup getProxyToServerWorkerFor(
             TransportProtocol transportProtocol) {
         return this.proxyToServerWorkerPools.get(transportProtocol);
@@ -550,12 +558,23 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             return this;
         }
 
-        public HttpProxyServer build() {
+        public DefaultHttpProxyServer build() {
             return new DefaultHttpProxyServer(transportProtocol, port,
                     sslContextSource, proxyAuthenticator, chainProxyManager,
                     requestFilter, responseFilters, useDnsSec, useMITMInSSL,
                     acceptAllSSLCertificates, transparent,
                     idleConnectionTimeout);
+        }
+
+        /**
+         * Convenience method that builds and immediately starts the server.
+         * 
+         * @return
+         */
+        public DefaultHttpProxyServer start() {
+            DefaultHttpProxyServer server = build();
+            server.start();
+            return server;
         }
     }
 }

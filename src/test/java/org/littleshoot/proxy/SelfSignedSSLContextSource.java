@@ -17,23 +17,28 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Basic {@link SSLContextSource} for unit testing. The {@link SSLContext} uses
- * self-signed certificates that are generated automatically on startup.
+ * self-signed certificates that are generated lazily if the given key store
+ * file doesn't yet exist.
  */
 public class SelfSignedSSLContextSource implements SSLContextSource {
     private static final Logger LOG = LoggerFactory
             .getLogger(SelfSignedSSLContextSource.class);
 
-    private static final File KEYSTORE_FILE = new File(
-            "littleproxy_keystore.jks");
     private static final String ALIAS = "littleproxy";
     private static final String PASSWORD = "Be Your Own Lantern";
     private static final String PROTOCOL = "TLS";
+    private final File keyStoreFile;
 
     private SSLContext sslContext;
 
-    public SelfSignedSSLContextSource() {
+    public SelfSignedSSLContextSource(String keyStorePath) {
+        this.keyStoreFile = new File(keyStorePath);
         initializeKeyStore();
         initializeSSLContext();
+    }
+
+    public SelfSignedSSLContextSource() {
+        this("littleproxy_keystore.jks");
     }
 
     @Override
@@ -42,7 +47,7 @@ public class SelfSignedSSLContextSource implements SSLContextSource {
     }
 
     private void initializeKeyStore() {
-        if (KEYSTORE_FILE.isFile()) {
+        if (keyStoreFile.isFile()) {
             LOG.info("Not deleting keystore");
             return;
         }
@@ -50,10 +55,10 @@ public class SelfSignedSSLContextSource implements SSLContextSource {
         nativeCall("keytool", "-genkey", "-alias", ALIAS, "-keysize",
                 "4096", "-validity", "36500", "-keyalg", "RSA", "-dname",
                 "CN=littleproxy", "-keypass", PASSWORD, "-storepass",
-                PASSWORD, "-keystore", KEYSTORE_FILE.getName());
+                PASSWORD, "-keystore", keyStoreFile.getName());
 
         nativeCall("keytool", "-exportcert", "-alias", ALIAS, "-keystore",
-                KEYSTORE_FILE.getName(), "-storepass", PASSWORD, "-file",
+                keyStoreFile.getName(), "-storepass", PASSWORD, "-file",
                 "littleproxy_cert");
     }
 
@@ -68,7 +73,7 @@ public class SelfSignedSSLContextSource implements SSLContextSource {
             final KeyStore ks = KeyStore.getInstance("JKS");
             // ks.load(new FileInputStream("keystore.jks"),
             // "changeit".toCharArray());
-            ks.load(new FileInputStream(KEYSTORE_FILE), PASSWORD.toCharArray());
+            ks.load(new FileInputStream(keyStoreFile), PASSWORD.toCharArray());
 
             // Set up key manager factory to use our key store
             final KeyManagerFactory kmf =

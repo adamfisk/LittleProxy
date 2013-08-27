@@ -1,14 +1,18 @@
 package org.littleshoot.proxy;
 
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+
 /**
  * Tests a single proxy that requires username/password authentication.
  */
-public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest {
+public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest
+        implements ProxyAuthenticator {
     @Override
     protected void setUp() {
-        this.proxyServer = TestUtils.startProxyServerWithCredentials(
-                PROXY_SERVER_PORT, getUsername(),
-                getPassword());
+        this.proxyServer = DefaultHttpProxyServer.configure()
+                .withPort(PROXY_SERVER_PORT)
+                .withProxyAuthenticator(this)
+                .start();
     }
 
     @Override
@@ -19,5 +23,10 @@ public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest {
     @Override
     protected String getPassword() {
         return "user2";
+    }
+
+    @Override
+    public boolean authenticate(String userName, String password) {
+        return getUsername().equals(userName) && getPassword().equals(password);
     }
 }

@@ -4,10 +4,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
@@ -22,7 +19,6 @@ import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 
 import java.net.InetSocketAddress;
 import java.util.LinkedList;
@@ -30,6 +26,8 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.net.ssl.SSLContext;
 
 import org.littleshoot.proxy.HttpFilter;
 import org.littleshoot.proxy.TransportProtocol;
@@ -43,6 +41,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private final ClientToProxyConnection clientConnection;
     private volatile TransportProtocol transportProtocol;
+    private volatile SSLContext sslContext;
     private volatile InetSocketAddress address;
     private final String serverHostAndPort;
     private volatile String chainedProxyHostAndPort;
@@ -54,6 +53,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * for the connection to be established before writing the next message.
      */
     private final Object connectLock = new Object();
+
+    /**
+     * Encapsulates the flow for establishing a connection, which can vary
+     * depending on how things are configured.
+     */
+    private volatile ConnectionFlow connectionFlow;
 
     /**
      * This is the initial request received prior to connecting. We keep track
@@ -98,12 +103,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     ProxyToServerConnection(
             DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
-            TransportProtocol transportProtocol,
+            TransportProtocol transportProtocol, SSLContext sslContext,
             InetSocketAddress address, String serverHostAndPort,
             String chainedProxyHostAndPort, HttpFilter responseFilter) {
-        super(DISCONNECTED, proxyServer);
+        super(DISCONNECTED, proxyServer, sslContext, true);
         this.clientConnection = clientConnection;
         this.transportProtocol = transportProtocol;
+        this.sslContext = sslContext;
         this.address = address;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxyHostAndPort = chainedProxyHostAndPort;
@@ -120,24 +126,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // Record statistic for ConnectionTracer and then ignore it
             clientConnection.recordBytesReceivedFromServer(this,
                     (ConnectionTracer) msg);
-        } else if (is(AWAITING_CONNECT_OK)) {
+        } else if (isConnecting()) {
             LOG.debug("Reading: {}", msg);
-            // Here we're handling the response from a chained proxy to our
-            // earlier CONNECT request
-            boolean connectOk = false;
-            if (msg instanceof HttpResponse) {
-                HttpResponse httpResponse = (HttpResponse) msg;
-                int statusCode = httpResponse.getStatus().code();
-                if (statusCode >= 200 && statusCode <= 299) {
-                    connectOk = true;
-                }
-            }
-            if (connectOk) {
-                // The chained proxy is now tunneling, so we start tunneling too
-                startCONNECTWithTunneling();
-            } else {
-                unableToConnect();
-            }
+            this.connectionFlow.read(msg);
         } else {
             super.read(msg);
         }
@@ -230,15 +221,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      **************************************************************************/
 
     @Override
-    protected void connected(ChannelHandlerContext ctx) {
-        if (ProxyUtils.isCONNECT(initialRequest)) {
-            startCONNECT(initialRequest);
-        } else {
-            finishConnecting(true);
-        }
-    }
-
-    @Override
     protected void becameSaturated() {
         super.becameSaturated();
         this.clientConnection.serverBecameSaturated(this);
@@ -301,6 +283,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return chainedProxyHostAndPort;
     }
 
+    public HttpRequest getInitialRequest() {
+        return initialRequest;
+    }
+
     /***************************************************************************
      * Private Implementation
      **************************************************************************/
@@ -355,47 +341,111 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private void connectAndWrite(final HttpRequest initialRequest) {
         LOG.debug("Starting new connection to: {}", address);
 
-        become(CONNECTING);
-
         // Remember our initial request so that we can write it after connecting
         this.initialRequest = initialRequest;
+        initializeConnectionFlow();
+        connectionFlow.start();
+    }
 
-        clientConnection.connectingToServer(this);
+    /**
+     * This method initializes our {@link ConnectionFlow} based on however this
+     * connection has been configured.
+     */
+    private void initializeConnectionFlow() {
+        this.connectionFlow = new ConnectionFlow(clientConnection, this,
+                connectLock)
+                .startWith(connectChannel);
 
-        Bootstrap cb = new Bootstrap().group(this.proxyServer
-                .getProxyToServerWorkerFor(transportProtocol));
-
-        switch (transportProtocol) {
-        case TCP:
-            LOG.debug("Connecting to server with TCP");
-            cb.channel(NioSocketChannel.class);
-            break;
-        case UDT:
-            LOG.debug("Connecting to server with UDT");
-            cb.channel(NioUdtByteConnectorChannel.class);
-            break;
-        default:
-            throw new UnknownTransportProtocolError(transportProtocol);
+        if (sslContext != null) {
+            this.connectionFlow.then(encryptChannel);
         }
 
-        cb.handler(new ChannelInitializer<Channel>() {
-            protected void initChannel(Channel ch) throws Exception {
-                initChannelPipeline(ch.pipeline(), initialRequest);
-            };
-        });
-        cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 40 * 1000);
+        if (ProxyUtils.isCONNECT(initialRequest)) {
+            if (clientConnection.shouldChain(initialRequest)) {
+                // If we're chaining to another proxy, send over the CONNECT
+                // request
+                this.connectionFlow.then(httpCONNECTWithChainedProxy);
+                // TODO: add back MITM support
+                // } else if (this.proxyServer.isUseMITMInSSL()) {
+                // startCONNECTWithMITM();
+            }
 
-        cb.connect(address).addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture future)
-                    throws Exception {
-                if (!future.isSuccess()) {
-                    LOG.debug("Could not connect to " + address, future.cause());
-                    unableToConnect();
+            this.connectionFlow.then(startTunneling)
+                    .then(clientConnection.respondCONNECTSuccessful)
+                    .then(clientConnection.startTunneling);
+        }
+    }
+
+    private ConnectionFlowStep connectChannel = new ConnectionFlowStep(this,
+            CONNECTING) {
+
+        @Override
+        protected Future<?> execute() {
+            Bootstrap cb = new Bootstrap().group(proxyServer
+                    .getProxyToServerWorkerFor(transportProtocol));
+
+            switch (transportProtocol) {
+            case TCP:
+                LOG.debug("Connecting to server with TCP");
+                cb.channel(NioSocketChannel.class);
+                break;
+            case UDT:
+                LOG.debug("Connecting to server with UDT");
+                cb.channel(NioUdtByteConnectorChannel.class);
+                break;
+            default:
+                throw new UnknownTransportProtocolError(transportProtocol);
+            }
+
+            cb.handler(new ChannelInitializer<Channel>() {
+                protected void initChannel(Channel ch) throws Exception {
+                    initChannelPipeline(ch.pipeline(), initialRequest);
+                };
+            });
+            cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 40 * 1000);
+
+            return cb.connect(address);
+        }
+    };
+
+    private ConnectionFlowStep encryptChannel = new ConnectionFlowStep(this,
+            HANDSHAKING) {
+        protected Future<?> execute() {
+            return encrypt();
+        }
+    };
+
+    private ConnectionFlowStep httpCONNECTWithChainedProxy = new ConnectionFlowStep(
+            this, AWAITING_CONNECT_OK) {
+        protected Future<?> execute() {
+            LOG.debug("Handling CONNECT request through Chained Proxy");
+            return writeToChannel(initialRequest);
+        }
+
+        void onSuccess(ConnectionFlow flow) {
+            // Do nothing, since we want to wait for the CONNECT response to
+            // come back
+        }
+
+        void read(ConnectionFlow flow, Object msg) {
+            // Here we're handling the response from a chained proxy to our
+            // earlier CONNECT request
+            boolean connectOk = false;
+            if (msg instanceof HttpResponse) {
+                HttpResponse httpResponse = (HttpResponse) msg;
+                int statusCode = httpResponse.getStatus().code();
+                if (statusCode >= 200 && statusCode <= 299) {
+                    connectOk = true;
                 }
             }
-        });
-    }
+            if (connectOk) {
+                flow.go();
+            } else {
+                flow.fail();
+            }
+        }
+
+    };
 
     protected void retryConnecting(InetSocketAddress newAddress,
             TransportProtocol transportProtocol,
@@ -452,110 +502,32 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("handler", this);
     }
 
-    /**
-     * <p>
-     * Starts the flow for establishing a CONNECT tunnel. The handling is
-     * different depending on whether we're doing a simple tunnel or acting as
-     * man-in-the-middle (MITM).
-     * </p>
-     * 
-     * <p>
-     * With a simple tunnel, the proxy simply passes bytes directly between
-     * client and server. With an MITM tunnel, the proxy terminates an SSL
-     * connection from the client and another to the server. Every HTTP message
-     * that is sent between the two is independently handled and forwarded,
-     * allowing the proxy to inspect and/or modify those messages.
-     * </p>
-     * 
-     * <p>
-     * Establishing a tunnel is considered part of the overall connection
-     * establishment flow, and this connection will remain in the
-     * {@link ConnectionState#CONNECTING} state until the tunnel has been
-     * established.
-     * </p>
-     * 
-     * <p>
-     * See {@link ClientToProxyConnection#finishCONNECT()} for the end of this
-     * flow.
-     * </p>
-     * 
-     * @param httpRequest
-     *            the HttpRequest that prompted us to start the CONNECT flow
-     */
-    private void startCONNECT(HttpRequest httpRequest) {
-        LOG.debug("Handling CONNECT request");
-
-        if (clientConnection.shouldChain(httpRequest)) {
-            startCONNECTWithChainedProxy(httpRequest);
-        } else if (this.proxyServer.isUseMITMInSSL()) {
-            startCONNECTWithMITM();
-        } else {
-            startCONNECTWithTunneling();
-        }
-    }
-
-    /**
-     * <p>
-     * Start the flow for establishing a simple CONNECT tunnel.
-     * </p>
-     * 
-     * <p>
-     * See {@link ClientToProxyConnection#finishCONNECTWithTunneling()} for the
-     * end of this flow.
-     * </p>
-     * 
-     */
-    private void startCONNECTWithTunneling() {
-        LOG.debug("Preparing to tunnel");
-
-        startTunneling().addListener(new GenericFutureListener<Future<?>>() {
-            public void operationComplete(Future<?> future) throws Exception {
-                finishConnecting(false);
-            };
-        });
-    }
-
-    /**
-     * When we get a CONNECT that needs to go to a chained proxy, we go into
-     * state AWAITING_CONNECTION_OK and forward the CONNECT. Once we get a
-     * connection OK (200 status), we consider our connection complete and
-     * switch to tunneling mode.
-     * 
-     * @param httpRequest
-     */
-    private void startCONNECTWithChainedProxy(HttpRequest httpRequest) {
-        LOG.debug("Preparing to tunnel via chained proxy, forwarding CONNECT");
-
-        become(AWAITING_CONNECT_OK);
-        writeToChannel(httpRequest);
-    }
-
-    /**
-     * <p>
-     * Start the flow for establishing a man-in-the-middle tunnel.
-     * </p>
-     * 
-     * <p>
-     * See {@link ClientToProxyConnection#finishCONNECTWithMITM()} for the end
-     * of this flow.
-     * </p>
-     * 
-     * @return
-     */
-    private void startCONNECTWithMITM() {
-        LOG.debug("Preparing to act as Man-in-the-Middle");
-        this.isMITM.set(true);
-        enableSSLAsClient().addListener(
-                new GenericFutureListener<Future<? super Channel>>() {
-                    @Override
-                    public void operationComplete(Future<? super Channel> future)
-                            throws Exception {
-                        LOG.debug("Proxy to server SSL handshake done. Success is: "
-                                + future.isSuccess());
-                        finishConnecting(false);
-                    }
-                });
-    }
+    // /**
+    // * <p>
+    // * Start the flow for establishing a man-in-the-middle tunnel.
+    // * </p>
+    // *
+    // * <p>
+    // * See {@link ClientToProxyConnection#finishCONNECTWithMITM()} for the end
+    // * of this flow.
+    // * </p>
+    // *
+    // * @return
+    // */
+    // private void startCONNECTWithMITM() {
+    // LOG.debug("Preparing to act as Man-in-the-Middle");
+    // this.isMITM.set(true);
+    // encrypt().addListener(
+    // new GenericFutureListener<Future<? super Channel>>() {
+    // @Override
+    // public void operationComplete(Future<? super Channel> future)
+    // throws Exception {
+    // LOG.debug("Proxy to server SSL handshake done. Success is: "
+    // + future.isSuccess());
+    // finishConnecting(false);
+    // }
+    // });
+    // }
 
     /**
      * <p>
@@ -567,11 +539,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      *            whether or not we should forward the initial HttpRequest to
      *            the server after the connection has been established.
      */
-    private void finishConnecting(boolean shouldForwardInitialRequest) {
-        clientConnection.serverConnected(this, initialRequest, true);
+    void connectionSucceeded(boolean shouldForwardInitialRequest) {
+        clientConnection.serverConnectionSucceeded(this);
 
         synchronized (connectLock) {
-            super.connected(ctx);
+            super.connected();
 
             if (shouldForwardInitialRequest) {
                 LOG.debug("Writing initial request");
@@ -585,16 +557,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // connection that it's okay to proceed.
             connectLock.notifyAll();
         }
-    }
-
-    /**
-     * Go back to DISCONNECTED status and let the client know that connecting
-     * failed.
-     */
-    private void unableToConnect() {
-        become(DISCONNECTED);
-        clientConnection.serverConnected(ProxyToServerConnection.this,
-                initialRequest, false);
     }
 
     private void filterResponseIfNecessary(HttpResponse httpResponse) {

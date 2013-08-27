@@ -13,10 +13,14 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 
 /**
  * <p>
@@ -71,11 +75,14 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
     protected final DefaultHttpProxyServer proxyServer;
+    protected final SSLContext sslContext;
+    protected final boolean runsAsSSLClient;
 
     protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
 
     private volatile ConnectionState currentState;
+    private volatile boolean tunneling = false;
 
     /**
      * Construct a new ProxyConnection.
@@ -84,11 +91,21 @@ abstract class ProxyConnection<I extends HttpObject> extends
      *            the state in which this connection starts out
      * @param proxyServer
      *            the {@link DefaultHttpProxyServer} in which we're running
+     * @param sslContext
+     *            (optional) if provided, this connection will be encrypted
+     *            using the given SSLContext
+     * @param runsAsSSLClient
+     *            determines whether this connection acts as an SSL client or
+     *            server (determines who does the handshake)
      */
     protected ProxyConnection(ConnectionState initialState,
-            DefaultHttpProxyServer proxyServer) {
+            DefaultHttpProxyServer proxyServer,
+            SSLContext sslContext,
+            boolean runsAsSSLClient) {
         become(initialState);
         this.proxyServer = proxyServer;
+        this.sslContext = sslContext;
+        this.runsAsSSLClient = runsAsSSLClient;
     }
 
     /***************************************************************************
@@ -103,6 +120,14 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected void read(Object msg) {
         LOG.debug("Reading: {}", msg);
 
+        if (tunneling) {
+            readRaw((ByteBuf) msg);
+        } else {
+            readNormal(msg);
+        }
+    }
+
+    private void readNormal(Object msg) {
         ConnectionState nextState = getCurrentState();
         switch (getCurrentState()) {
         case AWAITING_INITIAL:
@@ -114,17 +139,14 @@ abstract class ProxyConnection<I extends HttpObject> extends
             nextState = ProxyUtils.isLastChunk(chunk) ? AWAITING_INITIAL
                     : AWAITING_CHUNK;
             break;
-        case TUNNELING:
-            readRaw((ByteBuf) msg);
-            break;
         case AWAITING_PROXY_AUTHENTICATION:
             if (msg instanceof HttpRequest) {
                 // Once we get an HttpRequest, try to process it as usual
                 nextState = readInitial((I) msg);
             } else {
-                // Anything that's not an HttpRequest that came in while we're
-                // pending authentication gets dropped on the floor. This can
-                // happen if the connected host already sent us some chunks
+                // Anything that's not an HttpRequest that came in while
+                // we're pending authentication gets dropped on the floor. This
+                // can happen if the connected host already sent us some chunks
                 // (e.g. from a POST) after an initial request that turned out
                 // to require authentication.
             }
@@ -244,8 +266,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Lifecycle
      **************************************************************************/
 
-    protected void connected(ChannelHandlerContext ctx) {
-        become(is(CONNECTING) ? AWAITING_INITIAL : getCurrentState());
+    protected void connected() {
+        become(AWAITING_INITIAL);
         LOG.debug("Connected");
     }
 
@@ -256,73 +278,54 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * <p>
-     * This method enables tunneling on this connection by dropping the HTTP
-     * related encoders and decoders, as well as idle timers. This method also
-     * resumes reading on the underlying channel.
+     * Enables tunneling on this connection by dropping the HTTP related
+     * encoders and decoders, as well as idle timers. This method also resumes
+     * reading on the underlying channel.
      * </p>
      * 
      * <p>
      * Note - the work is done on the context's executor because
      * {@link ChannelPipeline#remove(String)} can deadlock if called directly.
      * </p>
-     * 
-     * @return a Future that tells us when tunneling has been enabled
      */
-    protected Future startTunneling() {
-        return ctx.executor().submit(new Runnable() {
-            @Override
-            public void run() {
-                ChannelPipeline pipeline = ctx.pipeline();
-                if (pipeline.get("encoder") != null) {
-                    pipeline.remove("encoder");
+    protected ConnectionFlowStep startTunneling = new ConnectionFlowStep(
+            this, NEGOTIATING_CONNECT, true) {
+        protected Future<?> execute() {
+            return ctx.executor().submit(new Runnable() {
+                @Override
+                public void run() {
+                    ChannelPipeline pipeline = ctx.pipeline();
+                    if (pipeline.get("encoder") != null) {
+                        pipeline.remove("encoder");
+                    }
+                    if (pipeline.get("decoder") != null) {
+                        pipeline.remove("decoder");
+                    }
+                    if (pipeline.get("idle") != null) {
+                        pipeline.remove("idle");
+                    }
+                    tunneling = true;
                 }
-                if (pipeline.get("decoder") != null) {
-                    pipeline.remove("decoder");
-                }
-                if (pipeline.get("idle") != null) {
-                    pipeline.remove("idle");
-                }
-                become(TUNNELING);
-            }
-        });
-    }
+            });
+        };
+    };
 
     /**
-     * Enables SSL on this connection as a client.
+     * Encrypts traffic on this connection.
      * 
-     * @return a future for when the SSL handshake is complete
+     * @return
      */
-    protected Future<Channel> enableSSLAsClient() {
-        LOG.debug("Enabling SSL as Client");
-        return enableSSL(true);
+    protected Future<Channel> encrypt() {
+        return encrypt(ctx.pipeline());
     }
 
-    /**
-     * Enables SSL on this connection as a server.
-     * 
-     * @return a future for when the SSL handshake is complete
-     */
-    protected Future<Channel> enableSSLAsServer() {
-        LOG.debug("Enabling SSL as Server");
-        Future<Channel> future = enableSSL(false);
-        resumeReading();
-        return future;
-    }
-
-    private Future<Channel> enableSSL(boolean isClient) {
-        LOG.debug("Enabling SSL");
-        ChannelPipeline pipeline = ctx.pipeline();
-        // TODO: make this work again
-        // SslContextFactory scf = new SslContextFactory(
-        // new SelfSignedKeyStoreManager());
-        // SSLContext context = isClient ? scf.getClientContext() : scf
-        // .getServerContext();
-        // SSLEngine engine = context.createSSLEngine();
-        // engine.setUseClientMode(isClient);
-        // SslHandler handler = new SslHandler(engine);
-        // pipeline.addFirst("ssl", handler);
-        // return handler.handshakeFuture();
-        return null;
+    protected Future<Channel> encrypt(ChannelPipeline pipeline) {
+        LOG.debug("Enabling encryption with SSLContext: {}", sslContext);
+        SSLEngine engine = sslContext.createSSLEngine();
+        engine.setUseClientMode(runsAsSSLClient);
+        SslHandler handler = new SslHandler(engine);
+        pipeline.addFirst("ssl", handler);
+        return handler.handshakeFuture();
     }
 
     /**
@@ -384,6 +387,10 @@ abstract class ProxyConnection<I extends HttpObject> extends
         return currentState == state;
     }
 
+    protected boolean isConnecting() {
+        return currentState.isPartOfConnectFlow();
+    }
+
     /**
      * Udpates the current state to the given value.
      * 
@@ -413,6 +420,10 @@ abstract class ProxyConnection<I extends HttpObject> extends
         this.channel.config().setAutoRead(true);
     }
 
+    ProxyConnectionLogger getLOG() {
+        return LOG;
+    }
+
     /***************************************************************************
      * Adapting the Netty API
      **************************************************************************/
@@ -440,7 +451,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     @Override
     public final void channelActive(ChannelHandlerContext ctx) throws Exception {
         try {
-            connected(ctx);
+            connected();
         } finally {
             super.channelActive(ctx);
         }
