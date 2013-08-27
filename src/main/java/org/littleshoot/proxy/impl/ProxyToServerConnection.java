@@ -391,9 +391,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 // startCONNECTWithMITM();
             }
 
-            this.connectionFlow.then(startTunneling)
+            this.connectionFlow.then(StartTunneling)
                     .then(clientConnection.RespondCONNECTSuccessful)
-                    .then(clientConnection.startTunneling);
+                    .then(clientConnection.StartTunneling);
         }
     }
 

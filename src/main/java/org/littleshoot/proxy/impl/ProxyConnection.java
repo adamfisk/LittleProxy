@@ -316,7 +316,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * directly.
      * </p>
      */
-    protected ConnectionFlowStep startTunneling = new ConnectionFlowStep(
+    protected ConnectionFlowStep StartTunneling = new ConnectionFlowStep(
             this, NEGOTIATING_CONNECT, true) {
         protected Future<?> execute() {
             return ctx.executor().submit(new Runnable() {
