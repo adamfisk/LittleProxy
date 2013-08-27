@@ -31,7 +31,7 @@ public class ChainedProxyTest extends BaseProxyTest {
         public void requestSent(FlowContext flowContext,
                 io.netty.handler.codec.http.HttpRequest httpRequest) {
             REQUESTS_SENT_BY_UPSTREAM.incrementAndGet();
-            TRANSPORTS_USED.add(flowContext.getTransportProtocolToServer());
+            TRANSPORTS_USED.add(flowContext.getOutboundTransportProtocol());
         }
     };
     private static final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
