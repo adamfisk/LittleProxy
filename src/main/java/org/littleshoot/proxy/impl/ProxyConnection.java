@@ -267,7 +267,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
      **************************************************************************/
 
     protected void connected() {
-        become(AWAITING_INITIAL);
         LOG.debug("Connected");
     }
 
@@ -402,6 +401,10 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     protected ConnectionState getCurrentState() {
         return currentState;
+    }
+    
+    public boolean isTunneling() {
+        return tunneling;
     }
 
     /**

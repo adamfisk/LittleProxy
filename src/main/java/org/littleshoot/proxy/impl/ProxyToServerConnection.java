@@ -540,6 +540,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      *            the server after the connection has been established.
      */
     void connectionSucceeded(boolean shouldForwardInitialRequest) {
+        become(AWAITING_INITIAL);
         clientConnection.serverConnectionSucceeded(this,
                 shouldForwardInitialRequest);
 

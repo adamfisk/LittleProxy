@@ -119,7 +119,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         super(AWAITING_INITIAL, proxyServer, sslContext, false);
         initChannelPipeline(pipeline);
         if (sslContext != null) {
-            LOG.debug("Encrypting traffic from client using SSL");
+            LOG.debug("Encrypting traffic from client using JSSE");
             encrypt(pipeline);
         }
         LOG.debug("Created ClientToProxyConnection");
@@ -315,6 +315,15 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             ProxyToServerConnection serverConnection,
             ConnectionState lastStateBeforeFailure) {
         recordServerConnectionResult(serverConnection, false, false);
+    }
+
+    /**
+     * On connect of the client, start waiting for initial {@link HttpRequest}.
+     */
+    @Override
+    protected void connected() {
+        super.connected();
+        become(AWAITING_INITIAL);
     }
 
     /**
@@ -515,7 +524,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             boolean connectionSuccessful) {
         if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
             resumeReading();
-            become(shouldForwardInitialRequest ? AWAITING_CHUNK
+            become(shouldForwardInitialRequest ? getCurrentState()
                     : AWAITING_INITIAL);
         }
         if (connectionSuccessful) {

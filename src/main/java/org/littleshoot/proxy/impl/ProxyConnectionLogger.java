@@ -85,10 +85,14 @@ class ProxyConnectionLogger {
     }
 
     private String fullMessage(String message) {
-        message = "(" + connection.getCurrentState() + "): " + message;
-        if (connection.channel != null) {
-            message = connection.channel + " " + message;
+        String stateMessage = connection.getCurrentState().toString();
+        if (connection.isTunneling()) {
+            stateMessage += " {tunneling}";
         }
-        return message;
+        String messagePrefix = "(" + stateMessage + ")";
+        if (connection.channel != null) {
+            messagePrefix = messagePrefix + " " + connection.channel;
+        }
+        return messagePrefix + ": " + message;
     }
 }
