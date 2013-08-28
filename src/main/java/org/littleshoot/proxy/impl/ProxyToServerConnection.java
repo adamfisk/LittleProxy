@@ -2,6 +2,7 @@ package org.littleshoot.proxy.impl;
 
 import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.bootstrap.Bootstrap;
+import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler.Sharable;
@@ -9,7 +10,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.channel.udt.nio.NioUdtByteConnectorChannel;
+import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpObject;
@@ -410,11 +411,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             switch (transportProtocol) {
             case TCP:
                 LOG.debug("Connecting to server with TCP");
-                cb.channel(NioSocketChannel.class);
+                cb.channelFactory(new ChannelFactory<Channel>() {
+                    @Override
+                    public Channel newChannel() {
+                        return new NioSocketChannel();
+                    }
+                });
                 break;
             case UDT:
                 LOG.debug("Connecting to server with UDT");
-                cb.channel(NioUdtByteConnectorChannel.class)
+                cb.channelFactory(NioUdtProvider.BYTE_CONNECTOR)
                         .option(ChannelOption.SO_REUSEADDR, true);
                 break;
             default:

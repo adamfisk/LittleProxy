@@ -1,6 +1,7 @@
 package org.littleshoot.proxy.impl;
 
 import static org.littleshoot.proxy.TransportProtocol.*;
+import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -8,12 +9,12 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.ServerChannel;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.channel.udt.nio.NioUdtByteAcceptorChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
@@ -298,11 +299,16 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         switch (transportProtocol) {
         case TCP:
             LOG.info("Proxy listening with TCP transport");
-            serverBootstrap.channel(NioServerSocketChannel.class);
+            serverBootstrap.channelFactory(new ChannelFactory<ServerChannel>() {
+                @Override
+                public ServerChannel newChannel() {
+                    return new NioServerSocketChannel();
+                }
+            });
             break;
         case UDT:
             LOG.info("Proxy listening with UDT transport");
-            serverBootstrap.channel(NioUdtByteAcceptorChannel.class)
+            serverBootstrap.channelFactory(NioUdtProvider.BYTE_ACCEPTOR)
                     .option(ChannelOption.SO_BACKLOG, 10)
                     .option(ChannelOption.SO_REUSEADDR, true);
             break;
@@ -365,7 +371,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             while (iter.hasNext()) {
                 final ChannelFuture cf = iter.next();
                 if (!cf.isSuccess()) {
-                    LOG.warn("Unable to close channel.  Cause of failure for {} is {}", cf.channel(),
+                    LOG.warn(
+                            "Unable to close channel.  Cause of failure for {} is {}",
+                            cf.channel(),
                             cf.cause());
                 }
             }
