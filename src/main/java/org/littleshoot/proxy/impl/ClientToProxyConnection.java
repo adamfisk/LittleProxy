@@ -218,6 +218,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         LOG.debug("Finding ProxyToServerConnection");
         currentServerConnection = this.serverConnectionsByHostAndPort
                 .get(hostAndPort);
+        // TODO: get more sophisticated here and build a connection key based on
+        // the connection params
         boolean newConnectionRequired = ProxyUtils.isCONNECT(httpRequest)
                 || currentServerConnection == null;
         if (newConnectionRequired) {
@@ -319,7 +321,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Tells the Client that its HTTP CONNECT request was successful.
      */
     protected ConnectionFlowStep RespondCONNECTSuccessful = new ConnectionFlowStep(
-            this, NEGOTIATING_CONNECT, true) {
+            this, NEGOTIATING_CONNECT) {
+        @Override
+        boolean shouldSuppressInitialRequest() {
+            return true;
+        }
+
         protected Future<?> execute() {
             LOG.debug("Responding with CONNECT successful");
             HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
@@ -374,31 +381,20 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void serverConnectionSucceeded(
             ProxyToServerConnection serverConnection,
             boolean shouldForwardInitialRequest) {
-        serverConnectionFinished(serverConnection,
-                shouldForwardInitialRequest, true);
+        LOG.debug("Connection to server succeeded: {}",
+                serverConnection.getAddress());
+        resumeReadingIfNecessary();
+        become(shouldForwardInitialRequest ? getCurrentState()
+                : AWAITING_INITIAL);
+        numberOfCurrentlyConnectedServers.incrementAndGet();
     }
 
     /**
      * If the {@link ProxyToServerConnection} fails to complete its connection
      * lifecycle successfully, this method is called to let us know about it.
      * 
-     * @param serverConnection
-     * @param lastStateBeforeFailure
-     */
-    protected void serverConnectionFailed(
-            ProxyToServerConnection serverConnection,
-            ConnectionState lastStateBeforeFailure) {
-        serverConnectionFinished(serverConnection, false, false);
-    }
-
-    /**
      * <p>
-     * Called when an attempt to connect to a server finished, whether
-     * successful or not.
-     * </p>
-     * 
-     * <p>
-     * If we failed to connect to the server, one of two things can happen:
+     * After failing to connect to the server, one of two things can happen:
      * </p>
      * 
      * <ol>
@@ -409,33 +405,37 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * </ol>
      * 
      * @param serverConnection
-     * @param shouldForwardInitialRequest
-     * @param connectionSuccessful
+     * @param lastStateBeforeFailure
+     * @param what
+     *            caused the failure
      */
-    private void serverConnectionFinished(
+    protected void serverConnectionFailed(
             ProxyToServerConnection serverConnection,
-            boolean shouldForwardInitialRequest,
-            boolean connectionSuccessful) {
+            ConnectionState lastStateBeforeFailure,
+            Throwable cause) {
+        resumeReadingIfNecessary();
+        HttpRequest initialRequest = serverConnection.getInitialRequest();
+        if (shouldChain(initialRequest)
+                && proxyServer.getChainProxyManager()
+                        .allowFallbackToUnchainedConnection(initialRequest)) {
+            LOG.info(
+                    "Failed to connect via chained proxy, falling back to direct connection.  Last state before failure: {}",
+                    lastStateBeforeFailure, cause);
+
+            fallbackToDirectConnection(serverConnection, initialRequest);
+        } else {
+            LOG.debug(
+                    "Connection to server failed: {}.  Last state before failure: {}",
+                    serverConnection.getAddress(), lastStateBeforeFailure,
+                    cause);
+            writeBadGateway(initialRequest);
+        }
+    }
+
+    private void resumeReadingIfNecessary() {
         if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
             LOG.debug("All servers have finished attempting to connecting, resuming reading from client.");
             resumeReading();
-            become(shouldForwardInitialRequest ? getCurrentState()
-                    : AWAITING_INITIAL);
-        }
-
-        if (connectionSuccessful) {
-            LOG.debug("Connection to server succeeded: {}",
-                    serverConnection.getAddress());
-            numberOfCurrentlyConnectedServers.incrementAndGet();
-        } else {
-            HttpRequest initialRequest = serverConnection.getInitialRequest();
-            if (shouldChain(initialRequest)) {
-                fallbackToDirectConnection(serverConnection, initialRequest);
-            } else {
-                LOG.debug("Connection to server failed: {}",
-                        serverConnection.getAddress());
-                writeBadGateway(initialRequest);
-            }
         }
     }
 
@@ -639,7 +639,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void fallbackToDirectConnection(
             ProxyToServerConnection serverConnection,
             HttpRequest initialRequest) {
-        LOG.info("Failed to connect via chained proxy, falling back to direct connection");
         // If we failed to connect to a chained proxy, disable proxy
         // chaining for this request and try again
         disableChainingFor(initialRequest);

@@ -44,4 +44,14 @@ public interface ChainedProxyManager extends SSLContextSource {
      */
     TransportProtocol getTransportProtocol();
 
+    /**
+     * Indicate whether or not it's okay to fall back to an unchained
+     * connection.
+     * 
+     * @param httpRequest
+     *            The HTTP request
+     * @return
+     */
+    boolean allowFallbackToUnchainedConnection(HttpRequest httpRequest);
+
 }

@@ -4,6 +4,7 @@ import static org.littleshoot.proxy.TransportProtocol.*;
 import io.netty.handler.codec.http.HttpRequest;
 
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLContext;
@@ -17,9 +18,11 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
  * was received by the downstream proxy.
  */
 public class ChainedProxyTest extends BaseProxyTest {
-    private static final int DOWNSTREAM_PROXY_PORT = PROXY_SERVER_PORT + 1;
-    private static final String DOWNSTREAM_PROXY_HOST_AND_PORT = "127.0.0.1:"
-            + DOWNSTREAM_PROXY_PORT;
+    protected static final AtomicInteger DOWNSTREAM_PROXY_SERVER_PORT_SEQ = new AtomicInteger(
+            59000);
+
+    private int downstreamProxyPort;
+    private String downstreamProxyHostAndPort;
 
     private static final AtomicLong REQUESTS_SENT_BY_UPSTREAM = new AtomicLong(
             0l);
@@ -45,21 +48,27 @@ public class ChainedProxyTest extends BaseProxyTest {
 
     @Override
     protected void setUp() {
+        // Set up ports from sequence
+        downstreamProxyPort = DOWNSTREAM_PROXY_SERVER_PORT_SEQ
+                .getAndIncrement();
+        downstreamProxyHostAndPort = "127.0.0.1:" + downstreamProxyPort;
+
         REQUESTS_SENT_BY_UPSTREAM.set(0);
         REQUESTS_RECEIVED_BY_DOWNSTREAM.set(0);
         TRANSPORTS_USED.clear();
         final SSLContextSource sslContextSource = new SelfSignedSSLContextSource(
                 "chain_proxy_keystore_1.jks");
         this.downstreamProxy = DefaultHttpProxyServer.bootstrap()
-                .withPort(DOWNSTREAM_PROXY_PORT)
+                .withName("DownstreamProxy")
+                .withPort(downstreamProxyPort)
                 .withTransportProtocol(UDT)
                 .withSslContextSource(sslContextSource).start();
         this.downstreamProxy.addActivityTracker(DOWNSTREAM_TRACKER);
         this.proxyServer = DefaultHttpProxyServer.bootstrap()
-                .withPort(PROXY_SERVER_PORT)
+                .withPort(proxyServerPort)
                 .withChainProxyManager(new ChainedProxyManagerAdapter() {
                     public String getHostAndPort(HttpRequest httpRequest) {
-                        return DOWNSTREAM_PROXY_HOST_AND_PORT;
+                        return downstreamProxyHostAndPort;
                     }
 
                     @Override

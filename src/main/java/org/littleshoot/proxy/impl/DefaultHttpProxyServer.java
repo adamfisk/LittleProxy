@@ -86,6 +86,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ChannelGroup allChannels = new DefaultChannelGroup(
             "HTTP-Proxy-Server", GlobalEventExecutor.INSTANCE);
 
+    private final String name;
     private final TransportProtocol transportProtocol;
     private final int port;
     private final SSLContextSource sslContextSource;
@@ -94,25 +95,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final HttpRequestFilter requestFilter;
     private final HttpResponseFilters responseFilters;
     private final boolean useDnsSec;
-    private final boolean acceptAllSSLCertificates;
     private final boolean transparent;
     private volatile int idleConnectionTimeout;
-
-    /**
-     * Main entry point for Netty.
-     */
     private final ServerBootstrap serverBootstrap;
-
-    /**
-     * This EventLoopGroup is used for accepting incoming connections from all
-     * clients.
-     */
     private final EventLoopGroup clientToProxyBossPool;
-
-    /**
-     * This EventLoopGroup is used for processing incoming connections from all
-     * clients.
-     */
     private final EventLoopGroup clientToProxyWorkerPool;
 
     /**
@@ -163,7 +149,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     /**
-     * 
+     * @param name
+     *            The name of this proxy server (used for logging)
      * @param transportProtocol
      *            The protocol to use for data transport
      * @param port
@@ -200,9 +187,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param responseFilters
      *            The {@link Map} of request domains to match with associated
      *            {@link HttpFilter}s for filtering responses to those requests.
-     * 
+     * @param useDnsSec
+     *            (optional) Enables the use of secure DNS lookups for outbound
+     *            connections.
+     * @param transparent
+     *            If true, this proxy will run as a transparent proxy (not
+     *            touching requests and responses).
+     * @param idleConnectionTimeout
+     *            The timeout (in seconds) for auto-closing idle connections.
      */
-    private DefaultHttpProxyServer(TransportProtocol transportProtocol,
+    private DefaultHttpProxyServer(String name,
+            TransportProtocol transportProtocol,
             int port,
             SSLContextSource sslContextSource,
             ProxyAuthenticator proxyAuthenticator,
@@ -213,6 +208,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             boolean acceptAllSSLCertificates,
             boolean transparent,
             int idleConnectionTimeout) {
+        this.name = name;
         this.transportProtocol = transportProtocol;
         this.port = port;
         this.sslContextSource = sslContextSource;
@@ -221,7 +217,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.requestFilter = requestFilter;
         this.responseFilters = responseFilters;
         this.useDnsSec = useDnsSec;
-        this.acceptAllSSLCertificates = acceptAllSSLCertificates;
         this.transparent = transparent;
         this.idleConnectionTimeout = idleConnectionTimeout;
 
@@ -266,10 +261,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return useDnsSec;
     }
 
-    public boolean isAcceptAllSSLCertificates() {
-        return acceptAllSSLCertificates;
-    }
-
     public boolean isTransparent() {
         return transparent;
     }
@@ -312,7 +303,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         case UDT:
             LOG.info("Proxy listening with UDT transport");
             serverBootstrap.channel(NioUdtByteAcceptorChannel.class)
-                    .option(ChannelOption.SO_BACKLOG, 10);
+                    .option(ChannelOption.SO_BACKLOG, 10)
+                    .option(ChannelOption.SO_REUSEADDR, true);
             break;
         default:
             throw new UnknownTransportProtocolError(transportProtocol);
@@ -373,7 +365,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             while (iter.hasNext()) {
                 final ChannelFuture cf = iter.next();
                 if (!cf.isSuccess()) {
-                    LOG.warn("Cause of failure for {} is {}", cf.channel(),
+                    LOG.warn("Unable to close channel.  Cause of failure for {} is {}", cf.channel(),
                             cf.cause());
                 }
             }
@@ -437,24 +429,24 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return this.proxyToServerWorkerPools.get(transportProtocol);
     }
 
-    private static final ThreadFactory CLIENT_TO_PROXY_THREAD_FACTORY = new ThreadFactory() {
+    private final ThreadFactory CLIENT_TO_PROXY_THREAD_FACTORY = new ThreadFactory() {
 
         private int num = 0;
 
         public Thread newThread(final Runnable r) {
             final Thread t = new Thread(r,
-                    "LittleProxy-ClientToProxy-" + num++);
+                    name + "-ClientToProxy-" + num++);
             return t;
         }
     };
 
-    private static final ThreadFactory PROXY_TO_SERVER_THREAD_FACTORY = new ThreadFactory() {
+    private final ThreadFactory PROXY_TO_SERVER_THREAD_FACTORY = new ThreadFactory() {
 
         private int num = 0;
 
         public Thread newThread(final Runnable r) {
             final Thread t = new Thread(r,
-                    "LittleProxy-ProxyToServer-" + num++);
+                    name + "-ProxyToServer-" + num++);
             return t;
         }
     };
@@ -466,6 +458,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * immediately if you wish.
      */
     public static class DefaultHttpProxyServerBootstrap {
+        private String name = "LittleProxy";
         private TransportProtocol transportProtocol = TCP;
         private int port = 8080;
         private SSLContextSource sslContextSource = null;
@@ -491,6 +484,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     props, "transparent");
             this.idleConnectionTimeout = ProxyUtils.extractInt(props,
                     "idle_connection_timeout");
+        }
+
+        public DefaultHttpProxyServerBootstrap withName(String name) {
+            this.name = name;
+            return this;
         }
 
         public DefaultHttpProxyServerBootstrap withTransportProtocol(
@@ -572,8 +570,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         public DefaultHttpProxyServer start(boolean localOnly,
                 boolean anyAddress) {
             DefaultHttpProxyServer server = new DefaultHttpProxyServer(
-                    transportProtocol, port,
-                    sslContextSource, proxyAuthenticator, chainProxyManager,
+                    name, transportProtocol, port, sslContextSource,
+                    proxyAuthenticator, chainProxyManager,
                     requestFilter, responseFilters, useDnsSec,
                     acceptAllSSLCertificates, transparent,
                     idleConnectionTimeout);

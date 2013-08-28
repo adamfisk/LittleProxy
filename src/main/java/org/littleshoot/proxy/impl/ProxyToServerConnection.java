@@ -60,13 +60,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private final HttpFilter responseFilter;
 
     /**
-     * While we're in the process of connecting, it's possible that we'll
-     * receive a new message to write. This lock helps us synchronize and wait
-     * for the connection to be established before writing the next message.
-     */
-    private final Object connectLock = new Object();
-
-    /**
      * Encapsulates the flow for establishing a connection, which can vary
      * depending on how things are configured.
      */
@@ -198,13 +191,17 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                         msg);
             }
         } else {
-            synchronized (connectLock) {
+            synchronized (connectionFlow.getConnectLock()) {
                 if (isConnecting()) {
                     LOG.debug("Attempted to write while still in the process of connecting.  Wait for connecting to finish.");
                     try {
-                        connectLock.wait(30000);
+                        connectionFlow.getConnectLock().wait(30000);
                     } catch (InterruptedException ie) {
                         LOG.warn("Interrupted while waiting for connect monitor");
+                    }
+                    if (is(DISCONNECTED)) {
+                        LOG.debug("Connection failed while we were waiting for it, don't write");
+                        return;
                     }
                 }
             }
@@ -367,8 +364,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * connection has been configured.
      */
     private void initializeConnectionFlow() {
-        this.connectionFlow = new ConnectionFlow(clientConnection, this,
-                connectLock)
+        this.connectionFlow = new ConnectionFlow(clientConnection, this)
                 .then(ConnectChannel);
 
         if (sslContext != null) {
@@ -393,6 +389,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private ConnectionFlowStep ConnectChannel = new ConnectionFlowStep(this,
             CONNECTING) {
+        @Override
+        boolean shouldExecuteOnEventLoop() {
+            return false;
+        }
 
         @Override
         protected Future<?> execute() {
@@ -406,7 +406,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 break;
             case UDT:
                 LOG.debug("Connecting to server with UDT");
-                cb.channel(NioUdtByteConnectorChannel.class);
+                cb.channel(NioUdtByteConnectorChannel.class)
+                        .option(ChannelOption.SO_REUSEADDR, true);
                 break;
             default:
                 throw new UnknownTransportProtocolError(transportProtocol);
@@ -559,20 +560,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         clientConnection.serverConnectionSucceeded(this,
                 shouldForwardInitialRequest);
 
-        synchronized (connectLock) {
-            super.connected();
-
-            if (shouldForwardInitialRequest) {
-                LOG.debug("Writing initial request");
-                write(initialRequest);
-            } else {
-                LOG.debug("Dropping initial request");
-            }
-
-            // Once we've finished recording our connection and written our
-            // initial request, we can notify anyone who is waiting on the
-            // connection that it's okay to proceed.
-            connectLock.notifyAll();
+        if (shouldForwardInitialRequest) {
+            LOG.debug("Writing initial request");
+            write(initialRequest);
+        } else {
+            LOG.debug("Dropping initial request");
         }
     }
 

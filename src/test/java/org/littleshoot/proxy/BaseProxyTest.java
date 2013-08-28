@@ -25,6 +25,7 @@ import java.nio.charset.Charset;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
@@ -63,17 +64,23 @@ import org.littleshoot.proxy.impl.ProxyUtils;
  * configurations of the proxy (e.g. single versus chained, tunneling, etc.).
  */
 public abstract class BaseProxyTest {
-
-    protected static final int WEB_SERVER_PORT = 54800;
-    protected static final int WEB_SERVER_HTTPS_PORT = 54801;
-    protected static final int PROXY_SERVER_PORT = 54827;
-
-    protected static final HttpHost WEB_HOST = new HttpHost("127.0.0.1",
-            WEB_SERVER_PORT);
-    protected static final HttpHost HTTPS_WEB_HOST = new HttpHost(
-            "127.0.0.1", WEB_SERVER_HTTPS_PORT, "https");
-
     protected static final String DEFAULT_RESOURCE = "/";
+
+    protected static final AtomicInteger WEB_SERVER_PORT_SEQ = new AtomicInteger(
+            50000);
+    protected static final AtomicInteger WEB_SERVER_HTTPS_PORT_SEQ = new AtomicInteger(
+            53000);
+    protected static final AtomicInteger PROXY_SERVER_PORT_SEQ = new AtomicInteger(
+            56000);
+
+    protected int webServerPort = 0;
+    protected int httpsWebServerPort = 0;
+    protected int proxyServerPort = 0;
+
+    protected HttpHost webHost = new HttpHost("127.0.0.1",
+            webServerPort);
+    protected HttpHost httpsWebHost = new HttpHost(
+            "127.0.0.1", httpsWebServerPort, "https");
 
     /**
      * The server used by the tests.
@@ -87,8 +94,18 @@ public abstract class BaseProxyTest {
 
     @Before
     public void runSetUp() throws Exception {
-        webServer = TestUtils.startWebServer(WEB_SERVER_PORT,
-                WEB_SERVER_HTTPS_PORT);
+        // Set up new ports for everything based on sequence numbers
+        webServerPort = WEB_SERVER_PORT_SEQ.getAndIncrement();
+        httpsWebServerPort = WEB_SERVER_HTTPS_PORT_SEQ.getAndIncrement();
+        proxyServerPort = PROXY_SERVER_PORT_SEQ.getAndIncrement();
+
+        webHost = new HttpHost("127.0.0.1",
+                webServerPort);
+        httpsWebHost = new HttpHost(
+                "127.0.0.1", httpsWebServerPort, "https");
+
+        webServer = TestUtils.startWebServer(webServerPort,
+                httpsWebServerPort);
         setUp();
     }
 
@@ -136,22 +153,22 @@ public abstract class BaseProxyTest {
 
     @Test
     public void testSimpleGetRequest() throws Exception {
-        compareProxiedAndUnproxiedGET(WEB_HOST, DEFAULT_RESOURCE);
+        compareProxiedAndUnproxiedGET(webHost, DEFAULT_RESOURCE);
     }
 
     @Test
     public void testSimpleGetRequestOverHTTPS() throws Exception {
-        compareProxiedAndUnproxiedGET(HTTPS_WEB_HOST, DEFAULT_RESOURCE);
+        compareProxiedAndUnproxiedGET(httpsWebHost, DEFAULT_RESOURCE);
     }
 
     @Test
     public void testSimplePostRequest() throws Exception {
-        compareProxiedAndUnproxiedPOST(WEB_HOST, DEFAULT_RESOURCE);
+        compareProxiedAndUnproxiedPOST(webHost, DEFAULT_RESOURCE);
     }
 
     @Test
     public void testSimplePostRequestOverHTTPS() throws Exception {
-        compareProxiedAndUnproxiedPOST(HTTPS_WEB_HOST, DEFAULT_RESOURCE);
+        compareProxiedAndUnproxiedPOST(httpsWebHost, DEFAULT_RESOURCE);
     }
 
     @Test
@@ -180,7 +197,7 @@ public abstract class BaseProxyTest {
         final byte[] baseResponse = rawResponse("i.i.com.com", 80, true,
                 HttpVersion.HTTP_1_0);
         final byte[] proxyResponse = rawResponse("127.0.0.1",
-                PROXY_SERVER_PORT, false,
+                proxyServerPort, false,
                 HttpVersion.HTTP_1_1);
         final ByteBuf wrappedBase = Unpooled.wrappedBuffer(baseResponse);
         final ByteBuf wrappedProxy = Unpooled.wrappedBuffer(proxyResponse);
@@ -227,14 +244,14 @@ public abstract class BaseProxyTest {
         try {
             if (isProxied) {
                 final HttpHost proxy = new HttpHost("127.0.0.1",
-                        PROXY_SERVER_PORT);
+                        proxyServerPort);
                 httpClient.getParams().setParameter(
                         ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if (username != null && password != null) {
                     httpClient.getCredentialsProvider()
                             .setCredentials(
                                     new AuthScope("127.0.0.1",
-                                            PROXY_SERVER_PORT),
+                                            proxyServerPort),
                                     new UsernamePasswordCredentials(username,
                                             password));
                 }
@@ -266,14 +283,14 @@ public abstract class BaseProxyTest {
         DefaultHttpClient httpClient = buildHttpClient();
         try {
             if (isProxied) {
-                HttpHost proxy = new HttpHost("127.0.0.1", PROXY_SERVER_PORT);
+                HttpHost proxy = new HttpHost("127.0.0.1", proxyServerPort);
                 httpClient.getParams().setParameter(
                         ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if (username != null && password != null) {
                     httpClient.getCredentialsProvider()
                             .setCredentials(
                                     new AuthScope("127.0.0.1",
-                                            PROXY_SERVER_PORT),
+                                            proxyServerPort),
                                     new UsernamePasswordCredentials(username,
                                             password));
                 }

@@ -16,9 +16,15 @@ class ConnectionFlow {
 
     private final ClientToProxyConnection clientConnection;
     private final ProxyToServerConnection serverConnection;
-    private final Object connectLock;
     private volatile ConnectionFlowStep currentStep;
     private volatile boolean suppressInitialRequest = false;
+
+    /**
+     * While we're in the process of connecting, it's possible that we'll
+     * receive a new message to write. This lock helps us synchronize and wait
+     * for the connection to be established before writing the next message.
+     */
+    private final Object connectLock = new Object();
 
     /**
      * Construct a new {@link ConnectionFlow} for the given client and server
@@ -26,20 +32,13 @@ class ConnectionFlow {
      * 
      * @param clientConnection
      * @param serverConnection
-     * @param connectLock
-     *            an object that's shared by {@link ConnectionFlow} and
-     *            {@link ProxyToServerConnection} and that is used for
-     *            synchronizing the reader and writer threads that are both
-     *            involved during the establishing of a connection.
      */
     ConnectionFlow(
             ClientToProxyConnection clientConnection,
-            ProxyToServerConnection serverConnection,
-            Object connectLock) {
+            ProxyToServerConnection serverConnection) {
         super();
         this.clientConnection = clientConnection;
         this.serverConnection = serverConnection;
-        this.connectLock = connectLock;
     }
 
     /**
@@ -51,6 +50,10 @@ class ConnectionFlow {
     ConnectionFlow then(ConnectionFlowStep step) {
         steps.add(step);
         return this;
+    }
+
+    Object getConnectLock() {
+        return connectLock;
     }
 
     /**
@@ -83,13 +86,11 @@ class ConnectionFlow {
      * </p>
      */
     void advance() {
-        synchronized (connectLock) {
-            currentStep = steps.poll();
-            if (currentStep == null) {
-                succeed();
-            } else {
-                processCurrentStep();
-            }
+        currentStep = steps.poll();
+        if (currentStep == null) {
+            succeed();
+        } else {
+            processCurrentStep();
         }
     }
 
@@ -117,7 +118,29 @@ class ConnectionFlow {
         LOG.debug("Processing connection flow step: {}", currentStep);
         connection.become(currentStep.getState());
         suppressInitialRequest = suppressInitialRequest
-                || currentStep.isSuppressInitialRequest();
+                || currentStep.shouldSuppressInitialRequest();
+
+        if (currentStep.shouldExecuteOnEventLoop()) {
+            connection.ctx.executor().submit(new Runnable() {
+                @Override
+                public void run() {
+                    doProcessCurrentStep(connection, LOG);
+                }
+            });
+        } else {
+            doProcessCurrentStep(connection, LOG);
+        }
+    }
+
+    /**
+     * Does the work of processing the current step, checking the result and
+     * handling success/failure.
+     * 
+     * @param connection
+     * @param LOG
+     */
+    private void doProcessCurrentStep(ProxyConnection connection,
+            final ProxyConnectionLogger LOG) {
         currentStep.execute().addListener(
                 new GenericFutureListener<Future>() {
                     public void operationComplete(Future future)
@@ -125,11 +148,12 @@ class ConnectionFlow {
                         synchronized (connectLock) {
                             if (future.isSuccess()) {
                                 LOG.debug("ConnectionFlowStep succeeded");
-                                currentStep.onSuccess(ConnectionFlow.this);
+                                currentStep
+                                        .onSuccess(ConnectionFlow.this);
                             } else {
                                 LOG.debug("ConnectionFlowStep failed",
                                         future.cause());
-                                fail();
+                                fail(future.cause());
                             }
                         }
                     };
@@ -141,9 +165,12 @@ class ConnectionFlow {
      * {@link ProxyToServerConnection} that we succeeded.
      */
     void succeed() {
-        serverConnection.getLOG().debug(
-                "Connection flow completed successfully: {}", currentStep);
-        serverConnection.connectionSucceeded(!suppressInitialRequest);
+        synchronized (connectLock) {
+            serverConnection.getLOG().debug(
+                    "Connection flow completed successfully: {}", currentStep);
+            serverConnection.connectionSucceeded(!suppressInitialRequest);
+            notifyThreadsWaitingForConnection();
+        }
     }
 
     /**
@@ -151,12 +178,32 @@ class ConnectionFlow {
      * Disconnects the {@link ProxyToServerConnection} and informs the
      * {@link ClientToProxyConnection} that our connection failed.
      */
+    void fail(Throwable cause) {
+        synchronized (connectLock) {
+            ConnectionState lastStateBeforeFailure = serverConnection
+                    .getCurrentState();
+            serverConnection.disconnect();
+            clientConnection.serverConnectionFailed(
+                    serverConnection,
+                    lastStateBeforeFailure,
+                    cause);
+            notifyThreadsWaitingForConnection();
+        }
+    }
+
+    /**
+     * Once we've finished recording our connection and written our initial
+     * request, we can notify anyone who is waiting on the connection that it's
+     * okay to proceed.
+     */
+    private void notifyThreadsWaitingForConnection() {
+        connectLock.notifyAll();
+    }
+
+    /**
+     * Like {@link #fail(Throwable)} but with no cause.
+     */
     void fail() {
-        ConnectionState lastStateBeforeFailure = serverConnection
-                .getCurrentState();
-        serverConnection.disconnect();
-        clientConnection.serverConnectionFailed(
-                serverConnection,
-                lastStateBeforeFailure);
+        fail(null);
     }
 }

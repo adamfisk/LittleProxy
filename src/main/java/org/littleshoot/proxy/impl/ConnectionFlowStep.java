@@ -1,6 +1,5 @@
 package org.littleshoot.proxy.impl;
 
-import io.netty.handler.codec.http.HttpRequest;
 import io.netty.util.concurrent.Future;
 
 /**
@@ -10,22 +9,6 @@ abstract class ConnectionFlowStep {
     private final ProxyConnectionLogger LOG;
     private final ProxyConnection connection;
     private final ConnectionState state;
-    private final boolean suppressInitialRequest;
-
-    /**
-     * Construct a new step in a connection flow. This step does not suppress
-     * the initial {@link HttpRequest}.
-     * 
-     * @param connection
-     *            the connection that we're working on
-     * @param state
-     *            the state that the connection will show while we're processing
-     *            this step
-     */
-    ConnectionFlowStep(ProxyConnection connection,
-            ConnectionState state) {
-        this(connection, state, false);
-    }
 
     /**
      * Construct a new step in a connection flow.
@@ -35,18 +18,12 @@ abstract class ConnectionFlowStep {
      * @param state
      *            the state that the connection will show while we're processing
      *            this step
-     * @param suppressInitialRequest
-     *            set to true if the inclusion of this step should prevent the
-     *            initial {@link HttpRequest} that spawned our connection from
-     *            being set after we connect successfully
      */
     ConnectionFlowStep(ProxyConnection connection,
-            ConnectionState state,
-            boolean suppressInitialRequest) {
+            ConnectionState state) {
         super();
         this.connection = connection;
         this.state = state;
-        this.suppressInitialRequest = suppressInitialRequest;
         this.LOG = connection.getLOG();
     }
 
@@ -58,8 +35,32 @@ abstract class ConnectionFlowStep {
         return state;
     }
 
-    boolean isSuppressInitialRequest() {
-        return suppressInitialRequest;
+    /**
+     * Indicates whether or not to suppress the initial request. Defaults to
+     * false, can be overridden.
+     * 
+     * @return
+     */
+    boolean shouldSuppressInitialRequest() {
+        return false;
+    }
+
+    /**
+     * <p>
+     * Indicates whether or not this step should be executed on the channel's
+     * event loop. Defaults to true, can be overridden.
+     * </p>
+     * 
+     * <p>
+     * If this step modifies the pipeline, for example by adding/removing
+     * handlers, it's best to make it execute on the event loop.
+     * </p>
+     * 
+     * 
+     * @return
+     */
+    boolean shouldExecuteOnEventLoop() {
+        return true;
     }
 
     /**

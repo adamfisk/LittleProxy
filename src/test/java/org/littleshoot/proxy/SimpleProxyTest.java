@@ -9,7 +9,7 @@ public class SimpleProxyTest extends BaseProxyTest {
     @Override
     protected void setUp() {
         this.proxyServer = DefaultHttpProxyServer.bootstrap()
-                .withPort(PROXY_SERVER_PORT)
+                .withPort(proxyServerPort)
                 .start();
     }
 }

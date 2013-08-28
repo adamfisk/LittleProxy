@@ -317,25 +317,30 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * </p>
      */
     protected ConnectionFlowStep StartTunneling = new ConnectionFlowStep(
-            this, NEGOTIATING_CONNECT, true) {
-        protected Future<?> execute() {
-            return ctx.executor().submit(new Runnable() {
-                @Override
-                public void run() {
-                    ChannelPipeline pipeline = ctx.pipeline();
-                    if (pipeline.get("encoder") != null) {
-                        pipeline.remove("encoder");
-                    }
-                    if (pipeline.get("decoder") != null) {
-                        pipeline.remove("decoder");
-                    }
-                    if (pipeline.get("idle") != null) {
-                        pipeline.remove("idle");
-                    }
-                    tunneling = true;
+            this, NEGOTIATING_CONNECT) {
+        @Override
+        boolean shouldSuppressInitialRequest() {
+            return true;
+        }
+
+        protected Future execute() {
+            try {
+                ChannelPipeline pipeline = ctx.pipeline();
+                if (pipeline.get("encoder") != null) {
+                    pipeline.remove("encoder");
                 }
-            });
-        };
+                if (pipeline.get("decoder") != null) {
+                    pipeline.remove("decoder");
+                }
+                if (pipeline.get("idle") != null) {
+                    pipeline.remove("idle");
+                }
+                tunneling = true;
+                return channel.newSucceededFuture();
+            } catch (Throwable t) {
+                return channel.newFailedFuture(t);
+            }
+        }
     };
 
     /**

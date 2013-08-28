@@ -10,7 +10,7 @@ public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest
     @Override
     protected void setUp() {
         this.proxyServer = DefaultHttpProxyServer.bootstrap()
-                .withPort(PROXY_SERVER_PORT)
+                .withPort(proxyServerPort)
                 .withProxyAuthenticator(this)
                 .start();
     }

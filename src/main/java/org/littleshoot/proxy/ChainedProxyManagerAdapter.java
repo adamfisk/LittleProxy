@@ -26,4 +26,9 @@ public class ChainedProxyManagerAdapter implements ChainedProxyManager {
         return TransportProtocol.TCP;
     }
 
+    @Override
+    public boolean allowFallbackToUnchainedConnection(HttpRequest httpRequest) {
+        return false;
+    }
+
 }
