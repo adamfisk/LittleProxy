@@ -66,6 +66,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private volatile ConnectionFlow connectionFlow;
 
     /**
+     * While we're in the process of connecting, it's possible that we'll
+     * receive a new message to write. This lock helps us synchronize and wait
+     * for the connection to be established before writing the next message.
+     */
+    private final Object connectLock = new Object();
+
+    /**
      * This is the initial request received prior to connecting. We keep track
      * of it so that we can process it after connection finishes.
      */
@@ -364,7 +371,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * connection has been configured.
      */
     private void initializeConnectionFlow() {
-        this.connectionFlow = new ConnectionFlow(clientConnection, this)
+        this.connectionFlow = new ConnectionFlow(clientConnection, this,
+                connectLock)
                 .then(ConnectChannel);
 
         if (sslContext != null) {

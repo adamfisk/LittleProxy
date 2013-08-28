@@ -18,13 +18,7 @@ class ConnectionFlow {
     private final ProxyToServerConnection serverConnection;
     private volatile ConnectionFlowStep currentStep;
     private volatile boolean suppressInitialRequest = false;
-
-    /**
-     * While we're in the process of connecting, it's possible that we'll
-     * receive a new message to write. This lock helps us synchronize and wait
-     * for the connection to be established before writing the next message.
-     */
-    private final Object connectLock = new Object();
+    private final Object connectLock;
 
     /**
      * Construct a new {@link ConnectionFlow} for the given client and server
@@ -32,13 +26,20 @@ class ConnectionFlow {
      * 
      * @param clientConnection
      * @param serverConnection
+     * @param connectLock
+     *            an object that's shared by {@link ConnectionFlow} and
+     *            {@link ProxyToServerConnection} and that is used for
+     *            synchronizing the reader and writer threads that are both
+     *            involved during the establishing of a connection.
      */
     ConnectionFlow(
             ClientToProxyConnection clientConnection,
-            ProxyToServerConnection serverConnection) {
+            ProxyToServerConnection serverConnection,
+            Object connectLock) {
         super();
         this.clientConnection = clientConnection;
         this.serverConnection = serverConnection;
+        this.connectLock = connectLock;
     }
 
     /**
@@ -178,16 +179,26 @@ class ConnectionFlow {
      * Disconnects the {@link ProxyToServerConnection} and informs the
      * {@link ClientToProxyConnection} that our connection failed.
      */
-    void fail(Throwable cause) {
+    void fail(final Throwable cause) {
         synchronized (connectLock) {
-            ConnectionState lastStateBeforeFailure = serverConnection
+            final ConnectionState lastStateBeforeFailure = serverConnection
                     .getCurrentState();
-            serverConnection.disconnect();
-            clientConnection.serverConnectionFailed(
-                    serverConnection,
-                    lastStateBeforeFailure,
-                    cause);
-            notifyThreadsWaitingForConnection();
+            serverConnection.disconnect().addListener(
+                    new GenericFutureListener() {
+                        @Override
+                        public void operationComplete(Future future)
+                                throws Exception {
+                            if (!clientConnection.serverConnectionFailed(
+                                    serverConnection,
+                                    lastStateBeforeFailure,
+                                    cause)) {
+                                // We are not retrying our connection, let
+                                // anyone waiting for a
+                                // connection know that we're done
+                                notifyThreadsWaitingForConnection();
+                            }
+                        }
+                    });
         }
     }
 

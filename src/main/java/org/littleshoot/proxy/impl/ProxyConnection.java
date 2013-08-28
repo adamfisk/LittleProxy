@@ -18,6 +18,7 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.Promise;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -397,20 +398,43 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Disconnects. This will wait for pending writes to be flushed before
      * disconnecting.
+     * 
+     * @return Future<Void> for when we're done disconnecting. If we weren't
+     *         connected, this returns null.
      */
-    void disconnect() {
-        if (channel != null) {
-            writeToChannel(Unpooled.EMPTY_BUFFER).addListener(
+    Future<Void> disconnect() {
+        if (channel == null) {
+            return null;
+        } else {
+            final Promise<Void> promise = channel.newPromise();
+            channel.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(
                     new GenericFutureListener<Future<? super Void>>() {
                         @Override
                         public void operationComplete(
-                                Future<? super Void> future) throws Exception {
-                            if (channel.isOpen()) {
-                                channel.close();
-                            }
+                                Future<? super Void> future)
+                                throws Exception {
+                            closeChannel(promise);
                         }
                     });
+            return promise;
         }
+    }
+
+    private void closeChannel(final Promise<Void> promise) {
+        channel.close().addListener(
+                new GenericFutureListener<Future<? super Void>>() {
+                    public void operationComplete(
+                            Future<? super Void> future)
+                            throws Exception {
+                        if (future
+                                .isSuccess()) {
+                            promise.setSuccess(null);
+                        } else {
+                            promise.setFailure(future
+                                    .cause());
+                        }
+                    };
+                });
     }
 
     /**

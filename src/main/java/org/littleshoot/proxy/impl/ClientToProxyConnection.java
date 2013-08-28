@@ -408,8 +408,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param lastStateBeforeFailure
      * @param what
      *            caused the failure
+     * 
+     * @return true if we're falling back to a direct connection and trying
+     *         again
      */
-    protected void serverConnectionFailed(
+    protected boolean serverConnectionFailed(
             ProxyToServerConnection serverConnection,
             ConnectionState lastStateBeforeFailure,
             Throwable cause) {
@@ -421,14 +424,15 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             LOG.info(
                     "Failed to connect via chained proxy, falling back to direct connection.  Last state before failure: {}",
                     lastStateBeforeFailure, cause);
-
             fallbackToDirectConnection(serverConnection, initialRequest);
+            return true;
         } else {
             LOG.debug(
                     "Connection to server failed: {}.  Last state before failure: {}",
                     serverConnection.getAddress(), lastStateBeforeFailure,
                     cause);
             writeBadGateway(initialRequest);
+            return false;
         }
     }
 
