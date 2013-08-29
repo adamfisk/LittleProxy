@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<rss version="0.91">
+  <channel>
+    <title>LittleProxy - Checkstyle report</title>
+    <link>http://www.littleshoot.org/littleproxy</link>
+    <description>LittleProxy - Checkstyle report</description>
+    <language>en-us</language>
+    <copyright>&#169;2009 - 2013 LittleShoot</copyright>
+    <item>
+      <title>File: 28,
+             Errors: 970,
+             Warnings: 0,
+             Infos: 0
+      </title>
+            <link>http://www.littleshoot.org/littleproxy/checkstyle.html</link>
+      <description>
+        <p>Click <a href="http://www.littleshoot.org/littleproxy/checkstyle.html">here</a> for the full Checkstyle report.</p>
+
+        <table summary="Files" boder="1">
+          <thead>
+            <tr>
+              <th>Files</th>
+              <th style="width:30px;"><abbr title="Info">I</abbr></th>
+              <th style="width:30px;"><abbr title="Warning">W</abbr></th>
+              <th style="width:30px;"><abbr title="Error">E</abbr></th>
+            </tr>
+          </thead>
+          <tbody>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyHttpRequestDecoder.java">org/littleshoot/proxy/impl/ProxyHttpRequestDecoder.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  9
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpFilter.java">org/littleshoot/proxy/HttpFilter.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  3
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.FlowContext.java">org/littleshoot/proxy/FlowContext.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  28
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ConnectionTracer.java">org/littleshoot/proxy/impl/ConnectionTracer.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  5
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ActivityTrackerAdapter.java">org/littleshoot/proxy/ActivityTrackerAdapter.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  10
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyToServerConnection.java">org/littleshoot/proxy/impl/ProxyToServerConnection.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  134
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyUtils.java">org/littleshoot/proxy/impl/ProxyUtils.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  48
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyHttpResponseDecoder.java">org/littleshoot/proxy/impl/ProxyHttpResponseDecoder.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  9
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpResponseFilters.java">org/littleshoot/proxy/HttpResponseFilters.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  1
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.SSLContextSource.java">org/littleshoot/proxy/SSLContextSource.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  1
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.TransportProtocol.java">org/littleshoot/proxy/TransportProtocol.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  3
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyConnection.java">org/littleshoot/proxy/impl/ProxyConnection.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  126
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.Launcher.java">org/littleshoot/proxy/Launcher.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  11
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpRequestMatcher.java">org/littleshoot/proxy/HttpRequestMatcher.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  3
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ClientToProxyConnection.java">org/littleshoot/proxy/impl/ClientToProxyConnection.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  259
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.DefaultHttpProxyServer.java">org/littleshoot/proxy/impl/DefaultHttpProxyServer.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  159
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.NetworkUtils.java">org/littleshoot/proxy/impl/NetworkUtils.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  12
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ProxyAuthenticator.java">org/littleshoot/proxy/ProxyAuthenticator.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  1
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpRequestFilter.java">org/littleshoot/proxy/HttpRequestFilter.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  1
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpProxyServer.java">org/littleshoot/proxy/HttpProxyServer.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  2
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.UnknownTransportProtocolError.java">org/littleshoot/proxy/UnknownTransportProtocolError.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  3
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ActivityTracker.java">org/littleshoot/proxy/ActivityTracker.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  12
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ChainedProxyManagerAdapter.java">org/littleshoot/proxy/ChainedProxyManagerAdapter.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  9
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ChainedProxyManager.java">org/littleshoot/proxy/ChainedProxyManager.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  8
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ConnectionFlowStep.java">org/littleshoot/proxy/impl/ConnectionFlowStep.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  28
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ConnectionState.java">org/littleshoot/proxy/impl/ConnectionState.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  9
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ConnectionFlow.java">org/littleshoot/proxy/impl/ConnectionFlow.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  36
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyConnectionLogger.java">org/littleshoot/proxy/impl/ProxyConnectionLogger.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  40
+                </td>
+              </tr>
+                      </tbody>
+        </table>
+        
+      </description>
+    </item>
+  </channel>
+</rss>
+
