@@ -1,18 +1,8 @@
 package org.littleshoot.proxy;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
-import org.eclipse.jetty.server.Server;
+import static org.junit.Assert.*;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -21,7 +11,18 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.assertEquals;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
+import org.eclipse.jetty.server.Server;
+import org.junit.Test;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HttpFilterTest {
 
@@ -30,12 +31,13 @@ public class HttpFilterTest {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
-    @Test public void testFiltering() throws Exception {
+    @Test
+    public void testFiltering() throws Exception {
 
         final AtomicInteger shouldFilterCalls = new AtomicInteger(0);
         final AtomicInteger filterCalls = new AtomicInteger(0);
-        final Queue<HttpRequest> associatedRequests = 
-            new LinkedList<HttpRequest>();
+        final Queue<HttpRequest> associatedRequests =
+                new LinkedList<HttpRequest>();
 
         final String url1 = "http://localhost:8924/";
         final String url2 = "http://localhost:8924/testing";
@@ -50,31 +52,32 @@ public class HttpFilterTest {
                 return 1024 * 1024;
             }
 
-            public HttpResponse filterResponse(final HttpRequest httpRequest,
-                final HttpResponse response) {
+            public void filterResponse(final HttpRequest httpRequest,
+                    final HttpResponse response) {
                 filterCalls.incrementAndGet();
                 if (httpRequest != null) {
                     associatedRequests.add(httpRequest);
                 } else {
                     log.error("REQUEST IS NULL!!");
                 }
-                return response;
             }
         };
-        final HttpResponseFilters responseFilters = 
-            new HttpResponseFilters() {
-                public HttpFilter getFilter(final String hostAndPort) {
-                    if (hostAndPort.equals("localhost:8924")) {
-                        return filter;
+        final HttpResponseFilters responseFilters =
+                new HttpResponseFilters() {
+                    public HttpFilter getFilter(final String hostAndPort) {
+                        if (hostAndPort.equals("localhost:8924")) {
+                            return filter;
+                        }
+                        return null;
                     }
-                    return null;
-                }
-            };
-        final HttpProxyServer server =
-            new DefaultHttpProxyServer(PROXY_PORT, responseFilters);
-        server.start();
+                };
+        final HttpProxyServer server = DefaultHttpProxyServer.bootstrap()
+                .withPort(PROXY_PORT)
+                .withResponseFilters(responseFilters)
+                .start();
         boolean connected = false;
-        final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", PROXY_PORT);
+        final InetSocketAddress isa = new InetSocketAddress("127.0.0.1",
+                PROXY_PORT);
         while (!connected) {
             final Socket sock = new Socket();
             try {
@@ -96,19 +99,18 @@ public class HttpFilterTest {
         assertEquals(1, associatedRequests.size());
         assertEquals(1, shouldFilterCalls.get());
         assertEquals(1, filterCalls.get());
-        
-        // We just open a second connection here since reusing the original 
+
+        // We just open a second connection here since reusing the original
         // connection is inconsistent.
         getResponse(url2);
 
-        
         assertEquals(2, shouldFilterCalls.get());
         assertEquals(2, filterCalls.get());
         assertEquals(2, associatedRequests.size());
-        
+
         final HttpRequest first = associatedRequests.remove();
         final HttpRequest second = associatedRequests.remove();
-        
+
         // Make sure the requests in the filter calls were the requests they
         // actually should have been.
         assertEquals(url1, first.getUri());
