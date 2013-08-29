@@ -125,7 +125,7 @@ class ConnectionFlow {
             connection.ctx.executor().submit(new Runnable() {
                 @Override
                 public void run() {
-                    doProcessCurrentStep(connection, LOG);
+                    doProcessCurrentStep(LOG);
                 }
             });
         } else {

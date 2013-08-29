@@ -229,8 +229,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 LOG.debug("Didn't find existing ProxyToServerConnection");
             }
             try {
-                currentServerConnection = connectToServer(httpRequest,
-                        transportProtocol,
+                currentServerConnection = connectToServer(transportProtocol,
                         proxyToServerSSLContext,
                         hostAndPort,
                         serverHostAndPort,
