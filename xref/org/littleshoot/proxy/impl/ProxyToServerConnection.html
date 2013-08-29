@@ -559,77 +559,76 @@
 <a class="jxr_linenumber" name="549" href="#549">549</a>             } <strong class="jxr_keyword">else</strong> {
 <a class="jxr_linenumber" name="550" href="#550">550</a>                 readTimeoutSeconds = <strong class="jxr_keyword">this</strong>.proxyServer
 <a class="jxr_linenumber" name="551" href="#551">551</a>                         .getIdleConnectionTimeout();
-<a class="jxr_linenumber" name="552" href="#552">552</a>                 ;
-<a class="jxr_linenumber" name="553" href="#553">553</a>                 writeTimeoutSeconds = 0;
-<a class="jxr_linenumber" name="554" href="#554">554</a>             }
-<a class="jxr_linenumber" name="555" href="#555">555</a>             pipeline.addLast(<span class="jxr_string">"idle"</span>, <strong class="jxr_keyword">new</strong> IdleStateHandler(readTimeoutSeconds,
-<a class="jxr_linenumber" name="556" href="#556">556</a>                     writeTimeoutSeconds, 0));
-<a class="jxr_linenumber" name="557" href="#557">557</a>         }
-<a class="jxr_linenumber" name="558" href="#558">558</a> 
-<a class="jxr_linenumber" name="559" href="#559">559</a>         pipeline.addLast(<span class="jxr_string">"handler"</span>, <strong class="jxr_keyword">this</strong>);
-<a class="jxr_linenumber" name="560" href="#560">560</a>     }
-<a class="jxr_linenumber" name="561" href="#561">561</a> 
-<a class="jxr_linenumber" name="562" href="#562">562</a>     <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="563" href="#563">563</a> <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
-<a class="jxr_linenumber" name="564" href="#564">564</a> <em class="jxr_javadoccomment">     * Do all the stuff that needs to be done after our {@link ConnectionFlow}</em>
-<a class="jxr_linenumber" name="565" href="#565">565</a> <em class="jxr_javadoccomment">     * has succeeded.</em>
-<a class="jxr_linenumber" name="566" href="#566">566</a> <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
-<a class="jxr_linenumber" name="567" href="#567">567</a> <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="568" href="#568">568</a> <em class="jxr_javadoccomment">     * @param shouldForwardInitialRequest</em>
-<a class="jxr_linenumber" name="569" href="#569">569</a> <em class="jxr_javadoccomment">     *            whether or not we should forward the initial HttpRequest to</em>
-<a class="jxr_linenumber" name="570" href="#570">570</a> <em class="jxr_javadoccomment">     *            the server after the connection has been established.</em>
-<a class="jxr_linenumber" name="571" href="#571">571</a> <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="572" href="#572">572</a>     <strong class="jxr_keyword">void</strong> connectionSucceeded(<strong class="jxr_keyword">boolean</strong> shouldForwardInitialRequest) {
-<a class="jxr_linenumber" name="573" href="#573">573</a>         become(AWAITING_INITIAL);
-<a class="jxr_linenumber" name="574" href="#574">574</a>         clientConnection.serverConnectionSucceeded(<strong class="jxr_keyword">this</strong>,
-<a class="jxr_linenumber" name="575" href="#575">575</a>                 shouldForwardInitialRequest);
-<a class="jxr_linenumber" name="576" href="#576">576</a> 
-<a class="jxr_linenumber" name="577" href="#577">577</a>         <strong class="jxr_keyword">if</strong> (shouldForwardInitialRequest) {
-<a class="jxr_linenumber" name="578" href="#578">578</a>             LOG.debug(<span class="jxr_string">"Writing initial request"</span>);
-<a class="jxr_linenumber" name="579" href="#579">579</a>             write(initialRequest);
-<a class="jxr_linenumber" name="580" href="#580">580</a>         } <strong class="jxr_keyword">else</strong> {
-<a class="jxr_linenumber" name="581" href="#581">581</a>             LOG.debug(<span class="jxr_string">"Dropping initial request"</span>);
-<a class="jxr_linenumber" name="582" href="#582">582</a>         }
-<a class="jxr_linenumber" name="583" href="#583">583</a>     }
-<a class="jxr_linenumber" name="584" href="#584">584</a> 
-<a class="jxr_linenumber" name="585" href="#585">585</a>     <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">void</strong> filterResponseIfNecessary(HttpResponse httpResponse) {
-<a class="jxr_linenumber" name="586" href="#586">586</a>         <strong class="jxr_keyword">if</strong> (shouldFilterResponseTo(<strong class="jxr_keyword">this</strong>.currentHttpRequest)) {
-<a class="jxr_linenumber" name="587" href="#587">587</a>             <strong class="jxr_keyword">this</strong>.responseFilter.filterResponse(
-<a class="jxr_linenumber" name="588" href="#588">588</a>                     <strong class="jxr_keyword">this</strong>.originalHttpRequests.get(<strong class="jxr_keyword">this</strong>.currentHttpRequest),
-<a class="jxr_linenumber" name="589" href="#589">589</a>                     httpResponse);
-<a class="jxr_linenumber" name="590" href="#590">590</a>         }
-<a class="jxr_linenumber" name="591" href="#591">591</a>     }
-<a class="jxr_linenumber" name="592" href="#592">592</a> 
-<a class="jxr_linenumber" name="593" href="#593">593</a>     <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="594" href="#594">594</a> <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
-<a class="jxr_linenumber" name="595" href="#595">595</a> <em class="jxr_javadoccomment">     * Determines whether or not responses to the given request should be</em>
-<a class="jxr_linenumber" name="596" href="#596">596</a> <em class="jxr_javadoccomment">     * filtered. If we were given an {@link HttpFilter} in our constructor, and</em>
-<a class="jxr_linenumber" name="597" href="#597">597</a> <em class="jxr_javadoccomment">     * that filter's {@link HttpFilter#filterResponses(HttpRequest)} method</em>
-<a class="jxr_linenumber" name="598" href="#598">598</a> <em class="jxr_javadoccomment">     * returns true, then we will filter.</em>
-<a class="jxr_linenumber" name="599" href="#599">599</a> <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
-<a class="jxr_linenumber" name="600" href="#600">600</a> <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="601" href="#601">601</a> <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
-<a class="jxr_linenumber" name="602" href="#602">602</a> <em class="jxr_javadoccomment">     * To avoid calling {@link HttpFilter#filterResponses(HttpRequest)} multiple</em>
-<a class="jxr_linenumber" name="603" href="#603">603</a> <em class="jxr_javadoccomment">     * times, this method caches the results of that call by HttpRequest.</em>
-<a class="jxr_linenumber" name="604" href="#604">604</a> <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
-<a class="jxr_linenumber" name="605" href="#605">605</a> <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="606" href="#606">606</a> <em class="jxr_javadoccomment">     * @param httpRequest</em>
-<a class="jxr_linenumber" name="607" href="#607">607</a> <em class="jxr_javadoccomment">     * @return</em>
-<a class="jxr_linenumber" name="608" href="#608">608</a> <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="609" href="#609">609</a>     <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">boolean</strong> shouldFilterResponseTo(HttpRequest httpRequest) {
-<a class="jxr_linenumber" name="610" href="#610">610</a>         <em class="jxr_comment">// If we've already checked whether to filter responses for a given</em>
-<a class="jxr_linenumber" name="611" href="#611">611</a>         <em class="jxr_comment">// request, use the original result</em>
-<a class="jxr_linenumber" name="612" href="#612">612</a>         Boolean result = shouldFilterResponseCache.get(httpRequest);
-<a class="jxr_linenumber" name="613" href="#613">613</a>         <strong class="jxr_keyword">if</strong> (result == <strong class="jxr_keyword">null</strong>) {
-<a class="jxr_linenumber" name="614" href="#614">614</a>             <em class="jxr_comment">// This is our first time checking whether responses to this request</em>
-<a class="jxr_linenumber" name="615" href="#615">615</a>             <em class="jxr_comment">// need to be filtered. Check, and then remember for later.</em>
-<a class="jxr_linenumber" name="616" href="#616">616</a>             result = <strong class="jxr_keyword">this</strong>.responseFilter != <strong class="jxr_keyword">null</strong>
-<a class="jxr_linenumber" name="617" href="#617">617</a>                     &amp;&amp; <strong class="jxr_keyword">this</strong>.responseFilter.filterResponses(httpRequest);
-<a class="jxr_linenumber" name="618" href="#618">618</a>             shouldFilterResponseCache.put(httpRequest, result);
-<a class="jxr_linenumber" name="619" href="#619">619</a>         }
-<a class="jxr_linenumber" name="620" href="#620">620</a>         <strong class="jxr_keyword">return</strong> result;
-<a class="jxr_linenumber" name="621" href="#621">621</a>     }
-<a class="jxr_linenumber" name="622" href="#622">622</a> }
+<a class="jxr_linenumber" name="552" href="#552">552</a>                 writeTimeoutSeconds = 0;
+<a class="jxr_linenumber" name="553" href="#553">553</a>             }
+<a class="jxr_linenumber" name="554" href="#554">554</a>             pipeline.addLast(<span class="jxr_string">"idle"</span>, <strong class="jxr_keyword">new</strong> IdleStateHandler(readTimeoutSeconds,
+<a class="jxr_linenumber" name="555" href="#555">555</a>                     writeTimeoutSeconds, 0));
+<a class="jxr_linenumber" name="556" href="#556">556</a>         }
+<a class="jxr_linenumber" name="557" href="#557">557</a> 
+<a class="jxr_linenumber" name="558" href="#558">558</a>         pipeline.addLast(<span class="jxr_string">"handler"</span>, <strong class="jxr_keyword">this</strong>);
+<a class="jxr_linenumber" name="559" href="#559">559</a>     }
+<a class="jxr_linenumber" name="560" href="#560">560</a> 
+<a class="jxr_linenumber" name="561" href="#561">561</a>     <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="562" href="#562">562</a> <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
+<a class="jxr_linenumber" name="563" href="#563">563</a> <em class="jxr_javadoccomment">     * Do all the stuff that needs to be done after our {@link ConnectionFlow}</em>
+<a class="jxr_linenumber" name="564" href="#564">564</a> <em class="jxr_javadoccomment">     * has succeeded.</em>
+<a class="jxr_linenumber" name="565" href="#565">565</a> <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
+<a class="jxr_linenumber" name="566" href="#566">566</a> <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="567" href="#567">567</a> <em class="jxr_javadoccomment">     * @param shouldForwardInitialRequest</em>
+<a class="jxr_linenumber" name="568" href="#568">568</a> <em class="jxr_javadoccomment">     *            whether or not we should forward the initial HttpRequest to</em>
+<a class="jxr_linenumber" name="569" href="#569">569</a> <em class="jxr_javadoccomment">     *            the server after the connection has been established.</em>
+<a class="jxr_linenumber" name="570" href="#570">570</a> <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="571" href="#571">571</a>     <strong class="jxr_keyword">void</strong> connectionSucceeded(<strong class="jxr_keyword">boolean</strong> shouldForwardInitialRequest) {
+<a class="jxr_linenumber" name="572" href="#572">572</a>         become(AWAITING_INITIAL);
+<a class="jxr_linenumber" name="573" href="#573">573</a>         clientConnection.serverConnectionSucceeded(<strong class="jxr_keyword">this</strong>,
+<a class="jxr_linenumber" name="574" href="#574">574</a>                 shouldForwardInitialRequest);
+<a class="jxr_linenumber" name="575" href="#575">575</a> 
+<a class="jxr_linenumber" name="576" href="#576">576</a>         <strong class="jxr_keyword">if</strong> (shouldForwardInitialRequest) {
+<a class="jxr_linenumber" name="577" href="#577">577</a>             LOG.debug(<span class="jxr_string">"Writing initial request"</span>);
+<a class="jxr_linenumber" name="578" href="#578">578</a>             write(initialRequest);
+<a class="jxr_linenumber" name="579" href="#579">579</a>         } <strong class="jxr_keyword">else</strong> {
+<a class="jxr_linenumber" name="580" href="#580">580</a>             LOG.debug(<span class="jxr_string">"Dropping initial request"</span>);
+<a class="jxr_linenumber" name="581" href="#581">581</a>         }
+<a class="jxr_linenumber" name="582" href="#582">582</a>     }
+<a class="jxr_linenumber" name="583" href="#583">583</a> 
+<a class="jxr_linenumber" name="584" href="#584">584</a>     <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">void</strong> filterResponseIfNecessary(HttpResponse httpResponse) {
+<a class="jxr_linenumber" name="585" href="#585">585</a>         <strong class="jxr_keyword">if</strong> (shouldFilterResponseTo(<strong class="jxr_keyword">this</strong>.currentHttpRequest)) {
+<a class="jxr_linenumber" name="586" href="#586">586</a>             <strong class="jxr_keyword">this</strong>.responseFilter.filterResponse(
+<a class="jxr_linenumber" name="587" href="#587">587</a>                     <strong class="jxr_keyword">this</strong>.originalHttpRequests.get(<strong class="jxr_keyword">this</strong>.currentHttpRequest),
+<a class="jxr_linenumber" name="588" href="#588">588</a>                     httpResponse);
+<a class="jxr_linenumber" name="589" href="#589">589</a>         }
+<a class="jxr_linenumber" name="590" href="#590">590</a>     }
+<a class="jxr_linenumber" name="591" href="#591">591</a> 
+<a class="jxr_linenumber" name="592" href="#592">592</a>     <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="593" href="#593">593</a> <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
+<a class="jxr_linenumber" name="594" href="#594">594</a> <em class="jxr_javadoccomment">     * Determines whether or not responses to the given request should be</em>
+<a class="jxr_linenumber" name="595" href="#595">595</a> <em class="jxr_javadoccomment">     * filtered. If we were given an {@link HttpFilter} in our constructor, and</em>
+<a class="jxr_linenumber" name="596" href="#596">596</a> <em class="jxr_javadoccomment">     * that filter's {@link HttpFilter#filterResponses(HttpRequest)} method</em>
+<a class="jxr_linenumber" name="597" href="#597">597</a> <em class="jxr_javadoccomment">     * returns true, then we will filter.</em>
+<a class="jxr_linenumber" name="598" href="#598">598</a> <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
+<a class="jxr_linenumber" name="599" href="#599">599</a> <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="600" href="#600">600</a> <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
+<a class="jxr_linenumber" name="601" href="#601">601</a> <em class="jxr_javadoccomment">     * To avoid calling {@link HttpFilter#filterResponses(HttpRequest)} multiple</em>
+<a class="jxr_linenumber" name="602" href="#602">602</a> <em class="jxr_javadoccomment">     * times, this method caches the results of that call by HttpRequest.</em>
+<a class="jxr_linenumber" name="603" href="#603">603</a> <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
+<a class="jxr_linenumber" name="604" href="#604">604</a> <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="605" href="#605">605</a> <em class="jxr_javadoccomment">     * @param httpRequest</em>
+<a class="jxr_linenumber" name="606" href="#606">606</a> <em class="jxr_javadoccomment">     * @return</em>
+<a class="jxr_linenumber" name="607" href="#607">607</a> <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="608" href="#608">608</a>     <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">boolean</strong> shouldFilterResponseTo(HttpRequest httpRequest) {
+<a class="jxr_linenumber" name="609" href="#609">609</a>         <em class="jxr_comment">// If we've already checked whether to filter responses for a given</em>
+<a class="jxr_linenumber" name="610" href="#610">610</a>         <em class="jxr_comment">// request, use the original result</em>
+<a class="jxr_linenumber" name="611" href="#611">611</a>         Boolean result = shouldFilterResponseCache.get(httpRequest);
+<a class="jxr_linenumber" name="612" href="#612">612</a>         <strong class="jxr_keyword">if</strong> (result == <strong class="jxr_keyword">null</strong>) {
+<a class="jxr_linenumber" name="613" href="#613">613</a>             <em class="jxr_comment">// This is our first time checking whether responses to this request</em>
+<a class="jxr_linenumber" name="614" href="#614">614</a>             <em class="jxr_comment">// need to be filtered. Check, and then remember for later.</em>
+<a class="jxr_linenumber" name="615" href="#615">615</a>             result = <strong class="jxr_keyword">this</strong>.responseFilter != <strong class="jxr_keyword">null</strong>
+<a class="jxr_linenumber" name="616" href="#616">616</a>                     &amp;&amp; <strong class="jxr_keyword">this</strong>.responseFilter.filterResponses(httpRequest);
+<a class="jxr_linenumber" name="617" href="#617">617</a>             shouldFilterResponseCache.put(httpRequest, result);
+<a class="jxr_linenumber" name="618" href="#618">618</a>         }
+<a class="jxr_linenumber" name="619" href="#619">619</a>         <strong class="jxr_keyword">return</strong> result;
+<a class="jxr_linenumber" name="620" href="#620">620</a>     }
+<a class="jxr_linenumber" name="621" href="#621">621</a> }
 </pre>
 <hr/><div id="footer">This page was automatically generated by <a href="http://maven.apache.org/">Maven</a></div></body>
 </html>
