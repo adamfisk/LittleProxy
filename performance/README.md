@@ -69,7 +69,7 @@ image failed to load, the entire page is considered to be in error.
 | Apache 2*        |  542 |   7 | 20120 |   1928  |   42    |   4.7   |   7.4  |
 | nginx            | 1246 | 129 | 18206 |   3155  |    4    |   2.8   |   7.2  |
 
-** - These tests had very high error rates due to network-related issues, so
+* - These tests had very high error rates due to network-related issues, so
 take their numbers with a big grain of salt.
 
 Apache 2 ran fine for several iterations and then started reporting lots of
