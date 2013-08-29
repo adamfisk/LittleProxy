@@ -15,10 +15,10 @@
 -docencoding
 'UTF-8'
 -doctitle
-'LittleProxy 1.0.0-SNAPSHOT API'
+'LittleProxy 1.0.0-beta1-SNAPSHOT API'
 -link
 'http://java.sun.com/javase/6/docs/api'
 -use
 -version
 -windowtitle
-'LittleProxy 1.0.0-SNAPSHOT API'
+'LittleProxy 1.0.0-beta1-SNAPSHOT API'
