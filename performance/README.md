@@ -26,7 +26,7 @@ Tests are always run starting with a cold back-end and proxy.
 
 1. Run `./perfServer.bash` to start a test web server on port 9000 (Jetty)
 2. Start your proxy on port 8080 (for LittleProxy, `./run.bash`)
-3. Open and run [JMeter Germany Page Test]
+3. Open and run the [JMeter Germany Page Test]
    (jmeter/Local Wikipedia Germany Performance Test.jmx)
 4. To run without a proxy, edit "The Users" and remove the proxy settings at
    the bottom
