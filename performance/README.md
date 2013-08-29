@@ -61,6 +61,7 @@ image failed to load, the entire page is considered to be in error.
 
 
 | Proxy            | Avg  | Min |  Max  | Std Dev | Error % | Pages/s | MB/sec |
+|------------------|------|-----|-------|---------|---------|---------|--------|
 | No Proxy         |  181 |  96 |   547 |     66  |    0    |  13.9   |  35.8  |
 | LittleProxy      |  263 | 113 |   778 |     88  |    0    |  11.0   |  28.6  |
 | Squid            |  299 | 121 |   702 |    104  |    0    |   9.9   |  25.8  |
