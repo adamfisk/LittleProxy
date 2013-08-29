@@ -1,20 +1,25 @@
-<project xmlns="http://maven.apache.org/DECORATION/1.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/DECORATION/1.0.0 http://maven.apache.org/xsd/decoration-1.0.0.xsd">
-  <body>
-    <menu name="Overview">
-      <item name="Source Repository" href="source-repository.html"/>
-      <item name="Issue Tracking" href="issue-tracking.html"/>
-      <item name="Dependencies" href="dependencies.html"/>
-      <item name="JavaDocs" href="apidocs/index.html"/>
-      <item name="Test JavaDocs" href="testapidocs/index.html"/>
-      <item name="Test Report" href="surefire-report.html"/>
-      <item name="Checkstyle" href="checkstyle.html"/>
-      <item name="Change Log" href="changelog.html"/>
-      <item name="Find Bugs Report" href="findbugs.html"/>
-      <item name="PMD Report" href="pmd.html"/>
-      <item name="CPD Report" href="cpd.html"/>
-      <item name="File Activity" href="file-activity.html"/>
-    </menu>
-  </body>
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<project name="Maven" xmlns="http://maven.apache.org/DECORATION/1.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/DECORATION/1.0.0 http://maven.apache.org/xsd/decoration-1.0.0.xsd">
+    <skin>
+        <groupId>org.apache.maven.skins</groupId>
+        <artifactId>maven-fluido-skin</artifactId>
+        <version>1.3.0</version>
+    </skin>
+    <custom>
+        <fluidoSkin>
+            <sourceLineNumbersEnabled>true</sourceLineNumbersEnabled>
+            <sideBarEnabled>true</sideBarEnabled>
+            <googlePlusOne />
+            <googleSearch>
+                <sitesearch/>
+            </googleSearch>
+        </fluidoSkin>
+    </custom>
+
+    <body>
+        <menu ref="reports"/>
+    </body>
 </project>

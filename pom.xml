@@ -3,7 +3,7 @@
   <groupId>org.littleshoot</groupId>
   <artifactId>littleproxy</artifactId>
   <packaging>jar</packaging>
-  <version>0.6.0-SNAPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
   <name>LittleProxy</name>
   <description>
     LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework. 
@@ -231,9 +231,20 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
-        <version>3.2</version>
+        <version>3.3</version>
         <configuration>
           <reportPlugins>
+            <plugin>
+              <artifactId>maven-dependency-plugin</artifactId>
+              <version>2.8</version>
+              <reportSets>
+                <reportSet>
+                  <reports>
+                    <report>analyze-report</report>
+                  </reports>
+                </reportSet>
+              </reportSets>
+            </plugin>
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-project-info-reports-plugin</artifactId>
@@ -246,12 +257,12 @@
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-javadoc-plugin</artifactId>
-              <version>2.9.1</version>
+              <version>2.7</version>
             </plugin>
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
-              <artifactId>maven-surefire-plugin</artifactId>
-              <version>2.16</version>
+              <artifactId>maven-surefire-report-plugin</artifactId>
+              <version>2.13</version>
             </plugin>
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
@@ -262,6 +273,18 @@
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-changelog-plugin</artifactId>
               <version>2.2</version>
+            </plugin>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-changes-plugin</artifactId>
+              <version>2.8</version>
+              <reportSets>
+                <reportSet>
+                    <reports>
+                      <report>github-report</report>
+                    </reports>
+                </reportSet>
+              </reportSets>
             </plugin>
             <plugin>
               <groupId>org.codehaus.mojo</groupId>
@@ -284,8 +307,27 @@
                 <linkXref>true</linkXref>
                 <sourceEncoding>utf-8</sourceEncoding>
                 <minimumTokens>100</minimumTokens>
-                <targetJdk>1.5</targetJdk>
+                <targetJdk>1.6</targetJdk>
               </configuration>
+            </plugin>
+            <plugin>
+              <groupId>org.codehaus.mojo</groupId>
+              <artifactId>cobertura-maven-plugin</artifactId>
+              <version>2.5.2</version>
+            </plugin>
+            <plugin>
+              <groupId>org.codehaus.mojo</groupId>
+              <artifactId>versions-maven-plugin</artifactId>
+              <version>2.0</version>
+              <reportSets>
+                <reportSet>
+                  <reports>
+                    <report>dependency-updates-report</report>
+                    <report>plugin-updates-report</report>
+                    <report>property-updates-report</report>
+                  </reports>
+                </reportSet>
+              </reportSets>
             </plugin>
           </reportPlugins>
         </configuration>
