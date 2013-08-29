@@ -13,9 +13,9 @@ We use [JMeter](http://jmeter.apache.org/) to generate load from the same
 machine as the Jetty server, thereby cutting out the network as a factor.
 
 The JMeter test uses 4 concurrent threads to generate requests to [germany.html]
-(site/wikipedia/germany.html) 200 times each, with no delay in between.  To 
-simulate a normal browser, JMeter looks for resources referenced in the page and
-loads those with each page as well.
+(site/wikipedia/germany.html).  Each thread makes 200 consecutive requets with
+no delay in between.  To simulate a normal browser, JMeter looks for resources
+referenced in the page and loads those with each page as well.
 
 TODO - try adding in a delay and see if that makes Apache and node-http-proxy
 happier. 
@@ -26,7 +26,8 @@ Tests are always run starting with a cold back-end and proxy.
 
 1. Run `./perfServer.bash` to start a test web server on port 9000 (Jetty)
 2. Start your proxy on port 8080 (for LittleProxy, `./run.bash`)
-3. Open and run [JMeter Germany Page Test](jmeter/Local Wikipedia Germany Performance Test.jmx)
+3. Open and run [JMeter Germany Page Test]
+   (jmeter/Local Wikipedia Germany Performance Test.jmx)
 4. To run without a proxy, edit "The Users" and remove the proxy settings at
    the bottom
 
@@ -64,7 +65,8 @@ Configured with [httpd.conf](other_proxies/httpd.conf).
 
 ### [nginx 1.4.2](http://nginx.org/)
 
-Installed per [these instructions](http://learnaholic.me/2012/10/10/installing-nginx-in-mac-os-x-mountain-lion/).
+Installed per [these instructions]
+(http://learnaholic.me/2012/10/10/installing-nginx-in-mac-os-x-mountain-lion/).
 
 Configured with [nginx.conf](other_proxies/nginx.conf).
 
