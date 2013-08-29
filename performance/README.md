@@ -1,10 +1,34 @@
+# Benchmarking LittleProxy
+
+To understand the overhead and performance characteristics of LittleProxy
+compared with other proxies (and no proxy), we've developed a simple benchmark.
+
+The goal of the benchmark is to understand LittleProxy's performance without
+network variability being a factor.
+
+To that end, the test serves a local mirror of Wikipedia's Germany page from a
+Jetty web server.
+
+We use [JMeter](http://jmeter.apache.org/) to generate load from the same
+machine as the Jetty server, thereby cutting out the network as a factor.
+
+The JMeter test uses 4 concurrent threads to generate requests to [germany.html]
+(site/wikipedia/germany.html) 200 times each, with no delay in between.  To 
+simulate a normal browser, JMeter looks for resources referenced in the page and
+loads those with each page as well.
+
+TODO - try adding in a delay and see if that makes Apache and node-http-proxy
+happier. 
+
 ## Methodology
 
 Tests are always run starting with a cold back-end and proxy.
 
 1. Run `./perfServer.bash` to start a test web server on port 9000 (Jetty)
 2. Start your proxy on port 8080 (for LittleProxy, `./run.bash`)
-3. Open and run [JMeter Test](jmeter/Local Wikipedia Germany Performance Test.jmx)
+3. Open and run [JMeter Germany Page Test](jmeter/Local Wikipedia Germany Performance Test.jmx)
+4. To run without a proxy, edit "The Users" and remove the proxy settings at
+   the bottom
 
 ## Environment
 
