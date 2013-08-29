@@ -549,7 +549,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             } else {
                 readTimeoutSeconds = this.proxyServer
                         .getIdleConnectionTimeout();
-                ;
                 writeTimeoutSeconds = 0;
             }
             pipeline.addLast("idle", new IdleStateHandler(readTimeoutSeconds,

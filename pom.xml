@@ -13,6 +13,7 @@
   <properties>
      <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
      <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+     <github.global.server>github</github.global.server>
   </properties>
 
   <organization>
@@ -44,8 +45,8 @@
 
   <scm>
     <connection>scm:git:https://adamfisk@github.com/adamfisk/LittleProxy.git</connection>
-    <developerConnection>scm:git:https://adamfisk@github.com/adamfisk/LittleProxy.git</developerConnection>
-    <url>https://adamfisk@github.com/adamfisk/LittleProxy.git</url>
+    <developerConnection>scm:git:git@github.com:adamfisk/LittleProxy</developerConnection>
+    <url>scm:git:git@github.com:adamfisk/LittleProxy.git</url>
   </scm>
 
   <parent>
@@ -208,11 +209,10 @@
           <reuseForks>false</reuseForks>
         </configuration>
       </plugin>
-<!--
       <plugin>
         <groupId>com.github.github</groupId>
         <artifactId>site-maven-plugin</artifactId>
-        <version>0.7</version>
+        <version>0.8</version>
         <configuration>
           <message>Building site for ${project.version}</message>
           <repositoryName>LittleProxy</repositoryName>
@@ -227,7 +227,6 @@
           </execution>
         </executions>
       </plugin>
--->
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

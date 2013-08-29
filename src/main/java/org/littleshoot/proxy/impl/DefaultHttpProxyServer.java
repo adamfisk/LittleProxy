@@ -206,7 +206,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HttpRequestFilter requestFilter,
             HttpResponseFilters responseFilters,
             boolean useDnsSec,
-            boolean acceptAllSSLCertificates,
             boolean transparent,
             int idleConnectionTimeout) {
         this.name = name;
@@ -475,7 +474,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private HttpRequestFilter requestFilter = null;
         private HttpResponseFilters responseFilters = null;
         private boolean useDnsSec = false;
-        private boolean acceptAllSSLCertificates = false;
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
 
@@ -485,9 +483,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private DefaultHttpProxyServerBootstrap(Properties props) {
             this.useDnsSec = ProxyUtils.extractBooleanDefaultFalse(
                     props, "dnssec");
-            this.acceptAllSSLCertificates = ProxyUtils
-                    .extractBooleanDefaultFalse(props,
-                            "accept_all_ssl_certificates");
             this.transparent = ProxyUtils.extractBooleanDefaultFalse(
                     props, "transparent");
             this.idleConnectionTimeout = ProxyUtils.extractInt(props,
@@ -545,12 +540,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withAcceptAllSSLCertificates(
-                boolean acceptAllSSLCertificates) {
-            this.acceptAllSSLCertificates = acceptAllSSLCertificates;
-            return this;
-        }
-
         public DefaultHttpProxyServerBootstrap withTransparent(
                 boolean transparent) {
             this.transparent = transparent;
@@ -581,8 +570,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     name, transportProtocol, port, sslContextSource,
                     proxyAuthenticator, chainProxyManager,
                     requestFilter, responseFilters, useDnsSec,
-                    acceptAllSSLCertificates, transparent,
-                    idleConnectionTimeout);
+                    transparent, idleConnectionTimeout);
             server.start(localOnly, anyAddress);
             return server;
         }

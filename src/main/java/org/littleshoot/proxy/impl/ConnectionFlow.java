@@ -129,7 +129,7 @@ class ConnectionFlow {
                 }
             });
         } else {
-            doProcessCurrentStep(connection, LOG);
+            doProcessCurrentStep(LOG);
         }
     }
 
@@ -137,14 +137,13 @@ class ConnectionFlow {
      * Does the work of processing the current step, checking the result and
      * handling success/failure.
      * 
-     * @param connection
      * @param LOG
      */
-    private void doProcessCurrentStep(ProxyConnection connection,
-            final ProxyConnectionLogger LOG) {
+    private void doProcessCurrentStep(final ProxyConnectionLogger LOG) {
         currentStep.execute().addListener(
-                new GenericFutureListener<Future>() {
-                    public void operationComplete(Future future)
+                new GenericFutureListener<Future<?>>() {
+                    public void operationComplete(
+                            io.netty.util.concurrent.Future<?> future)
                             throws Exception {
                         synchronized (connectLock) {
                             if (future.isSuccess()) {

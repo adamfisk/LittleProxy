@@ -587,8 +587,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * Creates a {@link ProxyToServerConnection}.
      * 
-     * @param httpRequest
-     *            the {@link HttpRequest} that prompted us to connect
      * @param transportProtocol
      *            the protocol to use for the data transport
      * @param sslContext
@@ -606,7 +604,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @throws UnknownHostException
      *             if the hostAndPort can't be resolved
      */
-    private ProxyToServerConnection connectToServer(HttpRequest httpRequest,
+    private ProxyToServerConnection connectToServer(
             TransportProtocol transportProtocol, SSLContext sslContext,
             String hostAndPort, String serverHostAndPort,
             String chainedProxyHostAndPort)
