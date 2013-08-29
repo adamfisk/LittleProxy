@@ -60,16 +60,16 @@ image failed to load, the entire page is considered to be in error.
 ### August 29 2013
 
 
-| Proxy              | Avg  | Min |  Max  | Std Dev | Error % | Pages/s | MB/sec |
-|--------------------|------|-----|-------|---------|---------|---------|--------|
-| No Proxy           |  181 |  96 |   547 |     66  |    0    |  13.9   |  35.8  |
-| LittleProxy        |  263 | 113 |   778 |     88  |    0    |  11.0   |  28.6  |
-| Squid              |  299 | 121 |   702 |    104  |    0    |   9.9   |  25.8  |
-| node-http-proxy*** |   70 |  11 |   808 |    126  |   88    |  29.7*  |   9.5  |
-| Apache 2***        |  542 |   7 | 20120 |   1928  |   42    |   4.7   |   7.4  |
-| nginx              | 1246 | 129 | 18206 |   3155  |    4    |   2.8   |   7.2  |
+| Proxy            | Avg  | Min |  Max  | Std Dev | Error % | Pages/s | MB/sec |
+|------------------|------|-----|-------|---------|---------|---------|--------|
+| No Proxy         |  181 |  96 |   547 |     66  |    0    |  13.9   |  35.8  |
+| LittleProxy      |  263 | 113 |   778 |     88  |    0    |  11.0   |  28.6  |
+| Squid            |  299 | 121 |   702 |    104  |    0    |   9.9   |  25.8  |
+| node-http-proxy* |   70 |  11 |   808 |    126  |   88    |  29.7*  |   9.5  |
+| Apache 2*        |  542 |   7 | 20120 |   1928  |   42    |   4.7   |   7.4  |
+| nginx            | 1246 | 129 | 18206 |   3155  |    4    |   2.8   |   7.2  |
 
-*\** - These tests had very high error rates due to network-related issues, so
+\* - These tests had very high error rates due to network-related issues, so
 take their numbers with a big grain of salt.
 
 Apache 2 ran fine for several iterations and then started reporting lots of
