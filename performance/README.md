@@ -6,14 +6,14 @@ compared with other proxies (and no proxy), we've developed a simple benchmark.
 The goal of the benchmark is to understand LittleProxy's performance without
 network variability being a factor.
 
-To that end, the test serves a local mirror of Wikipedia's Germany page from a
-Jetty web server.
+To that end, the test serves a local mirror of Wikipedia's [Germany]
+(http://en.wikipedia.org/wiki/Germany) page from a Jetty web server.
 
 We use [JMeter](http://jmeter.apache.org/) to generate load from the same
 machine as the Jetty server, thereby cutting out the network as a factor.
 
 The JMeter test uses 4 concurrent threads to generate requests to [germany.html]
-(site/wikipedia/germany.html).  Each thread makes 200 consecutive requets with
+(site/wikipedia/germany.html).  Each thread makes 200 consecutive requests with
 no delay in between.  To simulate a normal browser, JMeter looks for resources
 referenced in the page and loads those with each page as well.
 
@@ -22,7 +22,7 @@ happier.
 
 ## Methodology
 
-Tests are always run starting with a cold back-end and proxy.
+Tests should always be run starting with a cold back-end, proxy and JMeter.
 
 1. Run `./perfServer.bash` to start a test web server on port 9000 (Jetty)
 2. Start your proxy on port 8080 (for LittleProxy, `./run.bash`)
@@ -30,16 +30,6 @@ Tests are always run starting with a cold back-end and proxy.
    (jmeter/Local Wikipedia Germany Performance Test.jmx)
 4. To run without a proxy, edit "The Users" and remove the proxy settings at
    the bottom
-
-## Environment
-
-```
-Machine:          MacBook Air 2013
-OS:               OS X 10.8.4
-Processor:        1.7 GHz Intel Core i7
-Memory:           8 GB 1600 MHz DDR3
-Network Adapter:  WIFI
-```
 
 ## Compared Proxies
 
@@ -84,6 +74,15 @@ if only one image failed to load, the entire page is considered to be in error.
  
 ### August 29 2013
 
+#### Environment
+
+```
+Machine:          MacBook Air 2013
+OS:               OS X 10.8.4
+Processor:        1.7 GHz Intel Core i7
+Memory:           8 GB 1600 MHz DDR3
+Network Adapter:  WIFI
+```
 
 | Proxy            | Avg  | Min |  Max  | Std Dev | Error % | Pages/s | MB/s |
 |------------------|-----:|----:|------:|--------:|--------:|--------:|-----:|
