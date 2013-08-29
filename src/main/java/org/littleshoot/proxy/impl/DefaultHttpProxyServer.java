@@ -273,7 +273,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         LOG.info("Starting proxy on port: " + this.port);
 
         synchronized (serverGroup) {
-            doStart(localOnly, anyAddress);
+            if (!serverGroup.stopped) {
+                doStart(localOnly, anyAddress);
+            } else {
+                throw new Error("Already stopped");
+            }
         }
 
         return this;
