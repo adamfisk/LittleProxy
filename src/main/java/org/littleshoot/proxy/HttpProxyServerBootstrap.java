@@ -1,5 +1,11 @@
 package org.littleshoot.proxy;
 
+/**
+ * Configures and starts an {@link HttpProxyServer}. The HttpProxyServer is
+ * built using {@link #start()} or {@link #start(boolean, boolean)}. Sensible
+ * defaults are available for all parameters such that {@link #build()} could be
+ * called immediately if you wish.
+ */
 public interface HttpProxyServerBootstrap {
 
     public abstract HttpProxyServerBootstrap withTransportProtocol(

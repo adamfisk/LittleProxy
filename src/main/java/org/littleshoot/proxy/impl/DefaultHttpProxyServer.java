@@ -544,12 +544,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         };
     }
 
-    /**
-     * Utility for configuring and building an {@link HttpProxyServer}. The
-     * HttpProxyServer is built using {@link #build()}. Sensible defaults are
-     * available for all parameters such that {@link #build()} could be called
-     * immediately if you wish.
-     */
     private static class DefaultHttpProxyServerBootstrap implements
             HttpProxyServerBootstrap {
         private TransportProtocol transportProtocol = TCP;
