@@ -9,7 +9,7 @@
     <copyright>&#169;2009 - 2013 LittleShoot</copyright>
     <item>
       <title>File: 29,
-             Errors: 952,
+             Errors: 1019,
              Warnings: 0,
              Infos: 0
       </title>
@@ -39,6 +39,20 @@
                 </td>
                 <td>
                   9
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpProxyServerBootstrap.java">org/littleshoot/proxy/HttpProxyServerBootstrap.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  26
                 </td>
               </tr>
                           <tr>
@@ -169,20 +183,6 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ServerState.java">org/littleshoot/proxy/impl/ServerState.java</a>
-                </td>
-                <td>
-                  0
-                </td>
-                <td>
-                  0
-                </td>
-                <td>
-                  4
-                </td>
-              </tr>
-                          <tr>
-                <td>
                   <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.TransportProtocol.java">org/littleshoot/proxy/TransportProtocol.java</a>
                 </td>
                 <td>
@@ -206,7 +206,7 @@
                   0
                 </td>
                 <td>
-                  11
+                  10
                 </td>
               </tr>
                           <tr>
@@ -262,7 +262,7 @@
                   0
                 </td>
                 <td>
-                  141
+                  185
                 </td>
               </tr>
                           <tr>
@@ -318,7 +318,7 @@
                   0
                 </td>
                 <td>
-                  4
+                  6
                 </td>
               </tr>
                           <tr>

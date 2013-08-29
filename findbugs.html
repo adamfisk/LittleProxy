@@ -243,8 +243,8 @@
 <th>Errors</th>
 <th>Missing Classes</th></tr>
 <tr class="b">
-<td>53</td>
-<td>1</td>
+<td>54</td>
+<td>3</td>
 <td>0</td>
 <td>0</td></tr></table></div>
 <div class="section">
@@ -255,21 +255,45 @@
 <th>Bugs</th></tr>
 <tr class="b">
 <td><a href="#org.littleshoot.proxy.impl.ClientToProxyConnection">org.littleshoot.proxy.impl.ClientToProxyConnection</a></td>
-<td>1</td></tr></table></div><a name="org.littleshoot.proxy.impl.ClientToProxyConnection"></a>
+<td>1</td></tr>
+<tr class="a">
+<td><a href="#org.littleshoot.proxy.impl.DefaultHttpProxyServer">org.littleshoot.proxy.impl.DefaultHttpProxyServer</a></td>
+<td>2</td></tr></table></div><a name="org.littleshoot.proxy.impl.ClientToProxyConnection"></a>
 <div class="section">
 <h3>org.littleshoot.proxy.impl.ClientToProxyConnection<a name="org.littleshoot.proxy.impl.ClientToProxyConnection"></a></h3>
 <table border="0" class="table table-striped">
-<tr class="a">
+<tr class="b">
 <th>Bug</th>
 <th>Category</th>
 <th>Details</th>
 <th>Line</th>
 <th>Priority</th></tr>
-<tr class="b">
+<tr class="a">
 <td>The field name org.littleshoot.proxy.impl.ClientToProxyConnection.RespondCONNECTSuccessful doesn't start with a lower case letter</td>
 <td>BAD_PRACTICE</td>
 <td><a class="externalLink" href="http://findbugs.sourceforge.net/bugDescriptions.html#NM_FIELD_NAMING_CONVENTION">NM_FIELD_NAMING_CONVENTION</a></td>
 <td><a href="./xref/org/littleshoot/proxy/impl/ClientToProxyConnection.html#">Not available</a></td>
+<td>Medium</td></tr></table></div><a name="org.littleshoot.proxy.impl.DefaultHttpProxyServer"></a>
+<div class="section">
+<h3>org.littleshoot.proxy.impl.DefaultHttpProxyServer<a name="org.littleshoot.proxy.impl.DefaultHttpProxyServer"></a></h3>
+<table border="0" class="table table-striped">
+<tr class="b">
+<th>Bug</th>
+<th>Category</th>
+<th>Details</th>
+<th>Line</th>
+<th>Priority</th></tr>
+<tr class="a">
+<td>org.littleshoot.proxy.impl.DefaultHttpProxyServer defines clone() but doesn't implement Cloneable</td>
+<td>BAD_PRACTICE</td>
+<td><a class="externalLink" href="http://findbugs.sourceforge.net/bugDescriptions.html#CN_IMPLEMENTS_CLONE_BUT_NOT_CLONEABLE">CN_IMPLEMENTS_CLONE_BUT_NOT_CLONEABLE</a></td>
+<td><a href="./xref/org/littleshoot/proxy/impl/DefaultHttpProxyServer.html#261">261</a></td>
+<td>High</td></tr>
+<tr class="b">
+<td>Dead store to selectorProvider in new org.littleshoot.proxy.impl.DefaultHttpProxyServer(DefaultHttpProxyServer$ServerGroup, TransportProtocol, int, SSLContextSource, ProxyAuthenticator, ChainedProxyManager, HttpRequestFilter, HttpResponseFilters, boolean, boolean, int)</td>
+<td>STYLE</td>
+<td><a class="externalLink" href="http://findbugs.sourceforge.net/bugDescriptions.html#DLS_DEAD_LOCAL_STORE">DLS_DEAD_LOCAL_STORE</a></td>
+<td><a href="./xref/org/littleshoot/proxy/impl/DefaultHttpProxyServer.html#225">225</a></td>
 <td>Medium</td></tr></table></div>
                   </div>
             </div>

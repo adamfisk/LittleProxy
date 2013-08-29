@@ -69,12 +69,12 @@
 <a class="jxr_linenumber" name="59" href="#59">59</a>          <strong class="jxr_keyword">final</strong> SSLContextSource sslContextSource = <strong class="jxr_keyword">new</strong> <a href="../../../org/littleshoot/proxy/SelfSignedSSLContextSource.html">SelfSignedSSLContextSource</a>(
 <a class="jxr_linenumber" name="60" href="#60">60</a>                  <span class="jxr_string">"chain_proxy_keystore_1.jks"</span>);
 <a class="jxr_linenumber" name="61" href="#61">61</a>          <strong class="jxr_keyword">this</strong>.downstreamProxy = DefaultHttpProxyServer.bootstrap()
-<a class="jxr_linenumber" name="62" href="#62">62</a>                  .withName(<span class="jxr_string">"DownstreamProxy"</span>)
+<a class="jxr_linenumber" name="62" href="#62">62</a>                  .withPort(downstreamProxyPort)
 <a class="jxr_linenumber" name="63" href="#63">63</a>                  .withTransportProtocol(UDT)
-<a class="jxr_linenumber" name="64" href="#64">64</a>                  .withSslContextSource(sslContextSource)
-<a class="jxr_linenumber" name="65" href="#65">65</a>                  .create().listen(downstreamProxyPort);
-<a class="jxr_linenumber" name="66" href="#66">66</a>          <strong class="jxr_keyword">this</strong>.downstreamProxy.addActivityTracker(DOWNSTREAM_TRACKER);
-<a class="jxr_linenumber" name="67" href="#67">67</a>          <strong class="jxr_keyword">this</strong>.proxyServer = DefaultHttpProxyServer.bootstrap()
+<a class="jxr_linenumber" name="64" href="#64">64</a>                  .withSslContextSource(sslContextSource).start();
+<a class="jxr_linenumber" name="65" href="#65">65</a>          <strong class="jxr_keyword">this</strong>.downstreamProxy.addActivityTracker(DOWNSTREAM_TRACKER);
+<a class="jxr_linenumber" name="66" href="#66">66</a>          <strong class="jxr_keyword">this</strong>.proxyServer = DefaultHttpProxyServer.bootstrap()
+<a class="jxr_linenumber" name="67" href="#67">67</a>                  .withPort(proxyServerPort)
 <a class="jxr_linenumber" name="68" href="#68">68</a>                  .withChainProxyManager(<strong class="jxr_keyword">new</strong> ChainedProxyManagerAdapter() {
 <a class="jxr_linenumber" name="69" href="#69">69</a>                      <strong class="jxr_keyword">public</strong> String getHostAndPort(HttpRequest httpRequest) {
 <a class="jxr_linenumber" name="70" href="#70">70</a>                          <strong class="jxr_keyword">return</strong> downstreamProxyHostAndPort;
@@ -94,7 +94,7 @@
 <a class="jxr_linenumber" name="84" href="#84">84</a>                      <strong class="jxr_keyword">public</strong> SSLContext getSSLContext() {
 <a class="jxr_linenumber" name="85" href="#85">85</a>                          <strong class="jxr_keyword">return</strong> sslContextSource.getSSLContext();
 <a class="jxr_linenumber" name="86" href="#86">86</a>                      }
-<a class="jxr_linenumber" name="87" href="#87">87</a>                  }).create().listen(proxyServerPort);
+<a class="jxr_linenumber" name="87" href="#87">87</a>                  }).start();
 <a class="jxr_linenumber" name="88" href="#88">88</a>          <strong class="jxr_keyword">this</strong>.proxyServer.addActivityTracker(UPSTREAM_TRACKER);
 <a class="jxr_linenumber" name="89" href="#89">89</a>      }
 <a class="jxr_linenumber" name="90" href="#90">90</a>  

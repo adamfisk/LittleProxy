@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pmd version="4.3" timestamp="2013-08-29T16:29:48.781">
+<pmd version="4.3" timestamp="2013-08-29T17:35:24.496">
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/impl/ClientToProxyConnection.java">
 <violation beginline="726" endline="734" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="shouldCloseClientConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
 These nested if statements could be combined
@@ -15,7 +15,13 @@ Avoid unused method parameters such as 'httpVersion'.
 </violation>
 </file>
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/impl/DefaultHttpProxyServer.java">
-<violation beginline="329" endline="329" begincolumn="41" endcolumn="51" rule="AvoidUsingHardCodedIP" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" method="listen" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#AvoidUsingHardCodedIP" priority="3">
+<violation beginline="219" endline="219" begincolumn="26" endcolumn="41" rule="UnusedLocalVariable" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" variable="selectorProvider" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedLocalVariable" priority="3">
+Avoid unused local variables such as 'selectorProvider'.
+</violation>
+<violation beginline="272" endline="272" begincolumn="29" endcolumn="72" rule="UnusedPrivateMethod" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" method="start" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedPrivateMethod" priority="3">
+Avoid unused private methods such as 'start(boolean,boolean)'.
+</violation>
+<violation beginline="325" endline="325" begincolumn="41" endcolumn="51" rule="AvoidUsingHardCodedIP" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" method="doStart" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#AvoidUsingHardCodedIP" priority="3">
 Do not hard code IPv4 or IPv6 addresses, even 127.0.0.1 !
 </violation>
 </file>
