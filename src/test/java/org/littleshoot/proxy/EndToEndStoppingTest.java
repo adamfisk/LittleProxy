@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
+import io.netty.handler.codec.http.HttpRequest;
 
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
@@ -25,8 +25,8 @@ import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
-import io.netty.handler.codec.http.HttpRequest;
 import org.junit.Test;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.openqa.selenium.Proxy;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
@@ -36,14 +36,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * End to end test making sure the proxy is able to service simple HTTP 
- * requests and stop at the end. Made into a unit test from isopov and nasis's
+ * End to end test making sure the proxy is able to service simple HTTP requests
+ * and stop at the end. Made into a unit test from isopov and nasis's
  * contributions at: https://github.com/adamfisk/LittleProxy/issues/36
  */
 public class EndToEndStoppingTest {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
-    
+
     /**
      * This is a quick test from nasis that exhibits different behavior from
      * unit tests because unit tests call System.exit(). The stop method should
@@ -53,8 +53,9 @@ public class EndToEndStoppingTest {
      */
     public static void main(final String[] args) throws Exception {
         int port = 9090;
-        HttpProxyServer proxyServer = new DefaultHttpProxyServer(port);
-        proxyServer.start();
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(port)
+                .start();
 
         Proxy proxy = new Proxy();
         proxy.setProxyType(Proxy.ProxyType.MANUAL);
@@ -77,19 +78,19 @@ public class EndToEndStoppingTest {
         proxyServer.stop();
         System.out.println("Proxy stopped");
     }
-    
+
     @Test
     public void testWithHttpClient() throws Exception {
-        //final String url = "https://www.exceptional.io/api/errors?" +
-         //       "api_key="+"9848f38fb5ad1db0784675b75b9152c87dc1eb95"+"&protocol_version=6";
-        
+        // final String url = "https://www.exceptional.io/api/errors?" +
+        // "api_key="+"9848f38fb5ad1db0784675b75b9152c87dc1eb95"+"&protocol_version=6";
+
         final String url = "https://www.exceptional.io";
-        final String[] sites = {url};//"https://www.google.com.ua"};//"https://exceptional.io"};//"http://www.google.com.ua"};
+        final String[] sites = { url };// "https://www.google.com.ua"};//"https://exceptional.io"};//"http://www.google.com.ua"};
         for (final String site : sites) {
             runSiteTestWithHttpClient(site);
         }
     }
-    
+
     private void runSiteTestWithHttpClient(final String site) throws Exception {
         final int PROXY_PORT = 7777;
         final DefaultHttpClient client = new DefaultHttpClient();
@@ -99,22 +100,25 @@ public class EndToEndStoppingTest {
             public HttpRoute determineRoute(HttpHost target,
                     org.apache.http.HttpRequest request, HttpContext context)
                     throws HttpException {
-                return new HttpRoute(target, null,  new HttpHost("localhost", PROXY_PORT, "http"), //true);
+                return new HttpRoute(target, null, new HttpHost("localhost",
+                        PROXY_PORT, "http"), // true);
                         "https".equalsIgnoreCase(target.getSchemeName()));
             }
         });
         final SSLContext sslContext = SSLContext.getInstance("SSL");
 
-         // set up a TrustManager that trusts everything for testing
+        // set up a TrustManager that trusts everything for testing
         sslContext.init(null, new TrustManager[] { new X509TrustManager() {
 
             @Override
             public void checkClientTrusted(X509Certificate[] arg0, String arg1)
-                    throws CertificateException {}
+                    throws CertificateException {
+            }
 
             @Override
             public void checkServerTrusted(X509Certificate[] arg0, String arg1)
-                    throws CertificateException {}
+                    throws CertificateException {
+            }
 
             @Override
             public X509Certificate[] getAcceptedIssuers() {
@@ -123,65 +127,66 @@ public class EndToEndStoppingTest {
 
         } }, new SecureRandom());
 
-        final SSLSocketFactory sf = new SSLSocketFactory(sslContext, 
-            SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+        final SSLSocketFactory sf = new SSLSocketFactory(sslContext,
+                SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
         final Scheme sch = new Scheme("https", 443, sf);
         client.getConnectionManager().getSchemeRegistry().register(sch);
-        
-        //final HttpPost get = new HttpPost(site);
+
+        // final HttpPost get = new HttpPost(site);
         final HttpGet get = new HttpGet(site);
-        //HttpResponse response = client.execute(get);
-        
-        //assertEquals(200, response.getStatusLine().getStatusCode());
-        //EntityUtils.consume(response.getEntity());
+        // HttpResponse response = client.execute(get);
+
+        // assertEquals(200, response.getStatusLine().getStatusCode());
+        // EntityUtils.consume(response.getEntity());
         /*
-        final HttpProxyServer ssl = new DefaultHttpProxyServer(PROXY_PORT, 
-            null, null, 
-            new SslHandshakeHandlerFactory(), new HttpRequestFilter() {
-                @Override
-                public void filter(HttpRequest httpRequest) {
-                    System.out.println("Request went through proxy");
-                }
-            });
-        */
-        
-        final HttpProxyServer plain = 
-            new DefaultHttpProxyServer(PROXY_PORT, new HttpRequestFilter() {
-                @Override
-                public void filter(HttpRequest httpRequest) {
-                    System.out.println("Request went through proxy");
-                }
-            },
-            new HttpResponseFilters() {
-                public HttpFilter getFilter(String hostAndPort) {
-                    return null;
-                }
-            });
+         * final HttpProxyServer ssl = new DefaultHttpProxyServer(PROXY_PORT,
+         * null, null, new SslHandshakeHandlerFactory(), new HttpRequestFilter()
+         * {
+         * 
+         * @Override public void filter(HttpRequest httpRequest) {
+         * System.out.println("Request went through proxy"); } });
+         */
+
+        final HttpProxyServer plain = DefaultHttpProxyServer.bootstrap()
+                .withPort(PROXY_PORT)
+                .withRequestFilter(new HttpRequestFilter() {
+                    @Override
+                    public void filter(HttpRequest httpRequest) {
+                        System.out
+                                .println("Request went through proxy");
+                    }
+                })
+                .withResponseFilters(
+                        new HttpResponseFilters() {
+                            public HttpFilter getFilter(String hostAndPort) {
+                                return null;
+                            }
+                        }).start();
         final HttpProxyServer proxy = plain;
 
-        proxy.start();
-        //client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, 
-            //new HttpHost("75.101.134.244", PROXY_PORT));
-         //   new HttpHost("localhost", PROXY_PORT, "https"));
+        // client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
+        // new HttpHost("75.101.134.244", PROXY_PORT));
+        // new HttpHost("localhost", PROXY_PORT, "https"));
         HttpResponse response = client.execute(get);
         assertEquals(200, response.getStatusLine().getStatusCode());
         final HttpEntity entity = response.getEntity();
-        final String body = 
-            IOUtils.toString(entity.getContent()).toLowerCase();
+        final String body =
+                IOUtils.toString(entity.getContent()).toLowerCase();
         EntityUtils.consume(entity);
-        
+
         log.info("Consuming entity -- got body: {}", body);
         EntityUtils.consume(response.getEntity());
-        
+
         log.info("Stopping proxy");
         proxy.stop();
     }
 
-    //@Test
+    // @Test
     public void testWithWebDriver() throws Exception {
         int port = 9090;
-        HttpProxyServer proxyServer = new DefaultHttpProxyServer(port);
-        proxyServer.start();
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(port)
+                .start();
 
         Proxy proxy = new Proxy();
         proxy.setProxyType(Proxy.ProxyType.MANUAL);
@@ -193,14 +198,14 @@ public class EndToEndStoppingTest {
         capability.setCapability(CapabilityType.PROXY, proxy);
 
         final String urlString = "http://www.yahoo.com/";
-        
+
         // Note this will actually launch a browser!!
         final WebDriver driver = new FirefoxDriver(capability);
         driver.manage().timeouts().pageLoadTimeout(30, TimeUnit.SECONDS);
 
         driver.get(urlString);
         final String source = driver.getPageSource();
-        
+
         // Just make sure it got something within reason.
         assertTrue(source.length() > 100);
         driver.close();
