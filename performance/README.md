@@ -81,7 +81,7 @@ Machine:          MacBook Air 2013
 OS:               OS X 10.8.4
 Processor:        1.7 GHz Intel Core i7
 Memory:           8 GB 1600 MHz DDR3
-Network Adapter:  WIFI
+Network Adapter:  Virtual Loopback Interface
 ```
 
 | Proxy            | Avg  | Min |  Max  | Std Dev | Error % | Pages/s | MB/s |
