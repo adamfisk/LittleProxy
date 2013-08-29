@@ -85,7 +85,7 @@ Memory:           8 GB 1600 MHz DDR3
 Network Adapter:  Virtual Loopback Interface
 ```
 
-#### Timings
+#### Measurements
 
 | Proxy            | Avg  | Min |  Max  | Std Dev | Error % | Pages/s | MB/s |
 |------------------|-----:|----:|------:|--------:|--------:|--------:|-----:|
