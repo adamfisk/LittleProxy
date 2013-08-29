@@ -76,11 +76,10 @@ Note - we are using a single worker process
 
 See [this spreadsheet](http://goo.gl/9MEDX3) for a history of results.
 
-On the tables, Avg, Min, Max and Std Dev refer to response time in ms.
+The columns "Avg", "Min", "Max" and "Std Dev" refer to response time in ms.
 
-Error % indicates the percent of pages that had some error.  Even if only one
-image failed to load, the entire page is considered to be in error.
-
+The column "Error %" indicates the percent of pages that had some error.  Even
+if only one image failed to load, the entire page is considered to be in error.
 
  
 ### August 29 2013
