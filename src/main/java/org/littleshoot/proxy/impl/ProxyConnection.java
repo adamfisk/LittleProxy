@@ -163,6 +163,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
             LOG.warn("Attempted to read from connection that's in the process of connecting.  This shouldn't happen.");
             break;
         case NEGOTIATING_CONNECT:
+            // TODO: ox - why is this happening so much?  Is it actually bad?
             LOG.warn("Attempted to read from connection that's in the process of negotiating an HTTP CONNECT.  This shouldn't happen.");
             break;
         case HANDSHAKING:

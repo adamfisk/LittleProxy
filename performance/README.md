@@ -64,15 +64,16 @@ Note - we are using a single worker process
 
 ## Results
 
-See [this spreadsheet](http://goo.gl/9MEDX3) for a history of results.
+This section lists historical results from running the benchmark.
+
+### About the Tables
 
 The columns "Avg", "Min", "Max" and "Std Dev" refer to response time in ms.
 
 The column "Error %" indicates the percent of pages that had some error.  Even
 if only one image failed to load, the entire page is considered to be in error.
-
  
-### August 29 2013
+### August 29, 2013
 
 #### Environment
 
