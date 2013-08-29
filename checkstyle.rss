@@ -8,8 +8,8 @@
     <language>en-us</language>
     <copyright>&#169;2009 - 2013 LittleShoot</copyright>
     <item>
-      <title>File: 28,
-             Errors: 958,
+      <title>File: 29,
+             Errors: 952,
              Warnings: 0,
              Infos: 0
       </title>
@@ -169,6 +169,20 @@
               </tr>
                           <tr>
                 <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ServerState.java">org/littleshoot/proxy/impl/ServerState.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  4
+                </td>
+              </tr>
+                          <tr>
+                <td>
                   <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.TransportProtocol.java">org/littleshoot/proxy/TransportProtocol.java</a>
                 </td>
                 <td>
@@ -183,20 +197,6 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyConnection.java">org/littleshoot/proxy/impl/ProxyConnection.java</a>
-                </td>
-                <td>
-                  0
-                </td>
-                <td>
-                  0
-                </td>
-                <td>
-                  126
-                </td>
-              </tr>
-                          <tr>
-                <td>
                   <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.Launcher.java">org/littleshoot/proxy/Launcher.java</a>
                 </td>
                 <td>
@@ -207,6 +207,20 @@
                 </td>
                 <td>
                   11
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyConnection.java">org/littleshoot/proxy/impl/ProxyConnection.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  126
                 </td>
               </tr>
                           <tr>
@@ -248,7 +262,7 @@
                   0
                 </td>
                 <td>
-                  153
+                  141
                 </td>
               </tr>
                           <tr>
@@ -304,7 +318,7 @@
                   0
                 </td>
                 <td>
-                  2
+                  4
                 </td>
               </tr>
                           <tr>

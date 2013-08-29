@@ -51,7 +51,7 @@
 <a class="jxr_linenumber" name="41" href="#41">41</a>      <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">void</strong> testServerFaster() <strong class="jxr_keyword">throws</strong> Exception {
 <a class="jxr_linenumber" name="42" href="#42">42</a>          startServer();
 <a class="jxr_linenumber" name="43" href="#43">43</a>          Thread.yield();
-<a class="jxr_linenumber" name="44" href="#44">44</a>          DefaultHttpProxyServer.bootstrap().withPort(PROXY_PORT).start();
+<a class="jxr_linenumber" name="44" href="#44">44</a>          DefaultHttpProxyServer.bootstrap().create().listen(PROXY_PORT);
 <a class="jxr_linenumber" name="45" href="#45">45</a>          Thread.yield();
 <a class="jxr_linenumber" name="46" href="#46">46</a>          Thread.sleep(400);
 <a class="jxr_linenumber" name="47" href="#47">47</a>          <strong class="jxr_keyword">final</strong> DefaultHttpClient client = <strong class="jxr_keyword">new</strong> DefaultHttpClient();
