@@ -13,7 +13,6 @@ import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.PropertyConfigurator;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
-import org.littleshoot.proxy.impl.DefaultHttpProxyServer.DefaultHttpProxyServerBootstrap;
 import org.littleshoot.proxy.impl.ProxyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,7 +78,7 @@ public class Launcher {
         }
 
         System.out.println("About to start server on port: " + port);
-        DefaultHttpProxyServerBootstrap bootstrap = DefaultHttpProxyServer
+        HttpProxyServerBootstrap bootstrap = DefaultHttpProxyServer
                 .bootstrapFromFile("./littleproxy.properties")
                 .withPort(port);
 

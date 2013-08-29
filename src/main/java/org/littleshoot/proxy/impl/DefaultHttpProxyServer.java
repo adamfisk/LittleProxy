@@ -36,7 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.net.ssl.SSLContext;
 
@@ -45,6 +44,7 @@ import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.HttpFilter;
 import org.littleshoot.proxy.HttpProxyServer;
+import org.littleshoot.proxy.HttpProxyServerBootstrap;
 import org.littleshoot.proxy.HttpRequestFilter;
 import org.littleshoot.proxy.HttpResponseFilters;
 import org.littleshoot.proxy.ProxyAuthenticator;
@@ -77,17 +77,15 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
 
-    private static final int MAXIMUM_INCOMING_THREADS = 10;
-
-    private static final int MAXIMUM_OUTGOING_THREADS = 40;
-
     private static final Logger LOG = LoggerFactory
             .getLogger(DefaultHttpProxyServer.class);
 
-    private final ChannelGroup allChannels = new DefaultChannelGroup(
-            "HTTP-Proxy-Server", GlobalEventExecutor.INSTANCE);
+    /**
+     * Our {@link ServerGroup}. Multiple proxy servers can share the same
+     * ServerGroup in order to reuse threads and other such resources.
+     */
+    private final ServerGroup serverGroup;
 
-    private final String name;
     private final TransportProtocol transportProtocol;
     private final int port;
     private final SSLContextSource sslContextSource;
@@ -98,28 +96,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final boolean useDnsSec;
     private final boolean transparent;
     private volatile int idleConnectionTimeout;
-    private final ServerBootstrap serverBootstrap;
-    private final EventLoopGroup clientToProxyBossPool;
-    private final EventLoopGroup clientToProxyWorkerPool;
-
-    /**
-     * These EventLoopGroups are used for making outgoing connections to
-     * servers. A different EventLoopGroup is used for each TransportProtocol,
-     * since these have to be configured differently.
-     */
-    private final Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools = new ConcurrentHashMap<TransportProtocol, EventLoopGroup>();
-
-    /**
-     * Track all ActivityTrackers that track proxying activity.
-     */
-    private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
 
     /**
      * Bootstrap a new {@link DefaultHttpProxyServer} starting from scratch.
      * 
      * @return
      */
-    public static DefaultHttpProxyServerBootstrap bootstrap() {
+    public static HttpProxyServerBootstrap bootstrap() {
         return new DefaultHttpProxyServerBootstrap();
     }
 
@@ -130,7 +113,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param path
      * @return
      */
-    public static DefaultHttpProxyServerBootstrap bootstrapFromFile(String path) {
+    public static HttpProxyServerBootstrap bootstrapFromFile(String path) {
         final File propsFile = new File(path);
         Properties props = new Properties();
 
@@ -150,8 +133,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     /**
-     * @param name
-     *            The name of this proxy server (used for logging)
      * @param transportProtocol
      *            The protocol to use for data transport
      * @param port
@@ -197,7 +178,22 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param idleConnectionTimeout
      *            The timeout (in seconds) for auto-closing idle connections.
      */
-    private DefaultHttpProxyServer(String name,
+    private DefaultHttpProxyServer(TransportProtocol transportProtocol,
+            int port,
+            SSLContextSource sslContextSource,
+            ProxyAuthenticator proxyAuthenticator,
+            ChainedProxyManager chainProxyManager,
+            HttpRequestFilter requestFilter,
+            HttpResponseFilters responseFilters,
+            boolean useDnsSec,
+            boolean transparent,
+            int idleConnectionTimeout) {
+        this(new ServerGroup(), transportProtocol, port, sslContextSource,
+                proxyAuthenticator, chainProxyManager, requestFilter,
+                responseFilters, useDnsSec, transparent, idleConnectionTimeout);
+    }
+
+    private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
             int port,
             SSLContextSource sslContextSource,
@@ -208,7 +204,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout) {
-        this.name = name;
+        this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.port = port;
         this.sslContextSource = sslContextSource;
@@ -231,30 +227,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         default:
             throw new UnknownTransportProtocolError(transportProtocol);
         }
-
-        this.clientToProxyBossPool = new NioEventLoopGroup(
-                MAXIMUM_INCOMING_THREADS,
-                CLIENT_TO_PROXY_THREAD_FACTORY, selectorProvider);
-        this.clientToProxyWorkerPool = new NioEventLoopGroup(
-                MAXIMUM_INCOMING_THREADS,
-                CLIENT_TO_PROXY_THREAD_FACTORY, selectorProvider);
-        this.proxyToServerWorkerPools.put(TCP, new NioEventLoopGroup(
-                MAXIMUM_OUTGOING_THREADS,
-                PROXY_TO_SERVER_THREAD_FACTORY, SelectorProvider.provider()));
-        this.proxyToServerWorkerPools.put(UDT, new NioEventLoopGroup(
-                MAXIMUM_OUTGOING_THREADS,
-                PROXY_TO_SERVER_THREAD_FACTORY, NioUdtProvider.BYTE_PROVIDER));
-
-        Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
-            public void uncaughtException(final Thread t, final Throwable e) {
-                LOG.error("Uncaught throwable", e);
-            }
-        });
-
-        // Use our thread names so users know there are LittleProxy threads.
-        this.serverBootstrap = new ServerBootstrap().group(
-                clientToProxyBossPool,
-                clientToProxyWorkerPool);
     }
 
     public boolean isUseDnsSec() {
@@ -273,16 +245,46 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.idleConnectionTimeout = idleConnectionTimeout;
     }
 
-    @Override
+    /**
+     * Add an ActivityTracker for tracking proxying activity.
+     * 
+     * @param activityTracker
+     * @return this HttpProxyServer for call chaining
+     */
     public HttpProxyServer addActivityTracker(ActivityTracker activityTracker) {
-        this.activityTrackers.add(activityTracker);
+        this.serverGroup.activityTrackers.add(activityTracker);
         return this;
     }
 
-    private HttpProxyServer start(final boolean localOnly,
-            final boolean anyAddress) {
+    @Override
+    public HttpProxyServerBootstrap clone() {
+        return new DefaultHttpProxyServerBootstrap(transportProtocol, port + 1,
+                sslContextSource, proxyAuthenticator, chainProxyManager,
+                requestFilter, responseFilters, useDnsSec, transparent,
+                idleConnectionTimeout);
+    }
+
+    @Override
+    public void stop() {
+        serverGroup.stop();
+    }
+
+    private HttpProxyServer start(boolean localOnly, boolean anyAddress) {
         LOG.info("Starting proxy on port: " + this.port);
-        this.stopped.set(false);
+
+        synchronized (serverGroup) {
+            doStart(localOnly, anyAddress);
+        }
+
+        return this;
+    }
+
+    private void doStart(final boolean localOnly,
+            final boolean anyAddress) {
+        ServerBootstrap serverBootstrap = new ServerBootstrap().group(
+                serverGroup.clientToProxyBossPools.get(transportProtocol),
+                serverGroup.clientToProxyWorkerPools.get(transportProtocol));
+
         ChannelInitializer<Channel> initializer = new ChannelInitializer<Channel>() {
             protected void initChannel(Channel ch) throws Exception {
                 SSLContext sslContext = null;
@@ -337,65 +339,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             @Override
             public void operationComplete(ChannelFuture future)
                     throws Exception {
-                allChannels.add(future.channel());
+                registerChannel(future.channel());
             }
         });
-
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            public void run() {
-                stop();
-            }
-        }));
-
-        return this;
-    }
-
-    private final AtomicBoolean stopped = new AtomicBoolean(false);
-
-    public void stop() {
-        LOG.info("Shutting down proxy");
-        if (stopped.get()) {
-            LOG.info("Already stopped");
-            return;
-        }
-        stopped.set(true);
-
-        LOG.info("Closing all channels...");
-
-        final ChannelGroupFuture future = allChannels.close();
-        future.awaitUninterruptibly(10 * 1000);
-
-        if (!future.isSuccess()) {
-            final Iterator<ChannelFuture> iter = future.iterator();
-            while (iter.hasNext()) {
-                final ChannelFuture cf = iter.next();
-                if (!cf.isSuccess()) {
-                    LOG.warn(
-                            "Unable to close channel.  Cause of failure for {} is {}",
-                            cf.channel(),
-                            cf.cause());
-                }
-            }
-        }
-
-        LOG.info("Shutting down event loops");
-        List<EventLoopGroup> allEventLoopGroups = new ArrayList<EventLoopGroup>();
-        allEventLoopGroups.add(clientToProxyBossPool);
-        allEventLoopGroups.add(clientToProxyWorkerPool);
-        allEventLoopGroups.addAll(proxyToServerWorkerPools.values());
-        for (EventLoopGroup group : allEventLoopGroups) {
-            group.shutdownGracefully();
-        }
-
-        for (EventLoopGroup group : allEventLoopGroups) {
-            try {
-                group.awaitTermination(60, TimeUnit.SECONDS);
-            } catch (InterruptedException ie) {
-                LOG.warn("Interrupted while shutting down event loop");
-            }
-        }
-
-        LOG.info("Done shutting down proxy");
     }
 
     /**
@@ -404,7 +350,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param channel
      */
     protected void registerChannel(Channel channel) {
-        this.allChannels.add(channel);
+        this.serverGroup.allChannels.add(channel);
     }
 
     protected ChainedProxyManager getChainProxyManager() {
@@ -428,35 +374,171 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     protected Collection<ActivityTracker> getActivityTrackers() {
-        return activityTrackers;
+        return serverGroup.activityTrackers;
     }
 
     protected EventLoopGroup getProxyToServerWorkerFor(
             TransportProtocol transportProtocol) {
-        return this.proxyToServerWorkerPools.get(transportProtocol);
+        return this.serverGroup.proxyToServerWorkerPools.get(transportProtocol);
     }
 
-    private final ThreadFactory CLIENT_TO_PROXY_THREAD_FACTORY = new ThreadFactory() {
+    /**
+     * Represents a group of servers that share thread pools.
+     */
+    private static class ServerGroup {
+        private static final int MAXIMUM_INCOMING_THREADS = 10;
+        private static final int MAXIMUM_OUTGOING_THREADS = 40;
 
-        private int num = 0;
+        /**
+         * Keep track of all channels for later shutdown.
+         */
+        private final ChannelGroup allChannels = new DefaultChannelGroup(
+                "HTTP-Proxy-Server", GlobalEventExecutor.INSTANCE);
 
-        public Thread newThread(final Runnable r) {
-            final Thread t = new Thread(r,
-                    name + "-ClientToProxy-" + num++);
-            return t;
+        /**
+         * Track all ActivityTrackers for tracking proxying activity.
+         */
+        private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
+
+        /**
+         * These {@link EventLoopGroup}s accept incoming connections to the
+         * proxies. A different EventLoopGroup is used for each
+         * TransportProtocol, since these have to be configured differently.
+         */
+        private final Map<TransportProtocol, EventLoopGroup> clientToProxyBossPools = new ConcurrentHashMap<TransportProtocol, EventLoopGroup>();
+
+        /**
+         * These {@link EventLoopGroup}s process incoming requests to the
+         * proxies. A different EventLoopGroup is used for each
+         * TransportProtocol, since these have to be configured differently.
+         */
+        private final Map<TransportProtocol, EventLoopGroup> clientToProxyWorkerPools = new ConcurrentHashMap<TransportProtocol, EventLoopGroup>();
+
+        /**
+         * These {@link EventLoopGroup}s are used for making outgoing
+         * connections to servers. A different EventLoopGroup is used for each
+         * TransportProtocol, since these have to be configured differently.
+         */
+        private final Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools = new ConcurrentHashMap<TransportProtocol, EventLoopGroup>();
+
+        private volatile boolean stopped = false;
+
+        private ServerGroup() {
+            // Set up worker pools for each transport protocol
+            for (TransportProtocol transportProtocol : TransportProtocol
+                    .values()) {
+                SelectorProvider selectorProvider = null;
+                switch (transportProtocol) {
+                case TCP:
+                    selectorProvider = SelectorProvider.provider();
+                    break;
+                case UDT:
+                    selectorProvider = NioUdtProvider.BYTE_PROVIDER;
+                    break;
+                default:
+                    throw new UnknownTransportProtocolError(transportProtocol);
+                }
+
+                this.clientToProxyBossPools.put(transportProtocol,
+                        new NioEventLoopGroup(
+                                MAXIMUM_INCOMING_THREADS,
+                                CLIENT_TO_PROXY_THREAD_FACTORY,
+                                selectorProvider));
+                this.clientToProxyWorkerPools.put(transportProtocol,
+                        new NioEventLoopGroup(
+                                MAXIMUM_INCOMING_THREADS,
+                                CLIENT_TO_PROXY_THREAD_FACTORY,
+                                selectorProvider));
+                this.proxyToServerWorkerPools.put(
+                        transportProtocol,
+                        new NioEventLoopGroup(
+                                MAXIMUM_OUTGOING_THREADS,
+                                PROXY_TO_SERVER_THREAD_FACTORY,
+                                selectorProvider));
+            }
+
+            Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+                public void uncaughtException(final Thread t, final Throwable e) {
+                    LOG.error("Uncaught throwable", e);
+                }
+            });
+
+            Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+                public void run() {
+                    stop();
+                }
+            }));
         }
-    };
 
-    private final ThreadFactory PROXY_TO_SERVER_THREAD_FACTORY = new ThreadFactory() {
+        synchronized private void stop() {
+            LOG.info("Shutting down proxy");
+            if (stopped) {
+                LOG.info("Already stopped");
+                return;
+            }
 
-        private int num = 0;
+            LOG.info("Closing all channels...");
 
-        public Thread newThread(final Runnable r) {
-            final Thread t = new Thread(r,
-                    name + "-ProxyToServer-" + num++);
-            return t;
+            final ChannelGroupFuture future = allChannels.close();
+            future.awaitUninterruptibly(10 * 1000);
+
+            if (!future.isSuccess()) {
+                final Iterator<ChannelFuture> iter = future.iterator();
+                while (iter.hasNext()) {
+                    final ChannelFuture cf = iter.next();
+                    if (!cf.isSuccess()) {
+                        LOG.warn(
+                                "Unable to close channel.  Cause of failure for {} is {}",
+                                cf.channel(),
+                                cf.cause());
+                    }
+                }
+            }
+
+            LOG.info("Shutting down event loops");
+            List<EventLoopGroup> allEventLoopGroups = new ArrayList<EventLoopGroup>();
+            allEventLoopGroups.addAll(clientToProxyBossPools.values());
+            allEventLoopGroups.addAll(clientToProxyWorkerPools.values());
+            allEventLoopGroups.addAll(proxyToServerWorkerPools.values());
+            for (EventLoopGroup group : allEventLoopGroups) {
+                group.shutdownGracefully();
+            }
+
+            for (EventLoopGroup group : allEventLoopGroups) {
+                try {
+                    group.awaitTermination(60, TimeUnit.SECONDS);
+                } catch (InterruptedException ie) {
+                    LOG.warn("Interrupted while shutting down event loop");
+                }
+            }
+
+            stopped = true;
+
+            LOG.info("Done shutting down proxy");
         }
-    };
+
+        private final ThreadFactory CLIENT_TO_PROXY_THREAD_FACTORY = new ThreadFactory() {
+
+            private int num = 0;
+
+            public Thread newThread(final Runnable r) {
+                final Thread t = new Thread(r,
+                        "ClientToProxy-" + num++);
+                return t;
+            }
+        };
+
+        private final ThreadFactory PROXY_TO_SERVER_THREAD_FACTORY = new ThreadFactory() {
+
+            private int num = 0;
+
+            public Thread newThread(final Runnable r) {
+                final Thread t = new Thread(r,
+                        "ProxyToServer-" + num++);
+                return t;
+            }
+        };
+    }
 
     /**
      * Utility for configuring and building an {@link HttpProxyServer}. The
@@ -464,8 +546,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * available for all parameters such that {@link #build()} could be called
      * immediately if you wish.
      */
-    public static class DefaultHttpProxyServerBootstrap {
-        private String name = "LittleProxy";
+    private static class DefaultHttpProxyServerBootstrap implements
+            HttpProxyServerBootstrap {
         private TransportProtocol transportProtocol = TCP;
         private int port = 8080;
         private SSLContextSource sslContextSource = null;
@@ -480,6 +562,26 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private DefaultHttpProxyServerBootstrap() {
         }
 
+        private DefaultHttpProxyServerBootstrap(
+                TransportProtocol transportProtocol, int port,
+                SSLContextSource sslContextSource,
+                ProxyAuthenticator proxyAuthenticator,
+                ChainedProxyManager chainProxyManager,
+                HttpRequestFilter requestFilter,
+                HttpResponseFilters responseFilters, boolean useDnsSec,
+                boolean transparent, int idleConnectionTimeout) {
+            this.transportProtocol = transportProtocol;
+            this.port = port;
+            this.sslContextSource = sslContextSource;
+            this.proxyAuthenticator = proxyAuthenticator;
+            this.chainProxyManager = chainProxyManager;
+            this.requestFilter = requestFilter;
+            this.responseFilters = responseFilters;
+            this.useDnsSec = useDnsSec;
+            this.transparent = transparent;
+            this.idleConnectionTimeout = idleConnectionTimeout;
+        }
+
         private DefaultHttpProxyServerBootstrap(Properties props) {
             this.useDnsSec = ProxyUtils.extractBooleanDefaultFalse(
                     props, "dnssec");
@@ -489,85 +591,79 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     "idle_connection_timeout");
         }
 
-        public DefaultHttpProxyServerBootstrap withName(String name) {
-            this.name = name;
-            return this;
-        }
-
-        public DefaultHttpProxyServerBootstrap withTransportProtocol(
+        @Override
+        public HttpProxyServerBootstrap withTransportProtocol(
                 TransportProtocol transportProtocol) {
             this.transportProtocol = transportProtocol;
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withPort(int port) {
+        @Override
+        public HttpProxyServerBootstrap withPort(int port) {
             this.port = port;
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withSslContextSource(
+        @Override
+        public HttpProxyServerBootstrap withSslContextSource(
                 SSLContextSource sslContextSource) {
             this.sslContextSource = sslContextSource;
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withProxyAuthenticator(
+        @Override
+        public HttpProxyServerBootstrap withProxyAuthenticator(
                 ProxyAuthenticator proxyAuthenticator) {
             this.proxyAuthenticator = proxyAuthenticator;
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withChainProxyManager(
+        @Override
+        public HttpProxyServerBootstrap withChainProxyManager(
                 ChainedProxyManager chainProxyManager) {
             this.chainProxyManager = chainProxyManager;
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withRequestFilter(
+        @Override
+        public HttpProxyServerBootstrap withRequestFilter(
                 HttpRequestFilter requestFilter) {
             this.requestFilter = requestFilter;
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withResponseFilters(
+        @Override
+        public HttpProxyServerBootstrap withResponseFilters(
                 HttpResponseFilters responseFilters) {
             this.responseFilters = responseFilters;
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec) {
+        @Override
+        public HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec) {
             this.useDnsSec = useDnsSec;
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withTransparent(
+        @Override
+        public HttpProxyServerBootstrap withTransparent(
                 boolean transparent) {
             this.transparent = transparent;
             return this;
         }
 
-        public DefaultHttpProxyServerBootstrap withIdleConnectionTimeout(
+        @Override
+        public HttpProxyServerBootstrap withIdleConnectionTimeout(
                 int idleConnectionTimeout) {
             this.idleConnectionTimeout = idleConnectionTimeout;
             return this;
         }
 
-        /**
-         * Starts the server.
-         * 
-         * @param localOnly
-         *            If true, the server will only allow connections from the
-         *            local computer. This can significantly improve security in
-         *            some cases.
-         * @param anyAddress
-         *            Whether or not to bind to "any" address - 0.0.0.0. This is
-         *            the default.
-         * @return the newly built and started server
-         */
-        public DefaultHttpProxyServer start(boolean localOnly,
+        @Override
+        public HttpProxyServer start(boolean localOnly,
                 boolean anyAddress) {
             DefaultHttpProxyServer server = new DefaultHttpProxyServer(
-                    name, transportProtocol, port, sslContextSource,
+                    transportProtocol, port, sslContextSource,
                     proxyAuthenticator, chainProxyManager,
                     requestFilter, responseFilters, useDnsSec,
                     transparent, idleConnectionTimeout);
@@ -575,12 +671,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             return server;
         }
 
-        /**
-         * Builds and starts the server.
-         * 
-         * @return the newly built and started server
-         */
-        public DefaultHttpProxyServer start() {
+        @Override
+        public HttpProxyServer start() {
             return start(true, true);
         }
     }

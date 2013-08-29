@@ -26,7 +26,7 @@ public class IdleTest {
 
     private int originalIdleTimeout;
     private Server webServer;
-    private DefaultHttpProxyServer proxyServer;
+    private HttpProxyServer proxyServer;
 
     @Before
     public void setup() throws Exception {

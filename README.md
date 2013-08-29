@@ -50,6 +50,15 @@ HttpProxyServer server =
         .start();
 ```                
 
+If you want to create additional proxy servers with similar configuration but
+listening on different ports, you can clone an existing server.  The cloned
+servers will share event loops to reduce resource usage and when one clone is
+stopped, all are stopped.
+
+```
+existingServer.clone().withPort(8081).start()
+```
+
 If you have questions, please visit our Google Group here:
 
 https://groups.google.com/forum/#!forum/littleproxy

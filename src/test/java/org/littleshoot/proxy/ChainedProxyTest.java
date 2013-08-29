@@ -59,7 +59,6 @@ public class ChainedProxyTest extends BaseProxyTest {
         final SSLContextSource sslContextSource = new SelfSignedSSLContextSource(
                 "chain_proxy_keystore_1.jks");
         this.downstreamProxy = DefaultHttpProxyServer.bootstrap()
-                .withName("DownstreamProxy")
                 .withPort(downstreamProxyPort)
                 .withTransportProtocol(UDT)
                 .withSslContextSource(sslContextSource).start();

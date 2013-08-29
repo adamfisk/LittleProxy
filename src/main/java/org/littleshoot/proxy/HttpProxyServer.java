@@ -5,8 +5,27 @@ package org.littleshoot.proxy;
  */
 public interface HttpProxyServer {
 
+    int getIdleConnectionTimeout();
+
+    void setIdleConnectionTimeout(int idleConnectionTimeout);
+
     /**
-     * Stops the server.
+     * <p>
+     * Clone the existing server, with a port 1 higher and everything else the
+     * same.
+     * </p>
+     * 
+     * <p>
+     * The new server will share event loops with the original server.
+     * </p>
+     * 
+     * @return a bootstrap that allows customizing and starting the cloned
+     *         server
+     */
+    HttpProxyServerBootstrap clone();
+
+    /**
+     * Stops the server and all related clones.
      */
     void stop();
 
