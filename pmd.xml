@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pmd version="4.3" timestamp="2013-08-30T10:12:22.332">
+<pmd version="4.3" timestamp="2013-08-30T10:35:15.578">
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/HttpFiltersSource.java">
 <violation beginline="3" endline="3" begincolumn="1" endcolumn="46" rule="UnusedImports" ruleset="Import Statement Rules" package="org.littleshoot.proxy" externalInfoUrl="http://pmd.sourceforge.net/rules/imports.html#UnusedImports" priority="4">
 Avoid unused imports such as 'io.netty.handler.codec.http.HttpObject'
