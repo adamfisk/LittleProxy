@@ -3,11 +3,15 @@ package org.littleshoot.proxy;
 import static org.littleshoot.proxy.TransportProtocol.*;
 import io.netty.handler.codec.http.HttpRequest;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 
 import org.junit.Assert;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
@@ -22,7 +26,6 @@ public class ChainedProxyTest extends BaseProxyTest {
             59000);
 
     private int downstreamProxyPort;
-    private String downstreamProxyHostAndPort;
 
     private static final AtomicLong REQUESTS_SENT_BY_UPSTREAM = new AtomicLong(
             0l);
@@ -51,38 +54,53 @@ public class ChainedProxyTest extends BaseProxyTest {
         // Set up ports from sequence
         downstreamProxyPort = DOWNSTREAM_PROXY_SERVER_PORT_SEQ
                 .getAndIncrement();
-        downstreamProxyHostAndPort = "127.0.0.1:" + downstreamProxyPort;
 
         REQUESTS_SENT_BY_UPSTREAM.set(0);
         REQUESTS_RECEIVED_BY_DOWNSTREAM.set(0);
         TRANSPORTS_USED.clear();
-        final SSLContextSource sslContextSource = new SelfSignedSSLContextSource(
+        final SSLEngineSource sslEngineSource = new SelfSignedSSLEngineSource(
                 "chain_proxy_keystore_1.jks");
         this.downstreamProxy = DefaultHttpProxyServer.bootstrap()
+                .withName("Downstream")
                 .withPort(downstreamProxyPort)
                 .withTransportProtocol(UDT)
-                .withSslContextSource(sslContextSource).start();
+                .withSslContextSource(sslEngineSource).start();
         this.downstreamProxy.addActivityTracker(DOWNSTREAM_TRACKER);
         this.proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withName("Upstream")
                 .withPort(proxyServerPort)
-                .withChainProxyManager(new ChainedProxyManagerAdapter() {
-                    public String getHostAndPort(HttpRequest httpRequest) {
-                        return downstreamProxyHostAndPort;
-                    }
-
+                .withChainProxyManager(new ChainedProxyManager() {
                     @Override
-                    public TransportProtocol getTransportProtocol() {
-                        return TransportProtocol.UDT;
-                    }
+                    public void lookupChainedProxies(HttpRequest httpRequest,
+                            Queue<ChainedProxy> chainedProxies) {
+                        chainedProxies.add(new ChainedProxyAdapter() {
+                            @Override
+                            public InetSocketAddress getChainedProxyAddress() {
+                                try {
+                                    return new InetSocketAddress(InetAddress
+                                            .getByName("127.0.0.1"),
+                                            downstreamProxyPort);
+                                } catch (UnknownHostException uhe) {
+                                    throw new RuntimeException(
+                                            "Unable to resolve 127.0.0.1?!");
+                                }
+                            }
 
-                    @Override
-                    public boolean requiresEncryption(HttpRequest httpRequest) {
-                        return true;
-                    }
+                            @Override
+                            public TransportProtocol getTransportProtocol() {
+                                return TransportProtocol.UDT;
+                            }
 
-                    @Override
-                    public SSLContext getSSLContext() {
-                        return sslContextSource.getSSLContext();
+                            @Override
+                            public boolean requiresEncryption() {
+                                return true;
+                            }
+
+                            @Override
+                            public SSLEngine newSSLEngine() {
+                                return sslEngineSource.newSSLEngine();
+                            }
+                        });
                     }
                 }).start();
         this.proxyServer.addActivityTracker(UPSTREAM_TRACKER);

@@ -10,6 +10,7 @@ import java.util.Arrays;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManagerFactory;
 
 import org.apache.commons.io.IOUtils;
@@ -17,13 +18,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Basic {@link SSLContextSource} for unit testing. The {@link SSLContext} uses
+ * Basic {@link SSLEngineSource} for unit testing. The {@link SSLContext} uses
  * self-signed certificates that are generated lazily if the given key store
  * file doesn't yet exist.
  */
-public class SelfSignedSSLContextSource implements SSLContextSource {
+public class SelfSignedSSLEngineSource implements SSLEngineSource {
     private static final Logger LOG = LoggerFactory
-            .getLogger(SelfSignedSSLContextSource.class);
+            .getLogger(SelfSignedSSLEngineSource.class);
 
     private static final String ALIAS = "littleproxy";
     private static final String PASSWORD = "Be Your Own Lantern";
@@ -32,18 +33,22 @@ public class SelfSignedSSLContextSource implements SSLContextSource {
 
     private SSLContext sslContext;
 
-    public SelfSignedSSLContextSource(String keyStorePath) {
+    public SelfSignedSSLEngineSource(String keyStorePath) {
         this.keyStoreFile = new File(keyStorePath);
         initializeKeyStore();
         initializeSSLContext();
     }
 
-    public SelfSignedSSLContextSource() {
+    public SelfSignedSSLEngineSource() {
         this("littleproxy_keystore.jks");
     }
 
     @Override
-    public SSLContext getSSLContext() {
+    public SSLEngine newSSLEngine() {
+        return sslContext.createSSLEngine();
+    }
+
+    public SSLContext getSslContext() {
         return sslContext;
     }
 

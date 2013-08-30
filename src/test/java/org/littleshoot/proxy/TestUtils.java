@@ -88,8 +88,8 @@ public class TestUtils {
             // Add SSL connector
             org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
 
-            SSLContextSource contextSource = new SelfSignedSSLContextSource();
-            SSLContext sslContext = contextSource.getSSLContext();
+            SelfSignedSSLEngineSource contextSource = new SelfSignedSSLEngineSource();
+            SSLContext sslContext = contextSource.getSslContext();
 
             sslContextFactory.setSslContext(sslContext);
             SslSocketConnector connector = new SslSocketConnector(

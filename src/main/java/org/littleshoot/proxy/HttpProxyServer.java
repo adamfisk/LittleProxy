@@ -16,7 +16,9 @@ public interface HttpProxyServer {
      * </p>
      * 
      * <p>
-     * The new server will share event loops with the original server.
+     * The new server will share event loops and activity trackers with the
+     * original server. The event loops will use whatever name was given to the
+     * first server in the clone group.
      * </p>
      * 
      * @return a bootstrap that allows customizing and starting the cloned

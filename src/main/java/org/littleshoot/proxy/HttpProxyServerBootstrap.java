@@ -8,34 +8,36 @@ package org.littleshoot.proxy;
  */
 public interface HttpProxyServerBootstrap {
 
-    public abstract HttpProxyServerBootstrap withTransportProtocol(
+    HttpProxyServerBootstrap withName(String name);
+
+    HttpProxyServerBootstrap withTransportProtocol(
             TransportProtocol transportProtocol);
 
-    public abstract HttpProxyServerBootstrap withPort(int port);
+    HttpProxyServerBootstrap withPort(int port);
 
-    public abstract HttpProxyServerBootstrap withSslContextSource(
-            SSLContextSource sslContextSource);
+    HttpProxyServerBootstrap withSslContextSource(
+            SSLEngineSource sslContextSource);
 
-    public abstract HttpProxyServerBootstrap withProxyAuthenticator(
+    HttpProxyServerBootstrap withProxyAuthenticator(
             ProxyAuthenticator proxyAuthenticator);
 
-    public abstract HttpProxyServerBootstrap withChainProxyManager(
+    HttpProxyServerBootstrap withChainProxyManager(
             ChainedProxyManager chainProxyManager);
 
-    public abstract HttpProxyServerBootstrap withFiltersSource(
+    HttpProxyServerBootstrap withFiltersSource(
             HttpFiltersSource filtersSource);
 
-    public abstract HttpProxyServerBootstrap withUseDnsSec(
+    HttpProxyServerBootstrap withUseDnsSec(
             boolean useDnsSec);
 
-    public abstract HttpProxyServerBootstrap withTransparent(
+    HttpProxyServerBootstrap withTransparent(
             boolean transparent);
 
-    public abstract HttpProxyServerBootstrap withIdleConnectionTimeout(
+    HttpProxyServerBootstrap withIdleConnectionTimeout(
             int idleConnectionTimeout);
 
     /**
-     * Starts the server.
+     * Builds and starts the server.
      * 
      * @param localOnly
      *            If true, the server will only allow connections from the local
@@ -46,14 +48,14 @@ public interface HttpProxyServerBootstrap {
      *            default.
      * @return the newly built and started server
      */
-    public abstract HttpProxyServer start(boolean localOnly,
-            boolean anyAddress);
+    HttpProxyServer start(boolean localOnly, boolean anyAddress);
 
     /**
-     * Builds and starts the server.
+     * Like {@link #start(boolean, boolean)} with <tt>localOnly</tt> and
+     * <tt>anyAddress</tt> both <tt>true</tt>.
      * 
      * @return the newly built and started server
      */
-    public abstract HttpProxyServer start();
+    HttpProxyServer start();
 
 }

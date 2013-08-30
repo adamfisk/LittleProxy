@@ -20,12 +20,18 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
-import javax.net.ssl.SSLContext;
-
+import org.apache.commons.lang3.StringUtils;
+import org.littleshoot.dnssec4j.VerifiedAddressFactory;
+import org.littleshoot.proxy.ChainedProxy;
+import org.littleshoot.proxy.ChainedProxyAdapter;
+import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
@@ -51,11 +57,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private final ClientToProxyConnection clientConnection;
     private volatile TransportProtocol transportProtocol;
-    private volatile SSLContext sslContext;
-    private volatile InetSocketAddress address;
+    private volatile InetSocketAddress remoteAddress;
+    private volatile InetSocketAddress localAddress;
     private final String serverHostAndPort;
-    private volatile String chainedProxyHostAndPort;
-    
+    private volatile ChainedProxy chainedProxy;
+    private final Queue<ChainedProxy> availableChainedProxies;
+
     /**
      * The filters to apply to response/chunks received from server.
      */
@@ -98,20 +105,50 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private volatile HttpResponse currentHttpResponse;
 
-    ProxyToServerConnection(
+    /**
+     * Create a new ProxyToServerConnection.
+     * 
+     * @param proxyServer
+     * @param clientConnection
+     * @param serverHostAndPort
+     * @param currentFilters
+     * @param initialHttpRequest
+     * @return
+     * @throws UnknownHostException
+     */
+    static ProxyToServerConnection create(DefaultHttpProxyServer proxyServer,
+            ClientToProxyConnection clientConnection,
+            String serverHostAndPort,
+            HttpFilters currentFilters, HttpRequest initialHttpRequest)
+            throws UnknownHostException {
+        Queue<ChainedProxy> chainedProxies = new ConcurrentLinkedQueue<ChainedProxy>();
+        ChainedProxyManager chainedProxyManager = proxyServer
+                .getChainProxyManager();
+        if (chainedProxyManager != null) {
+            chainedProxyManager.lookupChainedProxies(initialHttpRequest,
+                    chainedProxies);
+        }
+        return new ProxyToServerConnection(proxyServer, clientConnection,
+                serverHostAndPort, chainedProxies.poll(), chainedProxies,
+                currentFilters);
+    }
+
+    private ProxyToServerConnection(
             DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
-            TransportProtocol transportProtocol, SSLContext sslContext,
-            InetSocketAddress address, String serverHostAndPort,
-            String chainedProxyHostAndPort, HttpFilters currentFilters) {
-        super(DISCONNECTED, proxyServer, sslContext, true);
+            String serverHostAndPort,
+            ChainedProxy chainedProxy,
+            Queue<ChainedProxy> availableChainedProxies,
+            HttpFilters currentFilters)
+            throws UnknownHostException {
+        super(DISCONNECTED, proxyServer, chainedProxy != null ? chainedProxy
+                : null, true);
         this.clientConnection = clientConnection;
-        this.transportProtocol = transportProtocol;
-        this.sslContext = sslContext;
-        this.address = address;
         this.serverHostAndPort = serverHostAndPort;
-        this.chainedProxyHostAndPort = chainedProxyHostAndPort;
+        this.chainedProxy = chainedProxy;
+        this.availableChainedProxies = availableChainedProxies;
         this.currentFilters = currentFilters;
+        setupConnectionParameters();
     }
 
     /***************************************************************************
@@ -163,12 +200,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     void write(Object msg) {
         LOG.debug("Requested write of {}", msg);
-        
+
         if (msg instanceof ReferenceCounted) {
             LOG.debug("Retaining reference counted message");
             ((ReferenceCounted) msg).retain();
         }
-        
+
         if (is(DISCONNECTED)) {
             if (msg instanceof HttpRequest) {
                 LOG.debug("Current disconnected, connect and then write the message");
@@ -193,7 +230,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     }
                 }
             }
-            LOG.debug("Using existing connection to: {}", address);
+            LOG.debug("Using existing connection to: {}", remoteAddress);
             doWrite(msg);
         }
     };
@@ -266,16 +303,21 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return transportProtocol;
     }
 
-    public InetSocketAddress getAddress() {
-        return address;
+    public InetSocketAddress getRemoteAddress() {
+        return remoteAddress;
     }
 
     public String getServerHostAndPort() {
         return serverHostAndPort;
     }
 
-    public String getChainedProxyHostAndPort() {
-        return chainedProxyHostAndPort;
+    public boolean isChained() {
+        return getChainedProxyAddress() != null;
+    }
+
+    public InetSocketAddress getChainedProxyAddress() {
+        return chainedProxy == null ? null : chainedProxy
+                .getChainedProxyAddress();
     }
 
     public HttpRequest getInitialRequest() {
@@ -339,7 +381,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * @param initialRequest
      */
     private void connectAndWrite(final HttpRequest initialRequest) {
-        LOG.debug("Starting new connection to: {}", address);
+        LOG.debug("Starting new connection to: {}", remoteAddress);
 
         // Remember our initial request so that we can write it after connecting
         this.initialRequest = initialRequest;
@@ -356,12 +398,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 connectLock)
                 .then(ConnectChannel);
 
-        if (sslContext != null) {
+        if (chainedProxy != null && chainedProxy.requiresEncryption()) {
             this.connectionFlow.then(EncryptChannel);
         }
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
-            if (clientConnection.shouldChain(initialRequest)) {
+            if (isChained()) {
                 // If we're chaining to another proxy, send over the CONNECT
                 // request
                 this.connectionFlow.then(HTTPCONNECTWithChainedProxy);
@@ -414,7 +456,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             });
             cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 40 * 1000);
 
-            return cb.connect(address);
+            if (localAddress != null) {
+                return cb.connect(localAddress, remoteAddress);
+            } else {
+                return cb.connect(remoteAddress);
+            }
         }
     };
 
@@ -466,22 +512,41 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Try connecting to a new address, using a new set of connection
      * parameters.
      * 
-     * @param newAddress
-     * @param transportProtocol
-     * @param sslContext
-     * @param chainedProxyHostAndPort
-     * @param initialRequest
+     * @param cause
+     *            the reason that our attempt to connect failed (can be null)
+     * @return whether or not we could fall back
      */
-    protected void retryConnecting(InetSocketAddress newAddress,
-            TransportProtocol transportProtocol,
-            SSLContext sslContext,
-            String chainedProxyHostAndPort,
-            HttpRequest initialRequest) {
-        this.address = newAddress;
-        this.transportProtocol = transportProtocol;
-        this.sslContext = sslContext;
-        this.chainedProxyHostAndPort = chainedProxyHostAndPort;
-        this.connectAndWrite(initialRequest);
+    protected boolean fallbackToNextChainedProxy(Throwable cause)
+            throws UnknownHostException {
+        this.chainedProxy.unableToConnect(cause);
+        this.chainedProxy = this.availableChainedProxies.poll();
+        if (chainedProxy != null) {
+            this.setupConnectionParameters();
+            this.connectAndWrite(initialRequest);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Set up our connection parameters based on server address and chained
+     * proxies.
+     * 
+     * @throws UnknownHostException
+     */
+    private void setupConnectionParameters() throws UnknownHostException {
+        if (chainedProxy != null
+                && chainedProxy != ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
+            this.transportProtocol = chainedProxy.getTransportProtocol();
+            this.remoteAddress = chainedProxy.getChainedProxyAddress();
+            this.localAddress = chainedProxy.getLocalAddress();
+            this.sslEngineSource = chainedProxy;
+        } else {
+            this.transportProtocol = TransportProtocol.TCP;
+            this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
+            this.localAddress = null;
+        }
     }
 
     /**
@@ -554,6 +619,41 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             write(initialRequest);
         } else {
             LOG.debug("Dropping initial request");
+        }
+    }
+
+    /**
+     * Build an {@link InetSocketAddress} for the given hostAndPort.
+     * 
+     * @param hostAndPort
+     * @param proxyServer
+     *            the current {@link ProxyServer}
+     * @return
+     * @throws UnknownHostException
+     *             if hostAndPort could not be resolved
+     */
+    private static InetSocketAddress addressFor(String hostAndPort,
+            DefaultHttpProxyServer proxyServer)
+            throws UnknownHostException {
+        String host;
+        int port;
+        if (hostAndPort.contains(":")) {
+            host = StringUtils.substringBefore(hostAndPort, ":");
+            String portString = StringUtils.substringAfter(hostAndPort,
+                    ":");
+            port = Integer.parseInt(portString);
+        } else {
+            host = hostAndPort;
+            port = 80;
+        }
+
+        if (proxyServer.isUseDnsSec()) {
+            return VerifiedAddressFactory.newInetSocketAddress(host, port,
+                    proxyServer.isUseDnsSec());
+        } else {
+            InetAddress ia = InetAddress.getByName(host);
+            String address = ia.getHostAddress();
+            return new InetSocketAddress(address, port);
         }
     }
 }

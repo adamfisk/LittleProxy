@@ -13,18 +13,18 @@ public class FlowContext {
     private final InetSocketAddress clientAddress;
     private final TransportProtocol outboundTransportProtocol;
     private final String serverHostAndPort;
-    private final String chainedProxyHostAndPort;
+    private final InetSocketAddress chainedProxyAddress;
 
     public FlowContext(
             InetSocketAddress clientAddress,
             TransportProtocol outboundTransportProtocol,
             String serverHostAndPort,
-            String chainedProxyHostAndPort) {
+            InetSocketAddress chainedProxyAddress) {
         super();
         this.outboundTransportProtocol = outboundTransportProtocol;
         this.clientAddress = clientAddress;
         this.serverHostAndPort = serverHostAndPort;
-        this.chainedProxyHostAndPort = chainedProxyHostAndPort;
+        this.chainedProxyAddress = chainedProxyAddress;
     }
 
     public FlowContext(ClientToProxyConnection clientConnection,
@@ -32,7 +32,7 @@ public class FlowContext {
         this(clientConnection.getClientAddress(), serverConnection
                 .getTransportProtocol(), serverConnection
                 .getServerHostAndPort(), serverConnection
-                .getChainedProxyHostAndPort());
+                .getChainedProxyAddress());
     }
 
     /**
@@ -42,15 +42,6 @@ public class FlowContext {
      */
     public InetSocketAddress getClientAddress() {
         return clientAddress;
-    }
-
-    /**
-     * The host and port for the server (i.e. the ultimate endpoint).
-     * 
-     * @return
-     */
-    public String getServerHostAndPort() {
-        return serverHostAndPort;
     }
 
     /**
@@ -64,12 +55,21 @@ public class FlowContext {
     }
 
     /**
-     * The host and port for the chained proxy (if chaining).
+     * The host and port for the server (i.e. the ultimate endpoint).
      * 
      * @return
      */
-    public String getChainedProxyHostAndPort() {
-        return chainedProxyHostAndPort;
+    public String getServerHostAndPort() {
+        return serverHostAndPort;
+    }
+
+    /**
+     * The address for the chained proxy (if chaining).
+     * 
+     * @return
+     */
+    public InetSocketAddress getChainedProxyAddress() {
+        return chainedProxyAddress;
     }
 
 }

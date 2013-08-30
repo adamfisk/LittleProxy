@@ -22,8 +22,9 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+
+import org.littleshoot.proxy.SSLEngineSource;
 
 /**
  * <p>
@@ -67,18 +68,12 @@ import javax.net.ssl.SSLEngine;
  * 
  * @param <I> the type of "initial" message.  This will be either {@link HttpResponse} or {@link HttpRequest}.
  */
-
-/**
- * 
- * 
- * @param <I>
- */
 abstract class ProxyConnection<I extends HttpObject> extends
         SimpleChannelInboundHandler<Object> {
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
     protected final DefaultHttpProxyServer proxyServer;
-    protected final SSLContext sslContext;
+    protected volatile SSLEngineSource sslEngineSource;
     protected final boolean runsAsSSLClient;
 
     protected volatile ChannelHandlerContext ctx;
@@ -94,20 +89,21 @@ abstract class ProxyConnection<I extends HttpObject> extends
      *            the state in which this connection starts out
      * @param proxyServer
      *            the {@link DefaultHttpProxyServer} in which we're running
-     * @param sslContext
+     * @param sslEngineSource
      *            (optional) if provided, this connection will be encrypted
-     *            using the given SSLContext
+     *            using the given an {@link SSLEngine} obtained by calling
+     *            {@link SSLEngineSource#newSSLEngine()}
      * @param runsAsSSLClient
      *            determines whether this connection acts as an SSL client or
      *            server (determines who does the handshake)
      */
     protected ProxyConnection(ConnectionState initialState,
             DefaultHttpProxyServer proxyServer,
-            SSLContext sslContext,
+            SSLEngineSource sslEngineSource,
             boolean runsAsSSLClient) {
         become(initialState);
         this.proxyServer = proxyServer;
-        this.sslContext = sslContext;
+        this.sslEngineSource = sslEngineSource;
         this.runsAsSSLClient = runsAsSSLClient;
     }
 
@@ -227,7 +223,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
         doWrite(msg);
     }
-    
+
     void doWrite(Object msg) {
         LOG.debug("Writing: {}", msg);
 
@@ -368,10 +364,11 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * @return a Future for when the SSL handshake has completed
      */
     protected Future<Channel> encrypt(ChannelPipeline pipeline) {
-        LOG.debug("Enabling encryption with SSLContext: {}", sslContext);
-        SSLEngine engine = sslContext.createSSLEngine();
-        engine.setUseClientMode(runsAsSSLClient);
-        SslHandler handler = new SslHandler(engine);
+        LOG.debug("Enabling encryption with SSLEngineSource: {}",
+                sslEngineSource);
+        SSLEngine sslEngine = sslEngineSource.newSSLEngine();
+        sslEngine.setUseClientMode(runsAsSSLClient);
+        SslHandler handler = new SslHandler(sslEngine);
         pipeline.addFirst("ssl", handler);
         return handler.handshakeFuture();
     }

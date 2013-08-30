@@ -1,6 +1,5 @@
 package org.littleshoot.proxy.impl;
 
-import static org.littleshoot.proxy.TransportProtocol.*;
 import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -21,7 +20,6 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 
 import java.io.UnsupportedEncodingException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
@@ -34,14 +32,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.net.ssl.SSLContext;
-
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
-import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.FlowContext;
 import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.SSLEngineSource;
 import org.littleshoot.proxy.TransportProtocol;
 
 /**
@@ -82,12 +78,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private final Map<String, ProxyToServerConnection> serverConnectionsByHostAndPort = new ConcurrentHashMap<String, ProxyToServerConnection>();
 
     /**
-     * This is the current server connection that we're using while transferring
-     * chunked data.
-     */
-    private volatile ProxyToServerConnection currentServerConnection;
-
-    /**
      * Keep track of how many servers are currently in the process of
      * connecting.
      */
@@ -107,10 +97,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             0);
 
     /**
-     * Keep track of requests which we've decided not to send via chained
-     * proxies.
+     * This is the current server connection that we're using while transferring
+     * chunked data.
      */
-    private final Map<HttpRequest, Boolean> requestsForWhichProxyChainingIsDisabled = new ConcurrentHashMap<HttpRequest, Boolean>();
+    private volatile ProxyToServerConnection currentServerConnection;
 
     /**
      * The current filters to apply to incoming requests/chunks.
@@ -119,13 +109,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     ClientToProxyConnection(
             DefaultHttpProxyServer proxyServer,
-            SSLContext sslContext,
+            SSLEngineSource sslEngineSource,
             ChannelPipeline pipeline) {
-        super(AWAITING_INITIAL, proxyServer, sslContext, false);
+        super(AWAITING_INITIAL, proxyServer, sslEngineSource, false);
 
         initChannelPipeline(pipeline);
 
-        if (sslContext != null) {
+        if (sslEngineSource != null) {
             LOG.debug("Enabling encryption of traffic from client to proxy");
             encrypt(pipeline);
         }
@@ -198,31 +188,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         // Identify our server and chained proxy
         String serverHostAndPort = identifyHostAndPort(httpRequest);
-        String chainedProxyHostAndPort = getChainedProxyHostAndPort(httpRequest);
 
-        // Figure out the connection parameters
-        TransportProtocol transportProtocol = TCP;
-        SSLContext proxyToServerSSLContext = null;
-        String hostAndPort = serverHostAndPort;
-
-        LOG.debug("Identifying server for: {}", hostAndPort);
-
-        if (chainedProxyHostAndPort != null) {
-            hostAndPort = chainedProxyHostAndPort;
-            transportProtocol = proxyServer.getChainProxyManager()
-                    .getTransportProtocol();
-            if (proxyServer.getChainProxyManager().requiresEncryption(
-                    httpRequest)) {
-                proxyToServerSSLContext = proxyServer
-                        .getChainProxyManager().getSSLContext();
-            }
-        }
+        LOG.debug("Identifying server for: {}", serverHostAndPort);
 
         // We immediately record that we received this request, even before
         // trying to pass it on, to make sure the statistics reflect it
-        recordRequestReceivedFromClient(transportProtocol,
+        recordRequestReceivedFromClient(TransportProtocol.TCP,
                 serverHostAndPort,
-                chainedProxyHostAndPort,
                 httpRequest);
 
         LOG.debug("Ensuring that hostAndPort are available in {}",
@@ -235,9 +207,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         LOG.debug("Finding ProxyToServerConnection");
         currentServerConnection = this.serverConnectionsByHostAndPort
-                .get(hostAndPort);
-        // TODO: get more sophisticated here and build a connection key based on
-        // the connection params
+                .get(serverHostAndPort);
         boolean newConnectionRequired = ProxyUtils.isCONNECT(httpRequest)
                 || currentServerConnection == null;
         if (newConnectionRequired) {
@@ -247,11 +217,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 LOG.debug("Didn't find existing ProxyToServerConnection");
             }
             try {
-                currentServerConnection = connectToServer(transportProtocol,
-                        proxyToServerSSLContext,
-                        hostAndPort,
+                currentServerConnection = ProxyToServerConnection.create(
+                        proxyServer,
+                        this,
                         serverHostAndPort,
-                        chainedProxyHostAndPort);
+                        currentFilters,
+                        httpRequest);
             } catch (UnknownHostException uhe) {
                 LOG.info("Bad Host {}", httpRequest.getUri());
                 writeBadGateway(httpRequest);
@@ -426,7 +397,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             ProxyToServerConnection serverConnection,
             boolean shouldForwardInitialRequest) {
         LOG.debug("Connection to server succeeded: {}",
-                serverConnection.getAddress());
+                serverConnection.getRemoteAddress());
         resumeReadingIfNecessary();
         become(shouldForwardInitialRequest ? getCurrentState()
                 : AWAITING_INITIAL);
@@ -453,8 +424,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param what
      *            caused the failure
      * 
-     * @return true if we're falling back to a direct connection and trying
-     *         again
+     * @return true if we're falling back to a another chained proxy (or direct
+     *         connection) and trying again
      */
     protected boolean serverConnectionFailed(
             ProxyToServerConnection serverConnection,
@@ -462,22 +433,29 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             Throwable cause) {
         resumeReadingIfNecessary();
         HttpRequest initialRequest = serverConnection.getInitialRequest();
-        if (shouldChain(initialRequest)
-                && proxyServer.getChainProxyManager()
-                        .allowFallbackToUnchainedConnection(initialRequest)) {
-            LOG.info(
-                    "Failed to connect via chained proxy, falling back to direct connection.  Last state before failure: {}",
-                    lastStateBeforeFailure, cause);
-            fallbackToDirectConnection(serverConnection, initialRequest);
-            return true;
-        } else {
-            LOG.debug(
-                    "Connection to server failed: {}.  Last state before failure: {}",
-                    serverConnection.getAddress(), lastStateBeforeFailure,
-                    cause);
-            writeBadGateway(initialRequest);
+        try {
+            if (serverConnection.fallbackToNextChainedProxy(cause)) {
+                LOG.info(
+                        "Failed to connect via chained proxy, falling back to next chained proxy. Last state before failure: {}",
+                        lastStateBeforeFailure, cause);
+                return true;
+            } else {
+                LOG.debug(
+                        "Connection to server failed: {}.  Last state before failure: {}",
+                        serverConnection.getRemoteAddress(), lastStateBeforeFailure,
+                        cause);
+                connectionFailedUnrecoverably(initialRequest);
+                return false;
+            }
+        } catch (UnknownHostException uhe) {
+            connectionFailedUnrecoverably(initialRequest);
             return false;
         }
+    }
+
+    private void connectionFailedUnrecoverably(HttpRequest initialRequest) {
+        writeBadGateway(initialRequest);
+        become(DISCONNECT_REQUESTED);
     }
 
     private void resumeReadingIfNecessary() {
@@ -583,114 +561,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /***************************************************************************
-     * Proxy Chaining
-     **************************************************************************/
-
-    /**
-     * Determine whether the given request should be handled by a chained proxy.
-     * 
-     * @param httpRequest
-     * @return
-     */
-    protected boolean shouldChain(HttpRequest httpRequest) {
-        return getChainedProxyHostAndPort(httpRequest) != null;
-    }
-
-    /**
-     * Get the host and port for the chained proxy.
-     * 
-     * @param httpRequest
-     * @return
-     */
-    protected String getChainedProxyHostAndPort(HttpRequest httpRequest) {
-        if (proxyServer.getChainProxyManager() == null) {
-            return null;
-        } else if (this.requestsForWhichProxyChainingIsDisabled
-                .containsKey(httpRequest)) {
-            return null;
-        } else {
-            return proxyServer.getChainProxyManager().getHostAndPort(
-                    httpRequest);
-        }
-    }
-
-    /**
-     * Disables proxy chaining for the given request. This allows us to retry
-     * this request falling back to a direct-to-server connection.
-     * 
-     * @param request
-     */
-    protected void disableChainingFor(HttpRequest request) {
-        this.requestsForWhichProxyChainingIsDisabled.put(request, true);
-    }
-
-    /***************************************************************************
      * Connection Management
      **************************************************************************/
-
-    /**
-     * Creates a {@link ProxyToServerConnection}.
-     * 
-     * @param transportProtocol
-     *            the protocol to use for the data transport
-     * @param sslContext
-     *            (optional) {@link SSLContext} to encrypt connection to server
-     *            (or chained proxy)
-     * @param hostAndPort
-     *            the host and port to which to connect (either ultimate
-     *            endpoint or another proxy if chaining is enabled)
-     * @param serverHostAndPort
-     *            the host and port of the ultimate destination server
-     * @param chainedProxyHostAndPort
-     *            (optional) the host and port of the chained proxy server if
-     *            chaining
-     * @return
-     * @throws UnknownHostException
-     *             if the hostAndPort can't be resolved
-     */
-    private ProxyToServerConnection connectToServer(
-            TransportProtocol transportProtocol, SSLContext sslContext,
-            String hostAndPort, String serverHostAndPort,
-            String chainedProxyHostAndPort)
-            throws UnknownHostException {
-        LOG.debug("Establishing new ProxyToServerConnection");
-        InetSocketAddress address = addressFor(hostAndPort);
-
-        // Create connection
-        ProxyToServerConnection connection = new ProxyToServerConnection(
-                this.proxyServer, this, transportProtocol, sslContext, address,
-                serverHostAndPort, chainedProxyHostAndPort,
-                currentFilters);
-
-        // Remember connection for later
-        serverConnectionsByHostAndPort.put(hostAndPort, connection);
-
-        return connection;
-    }
-
-    /**
-     * Falls back to making a direct connection for the given request, bypassing
-     * the chained proxy.
-     * 
-     * @param serverConnection
-     * @param initialRequest
-     */
-    private void fallbackToDirectConnection(
-            ProxyToServerConnection serverConnection,
-            HttpRequest initialRequest) {
-        // If we failed to connect to a chained proxy, disable proxy
-        // chaining for this request and try again
-        disableChainingFor(initialRequest);
-        String hostAndPort = identifyHostAndPort(initialRequest);
-        try {
-            serverConnection.retryConnecting(addressFor(hostAndPort), TCP,
-                    null, null, initialRequest);
-        } catch (UnknownHostException uhe) {
-            LOG.info("Bad Host {}", initialRequest.getUri());
-            writeBadGateway(initialRequest);
-            become(DISCONNECT_REQUESTED);
-        }
-    }
 
     /**
      * Initialize the {@ChannelPipeline} for the client to
@@ -981,7 +853,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (!proxyServer.isTransparent()) {
             LOG.debug("Modifying request headers for proxying");
 
-            if (!shouldChain(httpRequest)) {
+            if (!currentServerConnection.isChained()) {
                 LOG.debug("Modifying request for proxy chaining");
                 // Strip host from uri
                 String uri = httpRequest.getUri();
@@ -1186,39 +1058,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /**
-     * Build an {@link InetSocketAddress} for the given hostAndPort.
-     * 
-     * @param hostAndPort
-     * @return
-     * @throws UnknownHostException
-     *             if hostAndPort could not be resolved
-     */
-    private InetSocketAddress addressFor(String hostAndPort)
-            throws UnknownHostException {
-        String host;
-        int port;
-        if (hostAndPort.contains(":")) {
-            host = StringUtils.substringBefore(hostAndPort, ":");
-            String portString = StringUtils.substringAfter(hostAndPort,
-                    ":");
-            port = Integer.parseInt(portString);
-        } else {
-            host = hostAndPort;
-            port = 80;
-        }
-
-        if (proxyServer.isUseDnsSec()) {
-            return VerifiedAddressFactory.newInetSocketAddress(host, port,
-                    proxyServer.isUseDnsSec());
-
-        } else {
-            InetAddress ia = InetAddress.getByName(host);
-            String address = ia.getHostAddress();
-            return new InetSocketAddress(address, port);
-        }
-    }
-
-    /**
      * Write an empty buffer at the end of a chunked transfer. We need to do
      * this to handle the way Netty creates HttpChunks from responses that
      * aren't in fact chunked from the remote server using Transfer-Encoding:
@@ -1252,10 +1091,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     protected void recordRequestReceivedFromClient(
             TransportProtocol transportProtocol, String serverHostAndPort,
-            String chainedProxyHostAndPort,
             HttpRequest httpRequest) {
         FlowContext flowContext = new FlowContext(getClientAddress(),
-                transportProtocol, serverHostAndPort, chainedProxyHostAndPort);
+                transportProtocol, serverHostAndPort, null);
         for (ActivityTracker tracker : proxyServer.getActivityTrackers()) {
             tracker.requestReceivedFromClient(flowContext, httpRequest);
         }

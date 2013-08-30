@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 
 import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.ActivityTracker;
@@ -48,7 +48,7 @@ import org.littleshoot.proxy.HttpFiltersSourceAdapter;
 import org.littleshoot.proxy.HttpProxyServer;
 import org.littleshoot.proxy.HttpProxyServerBootstrap;
 import org.littleshoot.proxy.ProxyAuthenticator;
-import org.littleshoot.proxy.SSLContextSource;
+import org.littleshoot.proxy.SSLEngineSource;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
 import org.slf4j.Logger;
@@ -88,7 +88,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private final TransportProtocol transportProtocol;
     private final int port;
-    private final SSLContextSource sslContextSource;
+    private final SSLEngineSource sslEngineSource;
     private final ProxyAuthenticator proxyAuthenticator;
     private final ChainedProxyManager chainProxyManager;
     private final HttpFiltersSource filtersSource;
@@ -131,16 +131,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return new DefaultHttpProxyServerBootstrap(props);
     }
 
-    private DefaultHttpProxyServer(TransportProtocol transportProtocol,
+    private DefaultHttpProxyServer(String name,
+            TransportProtocol transportProtocol,
             int port,
-            SSLContextSource sslContextSource,
+            SSLEngineSource sslContextSource,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
             HttpFiltersSource filterSource,
             boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout) {
-        this(new ServerGroup(), transportProtocol, port, sslContextSource,
+        this(new ServerGroup(name), transportProtocol, port, sslContextSource,
                 proxyAuthenticator, chainProxyManager, filterSource, useDnsSec,
                 transparent, idleConnectionTimeout);
     }
@@ -158,10 +159,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            The protocol to use for data transport
      * @param port
      *            The port the server should run on.
-     * @param sslContextSource
+     * @param sslEngineSource
      *            (optional) if specified, this Proxy will encrypt inbound
-     *            connections from clients using an {@link SSLContext} obtained
-     *            from this {@link SSLContextSource}.
+     *            connections from clients using an {@link SSLEngine} obtained
+     *            from this {@link SSLEngineSource}.
      * @param proxyAuthenticator
      *            (optional) If specified, requests to the proxy will be
      *            authenticated using HTTP BASIC authentication per the provided
@@ -183,7 +184,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
             int port,
-            SSLContextSource sslContextSource,
+            SSLEngineSource sslEngineSource,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
             HttpFiltersSource filtersSource,
@@ -193,7 +194,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.port = port;
-        this.sslContextSource = sslContextSource;
+        this.sslEngineSource = sslEngineSource;
         this.proxyAuthenticator = proxyAuthenticator;
         this.chainProxyManager = chainProxyManager;
         this.filtersSource = filtersSource;
@@ -231,8 +232,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     @Override
     public HttpProxyServerBootstrap clone() {
-        return new DefaultHttpProxyServerBootstrap(transportProtocol, port + 1,
-                sslContextSource, proxyAuthenticator, chainProxyManager,
+        return new DefaultHttpProxyServerBootstrap(this, transportProtocol,
+                port + 1,
+                sslEngineSource, proxyAuthenticator, chainProxyManager,
                 filtersSource, useDnsSec, transparent,
                 idleConnectionTimeout);
     }
@@ -264,13 +266,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         ChannelInitializer<Channel> initializer = new ChannelInitializer<Channel>() {
             protected void initChannel(Channel ch) throws Exception {
-                SSLContext sslContext = null;
-                if (sslContextSource != null) {
-                    sslContext = sslContextSource.getSSLContext();
-                }
                 new ClientToProxyConnection(
                         DefaultHttpProxyServer.this,
-                        sslContext,
+                        sslEngineSource,
                         ch.pipeline());
             };
         };
@@ -318,7 +316,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     throws Exception {
                 registerChannel(future.channel());
             }
-        });
+        }).awaitUninterruptibly();
     }
 
     /**
@@ -334,8 +332,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return chainProxyManager;
     }
 
-    protected SSLContextSource getSslContextSource() {
-        return sslContextSource;
+    protected SSLEngineSource getSslEngineSource() {
+        return sslEngineSource;
     }
 
     protected ProxyAuthenticator getProxyAuthenticator() {
@@ -361,6 +359,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private static class ServerGroup {
         private static final int MAXIMUM_INCOMING_THREADS = 10;
         private static final int MAXIMUM_OUTGOING_THREADS = 40;
+
+        /**
+         * A name for this ServerGroup to use in naming threads.
+         */
+        private final String name;
 
         /**
          * Keep track of all channels for later shutdown.
@@ -396,7 +399,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         private volatile boolean stopped = false;
 
-        private ServerGroup() {
+        private ServerGroup(String name) {
+            this.name = name;
             // Set up worker pools for each transport protocol
             for (TransportProtocol transportProtocol : TransportProtocol
                     .values()) {
@@ -496,7 +500,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
             public Thread newThread(final Runnable r) {
                 final Thread t = new Thread(r,
-                        "ClientToProxy-" + num++);
+                        name + "-" + "ClientToProxy-" + num++);
                 return t;
             }
         };
@@ -507,7 +511,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
             public Thread newThread(final Runnable r) {
                 final Thread t = new Thread(r,
-                        "ProxyToServer-" + num++);
+                        name + "-" + "ProxyToServer-" + num++);
                 return t;
             }
         };
@@ -515,26 +519,30 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private static class DefaultHttpProxyServerBootstrap implements
             HttpProxyServerBootstrap {
+        private String name = "LittleProxy";
         private TransportProtocol transportProtocol = TCP;
         private int port = 8080;
-        private SSLContextSource sslContextSource = null;
+        private SSLEngineSource sslContextSource = null;
         private ProxyAuthenticator proxyAuthenticator = null;
         private ChainedProxyManager chainProxyManager = null;
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
         private boolean useDnsSec = false;
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
+        private DefaultHttpProxyServer original;
 
         private DefaultHttpProxyServerBootstrap() {
         }
 
         private DefaultHttpProxyServerBootstrap(
+                DefaultHttpProxyServer original,
                 TransportProtocol transportProtocol, int port,
-                SSLContextSource sslContextSource,
+                SSLEngineSource sslContextSource,
                 ProxyAuthenticator proxyAuthenticator,
                 ChainedProxyManager chainProxyManager,
                 HttpFiltersSource filtersSource, boolean useDnsSec,
                 boolean transparent, int idleConnectionTimeout) {
+            this.original = original;
             this.transportProtocol = transportProtocol;
             this.port = port;
             this.sslContextSource = sslContextSource;
@@ -556,6 +564,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap withTransportProtocol(
                 TransportProtocol transportProtocol) {
             this.transportProtocol = transportProtocol;
@@ -570,7 +584,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         @Override
         public HttpProxyServerBootstrap withSslContextSource(
-                SSLContextSource sslContextSource) {
+                SSLEngineSource sslContextSource) {
             this.sslContextSource = sslContextSource;
             return this;
         }
@@ -619,17 +633,26 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         @Override
         public HttpProxyServer start(boolean localOnly,
                 boolean anyAddress) {
-            DefaultHttpProxyServer server = new DefaultHttpProxyServer(
-                    transportProtocol, port, sslContextSource,
-                    proxyAuthenticator, chainProxyManager, filtersSource,
-                    useDnsSec, transparent, idleConnectionTimeout);
-            server.start(localOnly, anyAddress);
-            return server;
+            return build().start(localOnly, anyAddress);
         }
 
         @Override
         public HttpProxyServer start() {
             return start(true, true);
+        }
+
+        private DefaultHttpProxyServer build() {
+            if (original != null) {
+                return new DefaultHttpProxyServer(original.serverGroup,
+                        transportProtocol, port, original.sslEngineSource,
+                        proxyAuthenticator, chainProxyManager, filtersSource,
+                        useDnsSec, transparent, idleConnectionTimeout);
+            } else {
+                return new DefaultHttpProxyServer(
+                        name, transportProtocol, port, sslContextSource,
+                        proxyAuthenticator, chainProxyManager, filtersSource,
+                        useDnsSec, transparent, idleConnectionTimeout);
+            }
         }
     }
 }
