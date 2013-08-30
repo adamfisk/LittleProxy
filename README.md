@@ -68,6 +68,8 @@ Project reports, including the [API Documentation]
 
 http://adamfisk.github.io/LittleProxy/
 
+Benchmarking instructions and results can be found [here](benchmarking).
+
 Acknowledgments
 ---------------
 
