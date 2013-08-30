@@ -1,27 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pmd version="4.3" timestamp="2013-08-29T17:50:03.434">
+<pmd version="4.3" timestamp="2013-08-30T10:12:22.332">
+<file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/HttpFiltersSource.java">
+<violation beginline="3" endline="3" begincolumn="1" endcolumn="46" rule="UnusedImports" ruleset="Import Statement Rules" package="org.littleshoot.proxy" externalInfoUrl="http://pmd.sourceforge.net/rules/imports.html#UnusedImports" priority="4">
+Avoid unused imports such as 'io.netty.handler.codec.http.HttpObject'
+</violation>
+</file>
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/impl/ClientToProxyConnection.java">
-<violation beginline="726" endline="734" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="shouldCloseClientConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
+<violation beginline="772" endline="780" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="shouldCloseClientConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
 These nested if statements could be combined
 </violation>
-<violation beginline="779" endline="786" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="shouldCloseServerConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
+<violation beginline="825" endline="832" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="shouldCloseServerConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
 These nested if statements could be combined
 </violation>
-<violation beginline="921" endline="924" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="fixHttpVersionHeaderIfNecessary" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
+<violation beginline="967" endline="970" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="fixHttpVersionHeaderIfNecessary" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
 These nested if statements could be combined
 </violation>
-<violation beginline="1104" endline="1115" begincolumn="13" endcolumn="5" rule="UnusedFormalParameter" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedFormalParameter" priority="3">
+<violation beginline="1144" endline="1155" begincolumn="13" endcolumn="5" rule="UnusedFormalParameter" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedFormalParameter" priority="3">
 Avoid unused method parameters such as 'httpVersion'.
 </violation>
 </file>
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/impl/DefaultHttpProxyServer.java">
-<violation beginline="219" endline="219" begincolumn="26" endcolumn="41" rule="UnusedLocalVariable" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" variable="selectorProvider" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedLocalVariable" priority="3">
-Avoid unused local variables such as 'selectorProvider'.
-</violation>
-<violation beginline="272" endline="272" begincolumn="29" endcolumn="72" rule="UnusedPrivateMethod" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" method="start" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedPrivateMethod" priority="3">
+<violation beginline="245" endline="245" begincolumn="29" endcolumn="72" rule="UnusedPrivateMethod" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" method="start" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedPrivateMethod" priority="3">
 Avoid unused private methods such as 'start(boolean,boolean)'.
 </violation>
-<violation beginline="329" endline="329" begincolumn="41" endcolumn="51" rule="AvoidUsingHardCodedIP" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" method="doStart" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#AvoidUsingHardCodedIP" priority="3">
+<violation beginline="302" endline="302" begincolumn="41" endcolumn="51" rule="AvoidUsingHardCodedIP" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" method="doStart" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#AvoidUsingHardCodedIP" priority="3">
 Do not hard code IPv4 or IPv6 addresses, even 127.0.0.1 !
 </violation>
 </file>
@@ -31,12 +33,12 @@ Avoid empty catch blocks
 </violation>
 </file>
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/impl/ProxyConnection.java">
-<violation beginline="154" endline="160" begincolumn="20" endcolumn="13" rule="EmptyIfStmt" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ProxyConnection" method="readHTTP" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#EmptyIfStmt" priority="3">
+<violation beginline="156" endline="162" begincolumn="20" endcolumn="13" rule="EmptyIfStmt" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ProxyConnection" method="readHTTP" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#EmptyIfStmt" priority="3">
 Avoid empty if statements
 </violation>
 </file>
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/impl/ProxyToServerConnection.java">
-<violation beginline="535" endline="538" begincolumn="48" endcolumn="9" rule="EmptyIfStmt" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ProxyToServerConnection" method="initChannelPipeline" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#EmptyIfStmt" priority="3">
+<violation beginline="511" endline="514" begincolumn="48" endcolumn="9" rule="EmptyIfStmt" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ProxyToServerConnection" method="initChannelPipeline" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#EmptyIfStmt" priority="3">
 Avoid empty if statements
 </violation>
 </file>
