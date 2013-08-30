@@ -42,11 +42,11 @@ import javax.net.ssl.SSLContext;
 import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
-import org.littleshoot.proxy.HttpFilter;
+import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.HttpFiltersSource;
+import org.littleshoot.proxy.HttpFiltersSourceAdapter;
 import org.littleshoot.proxy.HttpProxyServer;
 import org.littleshoot.proxy.HttpProxyServerBootstrap;
-import org.littleshoot.proxy.HttpRequestFilter;
-import org.littleshoot.proxy.HttpResponseFilters;
 import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.SSLContextSource;
 import org.littleshoot.proxy.TransportProtocol;
@@ -91,8 +91,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final SSLContextSource sslContextSource;
     private final ProxyAuthenticator proxyAuthenticator;
     private final ChainedProxyManager chainProxyManager;
-    private final HttpRequestFilter requestFilter;
-    private final HttpResponseFilters responseFilters;
+    private final HttpFiltersSource filtersSource;
     private final boolean useDnsSec;
     private final boolean transparent;
     private volatile int idleConnectionTimeout;
@@ -132,22 +131,29 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return new DefaultHttpProxyServerBootstrap(props);
     }
 
+    private DefaultHttpProxyServer(TransportProtocol transportProtocol,
+            int port,
+            SSLContextSource sslContextSource,
+            ProxyAuthenticator proxyAuthenticator,
+            ChainedProxyManager chainProxyManager,
+            HttpFiltersSource filterSource,
+            boolean useDnsSec,
+            boolean transparent,
+            int idleConnectionTimeout) {
+        this(new ServerGroup(), transportProtocol, port, sslContextSource,
+                proxyAuthenticator, chainProxyManager, filterSource, useDnsSec,
+                transparent, idleConnectionTimeout);
+    }
+
     /**
+     * Creates a new proxy server.
+     * 
+     * @param serverGroup
+     *            our ServerGroup for shared thread pools and such
      * @param transportProtocol
      *            The protocol to use for data transport
      * @param port
      *            The port the server should run on.
-     * @param requestFilter
-     *            Optional filter for modifying incoming requests. Often
-     *            <code>null</code>. public DefaultHttpProxyServer(final
-     *            TransportProtocol transportProtocol, final int port, final
-     *            HttpRequestFilter requestFilter) { this(transportProtocol,
-     *            port, new HttpResponseFilters() { public HttpFilter
-     *            getFilter(String hostAndPort) { return null; } }, null, null,
-     *            requestFilter); }
-     * 
-     *            /** Creates a new proxy server.
-     * 
      * @param transportProtocol
      *            The protocol to use for data transport
      * @param port
@@ -163,12 +169,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param chainProxyManager
      *            The proxy to send requests to if chaining proxies. Typically
      *            <code>null</code>.
-     * @param requestFilter
-     *            Optional filter for modifying incoming requests. Often
-     *            <code>null</code>.
-     * @param responseFilters
-     *            The {@link Map} of request domains to match with associated
-     *            {@link HttpFilter}s for filtering responses to those requests.
+     * @param filtersSource
+     *            Source for {@link HttpFilters}
      * @param useDnsSec
      *            (optional) Enables the use of secure DNS lookups for outbound
      *            connections.
@@ -178,29 +180,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param idleConnectionTimeout
      *            The timeout (in seconds) for auto-closing idle connections.
      */
-    private DefaultHttpProxyServer(TransportProtocol transportProtocol,
-            int port,
-            SSLContextSource sslContextSource,
-            ProxyAuthenticator proxyAuthenticator,
-            ChainedProxyManager chainProxyManager,
-            HttpRequestFilter requestFilter,
-            HttpResponseFilters responseFilters,
-            boolean useDnsSec,
-            boolean transparent,
-            int idleConnectionTimeout) {
-        this(new ServerGroup(), transportProtocol, port, sslContextSource,
-                proxyAuthenticator, chainProxyManager, requestFilter,
-                responseFilters, useDnsSec, transparent, idleConnectionTimeout);
-    }
-
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
             int port,
             SSLContextSource sslContextSource,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
-            HttpRequestFilter requestFilter,
-            HttpResponseFilters responseFilters,
+            HttpFiltersSource filtersSource,
             boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout) {
@@ -210,23 +196,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.sslContextSource = sslContextSource;
         this.proxyAuthenticator = proxyAuthenticator;
         this.chainProxyManager = chainProxyManager;
-        this.requestFilter = requestFilter;
-        this.responseFilters = responseFilters;
+        this.filtersSource = filtersSource;
         this.useDnsSec = useDnsSec;
         this.transparent = transparent;
         this.idleConnectionTimeout = idleConnectionTimeout;
-
-        SelectorProvider selectorProvider = null;
-        switch (transportProtocol) {
-        case TCP:
-            selectorProvider = SelectorProvider.provider();
-            break;
-        case UDT:
-            selectorProvider = NioUdtProvider.BYTE_PROVIDER;
-            break;
-        default:
-            throw new UnknownTransportProtocolError(transportProtocol);
-        }
     }
 
     public boolean isUseDnsSec() {
@@ -260,7 +233,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public HttpProxyServerBootstrap clone() {
         return new DefaultHttpProxyServerBootstrap(transportProtocol, port + 1,
                 sslContextSource, proxyAuthenticator, chainProxyManager,
-                requestFilter, responseFilters, useDnsSec, transparent,
+                filtersSource, useDnsSec, transparent,
                 idleConnectionTimeout);
     }
 
@@ -369,12 +342,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return proxyAuthenticator;
     }
 
-    protected HttpRequestFilter getRequestFilter() {
-        return requestFilter;
-    }
-
-    protected HttpResponseFilters getResponseFilters() {
-        return responseFilters;
+    public HttpFiltersSource getFiltersSource() {
+        return filtersSource;
     }
 
     protected Collection<ActivityTracker> getActivityTrackers() {
@@ -551,8 +520,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private SSLContextSource sslContextSource = null;
         private ProxyAuthenticator proxyAuthenticator = null;
         private ChainedProxyManager chainProxyManager = null;
-        private HttpRequestFilter requestFilter = null;
-        private HttpResponseFilters responseFilters = null;
+        private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
         private boolean useDnsSec = false;
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
@@ -565,16 +533,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 SSLContextSource sslContextSource,
                 ProxyAuthenticator proxyAuthenticator,
                 ChainedProxyManager chainProxyManager,
-                HttpRequestFilter requestFilter,
-                HttpResponseFilters responseFilters, boolean useDnsSec,
+                HttpFiltersSource filtersSource, boolean useDnsSec,
                 boolean transparent, int idleConnectionTimeout) {
             this.transportProtocol = transportProtocol;
             this.port = port;
             this.sslContextSource = sslContextSource;
             this.proxyAuthenticator = proxyAuthenticator;
             this.chainProxyManager = chainProxyManager;
-            this.requestFilter = requestFilter;
-            this.responseFilters = responseFilters;
+            this.filtersSource = filtersSource;
             this.useDnsSec = useDnsSec;
             this.transparent = transparent;
             this.idleConnectionTimeout = idleConnectionTimeout;
@@ -624,16 +590,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
-        public HttpProxyServerBootstrap withRequestFilter(
-                HttpRequestFilter requestFilter) {
-            this.requestFilter = requestFilter;
-            return this;
-        }
-
-        @Override
-        public HttpProxyServerBootstrap withResponseFilters(
-                HttpResponseFilters responseFilters) {
-            this.responseFilters = responseFilters;
+        public HttpProxyServerBootstrap withFiltersSource(
+                HttpFiltersSource filtersSource) {
+            this.filtersSource = filtersSource;
             return this;
         }
 
@@ -662,9 +621,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 boolean anyAddress) {
             DefaultHttpProxyServer server = new DefaultHttpProxyServer(
                     transportProtocol, port, sslContextSource,
-                    proxyAuthenticator, chainProxyManager,
-                    requestFilter, responseFilters, useDnsSec,
-                    transparent, idleConnectionTimeout);
+                    proxyAuthenticator, chainProxyManager, filtersSource,
+                    useDnsSec, transparent, idleConnectionTimeout);
             server.start(localOnly, anyAddress);
             return server;
         }

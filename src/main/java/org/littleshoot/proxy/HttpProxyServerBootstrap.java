@@ -22,11 +22,8 @@ public interface HttpProxyServerBootstrap {
     public abstract HttpProxyServerBootstrap withChainProxyManager(
             ChainedProxyManager chainProxyManager);
 
-    public abstract HttpProxyServerBootstrap withRequestFilter(
-            HttpRequestFilter requestFilter);
-
-    public abstract HttpProxyServerBootstrap withResponseFilters(
-            HttpResponseFilters responseFilters);
+    public abstract HttpProxyServerBootstrap withFiltersSource(
+            HttpFiltersSource filtersSource);
 
     public abstract HttpProxyServerBootstrap withUseDnsSec(
             boolean useDnsSec);

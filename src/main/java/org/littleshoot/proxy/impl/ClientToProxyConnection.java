@@ -41,7 +41,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.FlowContext;
-import org.littleshoot.proxy.HttpFilter;
+import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.TransportProtocol;
 
 /**
@@ -112,6 +112,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private final Map<HttpRequest, Boolean> requestsForWhichProxyChainingIsDisabled = new ConcurrentHashMap<HttpRequest, Boolean>();
 
+    /**
+     * The current filters to apply to incoming requests/chunks.
+     */
+    private volatile HttpFilters currentFilters;
+
     ClientToProxyConnection(
             DefaultHttpProxyServer proxyServer,
             SSLContext sslContext,
@@ -179,6 +184,19 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private ConnectionState doReadHTTPInitial(HttpRequest httpRequest) {
+        // Make a copy of the original request
+        HttpRequest originalRequest = copy(httpRequest);
+
+        // Set up our filters based on the original request
+        currentFilters = proxyServer.getFiltersSource().filterRequest(
+                originalRequest);
+
+        // Do the pre filtering
+        if (shortCircuitRespond(currentFilters.requestPre(httpRequest))) {
+            return DISCONNECT_REQUESTED;
+        }
+
+        // Identify our server and chained proxy
         String serverHostAndPort = identifyHostAndPort(httpRequest);
         String chainedProxyHostAndPort = getChainedProxyHostAndPort(httpRequest);
 
@@ -246,12 +264,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             numberOfReusedServerConnections.incrementAndGet();
         }
 
-        HttpRequest originalRequest = copy(httpRequest);
         modifyRequestHeadersToReflectProxying(httpRequest);
-        filterRequestIfNecessary(httpRequest);
+        if (shortCircuitRespond(currentFilters.requestPost(httpRequest))) {
+            return DISCONNECT_REQUESTED;
+        }
 
         LOG.debug("Writing request to ProxyToServerConnection");
-        currentServerConnection.write(httpRequest, originalRequest);
+        currentServerConnection.write(httpRequest);
 
         // Figure out our next state
         if (ProxyUtils.isCONNECT(httpRequest)) {
@@ -265,6 +284,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     @Override
     protected void readHTTPChunk(HttpContent chunk) {
+        currentFilters.requestPre(chunk);
+        currentFilters.requestPost(chunk);
         currentServerConnection.write(chunk);
     }
 
@@ -282,6 +303,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * 
      * @param serverConnection
      *            the ProxyToServerConnection that's responding
+     * @param filters
+     *            the filters to apply to the response
      * @param currentHttpRequest
      *            the HttpRequest that prompted this response
      * @param currentHttpResponse
@@ -291,9 +314,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param httpObject
      *            the data with which to respond
      */
-    void respond(ProxyToServerConnection serverConnection,
+    void respond(ProxyToServerConnection serverConnection, HttpFilters filters,
             HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
             HttpObject httpObject) {
+        filters.responsePre(httpObject);
+
         if (httpObject instanceof HttpResponse) {
             HttpResponse httpResponse = (HttpResponse) httpObject;
             fixHttpVersionHeaderIfNecessary(httpResponse);
@@ -301,6 +326,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             // Record stats
             recordResponseReceivedFromServer(serverConnection, httpResponse);
         }
+
+        filters.responsePost(httpObject);
 
         write(httpObject);
 
@@ -310,6 +337,24 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         closeConnectionsAfterWriteIfNecessary(serverConnection,
                 currentHttpRequest, currentHttpResponse, httpObject);
+    }
+
+    /**
+     * Used for filtering. If a request filter returned a response, we short
+     * circuit processing by sending the response to the client and
+     * disconnecting.
+     * 
+     * @param shortCircuitResponse
+     * @return
+     */
+    private boolean shortCircuitRespond(HttpResponse shortCircuitResponse) {
+        if (shortCircuitResponse != null) {
+            write(shortCircuitResponse);
+            disconnect();
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /***************************************************************************
@@ -611,18 +656,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         LOG.debug("Establishing new ProxyToServerConnection");
         InetSocketAddress address = addressFor(hostAndPort);
 
-        // Add response filtering if necessary
-        HttpFilter responseFilter = null;
-        if (proxyServer.getResponseFilters() != null) {
-            responseFilter = proxyServer.getResponseFilters().getFilter(
-                    serverHostAndPort);
-        }
-
         // Create connection
         ProxyToServerConnection connection = new ProxyToServerConnection(
                 this.proxyServer, this, transportProtocol, sslContext, address,
                 serverHostAndPort, chainedProxyHostAndPort,
-                responseFilter);
+                currentFilters);
 
         // Remember connection for later
         serverConnectionsByHostAndPort.put(hostAndPort, connection);
@@ -667,6 +705,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // respectively.
         pipeline.addLast("decoder", new ProxyHttpRequestDecoder(8192, 8192 * 2,
                 8192 * 2));
+
+        // Enable aggregation for filtering if necessary
+        int numberOfBytesToBuffer = proxyServer.getFiltersSource()
+                .getMaximumRequestBufferSizeInBytes();
+        if (numberOfBytesToBuffer > 0) {
+            aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
+        }
+
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast(
                 "idle",
@@ -922,12 +968,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 LOG.debug("Fixing HTTP version.");
                 httpResponse.setProtocolVersion(HttpVersion.HTTP_1_1);
             }
-        }
-    }
-
-    private void filterRequestIfNecessary(HttpRequest httpRequest) {
-        if (proxyServer.getRequestFilter() != null) {
-            proxyServer.getRequestFilter().filter(httpRequest);
         }
     }
 

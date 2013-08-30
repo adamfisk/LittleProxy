@@ -29,24 +29,47 @@ HttpProxyServer server =
         .start();
 ```
 
-There are lots of filters and such you can also add to LittleProxy. You can add request and reponse filters, for example, as in:
+There are lots of filters and such you can also add to LittleProxy. You can add
+request and response filters using an `HttpFiltersSource(Adapter)`, for example:
 
 ```
 HttpProxyServer server =
     DefaultHttpProxyServer.bootstrap()
         .withPort(8080)
-        .withRequestFilter(new DefaultHttpProxyServer(PROXY_PORT, new HttpRequestFilter() {
-                @Override
-                public void filter(HttpRequest httpRequest) {
-                    System.out.println("Request went through proxy");
-                }
-            })
-        .withResponseFilters(new HttpResponseFilters() {
-                @Override
-                public HttpFilter getFilter(String hostAndPort) {
+        .withFiltersSource(new HttpFiltersSourceAdapter() {
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                // Check the originalRequest to see if we want to filter it
+                boolean wantToFilterRequest = ...;
+                
+                if (!wantToFilterRequest) {
                     return null;
+                } else {
+                    return new HttpFiltersAdapter(originalRequest) {
+                        @Override
+                        public HttpResponse requestPre(HttpObject httpObject) {
+                            // TODO: implement your filtering here
+                            return null;
+                        }
+                    
+                        @Override
+                        public HttpResponse requestPost(HttpObject httpObject) {
+                            // TODO: implement your filtering here
+                            return null;
+                        }
+                    
+                        @Override
+                        public void responsePre(HttpObject httpObject) {
+                            // TODO: implement your filtering here
+                        }
+                    
+                        @Override
+                        public void responsePost(HttpObject httpObject) {
+                            // TODO: implement your filtering here
+                        }   
+                    };
                 }
-            })
+            }
+        });
         .start();
 ```                
 

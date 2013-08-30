@@ -10,7 +10,9 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.ssl.SslHandler;
@@ -163,7 +165,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
             LOG.warn("Attempted to read from connection that's in the process of connecting.  This shouldn't happen.");
             break;
         case NEGOTIATING_CONNECT:
-            // TODO: ox - why is this happening so much?  Is it actually bad?
+            // TODO: ox - why is this happening so much? Is it actually bad?
             LOG.warn("Attempted to read from connection that's in the process of negotiating an HTTP CONNECT.  This shouldn't happen.");
             break;
         case HANDSHAKING:
@@ -218,12 +220,16 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * @param msg
      */
     void write(Object msg) {
-        LOG.debug("Writing: {}", msg);
-
         if (msg instanceof ReferenceCounted) {
             LOG.debug("Retaining reference counted message");
             ((ReferenceCounted) msg).retain();
         }
+
+        doWrite(msg);
+    }
+    
+    void doWrite(Object msg) {
+        LOG.debug("Writing: {}", msg);
 
         try {
             if (msg instanceof HttpObject) {
@@ -368,6 +374,20 @@ abstract class ProxyConnection<I extends HttpObject> extends
         SslHandler handler = new SslHandler(engine);
         pipeline.addFirst("ssl", handler);
         return handler.handshakeFuture();
+    }
+
+    /**
+     * Enables decompression and aggregation of content, which is useful for
+     * certain types of filtering activity.
+     * 
+     * @param pipeline
+     * @param numberOfBytesToBuffer
+     */
+    protected void aggregateContentForFiltering(ChannelPipeline pipeline,
+            int numberOfBytesToBuffer) {
+        pipeline.addLast("inflater", new HttpContentDecompressor());
+        pipeline.addLast("aggregator", new HttpObjectAggregator(
+                numberOfBytesToBuffer));
     }
 
     /**

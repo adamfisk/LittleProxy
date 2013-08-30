@@ -12,24 +12,21 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 
 import java.net.InetSocketAddress;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
 
 import javax.net.ssl.SSLContext;
 
-import org.littleshoot.proxy.HttpFilter;
+import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
 
@@ -58,7 +55,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private volatile InetSocketAddress address;
     private final String serverHostAndPort;
     private volatile String chainedProxyHostAndPort;
-    private final HttpFilter responseFilter;
+    
+    /**
+     * The filters to apply to response/chunks received from server.
+     */
+    private final HttpFilters currentFilters;
 
     /**
      * Encapsulates the flow for establishing a connection, which can vary
@@ -97,23 +98,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private volatile HttpResponse currentHttpResponse;
 
-    /**
-     * Associates written HttpRequests to copies of the original HttpRequest
-     * (before rewriting).
-     */
-    private final Map<HttpRequest, HttpRequest> originalHttpRequests = new ConcurrentHashMap<HttpRequest, HttpRequest>();
-
-    /**
-     * Cache of whether or not to filter responses based on the request.
-     */
-    private final Map<HttpRequest, Boolean> shouldFilterResponseCache = new ConcurrentHashMap<HttpRequest, Boolean>();
-
     ProxyToServerConnection(
             DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
             TransportProtocol transportProtocol, SSLContext sslContext,
             InetSocketAddress address, String serverHostAndPort,
-            String chainedProxyHostAndPort, HttpFilter responseFilter) {
+            String chainedProxyHostAndPort, HttpFilters currentFilters) {
         super(DISCONNECTED, proxyServer, sslContext, true);
         this.clientConnection = clientConnection;
         this.transportProtocol = transportProtocol;
@@ -121,7 +111,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         this.address = address;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxyHostAndPort = chainedProxyHostAndPort;
-        this.responseFilter = responseFilter;
+        this.currentFilters = currentFilters;
     }
 
     /***************************************************************************
@@ -150,7 +140,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         rememberCurrentRequest();
         rememberCurrentResponse(httpResponse);
-        filterResponseIfNecessary(httpResponse);
         respondWith(httpResponse);
 
         return ProxyUtils.isChunked(httpResponse) ? AWAITING_CHUNK
@@ -171,24 +160,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Writing
      **************************************************************************/
 
-    /**
-     * Write an HttpRequest to the server.
-     * 
-     * @param rewrittenHttpRequest
-     *            the request that will get written to the Server, including any
-     *            rewriting that has happened
-     * @param originalHttpRequest
-     *            a copy of the original request
-     */
-    void write(HttpRequest rewrittenHttpRequest,
-            HttpRequest originalHttpRequest) {
-        originalHttpRequests.put(rewrittenHttpRequest, originalHttpRequest);
-        this.write(rewrittenHttpRequest);
-    }
-
     @Override
     void write(Object msg) {
         LOG.debug("Requested write of {}", msg);
+        
+        if (msg instanceof ReferenceCounted) {
+            LOG.debug("Retaining reference counted message");
+            ((ReferenceCounted) msg).retain();
+        }
+        
         if (is(DISCONNECTED)) {
             if (msg instanceof HttpRequest) {
                 LOG.debug("Current disconnected, connect and then write the message");
@@ -214,7 +194,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 }
             }
             LOG.debug("Using existing connection to: {}", address);
-            super.write(msg);
+            doWrite(msg);
         }
     };
 
@@ -348,7 +328,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * @param httpObject
      */
     private void respondWith(HttpObject httpObject) {
-        clientConnection.respond(this, currentHttpRequest,
+        clientConnection.respond(this, currentFilters, currentHttpRequest,
                 currentHttpResponse, httpObject);
     }
 
@@ -516,17 +496,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 8192 * 2,
                 8192 * 2));
 
-        // We decompress and aggregate chunks for responses from
-        // sites we're applying filtering rules to.
-        // TODO: Ox - it might be nice to move this responsibility into the
-        // filters
-        // themselves so that a filter can choose to operate more in streaming
-        // fashion if it doesn't need the memory overhead of aggregating chunks.
-        if (!ProxyUtils.isCONNECT(httpRequest)
-                && shouldFilterResponseTo(httpRequest)) {
-            pipeline.addLast("inflater", new HttpContentDecompressor());
-            pipeline.addLast("aggregator", new HttpObjectAggregator(
-                    this.responseFilter.getMaxResponseSize()));// 2048576));
+        if (!ProxyUtils.isCONNECT(httpRequest)) {
+            // Enable aggregation for filtering if necessary
+            int numberOfBytesToBuffer = proxyServer.getFiltersSource()
+                    .getMaximumResponseBufferSizeInBytes();
+            if (numberOfBytesToBuffer > 0) {
+                aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
+            }
         }
 
         pipeline.addLast("encoder", new HttpRequestEncoder());
@@ -579,43 +555,5 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         } else {
             LOG.debug("Dropping initial request");
         }
-    }
-
-    private void filterResponseIfNecessary(HttpResponse httpResponse) {
-        if (shouldFilterResponseTo(this.currentHttpRequest)) {
-            this.responseFilter.filterResponse(
-                    this.originalHttpRequests.get(this.currentHttpRequest),
-                    httpResponse);
-        }
-    }
-
-    /**
-     * <p>
-     * Determines whether or not responses to the given request should be
-     * filtered. If we were given an {@link HttpFilter} in our constructor, and
-     * that filter's {@link HttpFilter#filterResponses(HttpRequest)} method
-     * returns true, then we will filter.
-     * </p>
-     * 
-     * <p>
-     * To avoid calling {@link HttpFilter#filterResponses(HttpRequest)} multiple
-     * times, this method caches the results of that call by HttpRequest.
-     * </p>
-     * 
-     * @param httpRequest
-     * @return
-     */
-    private boolean shouldFilterResponseTo(HttpRequest httpRequest) {
-        // If we've already checked whether to filter responses for a given
-        // request, use the original result
-        Boolean result = shouldFilterResponseCache.get(httpRequest);
-        if (result == null) {
-            // This is our first time checking whether responses to this request
-            // need to be filtered. Check, and then remember for later.
-            result = this.responseFilter != null
-                    && this.responseFilter.filterResponses(httpRequest);
-            shouldFilterResponseCache.put(httpRequest, result);
-        }
-        return result;
     }
 }

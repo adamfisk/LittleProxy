@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import static org.junit.Assert.*;
+import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 
 import java.security.SecureRandom;
@@ -149,19 +150,20 @@ public class EndToEndStoppingTest {
 
         final HttpProxyServer plain = DefaultHttpProxyServer.bootstrap()
                 .withPort(PROXY_PORT)
-                .withRequestFilter(new HttpRequestFilter() {
+                .withFiltersSource(new HttpFiltersSourceAdapter() {
                     @Override
-                    public void filter(HttpRequest httpRequest) {
-                        System.out
-                                .println("Request went through proxy");
-                    }
-                })
-                .withResponseFilters(
-                        new HttpResponseFilters() {
-                            public HttpFilter getFilter(String hostAndPort) {
+                    public HttpFilters filterRequest(HttpRequest originalRequest) {
+                        return new HttpFiltersAdapter(originalRequest) {
+                            @Override
+                            public io.netty.handler.codec.http.HttpResponse requestPost(
+                                    HttpObject httpObject) {
+                                System.out
+                                        .println("Request with through proxy");
                                 return null;
                             }
-                        }).start();
+                        };
+                    }
+                }).start();
         final HttpProxyServer proxy = plain;
 
         // client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
