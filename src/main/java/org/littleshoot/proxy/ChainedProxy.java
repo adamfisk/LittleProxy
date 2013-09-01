@@ -48,10 +48,15 @@ public interface ChainedProxy extends SSLEngineSource {
     boolean requiresEncryption();
 
     /**
+     * Called to let us know that connecting to this proxy succeeded.
+     */
+    void connectionSucceeded();
+
+    /**
      * Called to let us know that connecting to this proxy failed.
      * 
      * @param cause
      *            exception that caused this failure (may be null)
      */
-    void unableToConnect(Throwable cause);
+    void connectionFailed(Throwable cause);
 }

@@ -45,7 +45,7 @@ public class ChainedProxyWithFallbackTest extends BaseProxyTest {
                             }
 
                             @Override
-                            public void unableToConnect(Throwable cause) {
+                            public void connectionFailed(Throwable cause) {
                                 unableToConnect.set(true);
                             }
 

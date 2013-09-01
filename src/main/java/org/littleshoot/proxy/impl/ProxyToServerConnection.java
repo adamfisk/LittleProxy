@@ -510,16 +510,25 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     };
 
     /**
+     * <p>
+     * Called to let us know that connection failed.
+     * </p>
+     * 
+     * <p>
      * Try connecting to a new address, using a new set of connection
      * parameters.
+     * </p>
      * 
      * @param cause
      *            the reason that our attempt to connect failed (can be null)
-     * @return whether or not we could fall back
+     * @return true if we are trying to fall back to another connection
      */
-    protected boolean fallbackToNextChainedProxy(Throwable cause)
+    protected boolean connectionFailed(Throwable cause)
             throws UnknownHostException {
-        this.chainedProxy.unableToConnect(cause);
+        if (this.chainedProxy != null) {
+            // Let the ChainedProxy know that we were unable to connect
+            this.chainedProxy.connectionFailed(cause);
+        }
         this.chainedProxy = this.availableChainedProxies.poll();
         if (chainedProxy != null) {
             this.setupConnectionParameters();
@@ -616,6 +625,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     void connectionSucceeded(boolean shouldForwardInitialRequest) {
         become(AWAITING_INITIAL);
+        if (this.chainedProxy != null) {
+            // Notify the ChainedProxy that we successfully connected
+            this.chainedProxy.connectionSucceeded();
+        }
         clientConnection.serverConnectionSucceeded(this,
                 shouldForwardInitialRequest);
 

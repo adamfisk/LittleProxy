@@ -427,23 +427,34 @@ public abstract class BaseProxyTest {
 
     private void checkStatistics(HttpHost host) {
         boolean isHTTPS = host.getSchemeName().equalsIgnoreCase("HTTPS");
-        boolean expectRequestToContinueDownstream = isHTTPS && !isChained();
+        int numberOfExpectedClientInteractions = isAuthenticating() ? 2 : 1;
+        int numberOfExpectedServerInteractions = isHTTPS && !isChained() ? 0
+                : 1;
         assertTrue(bytesReceivedFromClient.get() > 0);
-        assertEquals(1, requestsReceivedFromClient.get());
+        assertEquals(numberOfExpectedClientInteractions,
+                requestsReceivedFromClient.get());
         assertTrue(bytesSentToServer.get() > 0);
-        assertEquals(expectRequestToContinueDownstream ? 0 : 1,
+        assertEquals(numberOfExpectedServerInteractions,
                 requestsSentToServer.get());
         assertTrue(bytesReceivedFromServer.get() > 0);
-        assertEquals(expectRequestToContinueDownstream ? 0 : 1,
+        assertEquals(numberOfExpectedServerInteractions,
                 responsesReceivedFromServer.get());
         assertTrue(bytesSentToClient.get() > 0);
-        assertEquals(1, responsesSentToClient.get());
+        assertEquals(numberOfExpectedClientInteractions,
+                responsesSentToClient.get());
     }
 
     /**
      * Override this to indicate that the proxy is chained.
      */
     protected boolean isChained() {
+        return false;
+    }
+
+    /**
+     * Override this to indicate that the test uses authentication.
+     */
+    protected boolean isAuthenticating() {
         return false;
     }
 

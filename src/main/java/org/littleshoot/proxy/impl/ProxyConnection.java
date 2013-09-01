@@ -622,6 +622,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Utility handler for monitoring bytes read on this connection.
      */
+    @Sharable
     protected static abstract class BytesReadMonitor extends
             ChannelInboundHandlerAdapter {
         @Override
@@ -642,6 +643,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Utility handler for monitoring requests read on this connection.
      */
+    @Sharable
     protected static abstract class RequestReadMonitor extends
             ChannelInboundHandlerAdapter {
         @Override
@@ -662,6 +664,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Utility handler for monitoring responses read on this connection.
      */
+    @Sharable
     protected static abstract class ResponseReadMonitor extends
             ChannelInboundHandlerAdapter {
         @Override
@@ -682,6 +685,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Utility handler for monitoring bytes written on this connection.
      */
+    @Sharable
     protected static abstract class BytesWrittenMonitor extends
             ChannelOutboundHandlerAdapter {
         @Override
@@ -703,6 +707,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Utility handler for monitoring requests written on this connection.
      */
+    @Sharable
     protected static abstract class RequestWrittenMonitor extends
             ChannelOutboundHandlerAdapter {
         @Override
@@ -724,6 +729,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Utility handler for monitoring responses written on this connection.
      */
+    @Sharable
     protected static abstract class ResponseWrittenMonitor extends
             ChannelOutboundHandlerAdapter {
         @Override

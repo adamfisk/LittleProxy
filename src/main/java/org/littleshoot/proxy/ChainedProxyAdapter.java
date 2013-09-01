@@ -40,7 +40,11 @@ public class ChainedProxyAdapter implements ChainedProxy {
     }
 
     @Override
-    public void unableToConnect(Throwable cause) {
+    public void connectionSucceeded() {
+    }
+
+    @Override
+    public void connectionFailed(Throwable cause) {
     }
 
 }

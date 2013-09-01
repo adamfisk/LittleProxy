@@ -411,7 +411,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         resumeReadingIfNecessary();
         HttpRequest initialRequest = serverConnection.getInitialRequest();
         try {
-            if (serverConnection.fallbackToNextChainedProxy(cause)) {
+            if (serverConnection.connectionFailed(cause)) {
                 LOG.info(
                         "Failed to connect via chained proxy, falling back to next chained proxy. Last state before failure: {}",
                         lastStateBeforeFailure, cause);

@@ -29,4 +29,9 @@ public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest
     public boolean authenticate(String userName, String password) {
         return getUsername().equals(userName) && getPassword().equals(password);
     }
+
+    @Override
+    protected boolean isAuthenticating() {
+        return true;
+    }
 }
