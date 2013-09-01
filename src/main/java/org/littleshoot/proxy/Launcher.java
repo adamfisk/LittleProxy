@@ -80,7 +80,8 @@ public class Launcher {
         System.out.println("About to start server on port: " + port);
         HttpProxyServerBootstrap bootstrap = DefaultHttpProxyServer
                 .bootstrapFromFile("./littleproxy.properties")
-                .withPort(port);
+                .withPort(port)
+                .withAllowLocalOnly(false);
 
         if (cmd.hasOption(OPTION_DNSSEC)) {
             final String val = cmd.getOptionValue(OPTION_DNSSEC);
@@ -98,7 +99,7 @@ public class Launcher {
         }
 
         System.out.println("About to start...");
-        bootstrap.start(false, true);
+        bootstrap.start();
     }
 
     private static void printHelp(final Options options,

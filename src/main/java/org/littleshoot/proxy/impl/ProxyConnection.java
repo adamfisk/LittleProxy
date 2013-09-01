@@ -7,7 +7,10 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.ChannelPromise;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpContentDecompressor;
@@ -66,7 +69,9 @@ import org.littleshoot.proxy.SSLEngineSource;
  * resumed using {@link #stopReading()} and {@link #resumeReading()}.
  * </p>
  * 
- * @param <I> the type of "initial" message.  This will be either {@link HttpResponse} or {@link HttpRequest}.
+ * @param <I>
+ *            the type of "initial" message. This will be either
+ *            {@link HttpResponse} or {@link HttpRequest}.
  */
 abstract class ProxyConnection<I extends HttpObject> extends
         SimpleChannelInboundHandler<Object> {
@@ -608,6 +613,133 @@ abstract class ProxyConnection<I extends HttpObject> extends
         } finally {
             super.userEventTriggered(ctx, evt);
         }
+    }
+
+    /***************************************************************************
+     * Activity Tracking/Statistics
+     **************************************************************************/
+
+    /**
+     * Utility handler for monitoring bytes read on this connection.
+     */
+    protected static abstract class BytesReadMonitor extends
+            ChannelInboundHandlerAdapter {
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg)
+                throws Exception {
+            try {
+                if (msg instanceof ByteBuf) {
+                    bytesRead(((ByteBuf) msg).readableBytes());
+                }
+            } finally {
+                super.channelRead(ctx, msg);
+            }
+        }
+
+        protected abstract void bytesRead(int numberOfBytes);
+    }
+
+    /**
+     * Utility handler for monitoring requests read on this connection.
+     */
+    protected static abstract class RequestReadMonitor extends
+            ChannelInboundHandlerAdapter {
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg)
+                throws Exception {
+            try {
+                if (msg instanceof HttpRequest) {
+                    requestRead((HttpRequest) msg);
+                }
+            } finally {
+                super.channelRead(ctx, msg);
+            }
+        }
+
+        protected abstract void requestRead(HttpRequest httpRequest);
+    }
+
+    /**
+     * Utility handler for monitoring responses read on this connection.
+     */
+    protected static abstract class ResponseReadMonitor extends
+            ChannelInboundHandlerAdapter {
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg)
+                throws Exception {
+            try {
+                if (msg instanceof HttpResponse) {
+                    responseRead((HttpResponse) msg);
+                }
+            } finally {
+                super.channelRead(ctx, msg);
+            }
+        }
+
+        protected abstract void responseRead(HttpResponse httpResponse);
+    }
+
+    /**
+     * Utility handler for monitoring bytes written on this connection.
+     */
+    protected static abstract class BytesWrittenMonitor extends
+            ChannelOutboundHandlerAdapter {
+        @Override
+        public void write(ChannelHandlerContext ctx,
+                Object msg, ChannelPromise promise)
+                throws Exception {
+            try {
+                if (msg instanceof ByteBuf) {
+                    bytesWritten(((ByteBuf) msg).writableBytes());
+                }
+            } finally {
+                super.write(ctx, msg, promise);
+            }
+        };
+
+        protected abstract void bytesWritten(int numberOfBytes);
+    }
+
+    /**
+     * Utility handler for monitoring requests written on this connection.
+     */
+    protected static abstract class RequestWrittenMonitor extends
+            ChannelOutboundHandlerAdapter {
+        @Override
+        public void write(ChannelHandlerContext ctx,
+                Object msg, ChannelPromise promise)
+                throws Exception {
+            try {
+                if (msg instanceof HttpRequest) {
+                    requestWritten(((HttpRequest) msg));
+                }
+            } finally {
+                super.write(ctx, msg, promise);
+            }
+        };
+
+        protected abstract void requestWritten(HttpRequest httpRequest);
+    }
+
+    /**
+     * Utility handler for monitoring responses written on this connection.
+     */
+    protected static abstract class ResponseWrittenMonitor extends
+            ChannelOutboundHandlerAdapter {
+        @Override
+        public void write(ChannelHandlerContext ctx,
+                Object msg, ChannelPromise promise)
+                throws Exception {
+            try {
+                if (msg instanceof HttpResponse) {
+                    responseWritten(((HttpResponse) msg));
+                }
+            } finally {
+                super.write(ctx, msg, promise);
+            }
+        };
+
+        protected abstract void responseWritten(HttpResponse httpResponse);
     }
 
 }

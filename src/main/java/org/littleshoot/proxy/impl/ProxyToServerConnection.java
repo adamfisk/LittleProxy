@@ -16,6 +16,7 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
@@ -29,9 +30,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
+import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxy;
 import org.littleshoot.proxy.ChainedProxyAdapter;
 import org.littleshoot.proxy.ChainedProxyManager;
+import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
@@ -157,11 +160,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void read(Object msg) {
-        if (msg instanceof ConnectionTracer) {
-            LOG.debug("Recording statistics from ConnectionTracer and then swallowing it");
-            clientConnection.recordBytesReceivedFromServer(this,
-                    (ConnectionTracer) msg);
-        } else if (isConnecting()) {
+        if (isConnecting()) {
             LOG.debug(
                     "In the middle of connecting, forwarding message to connection flow: {}",
                     msg);
@@ -241,8 +240,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             HttpRequest httpRequest = (HttpRequest) httpObject;
             // Remember that we issued this HttpRequest for later
             issuedRequests.add(httpRequest);
-            // Track stats
-            clientConnection.recordRequestSentToServer(this, httpRequest);
         }
         super.writeHttp(httpObject);
     }
@@ -318,6 +315,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     public InetSocketAddress getChainedProxyAddress() {
         return chainedProxy == null ? null : chainedProxy
                 .getChainedProxyAddress();
+    }
+
+    public ChainedProxy getChainedProxy() {
+        return chainedProxy;
     }
 
     public HttpRequest getInitialRequest() {
@@ -557,9 +558,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void initChannelPipeline(ChannelPipeline pipeline,
             HttpRequest httpRequest) {
-        pipeline.addLast("decoder", new ProxyHttpResponseDecoder(8192,
+        pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
+        pipeline.addLast("decoder", new HttpResponseDecoder(8192,
                 8192 * 2,
                 8192 * 2));
+        pipeline.addLast("responseReadMonitor", responseReadMonitor);
 
         if (!ProxyUtils.isCONNECT(httpRequest)) {
             // Enable aggregation for filtering if necessary
@@ -570,7 +573,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
 
+        pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
         pipeline.addLast("encoder", new HttpRequestEncoder());
+        pipeline.addLast("requestWrittenMonitor", requestWrittenMonitor);
 
         // Set idle timeout
         if (ProxyUtils.isCONNECT(httpRequest)) {
@@ -656,4 +661,58 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             return new InetSocketAddress(address, port);
         }
     }
+
+    /***************************************************************************
+     * Activity Tracking/Statistics
+     * 
+     * We track statistics on bytes, requests and responses by adding handlers
+     * at the appropriate parts of the pipeline (see initChannelPipeline()).
+     **************************************************************************/
+    private final BytesReadMonitor bytesReadMonitor = new BytesReadMonitor() {
+        @Override
+        protected void bytesRead(int numberOfBytes) {
+            FullFlowContext flowContext = new FullFlowContext(clientConnection,
+                    ProxyToServerConnection.this);
+            for (ActivityTracker tracker : proxyServer
+                    .getActivityTrackers()) {
+                tracker.bytesReceivedFromServer(flowContext, numberOfBytes);
+            }
+        }
+    };
+
+    private ResponseReadMonitor responseReadMonitor = new ResponseReadMonitor() {
+        @Override
+        protected void responseRead(HttpResponse httpResponse) {
+            FullFlowContext flowContext = new FullFlowContext(clientConnection,
+                    ProxyToServerConnection.this);
+            for (ActivityTracker tracker : proxyServer
+                    .getActivityTrackers()) {
+                tracker.responseReceivedFromServer(flowContext, httpResponse);
+            }
+        }
+    };
+
+    private BytesWrittenMonitor bytesWrittenMonitor = new BytesWrittenMonitor() {
+        @Override
+        protected void bytesWritten(int numberOfBytes) {
+            FullFlowContext flowContext = new FullFlowContext(clientConnection,
+                    ProxyToServerConnection.this);
+            for (ActivityTracker tracker : proxyServer
+                    .getActivityTrackers()) {
+                tracker.bytesSentToServer(flowContext, numberOfBytes);
+            }
+        }
+    };
+
+    private RequestWrittenMonitor requestWrittenMonitor = new RequestWrittenMonitor() {
+        @Override
+        protected void requestWritten(HttpRequest httpRequest) {
+            FullFlowContext flowContext = new FullFlowContext(clientConnection,
+                    ProxyToServerConnection.this);
+            for (ActivityTracker tracker : proxyServer
+                    .getActivityTrackers()) {
+                tracker.requestSentToServer(flowContext, httpRequest);
+            }
+        }
+    };
 }

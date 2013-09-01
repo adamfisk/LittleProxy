@@ -3,6 +3,7 @@ package org.littleshoot.proxy;
 import static org.junit.Assert.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpVersion;
 
 import java.io.ByteArrayInputStream;
@@ -92,8 +93,26 @@ public abstract class BaseProxyTest {
      */
     private Server webServer;
 
+    private AtomicInteger bytesReceivedFromClient;
+    private AtomicInteger requestsReceivedFromClient;
+    private AtomicInteger bytesSentToServer;
+    private AtomicInteger requestsSentToServer;
+    private AtomicInteger bytesReceivedFromServer;
+    private AtomicInteger responsesReceivedFromServer;
+    private AtomicInteger bytesSentToClient;
+    private AtomicInteger responsesSentToClient;
+
     @Before
     public void runSetUp() throws Exception {
+        bytesReceivedFromClient = new AtomicInteger(0);
+        requestsReceivedFromClient = new AtomicInteger(0);
+        bytesSentToServer = new AtomicInteger(0);
+        requestsSentToServer = new AtomicInteger(0);
+        bytesReceivedFromServer = new AtomicInteger(0);
+        responsesReceivedFromServer = new AtomicInteger(0);
+        bytesSentToClient = new AtomicInteger(0);
+        responsesSentToClient = new AtomicInteger(0);
+
         // Set up new ports for everything based on sequence numbers
         webServerPort = WEB_SERVER_PORT_SEQ.getAndIncrement();
         httpsWebServerPort = WEB_SERVER_HTTPS_PORT_SEQ.getAndIncrement();
@@ -107,6 +126,56 @@ public abstract class BaseProxyTest {
         webServer = TestUtils.startWebServer(webServerPort,
                 httpsWebServerPort);
         setUp();
+
+        proxyServer.addActivityTracker(new ActivityTracker() {
+            @Override
+            public void bytesReceivedFromClient(FlowContext flowContext,
+                    int numberOfBytes) {
+                bytesReceivedFromClient.addAndGet(numberOfBytes);
+            }
+
+            @Override
+            public void requestReceivedFromClient(FlowContext flowContext,
+                    HttpRequest httpRequest) {
+                requestsReceivedFromClient.incrementAndGet();
+            }
+
+            @Override
+            public void bytesSentToServer(FullFlowContext flowContext,
+                    int numberOfBytes) {
+                bytesSentToServer.addAndGet(numberOfBytes);
+            }
+
+            @Override
+            public void requestSentToServer(FullFlowContext flowContext,
+                    HttpRequest httpRequest) {
+                requestsSentToServer.incrementAndGet();
+            }
+
+            @Override
+            public void bytesReceivedFromServer(FullFlowContext flowContext,
+                    int numberOfBytes) {
+                bytesReceivedFromServer.addAndGet(numberOfBytes);
+            }
+
+            @Override
+            public void responseReceivedFromServer(FullFlowContext flowContext,
+                    io.netty.handler.codec.http.HttpResponse httpResponse) {
+                responsesReceivedFromServer.incrementAndGet();
+            }
+
+            @Override
+            public void bytesSentToClient(FlowContext flowContext,
+                    int numberOfBytes) {
+                bytesSentToClient.addAndGet(numberOfBytes);
+            }
+
+            @Override
+            public void responseSentToClient(FlowContext flowContext,
+                    io.netty.handler.codec.http.HttpResponse httpResponse) {
+                responsesSentToClient.incrementAndGet();
+            }
+        });
     }
 
     protected abstract void setUp() throws Exception;
@@ -343,6 +412,7 @@ public abstract class BaseProxyTest {
         String proxiedResponse = httpPostWithApacheClient(host,
                 resourceUrl, true);
         assertEquals(unproxiedResponse, proxiedResponse);
+        checkStatistics(host);
     }
 
     private void compareProxiedAndUnproxiedGET(HttpHost host,
@@ -352,6 +422,29 @@ public abstract class BaseProxyTest {
         String proxiedResponse = httpGetWithApacheClient(host,
                 resourceUrl, true);
         assertEquals(unproxiedResponse, proxiedResponse);
+        checkStatistics(host);
+    }
+
+    private void checkStatistics(HttpHost host) {
+        boolean isHTTPS = host.getSchemeName().equalsIgnoreCase("HTTPS");
+        boolean expectRequestToContinueDownstream = isHTTPS && !isChained();
+        assertTrue(bytesReceivedFromClient.get() > 0);
+        assertEquals(1, requestsReceivedFromClient.get());
+        assertTrue(bytesSentToServer.get() > 0);
+        assertEquals(expectRequestToContinueDownstream ? 0 : 1,
+                requestsSentToServer.get());
+        assertTrue(bytesReceivedFromServer.get() > 0);
+        assertEquals(expectRequestToContinueDownstream ? 0 : 1,
+                responsesReceivedFromServer.get());
+        assertTrue(bytesSentToClient.get() > 0);
+        assertEquals(1, responsesSentToClient.get());
+    }
+
+    /**
+     * Override this to indicate that the proxy is chained.
+     */
+    protected boolean isChained() {
+        return false;
     }
 
     private byte[] rawResponse(final String url, final int port,

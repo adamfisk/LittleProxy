@@ -20,17 +20,31 @@ public class ActivityTrackerAdapter implements ActivityTracker {
     }
 
     @Override
-    public void requestSent(FlowContext flowContext,
+    public void bytesSentToServer(FullFlowContext flowContext, int numberOfBytes) {
+    }
+
+    @Override
+    public void requestSentToServer(FullFlowContext flowContext,
             HttpRequest httpRequest) {
     }
 
     @Override
-    public void bytesReceivedFromServer(FlowContext flowContext,
+    public void bytesReceivedFromServer(FullFlowContext flowContext,
             int numberOfBytes) {
     }
 
     @Override
-    public void responseReceived(FlowContext flowContext,
+    public void responseReceivedFromServer(FullFlowContext flowContext,
+            HttpResponse httpResponse) {
+    }
+
+    @Override
+    public void bytesSentToClient(FlowContext flowContext,
+            int numberOfBytes) {
+    }
+
+    @Override
+    public void responseSentToClient(FlowContext flowContext,
             HttpResponse httpResponse) {
     }
 

@@ -34,15 +34,18 @@ public class ChainedProxyTest extends BaseProxyTest {
     private static final ConcurrentSkipListSet<TransportProtocol> TRANSPORTS_USED = new ConcurrentSkipListSet<TransportProtocol>();
 
     private static final ActivityTracker UPSTREAM_TRACKER = new ActivityTrackerAdapter() {
-        public void requestSent(FlowContext flowContext,
+        @Override
+        public void requestSentToServer(FullFlowContext flowContext,
                 io.netty.handler.codec.http.HttpRequest httpRequest) {
             REQUESTS_SENT_BY_UPSTREAM.incrementAndGet();
-            TRANSPORTS_USED.add(flowContext.getOutboundTransportProtocol());
+            TRANSPORTS_USED.add(flowContext.getChainedProxy()
+                    .getTransportProtocol());
         }
     };
     private static final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
+        @Override
         public void requestReceivedFromClient(FlowContext flowContext,
-                io.netty.handler.codec.http.HttpRequest httpRequest) {
+                HttpRequest httpRequest) {
             REQUESTS_RECEIVED_BY_DOWNSTREAM.incrementAndGet();
         };
     };
@@ -64,7 +67,7 @@ public class ChainedProxyTest extends BaseProxyTest {
                 .withName("Downstream")
                 .withPort(downstreamProxyPort)
                 .withTransportProtocol(UDT)
-                .withSslContextSource(sslEngineSource).start();
+                .withSSLEngineSource(sslEngineSource).start();
         this.downstreamProxy.addActivityTracker(DOWNSTREAM_TRACKER);
         this.proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withName("Upstream")
@@ -127,6 +130,11 @@ public class ChainedProxyTest extends BaseProxyTest {
     public void testProxyWithBadAddress() throws Exception {
         super.testProxyWithBadAddress();
         assertThatDownstreamProxyReceivedSentRequests();
+    }
+
+    @Override
+    protected boolean isChained() {
+        return true;
     }
 
     private void assertThatDownstreamProxyReceivedSentRequests() {

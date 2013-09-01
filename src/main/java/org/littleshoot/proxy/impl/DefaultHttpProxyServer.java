@@ -87,7 +87,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ServerGroup serverGroup;
 
     private final TransportProtocol transportProtocol;
-    private final int port;
+    private final InetSocketAddress address;
     private final SSLEngineSource sslEngineSource;
     private final ProxyAuthenticator proxyAuthenticator;
     private final ChainedProxyManager chainProxyManager;
@@ -133,7 +133,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private DefaultHttpProxyServer(String name,
             TransportProtocol transportProtocol,
-            int port,
+            InetSocketAddress address,
             SSLEngineSource sslContextSource,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
@@ -141,7 +141,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout) {
-        this(new ServerGroup(name), transportProtocol, port, sslContextSource,
+        this(new ServerGroup(name), transportProtocol, address,
+                sslContextSource,
                 proxyAuthenticator, chainProxyManager, filterSource, useDnsSec,
                 transparent, idleConnectionTimeout);
     }
@@ -157,8 +158,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            The port the server should run on.
      * @param transportProtocol
      *            The protocol to use for data transport
-     * @param port
-     *            The port the server should run on.
+     * @param address
+     *            The address on which this server will listen
      * @param sslEngineSource
      *            (optional) if specified, this Proxy will encrypt inbound
      *            connections from clients using an {@link SSLEngine} obtained
@@ -183,7 +184,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
-            int port,
+            InetSocketAddress address,
             SSLEngineSource sslEngineSource,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
@@ -193,7 +194,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             int idleConnectionTimeout) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
-        this.port = port;
+        this.address = address;
         this.sslEngineSource = sslEngineSource;
         this.proxyAuthenticator = proxyAuthenticator;
         this.chainProxyManager = chainProxyManager;
@@ -233,7 +234,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     @Override
     public HttpProxyServerBootstrap clone() {
         return new DefaultHttpProxyServerBootstrap(this, transportProtocol,
-                port + 1,
+                new InetSocketAddress(address.getAddress(),
+                        address.getPort() + 1),
                 sslEngineSource, proxyAuthenticator, chainProxyManager,
                 filtersSource, useDnsSec, transparent,
                 idleConnectionTimeout);
@@ -244,12 +246,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         serverGroup.stop();
     }
 
-    private HttpProxyServer start(boolean localOnly, boolean anyAddress) {
-        LOG.info("Starting proxy on port: " + this.port);
+    private HttpProxyServer start() {
+        LOG.info("Starting proxy at address: " + this.address);
 
         synchronized (serverGroup) {
             if (!serverGroup.stopped) {
-                doStart(localOnly, anyAddress);
+                doStart();
             } else {
                 throw new Error("Already stopped");
             }
@@ -258,8 +260,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return this;
     }
 
-    private void doStart(final boolean localOnly,
-            final boolean anyAddress) {
+    private void doStart() {
         ServerBootstrap serverBootstrap = new ServerBootstrap().group(
                 serverGroup.clientToProxyBossPools.get(transportProtocol),
                 serverGroup.clientToProxyWorkerPools.get(transportProtocol));
@@ -292,25 +293,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             throw new UnknownTransportProtocolError(transportProtocol);
         }
         serverBootstrap.childHandler(initializer);
-
-        // Binding only to localhost can significantly improve the security of
-        // the proxy.
-        InetSocketAddress isa;
-        if (localOnly) {
-            isa = new InetSocketAddress("127.0.0.1", port);
-        } else if (anyAddress) {
-            isa = new InetSocketAddress(port);
-        } else {
-            try {
-                isa = new InetSocketAddress(NetworkUtils.getLocalHost(), port);
-            } catch (final UnknownHostException e) {
-                LOG.error("Could not get local host?", e);
-                isa = new InetSocketAddress(port);
-            }
-        }
-
-        serverBootstrap.bind(isa).addListener(new ChannelFutureListener() {
-
+        serverBootstrap.bind(address).addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future)
                     throws Exception {
@@ -521,8 +504,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HttpProxyServerBootstrap {
         private String name = "LittleProxy";
         private TransportProtocol transportProtocol = TCP;
+        private InetSocketAddress address;
         private int port = 8080;
-        private SSLEngineSource sslContextSource = null;
+        private boolean allowLocalOnly = true;
+        private boolean listenOnAllAddresses = true;
+        private SSLEngineSource sslEngineSource = null;
         private ProxyAuthenticator proxyAuthenticator = null;
         private ChainedProxyManager chainProxyManager = null;
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
@@ -536,7 +522,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         private DefaultHttpProxyServerBootstrap(
                 DefaultHttpProxyServer original,
-                TransportProtocol transportProtocol, int port,
+                TransportProtocol transportProtocol,
+                InetSocketAddress address,
                 SSLEngineSource sslContextSource,
                 ProxyAuthenticator proxyAuthenticator,
                 ChainedProxyManager chainProxyManager,
@@ -544,8 +531,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 boolean transparent, int idleConnectionTimeout) {
             this.original = original;
             this.transportProtocol = transportProtocol;
-            this.port = port;
-            this.sslContextSource = sslContextSource;
+            this.address = address;
+            this.port = address.getPort();
+            this.sslEngineSource = sslContextSource;
             this.proxyAuthenticator = proxyAuthenticator;
             this.chainProxyManager = chainProxyManager;
             this.filtersSource = filtersSource;
@@ -577,15 +565,35 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withAddress(InetSocketAddress address) {
+            this.address = address;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap withPort(int port) {
             this.port = port;
             return this;
         }
 
         @Override
-        public HttpProxyServerBootstrap withSslContextSource(
-                SSLEngineSource sslContextSource) {
-            this.sslContextSource = sslContextSource;
+        public HttpProxyServerBootstrap withAllowLocalOnly(
+                boolean allowLocalOnly) {
+            this.allowLocalOnly = allowLocalOnly;
+            return this;
+        }
+
+        @Override
+        public HttpProxyServerBootstrap withListenOnAllAddresses(
+                boolean listenOnAllAddresses) {
+            this.listenOnAllAddresses = listenOnAllAddresses;
+            return this;
+        }
+
+        @Override
+        public HttpProxyServerBootstrap withSSLEngineSource(
+                SSLEngineSource sslEngineSource) {
+            this.sslEngineSource = sslEngineSource;
             return this;
         }
 
@@ -631,27 +639,46 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
-        public HttpProxyServer start(boolean localOnly,
-                boolean anyAddress) {
-            return build().start(localOnly, anyAddress);
-        }
-
-        @Override
         public HttpProxyServer start() {
-            return start(true, true);
+            return build().start();
         }
 
         private DefaultHttpProxyServer build() {
             if (original != null) {
                 return new DefaultHttpProxyServer(original.serverGroup,
-                        transportProtocol, port, original.sslEngineSource,
+                        transportProtocol, determineListenAddress(),
+                        original.sslEngineSource,
                         proxyAuthenticator, chainProxyManager, filtersSource,
                         useDnsSec, transparent, idleConnectionTimeout);
             } else {
                 return new DefaultHttpProxyServer(
-                        name, transportProtocol, port, sslContextSource,
+                        name, transportProtocol, determineListenAddress(),
+                        sslEngineSource,
                         proxyAuthenticator, chainProxyManager, filtersSource,
                         useDnsSec, transparent, idleConnectionTimeout);
+            }
+        }
+
+        private InetSocketAddress determineListenAddress() {
+            if (address != null) {
+                return address;
+            } else {
+                // Binding only to localhost can significantly improve the
+                // security of
+                // the proxy.
+                if (allowLocalOnly) {
+                    return new InetSocketAddress("127.0.0.1", port);
+                } else if (listenOnAllAddresses) {
+                    return new InetSocketAddress(port);
+                } else {
+                    try {
+                        return new InetSocketAddress(
+                                NetworkUtils.getLocalHost(), port);
+                    } catch (final UnknownHostException e) {
+                        LOG.error("Could not get local host?", e);
+                        return new InetSocketAddress(port);
+                    }
+                }
             }
         }
     }

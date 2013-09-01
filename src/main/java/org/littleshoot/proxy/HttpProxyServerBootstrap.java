@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import java.net.InetSocketAddress;
+
 /**
  * Configures and starts an {@link HttpProxyServer}. The HttpProxyServer is
  * built using {@link #start()} or {@link #start(boolean, boolean)}. Sensible
@@ -13,10 +15,17 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withTransportProtocol(
             TransportProtocol transportProtocol);
 
+    HttpProxyServerBootstrap withAddress(InetSocketAddress address);
+
     HttpProxyServerBootstrap withPort(int port);
 
-    HttpProxyServerBootstrap withSslContextSource(
-            SSLEngineSource sslContextSource);
+    HttpProxyServerBootstrap withAllowLocalOnly(boolean allowLocalOnly);
+
+    HttpProxyServerBootstrap withListenOnAllAddresses(
+            boolean listenOnAllAddresses);
+
+    HttpProxyServerBootstrap withSSLEngineSource(
+            SSLEngineSource sslEngineSource);
 
     HttpProxyServerBootstrap withProxyAuthenticator(
             ProxyAuthenticator proxyAuthenticator);
@@ -38,21 +47,6 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * Builds and starts the server.
-     * 
-     * @param localOnly
-     *            If true, the server will only allow connections from the local
-     *            computer. This can significantly improve security in some
-     *            cases.
-     * @param anyAddress
-     *            Whether or not to bind to "any" address - 0.0.0.0. This is the
-     *            default.
-     * @return the newly built and started server
-     */
-    HttpProxyServer start(boolean localOnly, boolean anyAddress);
-
-    /**
-     * Like {@link #start(boolean, boolean)} with <tt>localOnly</tt> and
-     * <tt>anyAddress</tt> both <tt>true</tt>.
      * 
      * @return the newly built and started server
      */
