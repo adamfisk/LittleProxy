@@ -3,6 +3,10 @@ package org.littleshoot.proxy;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
+import java.net.InetSocketAddress;
+
+import javax.net.ssl.SSLSession;
+
 /**
  * Adapter of {@link ActivityTracker} interface that provides default no-op
  * implementations of all methods.
@@ -46,6 +50,20 @@ public class ActivityTrackerAdapter implements ActivityTracker {
     @Override
     public void responseSentToClient(FlowContext flowContext,
             HttpResponse httpResponse) {
+    }
+
+    @Override
+    public void clientConnected(InetSocketAddress clientAddress) {
+    }
+
+    @Override
+    public void clientSSLHandshakeSucceeded(InetSocketAddress clientAddress,
+            SSLSession sslSession) {
+    }
+
+    @Override
+    public void clientDisconnected(InetSocketAddress clientAddress,
+            SSLSession sslSession) {
     }
 
 }

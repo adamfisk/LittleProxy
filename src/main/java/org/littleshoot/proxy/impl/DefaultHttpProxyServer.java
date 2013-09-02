@@ -97,6 +97,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile int idleConnectionTimeout;
 
     /**
+     * Track all ActivityTrackers for tracking proxying activity.
+     */
+    private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
+
+    /**
      * Bootstrap a new {@link DefaultHttpProxyServer} starting from scratch.
      * 
      * @return
@@ -140,11 +145,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HttpFiltersSource filterSource,
             boolean useDnsSec,
             boolean transparent,
-            int idleConnectionTimeout) {
+            int idleConnectionTimeout,
+            Collection<ActivityTracker> activityTrackers) {
         this(new ServerGroup(name), transportProtocol, address,
                 sslContextSource,
                 proxyAuthenticator, chainProxyManager, filterSource, useDnsSec,
-                transparent, idleConnectionTimeout);
+                transparent, idleConnectionTimeout, activityTrackers);
     }
 
     /**
@@ -181,6 +187,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            touching requests and responses).
      * @param idleConnectionTimeout
      *            The timeout (in seconds) for auto-closing idle connections.
+     * @param activityTrackers
+     *            for tracking activity on this proxy
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
@@ -191,7 +199,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HttpFiltersSource filtersSource,
             boolean useDnsSec,
             boolean transparent,
-            int idleConnectionTimeout) {
+            int idleConnectionTimeout,
+            Collection<ActivityTracker> activityTrackers) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.address = address;
@@ -202,6 +211,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.useDnsSec = useDnsSec;
         this.transparent = transparent;
         this.idleConnectionTimeout = idleConnectionTimeout;
+        if (activityTrackers != null) {
+            this.activityTrackers.addAll(activityTrackers);
+        }
     }
 
     public boolean isUseDnsSec() {
@@ -220,17 +232,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.idleConnectionTimeout = idleConnectionTimeout;
     }
 
-    /**
-     * Add an ActivityTracker for tracking proxying activity.
-     * 
-     * @param activityTracker
-     * @return this HttpProxyServer for call chaining
-     */
-    public HttpProxyServer addActivityTracker(ActivityTracker activityTracker) {
-        this.serverGroup.activityTrackers.add(activityTracker);
-        return this;
-    }
-
     @Override
     public HttpProxyServerBootstrap clone() {
         return new DefaultHttpProxyServerBootstrap(this, transportProtocol,
@@ -238,7 +239,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         address.getPort() + 1),
                 sslEngineSource, proxyAuthenticator, chainProxyManager,
                 filtersSource, useDnsSec, transparent,
-                idleConnectionTimeout);
+                idleConnectionTimeout, activityTrackers);
     }
 
     @Override
@@ -328,7 +329,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     protected Collection<ActivityTracker> getActivityTrackers() {
-        return serverGroup.activityTrackers;
+        return activityTrackers;
     }
 
     protected EventLoopGroup getProxyToServerWorkerFor(
@@ -353,11 +354,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
          */
         private final ChannelGroup allChannels = new DefaultChannelGroup(
                 "HTTP-Proxy-Server", GlobalEventExecutor.INSTANCE);
-
-        /**
-         * Track all ActivityTrackers for tracking proxying activity.
-         */
-        private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
 
         /**
          * These {@link EventLoopGroup}s accept incoming connections to the
@@ -516,6 +512,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
         private DefaultHttpProxyServer original;
+        private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -528,7 +525,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 ProxyAuthenticator proxyAuthenticator,
                 ChainedProxyManager chainProxyManager,
                 HttpFiltersSource filtersSource, boolean useDnsSec,
-                boolean transparent, int idleConnectionTimeout) {
+                boolean transparent, int idleConnectionTimeout,
+                Collection<ActivityTracker> activityTrackers) {
             this.original = original;
             this.transportProtocol = transportProtocol;
             this.address = address;
@@ -540,6 +538,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.useDnsSec = useDnsSec;
             this.transparent = transparent;
             this.idleConnectionTimeout = idleConnectionTimeout;
+            if (activityTrackers != null) {
+                this.activityTrackers.addAll(activityTrackers);
+            }
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
@@ -639,6 +640,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap plusActivityTracker(
+                ActivityTracker activityTracker) {
+            activityTrackers.add(activityTracker);
+            return this;
+        }
+
+        @Override
         public HttpProxyServer start() {
             return build().start();
         }
@@ -649,13 +657,15 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         transportProtocol, determineListenAddress(),
                         original.sslEngineSource,
                         proxyAuthenticator, chainProxyManager, filtersSource,
-                        useDnsSec, transparent, idleConnectionTimeout);
+                        useDnsSec, transparent, idleConnectionTimeout,
+                        activityTrackers);
             } else {
                 return new DefaultHttpProxyServer(
                         name, transportProtocol, determineListenAddress(),
                         sslEngineSource,
                         proxyAuthenticator, chainProxyManager, filtersSource,
-                        useDnsSec, transparent, idleConnectionTimeout);
+                        useDnsSec, transparent, idleConnectionTimeout,
+                        activityTrackers);
             }
         }
 

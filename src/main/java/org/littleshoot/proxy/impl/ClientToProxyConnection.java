@@ -19,6 +19,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
@@ -32,6 +33,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.net.ssl.SSLSession;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -109,7 +112,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private volatile HttpFilters currentFilters;
 
     ClientToProxyConnection(
-            DefaultHttpProxyServer proxyServer,
+            final DefaultHttpProxyServer proxyServer,
             SSLEngineSource sslEngineSource,
             ChannelPipeline pipeline) {
         super(AWAITING_INITIAL, proxyServer, sslEngineSource, false);
@@ -118,7 +121,17 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         if (sslEngineSource != null) {
             LOG.debug("Enabling encryption of traffic from client to proxy");
-            encrypt(pipeline);
+            encrypt(pipeline).addListener(
+                    new GenericFutureListener<Future<? super Channel>>() {
+                        @Override
+                        public void operationComplete(
+                                Future<? super Channel> future)
+                                throws Exception {
+                            if (future.isSuccess()) {
+                                recordClientSSLHandshakeSucceeded();
+                            }
+                        }
+                    });
         }
 
         LOG.debug("Created ClientToProxyConnection");
@@ -338,6 +351,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void connected() {
         super.connected();
         become(AWAITING_INITIAL);
+        recordClientConnected();
     }
 
     /**
@@ -350,6 +364,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 .values()) {
             serverConnection.disconnect();
         }
+        recordClientDisconnected();
     }
 
     /**
@@ -1110,6 +1125,47 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             }
         }
     };
+
+    private void recordClientConnected() {
+        try {
+            InetSocketAddress clientAddress = getClientAddress();
+            for (ActivityTracker tracker : proxyServer
+                    .getActivityTrackers()) {
+                tracker.clientConnected(clientAddress);
+            }
+        } catch (Exception e) {
+            LOG.error("Unable to recordClientConnected", e);
+        }
+    }
+
+    private void recordClientSSLHandshakeSucceeded() {
+        try {
+            InetSocketAddress clientAddress = getClientAddress();
+            SSLSession sslSession = sslEngine.getSession();
+            for (ActivityTracker tracker : proxyServer
+                    .getActivityTrackers()) {
+                tracker.clientSSLHandshakeSucceeded(
+                        clientAddress, sslSession);
+            }
+        } catch (Exception e) {
+            LOG.error("Unable to recorClientSSLHandshakeSucceeded", e);
+        }
+    }
+
+    private void recordClientDisconnected() {
+        try {
+            InetSocketAddress clientAddress = getClientAddress();
+            SSLSession sslSession = sslEngine != null ? sslEngine.getSession()
+                    : null;
+            for (ActivityTracker tracker : proxyServer
+                    .getActivityTrackers()) {
+                tracker.clientDisconnected(
+                        clientAddress, sslSession);
+            }
+        } catch (Exception e) {
+            LOG.error("Unable to recordClientDisconnected", e);
+        }
+    }
 
     public InetSocketAddress getClientAddress() {
         return (InetSocketAddress) channel.remoteAddress();

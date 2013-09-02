@@ -206,15 +206,6 @@ public class ProxyUtils {
         return hostAndPort;
     }
 
-    public static String parseHost(final String request) {
-        final String hostAndPort = ProxyUtils.parseHostAndPort(request);
-        if (hostAndPort.contains(":")) {
-            return StringUtils.substringBefore(hostAndPort, ":");
-        } else {
-            return hostAndPort;
-        }
-    }
-
     /**
      * Make a copy of the response including all mutable fields.
      * 

@@ -88,6 +88,11 @@ abstract class ProxyConnection<I extends HttpObject> extends
     private volatile boolean tunneling = false;
 
     /**
+     * If using encryption, this holds our {@link SSLEngine}.
+     */
+    protected volatile SSLEngine sslEngine;
+
+    /**
      * Construct a new ProxyConnection.
      * 
      * @param initialState
@@ -371,11 +376,18 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected Future<Channel> encrypt(ChannelPipeline pipeline) {
         LOG.debug("Enabling encryption with SSLEngineSource: {}",
                 sslEngineSource);
-        SSLEngine sslEngine = sslEngineSource.newSSLEngine();
+        sslEngine = sslEngineSource.newSSLEngine();
         sslEngine.setUseClientMode(runsAsSSLClient);
         SslHandler handler = new SslHandler(sslEngine);
         pipeline.addFirst("ssl", handler);
-        return handler.handshakeFuture();
+        return handler.handshakeFuture().addListener(
+                new GenericFutureListener<Future<? super Channel>>() {
+                    @Override
+                    public void operationComplete(Future<? super Channel> future)
+                            throws Exception {
+
+                    }
+                });
     }
 
     /**
@@ -505,6 +517,10 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     public boolean isTunneling() {
         return tunneling;
+    }
+    
+    public SSLEngine getSslEngine() {
+        return sslEngine;
     }
 
     /**

@@ -45,6 +45,8 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withIdleConnectionTimeout(
             int idleConnectionTimeout);
 
+    HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);
+
     /**
      * Builds and starts the server.
      * 

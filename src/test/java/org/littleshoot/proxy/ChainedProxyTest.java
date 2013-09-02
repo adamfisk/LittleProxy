@@ -67,9 +67,9 @@ public class ChainedProxyTest extends BaseProxyTest {
                 .withName("Downstream")
                 .withPort(downstreamProxyPort)
                 .withTransportProtocol(UDT)
-                .withSSLEngineSource(sslEngineSource).start();
-        this.downstreamProxy.addActivityTracker(DOWNSTREAM_TRACKER);
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withSSLEngineSource(sslEngineSource)
+                .plusActivityTracker(DOWNSTREAM_TRACKER).start();
+        this.proxyServer = bootstrapProxy()
                 .withName("Upstream")
                 .withPort(proxyServerPort)
                 .withChainProxyManager(new ChainedProxyManager() {
@@ -105,8 +105,8 @@ public class ChainedProxyTest extends BaseProxyTest {
                             }
                         });
                     }
-                }).start();
-        this.proxyServer.addActivityTracker(UPSTREAM_TRACKER);
+                })
+                .plusActivityTracker(UPSTREAM_TRACKER).start();
     }
 
     @Override

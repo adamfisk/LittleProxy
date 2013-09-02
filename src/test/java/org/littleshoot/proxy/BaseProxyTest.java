@@ -17,6 +17,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.channels.Channels;
@@ -55,6 +56,7 @@ import org.eclipse.jetty.server.Server;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.littleshoot.proxy.impl.NetworkUtils;
 import org.littleshoot.proxy.impl.ProxyUtils;
 
@@ -101,6 +103,9 @@ public abstract class BaseProxyTest {
     private AtomicInteger responsesReceivedFromServer;
     private AtomicInteger bytesSentToClient;
     private AtomicInteger responsesSentToClient;
+    private AtomicInteger clientConnects;
+    private AtomicInteger clientSSLHandshakeSuccesses;
+    private AtomicInteger clientDisconnects;
 
     @Before
     public void runSetUp() throws Exception {
@@ -112,6 +117,9 @@ public abstract class BaseProxyTest {
         responsesReceivedFromServer = new AtomicInteger(0);
         bytesSentToClient = new AtomicInteger(0);
         responsesSentToClient = new AtomicInteger(0);
+        clientConnects = new AtomicInteger(0);
+        clientSSLHandshakeSuccesses = new AtomicInteger(0);
+        clientDisconnects = new AtomicInteger(0);
 
         // Set up new ports for everything based on sequence numbers
         webServerPort = WEB_SERVER_PORT_SEQ.getAndIncrement();
@@ -126,56 +134,6 @@ public abstract class BaseProxyTest {
         webServer = TestUtils.startWebServer(webServerPort,
                 httpsWebServerPort);
         setUp();
-
-        proxyServer.addActivityTracker(new ActivityTracker() {
-            @Override
-            public void bytesReceivedFromClient(FlowContext flowContext,
-                    int numberOfBytes) {
-                bytesReceivedFromClient.addAndGet(numberOfBytes);
-            }
-
-            @Override
-            public void requestReceivedFromClient(FlowContext flowContext,
-                    HttpRequest httpRequest) {
-                requestsReceivedFromClient.incrementAndGet();
-            }
-
-            @Override
-            public void bytesSentToServer(FullFlowContext flowContext,
-                    int numberOfBytes) {
-                bytesSentToServer.addAndGet(numberOfBytes);
-            }
-
-            @Override
-            public void requestSentToServer(FullFlowContext flowContext,
-                    HttpRequest httpRequest) {
-                requestsSentToServer.incrementAndGet();
-            }
-
-            @Override
-            public void bytesReceivedFromServer(FullFlowContext flowContext,
-                    int numberOfBytes) {
-                bytesReceivedFromServer.addAndGet(numberOfBytes);
-            }
-
-            @Override
-            public void responseReceivedFromServer(FullFlowContext flowContext,
-                    io.netty.handler.codec.http.HttpResponse httpResponse) {
-                responsesReceivedFromServer.incrementAndGet();
-            }
-
-            @Override
-            public void bytesSentToClient(FlowContext flowContext,
-                    int numberOfBytes) {
-                bytesSentToClient.addAndGet(numberOfBytes);
-            }
-
-            @Override
-            public void responseSentToClient(FlowContext flowContext,
-                    io.netty.handler.codec.http.HttpResponse httpResponse) {
-                responsesSentToClient.incrementAndGet();
-            }
-        });
     }
 
     protected abstract void setUp() throws Exception;
@@ -673,6 +631,84 @@ public abstract class BaseProxyTest {
             throws IOException {
         System.out.print("WRITING HEADER: " + header);
         writer.write(header);
+    }
+
+    protected HttpProxyServerBootstrap bootstrapProxy() {
+        return DefaultHttpProxyServer.bootstrap().plusActivityTracker(
+                new ActivityTracker() {
+                    @Override
+                    public void bytesReceivedFromClient(
+                            FlowContext flowContext,
+                            int numberOfBytes) {
+                        bytesReceivedFromClient.addAndGet(numberOfBytes);
+                    }
+
+                    @Override
+                    public void requestReceivedFromClient(
+                            FlowContext flowContext,
+                            HttpRequest httpRequest) {
+                        requestsReceivedFromClient.incrementAndGet();
+                    }
+
+                    @Override
+                    public void bytesSentToServer(FullFlowContext flowContext,
+                            int numberOfBytes) {
+                        bytesSentToServer.addAndGet(numberOfBytes);
+                    }
+
+                    @Override
+                    public void requestSentToServer(
+                            FullFlowContext flowContext,
+                            HttpRequest httpRequest) {
+                        requestsSentToServer.incrementAndGet();
+                    }
+
+                    @Override
+                    public void bytesReceivedFromServer(
+                            FullFlowContext flowContext,
+                            int numberOfBytes) {
+                        bytesReceivedFromServer.addAndGet(numberOfBytes);
+                    }
+
+                    @Override
+                    public void responseReceivedFromServer(
+                            FullFlowContext flowContext,
+                            io.netty.handler.codec.http.HttpResponse httpResponse) {
+                        responsesReceivedFromServer.incrementAndGet();
+                    }
+
+                    @Override
+                    public void bytesSentToClient(FlowContext flowContext,
+                            int numberOfBytes) {
+                        bytesSentToClient.addAndGet(numberOfBytes);
+                    }
+
+                    @Override
+                    public void responseSentToClient(
+                            FlowContext flowContext,
+                            io.netty.handler.codec.http.HttpResponse httpResponse) {
+                        responsesSentToClient.incrementAndGet();
+                    }
+
+                    @Override
+                    public void clientConnected(InetSocketAddress clientAddress) {
+                        clientConnects.incrementAndGet();
+                    }
+
+                    @Override
+                    public void clientSSLHandshakeSucceeded(
+                            InetSocketAddress clientAddress,
+                            SSLSession sslSession) {
+                        clientSSLHandshakeSuccesses.incrementAndGet();
+                    }
+
+                    @Override
+                    public void clientDisconnected(
+                            InetSocketAddress clientAddress,
+                            SSLSession sslSession) {
+                        clientDisconnects.incrementAndGet();
+                    }
+                });
     }
 
 }

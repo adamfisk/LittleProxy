@@ -3,6 +3,10 @@ package org.littleshoot.proxy;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
+import java.net.InetSocketAddress;
+
+import javax.net.ssl.SSLSession;
+
 /**
  * <p>
  * Interface for receiving information about activity in the proxy.
@@ -14,6 +18,32 @@ import io.netty.handler.codec.http.HttpResponse;
  * </p>
  */
 public interface ActivityTracker {
+
+    /**
+     * Record that a client connected.
+     * 
+     * @param clientAddress
+     */
+    void clientConnected(InetSocketAddress clientAddress);
+
+    /**
+     * Record that a client's SSL handshake completed.
+     * 
+     * @param clientAddress
+     * @param sslSession
+     */
+    void clientSSLHandshakeSucceeded(InetSocketAddress clientAddress,
+            SSLSession sslSession);
+
+    /**
+     * Record that a client disconnected.
+     * 
+     * @param clientAddress
+     * @param sslSession
+     */
+    void clientDisconnected(InetSocketAddress clientAddress,
+            SSLSession sslSession);
+
     /**
      * Record that the proxy received bytes from the client.
      * 

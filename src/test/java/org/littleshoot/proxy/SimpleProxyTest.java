@@ -8,7 +8,7 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 public class SimpleProxyTest extends BaseProxyTest {
     @Override
     protected void setUp() {
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        this.proxyServer = bootstrapProxy()
                 .withPort(proxyServerPort)
                 .start();
     }

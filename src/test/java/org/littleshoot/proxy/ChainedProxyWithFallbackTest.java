@@ -24,7 +24,7 @@ public class ChainedProxyWithFallbackTest extends BaseProxyTest {
     @Override
     protected void setUp() {
         unableToConnect.set(false);
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        this.proxyServer = bootstrapProxy()
                 .withName("Upstream")
                 .withPort(proxyServerPort)
                 .withChainProxyManager(new ChainedProxyManager() {

@@ -527,7 +527,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             throws UnknownHostException {
         if (this.chainedProxy != null) {
             // Let the ChainedProxy know that we were unable to connect
-            this.chainedProxy.connectionFailed(cause);
+            try {
+                this.chainedProxy.connectionFailed(cause);
+            } catch (Exception e) {
+                LOG.error("Unable to record connectionFailed", e);
+            }
         }
         this.chainedProxy = this.availableChainedProxies.poll();
         if (chainedProxy != null) {
@@ -627,7 +631,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         become(AWAITING_INITIAL);
         if (this.chainedProxy != null) {
             // Notify the ChainedProxy that we successfully connected
-            this.chainedProxy.connectionSucceeded();
+            try {
+                this.chainedProxy.connectionSucceeded();
+            } catch (Exception e) {
+                LOG.error("Unable to record connectionSucceeded", e);
+            }
         }
         clientConnection.serverConnectionSucceeded(this,
                 shouldForwardInitialRequest);
