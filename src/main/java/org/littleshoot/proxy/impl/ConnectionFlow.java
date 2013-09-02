@@ -179,14 +179,14 @@ class ConnectionFlow {
      * {@link ClientToProxyConnection} that our connection failed.
      */
     void fail(final Throwable cause) {
-        synchronized (connectLock) {
-            final ConnectionState lastStateBeforeFailure = serverConnection
-                    .getCurrentState();
-            serverConnection.disconnect().addListener(
-                    new GenericFutureListener() {
-                        @Override
-                        public void operationComplete(Future future)
-                                throws Exception {
+        final ConnectionState lastStateBeforeFailure = serverConnection
+                .getCurrentState();
+        serverConnection.disconnect().addListener(
+                new GenericFutureListener() {
+                    @Override
+                    public void operationComplete(Future future)
+                            throws Exception {
+                        synchronized (connectLock) {
                             if (!clientConnection.serverConnectionFailed(
                                     serverConnection,
                                     lastStateBeforeFailure,
@@ -197,8 +197,8 @@ class ConnectionFlow {
                                 notifyThreadsWaitingForConnection();
                             }
                         }
-                    });
-        }
+                    }
+                });
     }
 
     /**

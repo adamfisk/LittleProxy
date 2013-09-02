@@ -1,7 +1,5 @@
 package org.littleshoot.proxy;
 
-import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
-
 /**
  * Tests a single proxy that requires username/password authentication.
  */

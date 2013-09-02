@@ -263,6 +263,14 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void disconnected() {
         super.disconnected();
+        if (this.chainedProxy != null) {
+            // Let the ChainedProxy know that we disconnected
+            try {
+                this.chainedProxy.disconnected();
+            } catch (Exception e) {
+                LOG.error("Unable to record connectionFailed", e);
+            }
+        }
         clientConnection.serverDisconnected(this);
     }
 
@@ -576,7 +584,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 8192 * 2,
                 8192 * 2));
         pipeline.addLast("responseReadMonitor", responseReadMonitor);
-
+        
         if (!ProxyUtils.isCONNECT(httpRequest)) {
             // Enable aggregation for filtering if necessary
             int numberOfBytesToBuffer = proxyServer.getFiltersSource()
@@ -589,7 +597,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
         pipeline.addLast("encoder", new HttpRequestEncoder());
         pipeline.addLast("requestWrittenMonitor", requestWrittenMonitor);
-
+        
         // Set idle timeout
         if (ProxyUtils.isCONNECT(httpRequest)) {
             // Could be any protocol if it's connect, so hard to say what the

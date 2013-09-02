@@ -343,8 +343,14 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 if (pipeline.get("encoder") != null) {
                     pipeline.remove("encoder");
                 }
+                if (pipeline.get("responseWrittenMonitor") != null) {
+                    pipeline.remove("responseWrittenMonitor");
+                }
                 if (pipeline.get("decoder") != null) {
                     pipeline.remove("decoder");
+                }
+                if (pipeline.get("requestReadMonitor") != null) {
+                    pipeline.remove("requestReadMonitor");
                 }
                 if (pipeline.get("idle") != null) {
                     pipeline.remove("idle");
@@ -518,7 +524,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     public boolean isTunneling() {
         return tunneling;
     }
-    
+
     public SSLEngine getSslEngine() {
         return sslEngine;
     }
@@ -710,12 +716,12 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 throws Exception {
             try {
                 if (msg instanceof ByteBuf) {
-                    bytesWritten(((ByteBuf) msg).writableBytes());
+                    bytesWritten(((ByteBuf) msg).readableBytes());
                 }
             } finally {
                 super.write(ctx, msg, promise);
             }
-        };
+        }
 
         protected abstract void bytesWritten(int numberOfBytes);
     }
@@ -737,7 +743,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
             } finally {
                 super.write(ctx, msg, promise);
             }
-        };
+        }
 
         protected abstract void requestWritten(HttpRequest httpRequest);
     }
@@ -759,7 +765,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
             } finally {
                 super.write(ctx, msg, promise);
             }
-        };
+        }
 
         protected abstract void responseWritten(HttpResponse httpResponse);
     }

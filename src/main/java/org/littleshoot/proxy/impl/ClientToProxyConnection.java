@@ -567,7 +567,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         LOG.debug("Configuring ChannelPipeline");
 
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
-
         // We want to allow longer request lines, headers, and chunks
         // respectively.
         pipeline.addLast("decoder", new HttpRequestDecoder(8192, 8192 * 2,

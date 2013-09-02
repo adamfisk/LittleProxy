@@ -59,4 +59,9 @@ public interface ChainedProxy extends SSLEngineSource {
      *            exception that caused this failure (may be null)
      */
     void connectionFailed(Throwable cause);
+
+    /**
+     * Called to let us know that we were disconnected.
+     */
+    void disconnected();
 }

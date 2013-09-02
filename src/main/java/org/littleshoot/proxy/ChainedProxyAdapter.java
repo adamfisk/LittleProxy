@@ -47,4 +47,7 @@ public class ChainedProxyAdapter implements ChainedProxy {
     public void connectionFailed(Throwable cause) {
     }
 
+    @Override
+    public void disconnected() {
+    }
 }

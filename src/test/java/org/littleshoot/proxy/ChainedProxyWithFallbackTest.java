@@ -9,7 +9,6 @@ import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.Assert;
-import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 /**
  * Tests a proxy chained to a missing downstream proxy. When the downstream
