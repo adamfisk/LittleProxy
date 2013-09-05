@@ -12,77 +12,49 @@
 <a class="jxr_linenumber" name="2" href="#2">2</a>   
 <a class="jxr_linenumber" name="3" href="#3">3</a>   <strong class="jxr_keyword">import</strong> java.net.InetSocketAddress;
 <a class="jxr_linenumber" name="4" href="#4">4</a>   
-<a class="jxr_linenumber" name="5" href="#5">5</a>   <strong class="jxr_keyword">import</strong> org.littleshoot.proxy.impl.ClientToProxyConnection;
-<a class="jxr_linenumber" name="6" href="#6">6</a>   <strong class="jxr_keyword">import</strong> org.littleshoot.proxy.impl.ProxyToServerConnection;
+<a class="jxr_linenumber" name="5" href="#5">5</a>   <strong class="jxr_keyword">import</strong> javax.net.ssl.SSLEngine;
+<a class="jxr_linenumber" name="6" href="#6">6</a>   <strong class="jxr_keyword">import</strong> javax.net.ssl.SSLSession;
 <a class="jxr_linenumber" name="7" href="#7">7</a>   
-<a class="jxr_linenumber" name="8" href="#8">8</a>   <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="9" href="#9">9</a>   <em class="jxr_javadoccomment"> * Encapsulates contextual information for flow information that's being</em>
-<a class="jxr_linenumber" name="10" href="#10">10</a>  <em class="jxr_javadoccomment"> * reported to a {@link ActivityTracker}.</em>
-<a class="jxr_linenumber" name="11" href="#11">11</a>  <em class="jxr_javadoccomment"> */</em>
-<a class="jxr_linenumber" name="12" href="#12">12</a>  <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">class</strong> <a href="../../../org/littleshoot/proxy/FlowContext.html">FlowContext</a> {
-<a class="jxr_linenumber" name="13" href="#13">13</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">final</strong> InetSocketAddress clientAddress;
-<a class="jxr_linenumber" name="14" href="#14">14</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">final</strong> <a href="../../../org/littleshoot/proxy/TransportProtocol.html">TransportProtocol</a> outboundTransportProtocol;
-<a class="jxr_linenumber" name="15" href="#15">15</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">final</strong> String serverHostAndPort;
-<a class="jxr_linenumber" name="16" href="#16">16</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">final</strong> String chainedProxyHostAndPort;
-<a class="jxr_linenumber" name="17" href="#17">17</a>  
-<a class="jxr_linenumber" name="18" href="#18">18</a>      <strong class="jxr_keyword">public</strong> <a href="../../../org/littleshoot/proxy/FlowContext.html">FlowContext</a>(
-<a class="jxr_linenumber" name="19" href="#19">19</a>              InetSocketAddress clientAddress,
-<a class="jxr_linenumber" name="20" href="#20">20</a>              <a href="../../../org/littleshoot/proxy/TransportProtocol.html">TransportProtocol</a> outboundTransportProtocol,
-<a class="jxr_linenumber" name="21" href="#21">21</a>              String serverHostAndPort,
-<a class="jxr_linenumber" name="22" href="#22">22</a>              String chainedProxyHostAndPort) {
-<a class="jxr_linenumber" name="23" href="#23">23</a>          <strong class="jxr_keyword">super</strong>();
-<a class="jxr_linenumber" name="24" href="#24">24</a>          <strong class="jxr_keyword">this</strong>.outboundTransportProtocol = outboundTransportProtocol;
-<a class="jxr_linenumber" name="25" href="#25">25</a>          <strong class="jxr_keyword">this</strong>.clientAddress = clientAddress;
-<a class="jxr_linenumber" name="26" href="#26">26</a>          <strong class="jxr_keyword">this</strong>.serverHostAndPort = serverHostAndPort;
-<a class="jxr_linenumber" name="27" href="#27">27</a>          <strong class="jxr_keyword">this</strong>.chainedProxyHostAndPort = chainedProxyHostAndPort;
-<a class="jxr_linenumber" name="28" href="#28">28</a>      }
-<a class="jxr_linenumber" name="29" href="#29">29</a>  
-<a class="jxr_linenumber" name="30" href="#30">30</a>      <strong class="jxr_keyword">public</strong> <a href="../../../org/littleshoot/proxy/FlowContext.html">FlowContext</a>(<a href="../../../org/littleshoot/proxy/impl/ClientToProxyConnection.html">ClientToProxyConnection</a> clientConnection,
-<a class="jxr_linenumber" name="31" href="#31">31</a>              <a href="../../../org/littleshoot/proxy/impl/ProxyToServerConnection.html">ProxyToServerConnection</a> serverConnection) {
-<a class="jxr_linenumber" name="32" href="#32">32</a>          <strong class="jxr_keyword">this</strong>(clientConnection.getClientAddress(), serverConnection
-<a class="jxr_linenumber" name="33" href="#33">33</a>                  .getTransportProtocol(), serverConnection
-<a class="jxr_linenumber" name="34" href="#34">34</a>                  .getServerHostAndPort(), serverConnection
-<a class="jxr_linenumber" name="35" href="#35">35</a>                  .getChainedProxyHostAndPort());
-<a class="jxr_linenumber" name="36" href="#36">36</a>      }
-<a class="jxr_linenumber" name="37" href="#37">37</a>  
-<a class="jxr_linenumber" name="38" href="#38">38</a>      <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="39" href="#39">39</a>  <em class="jxr_javadoccomment">     * The address of the client.</em>
+<a class="jxr_linenumber" name="8" href="#8">8</a>   <strong class="jxr_keyword">import</strong> org.littleshoot.proxy.impl.ClientToProxyConnection;
+<a class="jxr_linenumber" name="9" href="#9">9</a>   
+<a class="jxr_linenumber" name="10" href="#10">10</a>  <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="11" href="#11">11</a>  <em class="jxr_javadoccomment"> * &lt;p&gt;</em>
+<a class="jxr_linenumber" name="12" href="#12">12</a>  <em class="jxr_javadoccomment"> * Encapsulates contextual information for flow information that's being</em>
+<a class="jxr_linenumber" name="13" href="#13">13</a>  <em class="jxr_javadoccomment"> * reported to a {@link ActivityTracker}.</em>
+<a class="jxr_linenumber" name="14" href="#14">14</a>  <em class="jxr_javadoccomment"> * &lt;/p&gt;</em>
+<a class="jxr_linenumber" name="15" href="#15">15</a>  <em class="jxr_javadoccomment"> */</em>
+<a class="jxr_linenumber" name="16" href="#16">16</a>  <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">class</strong> <a href="../../../org/littleshoot/proxy/FlowContext.html">FlowContext</a> {
+<a class="jxr_linenumber" name="17" href="#17">17</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">final</strong> InetSocketAddress clientAddress;
+<a class="jxr_linenumber" name="18" href="#18">18</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">final</strong> SSLSession clientSSLSession;
+<a class="jxr_linenumber" name="19" href="#19">19</a>  
+<a class="jxr_linenumber" name="20" href="#20">20</a>      <strong class="jxr_keyword">public</strong> <a href="../../../org/littleshoot/proxy/FlowContext.html">FlowContext</a>(<a href="../../../org/littleshoot/proxy/impl/ClientToProxyConnection.html">ClientToProxyConnection</a> clientConnection) {
+<a class="jxr_linenumber" name="21" href="#21">21</a>          <strong class="jxr_keyword">super</strong>();
+<a class="jxr_linenumber" name="22" href="#22">22</a>          <strong class="jxr_keyword">this</strong>.clientAddress = clientConnection.getClientAddress();
+<a class="jxr_linenumber" name="23" href="#23">23</a>          SSLEngine sslEngine = clientConnection.getSslEngine();
+<a class="jxr_linenumber" name="24" href="#24">24</a>          <strong class="jxr_keyword">this</strong>.clientSSLSession = sslEngine != <strong class="jxr_keyword">null</strong> ? sslEngine.getSession()
+<a class="jxr_linenumber" name="25" href="#25">25</a>                  : <strong class="jxr_keyword">null</strong>;
+<a class="jxr_linenumber" name="26" href="#26">26</a>      }
+<a class="jxr_linenumber" name="27" href="#27">27</a>  
+<a class="jxr_linenumber" name="28" href="#28">28</a>      <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="29" href="#29">29</a>  <em class="jxr_javadoccomment">     * The address of the client.</em>
+<a class="jxr_linenumber" name="30" href="#30">30</a>  <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="31" href="#31">31</a>  <em class="jxr_javadoccomment">     * @return</em>
+<a class="jxr_linenumber" name="32" href="#32">32</a>  <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="33" href="#33">33</a>      <strong class="jxr_keyword">public</strong> InetSocketAddress getClientAddress() {
+<a class="jxr_linenumber" name="34" href="#34">34</a>          <strong class="jxr_keyword">return</strong> clientAddress;
+<a class="jxr_linenumber" name="35" href="#35">35</a>      }
+<a class="jxr_linenumber" name="36" href="#36">36</a>  
+<a class="jxr_linenumber" name="37" href="#37">37</a>      <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="38" href="#38">38</a>  <em class="jxr_javadoccomment">     * If using SSL, this returns the {@link SSLSession} on the client</em>
+<a class="jxr_linenumber" name="39" href="#39">39</a>  <em class="jxr_javadoccomment">     * connection.</em>
 <a class="jxr_linenumber" name="40" href="#40">40</a>  <em class="jxr_javadoccomment">     * </em>
 <a class="jxr_linenumber" name="41" href="#41">41</a>  <em class="jxr_javadoccomment">     * @return</em>
 <a class="jxr_linenumber" name="42" href="#42">42</a>  <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="43" href="#43">43</a>      <strong class="jxr_keyword">public</strong> InetSocketAddress getClientAddress() {
-<a class="jxr_linenumber" name="44" href="#44">44</a>          <strong class="jxr_keyword">return</strong> clientAddress;
+<a class="jxr_linenumber" name="43" href="#43">43</a>      <strong class="jxr_keyword">public</strong> SSLSession getClientSSLSession() {
+<a class="jxr_linenumber" name="44" href="#44">44</a>          <strong class="jxr_keyword">return</strong> clientSSLSession;
 <a class="jxr_linenumber" name="45" href="#45">45</a>      }
 <a class="jxr_linenumber" name="46" href="#46">46</a>  
-<a class="jxr_linenumber" name="47" href="#47">47</a>      <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="48" href="#48">48</a>  <em class="jxr_javadoccomment">     * The host and port for the server (i.e. the ultimate endpoint).</em>
-<a class="jxr_linenumber" name="49" href="#49">49</a>  <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="50" href="#50">50</a>  <em class="jxr_javadoccomment">     * @return</em>
-<a class="jxr_linenumber" name="51" href="#51">51</a>  <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="52" href="#52">52</a>      <strong class="jxr_keyword">public</strong> String getServerHostAndPort() {
-<a class="jxr_linenumber" name="53" href="#53">53</a>          <strong class="jxr_keyword">return</strong> serverHostAndPort;
-<a class="jxr_linenumber" name="54" href="#54">54</a>      }
-<a class="jxr_linenumber" name="55" href="#55">55</a>  
-<a class="jxr_linenumber" name="56" href="#56">56</a>      <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="57" href="#57">57</a>  <em class="jxr_javadoccomment">     * The transport protocol going out of the proxy (either to the server or a</em>
-<a class="jxr_linenumber" name="58" href="#58">58</a>  <em class="jxr_javadoccomment">     * chained proxy).</em>
-<a class="jxr_linenumber" name="59" href="#59">59</a>  <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="60" href="#60">60</a>  <em class="jxr_javadoccomment">     * @return</em>
-<a class="jxr_linenumber" name="61" href="#61">61</a>  <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="62" href="#62">62</a>      <strong class="jxr_keyword">public</strong> <a href="../../../org/littleshoot/proxy/TransportProtocol.html">TransportProtocol</a> getOutboundTransportProtocol() {
-<a class="jxr_linenumber" name="63" href="#63">63</a>          <strong class="jxr_keyword">return</strong> outboundTransportProtocol;
-<a class="jxr_linenumber" name="64" href="#64">64</a>      }
-<a class="jxr_linenumber" name="65" href="#65">65</a>  
-<a class="jxr_linenumber" name="66" href="#66">66</a>      <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="67" href="#67">67</a>  <em class="jxr_javadoccomment">     * The host and port for the chained proxy (if chaining).</em>
-<a class="jxr_linenumber" name="68" href="#68">68</a>  <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="69" href="#69">69</a>  <em class="jxr_javadoccomment">     * @return</em>
-<a class="jxr_linenumber" name="70" href="#70">70</a>  <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="71" href="#71">71</a>      <strong class="jxr_keyword">public</strong> String getChainedProxyHostAndPort() {
-<a class="jxr_linenumber" name="72" href="#72">72</a>          <strong class="jxr_keyword">return</strong> chainedProxyHostAndPort;
-<a class="jxr_linenumber" name="73" href="#73">73</a>      }
-<a class="jxr_linenumber" name="74" href="#74">74</a>  
-<a class="jxr_linenumber" name="75" href="#75">75</a>  }
+<a class="jxr_linenumber" name="47" href="#47">47</a>  }
 </pre>
 <hr/><div id="footer">This page was automatically generated by <a href="http://maven.apache.org/">Maven</a></div></body>
 </html>

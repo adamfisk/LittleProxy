@@ -189,14 +189,14 @@
 <a class="jxr_linenumber" name="179" href="#179">179</a> <em class="jxr_javadoccomment">     * {@link ClientToProxyConnection} that our connection failed.</em>
 <a class="jxr_linenumber" name="180" href="#180">180</a> <em class="jxr_javadoccomment">     */</em>
 <a class="jxr_linenumber" name="181" href="#181">181</a>     <strong class="jxr_keyword">void</strong> fail(<strong class="jxr_keyword">final</strong> Throwable cause) {
-<a class="jxr_linenumber" name="182" href="#182">182</a>         <strong class="jxr_keyword">synchronized</strong> (connectLock) {
-<a class="jxr_linenumber" name="183" href="#183">183</a>             <strong class="jxr_keyword">final</strong> <a href="../../../../org/littleshoot/proxy/impl/ConnectionState.html">ConnectionState</a> lastStateBeforeFailure = serverConnection
-<a class="jxr_linenumber" name="184" href="#184">184</a>                     .getCurrentState();
-<a class="jxr_linenumber" name="185" href="#185">185</a>             serverConnection.disconnect().addListener(
-<a class="jxr_linenumber" name="186" href="#186">186</a>                     <strong class="jxr_keyword">new</strong> GenericFutureListener() {
-<a class="jxr_linenumber" name="187" href="#187">187</a>                         @Override
-<a class="jxr_linenumber" name="188" href="#188">188</a>                         <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">void</strong> operationComplete(Future future)
-<a class="jxr_linenumber" name="189" href="#189">189</a>                                 <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="182" href="#182">182</a>         <strong class="jxr_keyword">final</strong> <a href="../../../../org/littleshoot/proxy/impl/ConnectionState.html">ConnectionState</a> lastStateBeforeFailure = serverConnection
+<a class="jxr_linenumber" name="183" href="#183">183</a>                 .getCurrentState();
+<a class="jxr_linenumber" name="184" href="#184">184</a>         serverConnection.disconnect().addListener(
+<a class="jxr_linenumber" name="185" href="#185">185</a>                 <strong class="jxr_keyword">new</strong> GenericFutureListener() {
+<a class="jxr_linenumber" name="186" href="#186">186</a>                     @Override
+<a class="jxr_linenumber" name="187" href="#187">187</a>                     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">void</strong> operationComplete(Future future)
+<a class="jxr_linenumber" name="188" href="#188">188</a>                             <strong class="jxr_keyword">throws</strong> Exception {
+<a class="jxr_linenumber" name="189" href="#189">189</a>                         <strong class="jxr_keyword">synchronized</strong> (connectLock) {
 <a class="jxr_linenumber" name="190" href="#190">190</a>                             <strong class="jxr_keyword">if</strong> (!clientConnection.serverConnectionFailed(
 <a class="jxr_linenumber" name="191" href="#191">191</a>                                     serverConnection,
 <a class="jxr_linenumber" name="192" href="#192">192</a>                                     lastStateBeforeFailure,
@@ -207,8 +207,8 @@
 <a class="jxr_linenumber" name="197" href="#197">197</a>                                 notifyThreadsWaitingForConnection();
 <a class="jxr_linenumber" name="198" href="#198">198</a>                             }
 <a class="jxr_linenumber" name="199" href="#199">199</a>                         }
-<a class="jxr_linenumber" name="200" href="#200">200</a>                     });
-<a class="jxr_linenumber" name="201" href="#201">201</a>         }
+<a class="jxr_linenumber" name="200" href="#200">200</a>                     }
+<a class="jxr_linenumber" name="201" href="#201">201</a>                 });
 <a class="jxr_linenumber" name="202" href="#202">202</a>     }
 <a class="jxr_linenumber" name="203" href="#203">203</a> 
 <a class="jxr_linenumber" name="204" href="#204">204</a>     <em class="jxr_javadoccomment">/**</em>
