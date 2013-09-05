@@ -110,6 +110,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * The current filters to apply to incoming requests/chunks.
      */
     private volatile HttpFilters currentFilters;
+    
+    private volatile SSLSession clientSslSession;
 
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
@@ -128,6 +130,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                                 Future<? super Channel> future)
                                 throws Exception {
                             if (future.isSuccess()) {
+                                clientSslSession = sslEngine.getSession();
                                 recordClientSSLHandshakeSucceeded();
                             }
                         }
@@ -1140,11 +1143,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void recordClientSSLHandshakeSucceeded() {
         try {
             InetSocketAddress clientAddress = getClientAddress();
-            SSLSession sslSession = sslEngine.getSession();
             for (ActivityTracker tracker : proxyServer
                     .getActivityTrackers()) {
                 tracker.clientSSLHandshakeSucceeded(
-                        clientAddress, sslSession);
+                        clientAddress, clientSslSession);
             }
         } catch (Exception e) {
             LOG.error("Unable to recorClientSSLHandshakeSucceeded", e);
@@ -1154,12 +1156,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void recordClientDisconnected() {
         try {
             InetSocketAddress clientAddress = getClientAddress();
-            SSLSession sslSession = sslEngine != null ? sslEngine.getSession()
-                    : null;
             for (ActivityTracker tracker : proxyServer
                     .getActivityTrackers()) {
                 tracker.clientDisconnected(
-                        clientAddress, sslSession);
+                        clientAddress, clientSslSession);
             }
         } catch (Exception e) {
             LOG.error("Unable to recordClientDisconnected", e);

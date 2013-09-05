@@ -171,8 +171,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
             LOG.warn("Attempted to read from connection that's in the process of connecting.  This shouldn't happen.");
             break;
         case NEGOTIATING_CONNECT:
-            // TODO: ox - why is this happening so much? Is it actually bad?
-            LOG.warn("Attempted to read from connection that's in the process of negotiating an HTTP CONNECT.  This shouldn't happen.");
+            LOG.debug("Attempted to read from connection that's in the process of negotiating an HTTP CONNECT.  This is probably the LastHttpContent of a chunked CONNECT.");
             break;
         case HANDSHAKING:
             LOG.warn(
@@ -645,7 +644,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Utility handler for monitoring bytes read on this connection.
      */
     @Sharable
-    protected static abstract class BytesReadMonitor extends
+    protected abstract class BytesReadMonitor extends
             ChannelInboundHandlerAdapter {
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg)
@@ -654,6 +653,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 if (msg instanceof ByteBuf) {
                     bytesRead(((ByteBuf) msg).readableBytes());
                 }
+            } catch (Throwable t) {
+                LOG.warn("Unable to record bytesRead", t);
             } finally {
                 super.channelRead(ctx, msg);
             }
@@ -666,7 +667,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Utility handler for monitoring requests read on this connection.
      */
     @Sharable
-    protected static abstract class RequestReadMonitor extends
+    protected abstract class RequestReadMonitor extends
             ChannelInboundHandlerAdapter {
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg)
@@ -675,6 +676,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 if (msg instanceof HttpRequest) {
                     requestRead((HttpRequest) msg);
                 }
+            } catch (Throwable t) {
+                LOG.warn("Unable to record bytesRead", t);
             } finally {
                 super.channelRead(ctx, msg);
             }
@@ -687,7 +690,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Utility handler for monitoring responses read on this connection.
      */
     @Sharable
-    protected static abstract class ResponseReadMonitor extends
+    protected abstract class ResponseReadMonitor extends
             ChannelInboundHandlerAdapter {
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg)
@@ -696,6 +699,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 if (msg instanceof HttpResponse) {
                     responseRead((HttpResponse) msg);
                 }
+            } catch (Throwable t) {
+                LOG.warn("Unable to record bytesRead", t);
             } finally {
                 super.channelRead(ctx, msg);
             }
@@ -708,7 +713,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Utility handler for monitoring bytes written on this connection.
      */
     @Sharable
-    protected static abstract class BytesWrittenMonitor extends
+    protected abstract class BytesWrittenMonitor extends
             ChannelOutboundHandlerAdapter {
         @Override
         public void write(ChannelHandlerContext ctx,
@@ -718,6 +723,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 if (msg instanceof ByteBuf) {
                     bytesWritten(((ByteBuf) msg).readableBytes());
                 }
+            } catch (Throwable t) {
+                LOG.warn("Unable to record bytesRead", t);
             } finally {
                 super.write(ctx, msg, promise);
             }
@@ -730,7 +737,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Utility handler for monitoring requests written on this connection.
      */
     @Sharable
-    protected static abstract class RequestWrittenMonitor extends
+    protected abstract class RequestWrittenMonitor extends
             ChannelOutboundHandlerAdapter {
         @Override
         public void write(ChannelHandlerContext ctx,
@@ -740,6 +747,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 if (msg instanceof HttpRequest) {
                     requestWritten(((HttpRequest) msg));
                 }
+            } catch (Throwable t) {
+                LOG.warn("Unable to record bytesRead", t);
             } finally {
                 super.write(ctx, msg, promise);
             }
@@ -752,7 +761,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Utility handler for monitoring responses written on this connection.
      */
     @Sharable
-    protected static abstract class ResponseWrittenMonitor extends
+    protected abstract class ResponseWrittenMonitor extends
             ChannelOutboundHandlerAdapter {
         @Override
         public void write(ChannelHandlerContext ctx,
@@ -762,6 +771,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 if (msg instanceof HttpResponse) {
                     responseWritten(((HttpResponse) msg));
                 }
+            } catch (Throwable t) {
+                LOG.warn("Unable to record bytesRead", t);
             } finally {
                 super.write(ctx, msg, promise);
             }
