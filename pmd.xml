@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pmd version="4.3" timestamp="2013-09-04T19:47:17.458">
+<pmd version="4.3" timestamp="2013-09-06T11:08:30.267">
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/HttpFiltersSource.java">
 <violation beginline="3" endline="3" begincolumn="1" endcolumn="46" rule="UnusedImports" ruleset="Import Statement Rules" package="org.littleshoot.proxy" externalInfoUrl="http://pmd.sourceforge.net/rules/imports.html#UnusedImports" priority="4">
 Avoid unused imports such as 'io.netty.handler.codec.http.HttpObject'
@@ -28,7 +28,7 @@ Do not hard code IPv4 or IPv6 addresses, even 127.0.0.1 !
 </violation>
 </file>
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/impl/NetworkUtils.java">
-<violation beginline="37" endline="40" begincolumn="11" endcolumn="9" rule="EmptyCatchBlock" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="NetworkUtils" method="getLocalHost" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#EmptyCatchBlock" priority="3">
+<violation beginline="40" endline="43" begincolumn="11" endcolumn="9" rule="EmptyCatchBlock" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="NetworkUtils" method="getLocalHost" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#EmptyCatchBlock" priority="3">
 Avoid empty catch blocks
 </violation>
 </file>
