@@ -628,7 +628,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
             throws Exception {
         try {
             if (evt instanceof IdleStateEvent) {
-                LOG.info("Got idle, disconnecting");
+                LOG.debug("Got idle, disconnecting");
                 disconnect();
             }
         } finally {
