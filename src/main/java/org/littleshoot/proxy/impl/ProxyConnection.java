@@ -173,6 +173,9 @@ abstract class ProxyConnection<I extends HttpObject> extends
         case NEGOTIATING_CONNECT:
             LOG.debug("Attempted to read from connection that's in the process of negotiating an HTTP CONNECT.  This is probably the LastHttpContent of a chunked CONNECT.");
             break;
+        case AWAITING_CONNECT_OK:
+            LOG.warn("AWAITING_CONNECT_OK should have been handled by ProxyToServerConnection.read()");
+            break;
         case HANDSHAKING:
             LOG.warn(
                     "Attempted to read from connection that's in the process of handshaking.  This shouldn't happen.",
@@ -182,11 +185,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
         case DISCONNECTED:
             LOG.info("Ignoring message since the connection is closed or about to close");
             break;
-        case AWAITING_CONNECT_OK:
-            LOG.warn("AWAITING_CONNECT_OK should have been handled by ProxyToServerConnection.read()");
-            break;
         }
-
         become(nextState);
     }
 
@@ -253,11 +252,12 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * @param httpObject
      */
     protected void writeHttp(HttpObject httpObject) {
-        writeToChannel(httpObject);
-
         if (ProxyUtils.isLastChunk(httpObject)) {
+            channel.write(httpObject);
             LOG.debug("Writing an empty buffer to signal the end of our chunked transfer");
             writeToChannel(Unpooled.EMPTY_BUFFER);
+        } else {
+            writeToChannel(httpObject);
         }
     }
 

@@ -72,6 +72,13 @@ public class NetworkUtils {
         }
     }
 
+    /**
+     * Go through our network interfaces and find the first bound address for an
+     * up interface that's in the IPv4 address space and is not the loopback
+     * address.
+     * 
+     * @return
+     */
     public static InetAddress firstLocalNonLoopbackIPv4Address() {
         try {
             Enumeration<NetworkInterface> networkInterfaces = NetworkInterface
@@ -79,12 +86,14 @@ public class NetworkUtils {
             while (networkInterfaces.hasMoreElements()) {
                 NetworkInterface networkInterface = networkInterfaces
                         .nextElement();
-                for (InterfaceAddress ifAddress : networkInterface
-                        .getInterfaceAddresses()) {
-                    if (ifAddress.getNetworkPrefixLength() > 0
-                            && ifAddress.getNetworkPrefixLength() <= 32
-                            && !ifAddress.getAddress().isLoopbackAddress()) {
-                        return ifAddress.getAddress();
+                if (networkInterface.isUp()) {
+                    for (InterfaceAddress ifAddress : networkInterface
+                            .getInterfaceAddresses()) {
+                        if (ifAddress.getNetworkPrefixLength() > 0
+                                && ifAddress.getNetworkPrefixLength() <= 32
+                                && !ifAddress.getAddress().isLoopbackAddress()) {
+                            return ifAddress.getAddress();
+                        }
                     }
                 }
             }

@@ -215,11 +215,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                         msg);
             }
         } else {
-            synchronized (connectionFlow.getConnectLock()) {
+            synchronized (connectLock) {
                 if (isConnecting()) {
                     LOG.debug("Attempted to write while still in the process of connecting.  Wait for connecting to finish.");
                     try {
-                        connectionFlow.getConnectLock().wait(30000);
+                        connectLock.wait(30000);
                     } catch (InterruptedException ie) {
                         LOG.warn("Interrupted while waiting for connect monitor");
                     }

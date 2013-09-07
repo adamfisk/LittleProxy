@@ -53,10 +53,6 @@ class ConnectionFlow {
         return this;
     }
 
-    Object getConnectLock() {
-        return connectLock;
-    }
-
     /**
      * While we're in the process of connecting, any messages read by the
      * {@link ProxyToServerConnection} are passed to this method, which passes
@@ -202,6 +198,13 @@ class ConnectionFlow {
     }
 
     /**
+     * Like {@link #fail(Throwable)} but with no cause.
+     */
+    void fail() {
+        fail(null);
+    }
+
+    /**
      * Once we've finished recording our connection and written our initial
      * request, we can notify anyone who is waiting on the connection that it's
      * okay to proceed.
@@ -210,10 +213,4 @@ class ConnectionFlow {
         connectLock.notifyAll();
     }
 
-    /**
-     * Like {@link #fail(Throwable)} but with no cause.
-     */
-    void fail() {
-        fail(null);
-    }
 }
