@@ -58,7 +58,7 @@ import org.littleshoot.proxy.UnknownTransportProtocolError;
 @Sharable
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private static final int MAXIMUM_QUEUED_WRITES = 10;
-    
+
     private final ClientToProxyConnection clientConnection;
     private volatile TransportProtocol transportProtocol;
     private volatile InetSocketAddress remoteAddress;
@@ -108,12 +108,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * HttpResponse object for our transfer (which is useful for its headers).
      */
     private volatile HttpResponse currentHttpResponse;
-
-    /**
-     * Holds writes that came in while we were connecting and need to be
-     * processed.
-     */
-    private final Queue<Object> queuedWrites = new ConcurrentLinkedQueue<Object>();
 
     /**
      * Create a new ProxyToServerConnection.
@@ -224,26 +218,20 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         } else {
             synchronized (connectLock) {
                 if (isConnecting()) {
-                    LOG.debug("Attempted to write while still in the process of connecting.");
-                    if (queuedWrites.size() < MAXIMUM_QUEUED_WRITES) {
-                        LOG.debug("Queuing write for later");
-                        queuedWrites.add(msg);
-                    } else {
-                        LOG.debug("Waiting for connection");
-                        try {
-                            connectLock.wait(30000);
-                        } catch (InterruptedException ie) {
-                            LOG.warn("Interrupted while waiting for connect monitor");
-                        }
-                        if (is(DISCONNECTED)) {
-                            LOG.debug("Connection failed while we were waiting for it, don't write");
-                            return;
-                        }
+                    LOG.debug("Attempted to write while still in the process of connecting, waiting for connection.");
+                    clientConnection.stopReading();
+                    try {
+                        connectLock.wait(30000);
+                    } catch (InterruptedException ie) {
+                        LOG.warn("Interrupted while waiting for connect monitor");
                     }
-                    return;
+                    if (is(DISCONNECTED)) {
+                        LOG.debug("Connection failed while we were waiting for it, don't write");
+                        return;
+                    }
                 }
             }
-            
+
             LOG.debug("Using existing connection to: {}", remoteAddress);
             doWrite(msg);
         }
@@ -258,7 +246,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
         super.writeHttp(httpObject);
     }
-    
+
     /***************************************************************************
      * Lifecycle
      **************************************************************************/
@@ -669,15 +657,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             write(initialRequest);
         } else {
             LOG.debug("Dropping initial request: {}", initialRequest);
-        }
-        
-        if (!queuedWrites.isEmpty()) {
-            LOG.debug("Flushing queued writes");
-            Object queuedMsg;
-            while ((queuedMsg = queuedWrites.poll()) != null) {
-                LOG.debug("Flushing queued write: {}", queuedMsg);
-                doWrite(queuedMsg);
-            }
         }
     }
 

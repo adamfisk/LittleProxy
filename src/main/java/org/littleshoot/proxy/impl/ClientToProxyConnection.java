@@ -379,7 +379,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     protected void serverConnectionFlowStarted(
             ProxyToServerConnection serverConnection) {
-        // stopReading();
+        stopReading();
         this.numberOfCurrentlyConnectingServers.incrementAndGet();
     }
 
