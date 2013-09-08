@@ -80,8 +80,9 @@ public class TestUtils {
                         + numberOfBytesRead);
                 response.setStatus(HttpServletResponse.SC_OK);
                 baseRequest.setHandled(true);
-                response.getWriter().write(
-                        "Received " + numberOfBytesRead + " bytes\n");
+                byte[] content = ("Received " + numberOfBytesRead + " bytes\n").getBytes();
+                response.addHeader("Content-Length", Integer.toString(content.length));
+                response.getOutputStream().write(content);
             }
         });
         if (sslPort != null) {
