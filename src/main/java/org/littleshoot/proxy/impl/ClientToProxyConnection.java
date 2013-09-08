@@ -200,16 +200,16 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return DISCONNECT_REQUESTED;
         }
 
-        LOG.debug("Finding ProxyToServerConnection");
+        LOG.debug("Finding ProxyToServerConnection for: {}", serverHostAndPort);
         currentServerConnection = this.serverConnectionsByHostAndPort
                 .get(serverHostAndPort);
         boolean newConnectionRequired = ProxyUtils.isCONNECT(httpRequest)
                 || currentServerConnection == null;
         if (newConnectionRequired) {
             if (currentServerConnection != null) {
-                LOG.debug("Not reusing existing ProxyToServerConnection because request is a CONNECT");
+                LOG.debug("Not reusing existing ProxyToServerConnection because request is a CONNECT for: {}", serverHostAndPort);
             } else {
-                LOG.debug("Didn't find existing ProxyToServerConnection");
+                LOG.debug("Didn't find existing ProxyToServerConnection for: {}", serverHostAndPort);
             }
             try {
                 currentServerConnection = ProxyToServerConnection.create(
@@ -218,6 +218,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         serverHostAndPort,
                         currentFilters,
                         httpRequest);
+                // Remember the connection for later
+                serverConnectionsByHostAndPort.put(serverHostAndPort, currentServerConnection);
             } catch (UnknownHostException uhe) {
                 LOG.info("Bad Host {}", httpRequest.getUri());
                 writeBadGateway(httpRequest);
