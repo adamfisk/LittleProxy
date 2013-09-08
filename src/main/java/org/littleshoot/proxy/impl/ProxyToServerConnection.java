@@ -583,6 +583,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.transportProtocol = TransportProtocol.TCP;
             this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
             this.localAddress = null;
+            this.sslEngineSource = null;
         }
     }
 
