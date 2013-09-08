@@ -456,7 +456,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     private void resumeReadingIfNecessary() {
         if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
-            LOG.debug("All servers have finished attempting to connecting, resuming reading from client.");
+            LOG.debug("All servers have finished attempting to connect, resuming reading from client.");
             resumeReading();
         }
     }

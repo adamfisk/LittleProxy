@@ -664,10 +664,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 shouldForwardInitialRequest);
 
         if (shouldForwardInitialRequest) {
-            LOG.debug("Writing initial request");
+            LOG.debug("Writing initial request: {}", initialRequest);
             write(initialRequest);
         } else {
-            LOG.debug("Dropping initial request");
+            LOG.debug("Dropping initial request: {}", initialRequest);
         }
         
         if (!queuedWrites.isEmpty()) {
