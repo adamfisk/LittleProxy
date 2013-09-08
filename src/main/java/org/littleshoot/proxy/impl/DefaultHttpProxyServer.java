@@ -95,6 +95,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final boolean useDnsSec;
     private final boolean transparent;
     private volatile int idleConnectionTimeout;
+    private final ChainedProxyChannelPool chainedProxyChannelPool = new ChainedProxyChannelPool();
+    private final boolean keepClientConnectionsOpen;
 
     /**
      * Track all ActivityTrackers for tracking proxying activity.
@@ -146,11 +148,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout,
+            boolean keepClientConnectionsOpen,
             Collection<ActivityTracker> activityTrackers) {
         this(new ServerGroup(name), transportProtocol, address,
                 sslContextSource,
                 proxyAuthenticator, chainProxyManager, filterSource, useDnsSec,
-                transparent, idleConnectionTimeout, activityTrackers);
+                transparent, idleConnectionTimeout, keepClientConnectionsOpen,
+                activityTrackers);
     }
 
     /**
@@ -187,6 +191,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            touching requests and responses).
      * @param idleConnectionTimeout
      *            The timeout (in seconds) for auto-closing idle connections.
+     * @param keepClientConnectionsOpen
+     *            whether or not client connections should be kept open
+     *            indefinitely
      * @param activityTrackers
      *            for tracking activity on this proxy
      */
@@ -200,6 +207,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout,
+            boolean keepClientConnectionsOpen,
             Collection<ActivityTracker> activityTrackers) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
@@ -211,6 +219,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.useDnsSec = useDnsSec;
         this.transparent = transparent;
         this.idleConnectionTimeout = idleConnectionTimeout;
+        this.keepClientConnectionsOpen = keepClientConnectionsOpen;
         if (activityTrackers != null) {
             this.activityTrackers.addAll(activityTrackers);
         }
@@ -239,7 +248,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         address.getPort() + 1),
                 sslEngineSource, proxyAuthenticator, chainProxyManager,
                 filtersSource, useDnsSec, transparent,
-                idleConnectionTimeout, activityTrackers);
+                idleConnectionTimeout, keepClientConnectionsOpen,
+                activityTrackers);
     }
 
     @Override
@@ -328,6 +338,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return filtersSource;
     }
 
+    public boolean isKeepClientConnectionsOpen() {
+        return keepClientConnectionsOpen;
+    }
+
     protected Collection<ActivityTracker> getActivityTrackers() {
         return activityTrackers;
     }
@@ -335,6 +349,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     protected EventLoopGroup getProxyToServerWorkerFor(
             TransportProtocol transportProtocol) {
         return this.serverGroup.proxyToServerWorkerPools.get(transportProtocol);
+    }
+
+    public ChainedProxyChannelPool getChainedProxyChannelPool() {
+        return chainedProxyChannelPool;
     }
 
     /**
@@ -512,6 +530,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
         private DefaultHttpProxyServer original;
+        private boolean keepClientConnectionsOpen = false;
         private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
 
         private DefaultHttpProxyServerBootstrap() {
@@ -526,6 +545,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 ChainedProxyManager chainProxyManager,
                 HttpFiltersSource filtersSource, boolean useDnsSec,
                 boolean transparent, int idleConnectionTimeout,
+                boolean keepClientConnectionsOpen,
                 Collection<ActivityTracker> activityTrackers) {
             this.original = original;
             this.transportProtocol = transportProtocol;
@@ -538,6 +558,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.useDnsSec = useDnsSec;
             this.transparent = transparent;
             this.idleConnectionTimeout = idleConnectionTimeout;
+            this.keepClientConnectionsOpen = keepClientConnectionsOpen;
             if (activityTrackers != null) {
                 this.activityTrackers.addAll(activityTrackers);
             }
@@ -640,6 +661,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withKeepClientConnectionsOpen(
+                boolean keepClientConnectionsOpen) {
+            this.keepClientConnectionsOpen = keepClientConnectionsOpen;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap plusActivityTracker(
                 ActivityTracker activityTracker) {
             activityTrackers.add(activityTracker);
@@ -658,14 +686,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         original.sslEngineSource,
                         proxyAuthenticator, chainProxyManager, filtersSource,
                         useDnsSec, transparent, idleConnectionTimeout,
-                        activityTrackers);
+                        keepClientConnectionsOpen, activityTrackers);
             } else {
                 return new DefaultHttpProxyServer(
                         name, transportProtocol, determineListenAddress(),
                         sslEngineSource,
                         proxyAuthenticator, chainProxyManager, filtersSource,
                         useDnsSec, transparent, idleConnectionTimeout,
-                        activityTrackers);
+                        keepClientConnectionsOpen, activityTrackers);
             }
         }
 
