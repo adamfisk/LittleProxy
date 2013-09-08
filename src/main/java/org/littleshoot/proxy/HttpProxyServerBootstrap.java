@@ -44,9 +44,6 @@ public interface HttpProxyServerBootstrap {
 
     HttpProxyServerBootstrap withIdleConnectionTimeout(
             int idleConnectionTimeout);
-    
-    HttpProxyServerBootstrap withKeepClientConnectionsOpen(
-            boolean keepClientConnectionsOpen);
 
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);
 
