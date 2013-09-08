@@ -638,6 +638,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean shouldCloseClientConnection(HttpRequest req,
             HttpResponse res, HttpObject httpObject) {
+        if (proxyServer.isKeepClientConnectionsOpen()) {
+            LOG.debug("Keeping client connection open");
+            return false;
+        }
+        
         if (ProxyUtils.isChunked(res)) {
             // If the response is chunked, we want to return false unless it's
             // the last chunk. If it is the last chunk, then we want to pass
@@ -691,6 +696,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean shouldCloseServerConnection(HttpRequest req,
             HttpResponse res, HttpObject msg) {
+        if (currentServerConnection.getChainedProxy() != null) {
+            LOG.debug("Keeping connection to chained proxy open");
+            return false;
+        }
+        
         if (ProxyUtils.isChunked(res)) {
             // If the response is chunked, we want to return false unless it's
             // the last chunk. If it is the last chunk, then we want to pass

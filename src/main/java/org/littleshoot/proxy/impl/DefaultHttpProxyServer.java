@@ -95,7 +95,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final boolean useDnsSec;
     private final boolean transparent;
     private volatile int idleConnectionTimeout;
-    private final ChainedProxyChannelPool chainedProxyChannelPool = new ChainedProxyChannelPool();
     private final boolean keepClientConnectionsOpen;
 
     /**
@@ -349,10 +348,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     protected EventLoopGroup getProxyToServerWorkerFor(
             TransportProtocol transportProtocol) {
         return this.serverGroup.proxyToServerWorkerPools.get(transportProtocol);
-    }
-
-    public ChainedProxyChannelPool getChainedProxyChannelPool() {
-        return chainedProxyChannelPool;
     }
 
     /**
