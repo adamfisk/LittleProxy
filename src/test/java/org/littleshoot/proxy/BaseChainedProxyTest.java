@@ -24,13 +24,13 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
 
     private int downstreamProxyPort;
 
-    private static final AtomicLong REQUESTS_SENT_BY_UPSTREAM = new AtomicLong(
+    private final AtomicLong REQUESTS_SENT_BY_UPSTREAM = new AtomicLong(
             0l);
-    private static final AtomicLong REQUESTS_RECEIVED_BY_DOWNSTREAM = new AtomicLong(
+    private final AtomicLong REQUESTS_RECEIVED_BY_DOWNSTREAM = new AtomicLong(
             0l);
-    private static final ConcurrentSkipListSet<TransportProtocol> TRANSPORTS_USED = new ConcurrentSkipListSet<TransportProtocol>();
+    private final ConcurrentSkipListSet<TransportProtocol> TRANSPORTS_USED = new ConcurrentSkipListSet<TransportProtocol>();
 
-    private static final ActivityTracker UPSTREAM_TRACKER = new ActivityTrackerAdapter() {
+    private final ActivityTracker UPSTREAM_TRACKER = new ActivityTrackerAdapter() {
         @Override
         public void requestSentToServer(FullFlowContext flowContext,
                 io.netty.handler.codec.http.HttpRequest httpRequest) {
@@ -39,7 +39,8 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
                     .getTransportProtocol());
         }
     };
-    private static final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
+    
+    private final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
         @Override
         public void requestReceivedFromClient(FlowContext flowContext,
                 HttpRequest httpRequest) {
