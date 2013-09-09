@@ -342,8 +342,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * Represents a group of servers that share thread pools.
      */
     private static class ServerGroup {
-        private static final int MAXIMUM_INCOMING_THREADS = 100;
-        private static final int MAXIMUM_OUTGOING_THREADS = 100;
+        private static final int MAXIMUM_INCOMING_THREADS = 20;
+        private static final int MAXIMUM_OUTGOING_THREADS = 20;
 
         /**
          * A name for this ServerGroup to use in naming threads.
