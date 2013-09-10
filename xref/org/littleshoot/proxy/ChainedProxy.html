@@ -22,7 +22,7 @@
 <a class="jxr_linenumber" name="12" href="#12">12</a>  <em class="jxr_javadoccomment"> * sensible defaults.</em>
 <a class="jxr_linenumber" name="13" href="#13">13</a>  <em class="jxr_javadoccomment"> * &lt;/p&gt;</em>
 <a class="jxr_linenumber" name="14" href="#14">14</a>  <em class="jxr_javadoccomment"> */</em>
-<a class="jxr_linenumber" name="15" href="#15">15</a>  <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">interface</strong> <a href="../../../org/littleshoot/proxy/ChainedProxy.html">ChainedProxy</a> <strong class="jxr_keyword">extends</strong> <a href="../../../org/littleshoot/proxy/SSLEngineSource.html">SSLEngineSource</a> {
+<a class="jxr_linenumber" name="15" href="#15">15</a>  <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">interface</strong> <a href="../../../org/littleshoot/proxy/ChainedProxy.html">ChainedProxy</a> <strong class="jxr_keyword">extends</strong> <a href="../../../org/littleshoot/proxy/SslEngineSource.html">SslEngineSource</a> {
 <a class="jxr_linenumber" name="16" href="#16">16</a>      <em class="jxr_javadoccomment">/**</em>
 <a class="jxr_linenumber" name="17" href="#17">17</a>  <em class="jxr_javadoccomment">     * Return the {@link InetSocketAddress} for connecting to the chained proxy.</em>
 <a class="jxr_linenumber" name="18" href="#18">18</a>  <em class="jxr_javadoccomment">     * Returning null indicates that we won't chain.</em>
@@ -50,7 +50,7 @@
 <a class="jxr_linenumber" name="40" href="#40">40</a>      <em class="jxr_javadoccomment">/**</em>
 <a class="jxr_linenumber" name="41" href="#41">41</a>  <em class="jxr_javadoccomment">     * Implement this method to tell LittleProxy whether or not to encrypt</em>
 <a class="jxr_linenumber" name="42" href="#42">42</a>  <em class="jxr_javadoccomment">     * connections to the chained proxy for the given request. If true,</em>
-<a class="jxr_linenumber" name="43" href="#43">43</a>  <em class="jxr_javadoccomment">     * LittleProxy will call {@link SSLEngineSource#getSSLContext()} to obtain</em>
+<a class="jxr_linenumber" name="43" href="#43">43</a>  <em class="jxr_javadoccomment">     * LittleProxy will call {@link SslEngineSource#getSSLContext()} to obtain</em>
 <a class="jxr_linenumber" name="44" href="#44">44</a>  <em class="jxr_javadoccomment">     * an SSLContext used by the upstream proxy.</em>
 <a class="jxr_linenumber" name="45" href="#45">45</a>  <em class="jxr_javadoccomment">     * </em>
 <a class="jxr_linenumber" name="46" href="#46">46</a>  <em class="jxr_javadoccomment">     * @return true of the connection to the chained proxy should be encrypted</em>

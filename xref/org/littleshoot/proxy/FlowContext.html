@@ -25,13 +25,13 @@
 <a class="jxr_linenumber" name="15" href="#15">15</a>  <em class="jxr_javadoccomment"> */</em>
 <a class="jxr_linenumber" name="16" href="#16">16</a>  <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">class</strong> <a href="../../../org/littleshoot/proxy/FlowContext.html">FlowContext</a> {
 <a class="jxr_linenumber" name="17" href="#17">17</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">final</strong> InetSocketAddress clientAddress;
-<a class="jxr_linenumber" name="18" href="#18">18</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">final</strong> SSLSession clientSSLSession;
+<a class="jxr_linenumber" name="18" href="#18">18</a>      <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">final</strong> SSLSession clientSslSession;
 <a class="jxr_linenumber" name="19" href="#19">19</a>  
 <a class="jxr_linenumber" name="20" href="#20">20</a>      <strong class="jxr_keyword">public</strong> <a href="../../../org/littleshoot/proxy/FlowContext.html">FlowContext</a>(<a href="../../../org/littleshoot/proxy/impl/ClientToProxyConnection.html">ClientToProxyConnection</a> clientConnection) {
 <a class="jxr_linenumber" name="21" href="#21">21</a>          <strong class="jxr_keyword">super</strong>();
 <a class="jxr_linenumber" name="22" href="#22">22</a>          <strong class="jxr_keyword">this</strong>.clientAddress = clientConnection.getClientAddress();
 <a class="jxr_linenumber" name="23" href="#23">23</a>          SSLEngine sslEngine = clientConnection.getSslEngine();
-<a class="jxr_linenumber" name="24" href="#24">24</a>          <strong class="jxr_keyword">this</strong>.clientSSLSession = sslEngine != <strong class="jxr_keyword">null</strong> ? sslEngine.getSession()
+<a class="jxr_linenumber" name="24" href="#24">24</a>          <strong class="jxr_keyword">this</strong>.clientSslSession = sslEngine != <strong class="jxr_keyword">null</strong> ? sslEngine.getSession()
 <a class="jxr_linenumber" name="25" href="#25">25</a>                  : <strong class="jxr_keyword">null</strong>;
 <a class="jxr_linenumber" name="26" href="#26">26</a>      }
 <a class="jxr_linenumber" name="27" href="#27">27</a>  
@@ -50,8 +50,8 @@
 <a class="jxr_linenumber" name="40" href="#40">40</a>  <em class="jxr_javadoccomment">     * </em>
 <a class="jxr_linenumber" name="41" href="#41">41</a>  <em class="jxr_javadoccomment">     * @return</em>
 <a class="jxr_linenumber" name="42" href="#42">42</a>  <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="43" href="#43">43</a>      <strong class="jxr_keyword">public</strong> SSLSession getClientSSLSession() {
-<a class="jxr_linenumber" name="44" href="#44">44</a>          <strong class="jxr_keyword">return</strong> clientSSLSession;
+<a class="jxr_linenumber" name="43" href="#43">43</a>      <strong class="jxr_keyword">public</strong> SSLSession getClientSslSession() {
+<a class="jxr_linenumber" name="44" href="#44">44</a>          <strong class="jxr_keyword">return</strong> clientSslSession;
 <a class="jxr_linenumber" name="45" href="#45">45</a>      }
 <a class="jxr_linenumber" name="46" href="#46">46</a>  
 <a class="jxr_linenumber" name="47" href="#47">47</a>  }
