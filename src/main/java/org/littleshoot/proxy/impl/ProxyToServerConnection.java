@@ -12,6 +12,8 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpMessage;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
@@ -173,7 +175,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected ConnectionState readHTTPInitial(HttpResponse httpResponse) {
         LOG.debug("Received raw response: {}", httpResponse);
 
-        rememberCurrentRequest();
         rememberCurrentResponse(httpResponse);
         respondWith(httpResponse);
 
@@ -190,6 +191,39 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected void readRaw(ByteBuf buf) {
         clientConnection.write(buf);
     }
+
+    /**
+     * <p>
+     * Responses to HEAD requests aren't supposed to have content, but Netty
+     * doesn't know that any given response is to a HEAD request, so it needs to
+     * be told that there's no content so that it doesn't hang waiting for it.
+     * </p>
+     * 
+     * <p>
+     * See the documentation for {@link HttpResponseDecoder} for information
+     * about why HEAD requests need special handling.
+     * </p>
+     * 
+     * <p>
+     * Thanks to @nataliakoval for pointing out that with connections being
+     * reused as they are, this needs to be sensitive to the current request.
+     * </p>
+     */
+    private HttpResponseDecoder httpResponseDecoder = new HttpResponseDecoder(
+            8192,
+            8192 * 2,
+            8192 * 2) {
+        @Override
+        protected boolean isContentAlwaysEmpty(HttpMessage httpMessage) {
+            if (httpMessage instanceof HttpResponse) {
+                // Identify our current request
+                identifyCurrentRequest();
+            }
+
+            return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
+                    true : super.isContentAlwaysEmpty(httpMessage);
+        }
+    };
 
     /***************************************************************************
      * Writing
@@ -342,7 +376,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * An HTTP response is associated with a single request, so we can pop the
      * correct request off the queue.
      */
-    private void rememberCurrentRequest() {
+    private void identifyCurrentRequest() {
         LOG.debug("Remembering the current request.");
         // I'm a little unclear as to when the request queue would
         // ever actually be empty, but it is from time to time in practice.
@@ -582,9 +616,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private void initChannelPipeline(ChannelPipeline pipeline,
             HttpRequest httpRequest) {
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
-        pipeline.addLast("decoder", new HttpResponseDecoder(8192,
-                8192 * 2,
-                8192 * 2));
+        pipeline.addLast("decoder", httpResponseDecoder);
         pipeline.addLast("responseReadMonitor", responseReadMonitor);
 
         if (!ProxyUtils.isCONNECT(httpRequest)) {

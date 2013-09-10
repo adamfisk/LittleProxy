@@ -42,6 +42,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.conn.scheme.Scheme;
@@ -198,6 +199,17 @@ public abstract class BaseProxyTest {
         compareProxiedAndUnproxiedPOST(httpsWebHost, DEFAULT_RESOURCE);
     }
 
+    /**
+     * This test tests a HEAD followed by a GET for the same resource, making
+     * sure that the requests complete and that the Content-Length matches.
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void testHeadRequestFollowedByGet() throws Exception {
+        httpGetWithApacheClient(webHost, DEFAULT_RESOURCE, true, true);
+    }
+
     @Test
     public void testProxyWithBadAddress()
             throws Exception {
@@ -303,7 +315,7 @@ public abstract class BaseProxyTest {
     }
 
     private String httpGetWithApacheClient(HttpHost host,
-            String resourceUrl, boolean isProxied)
+            String resourceUrl, boolean isProxied, boolean callHeadFirst)
             throws Exception {
         String username = getUsername();
         String password = getPassword();
@@ -323,6 +335,16 @@ public abstract class BaseProxyTest {
                 }
             }
 
+            Integer contentLength = null;
+            if (callHeadFirst) {
+                HttpHead request = new HttpHead(resourceUrl);
+                request.getParams().setParameter(
+                        CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+                HttpResponse response = httpClient.execute(host, request);
+                contentLength = new Integer(response.getFirstHeader(
+                        "Content-Length").getValue());
+            }
+
             HttpGet request = new HttpGet(resourceUrl);
             request.getParams().setParameter(
                     CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
@@ -331,6 +353,14 @@ public abstract class BaseProxyTest {
 
             HttpResponse response = httpClient.execute(host, request);
             HttpEntity resEntity = response.getEntity();
+
+            if (contentLength != null) {
+                assertEquals(
+                        "Content-Length from GET should match that from HEAD",
+                        contentLength,
+                        new Integer(response.getFirstHeader("Content-Length")
+                                .getValue()));
+            }
             return EntityUtils.toString(resEntity);
         } finally {
             httpClient.getConnectionManager().shutdown();
@@ -375,11 +405,11 @@ public abstract class BaseProxyTest {
 
     private void compareProxiedAndUnproxiedGET(HttpHost host,
             String resourceUrl) throws Exception {
-//        String unproxiedResponse = httpGetWithApacheClient(host,
-//                resourceUrl, false);
+        // String unproxiedResponse = httpGetWithApacheClient(host,
+        // resourceUrl, false);
         String proxiedResponse = httpGetWithApacheClient(host,
-                resourceUrl, true);
-        //assertEquals(unproxiedResponse, proxiedResponse);
+                resourceUrl, true, false);
+        // assertEquals(unproxiedResponse, proxiedResponse);
         checkStatistics(host);
     }
 
