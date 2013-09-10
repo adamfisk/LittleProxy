@@ -191,7 +191,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected void readRaw(ByteBuf buf) {
         clientConnection.write(buf);
     }
-
+    
     /**
      * <p>
      * Responses to HEAD requests aren't supposed to have content, but Netty
@@ -209,10 +209,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * reused as they are, this needs to be sensitive to the current request.
      * </p>
      */
-    private HttpResponseDecoder httpResponseDecoder = new HttpResponseDecoder(
-            8192,
-            8192 * 2,
-            8192 * 2) {
+    private class HeadAwareHttpResponseDecoder extends HttpResponseDecoder {
+        
+        public HeadAwareHttpResponseDecoder(int maxInitialLineLength,
+                int maxHeaderSize, int maxChunkSize) {
+            super(maxInitialLineLength, maxHeaderSize, maxChunkSize);
+        }
+
         @Override
         protected boolean isContentAlwaysEmpty(HttpMessage httpMessage) {
             if (httpMessage instanceof HttpResponse) {
@@ -616,7 +619,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private void initChannelPipeline(ChannelPipeline pipeline,
             HttpRequest httpRequest) {
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
-        pipeline.addLast("decoder", httpResponseDecoder);
+        pipeline.addLast("decoder", new HeadAwareHttpResponseDecoder(
+                8192,
+                8192 * 2,
+                8192 * 2));
         pipeline.addLast("responseReadMonitor", responseReadMonitor);
 
         if (!ProxyUtils.isCONNECT(httpRequest)) {
