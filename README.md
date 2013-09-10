@@ -23,40 +23,78 @@ You can embed LittleProxy in your own projects through maven with the following:
 Once you've included LittleProxy, you can start the server with the following:
 
 ```
-final HttpProxyServer server = new DefaultHttpProxyServer(8080);
-server.start();
+HttpProxyServer server =
+    DefaultHttpProxyServer.bootstrap()
+        .withPort(8080)
+        .start();
 ```
 
-There are lots of filters and such you can also add to LittleProxy. You can add request and reponse filters, for example, as in:
+There are lots of filters and such you can also add to LittleProxy. You can add
+request and response filters using an `HttpFiltersSource(Adapter)`, for example:
 
 ```
-final HttpProxyServer server = 
-    new DefaultHttpProxyServer(PROXY_PORT, new HttpRequestFilter() {
-        @Override
-        public void filter(HttpRequest httpRequest) {
-            System.out.println("Request went through proxy");
-        }
-    },
-    new HttpResponseFilters() {
-        @Override
-        public HttpFilter getFilter(String hostAndPort) {
-            return null;
-        }
-    });
+HttpProxyServer server =
+    DefaultHttpProxyServer.bootstrap()
+        .withPort(8080)
+        .withFiltersSource(new HttpFiltersSourceAdapter() {
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                // Check the originalRequest to see if we want to filter it
+                boolean wantToFilterRequest = ...;
+                
+                if (!wantToFilterRequest) {
+                    return null;
+                } else {
+                    return new HttpFiltersAdapter(originalRequest) {
+                        @Override
+                        public HttpResponse requestPre(HttpObject httpObject) {
+                            // TODO: implement your filtering here
+                            return null;
+                        }
+                    
+                        @Override
+                        public HttpResponse requestPost(HttpObject httpObject) {
+                            // TODO: implement your filtering here
+                            return null;
+                        }
+                    
+                        @Override
+                        public void responsePre(HttpObject httpObject) {
+                            // TODO: implement your filtering here
+                        }
+                    
+                        @Override
+                        public void responsePost(HttpObject httpObject) {
+                            // TODO: implement your filtering here
+                        }   
+                    };
+                }
+            }
+        });
+        .start();
+```                
 
-server.start();
+If you want to create additional proxy servers with similar configuration but
+listening on different ports, you can clone an existing server.  The cloned
+servers will share event loops to reduce resource usage and when one clone is
+stopped, all are stopped.
+
+```
+existingServer.clone().withPort(8081).start()
 ```
 
 If you have questions, please visit our Google Group here:
 
 https://groups.google.com/forum/#!forum/littleproxy
 
-The main LittleProxy page is here:
+Project reports, including the [API Documentation]
+(http://adamfisk.github.io/LittleProxy/apidocs/index.html), can be found here:
 
-http://www.littleshoot.org/littleproxy/
+http://adamfisk.github.io/LittleProxy/
 
-Acknowledgements
-----------------
+Benchmarking instructions and results can be found [here](performance).
+
+Acknowledgments
+---------------
 
 Many thanks to [The Measurement Factory](http://www.measurement-factory.com/) for the
 use of [Co-Advisor](http://coad.measurement-factory.com/) for HTTP standards
