@@ -27,7 +27,7 @@ import io.netty.util.concurrent.Promise;
 
 import javax.net.ssl.SSLEngine;
 
-import org.littleshoot.proxy.SSLEngineSource;
+import org.littleshoot.proxy.SslEngineSource;
 
 /**
  * <p>
@@ -78,7 +78,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
     protected final DefaultHttpProxyServer proxyServer;
-    protected volatile SSLEngineSource sslEngineSource;
+    protected volatile SslEngineSource sslEngineSource;
     protected final boolean runsAsSSLClient;
 
     protected volatile ChannelHandlerContext ctx;
@@ -102,14 +102,14 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * @param sslEngineSource
      *            (optional) if provided, this connection will be encrypted
      *            using the given an {@link SSLEngine} obtained by calling
-     *            {@link SSLEngineSource#newSSLEngine()}
+     *            {@link SslEngineSource#newSslEngine()}
      * @param runsAsSSLClient
      *            determines whether this connection acts as an SSL client or
      *            server (determines who does the handshake)
      */
     protected ProxyConnection(ConnectionState initialState,
             DefaultHttpProxyServer proxyServer,
-            SSLEngineSource sslEngineSource,
+            SslEngineSource sslEngineSource,
             boolean runsAsSSLClient) {
         become(initialState);
         this.proxyServer = proxyServer;
@@ -381,7 +381,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected Future<Channel> encrypt(ChannelPipeline pipeline) {
         LOG.debug("Enabling encryption with SSLEngineSource: {}",
                 sslEngineSource);
-        sslEngine = sslEngineSource.newSSLEngine();
+        sslEngine = sslEngineSource.newSslEngine();
         sslEngine.setUseClientMode(runsAsSSLClient);
         sslEngine.setNeedClientAuth(!runsAsSSLClient);
         SslHandler handler = new SslHandler(sslEngine);

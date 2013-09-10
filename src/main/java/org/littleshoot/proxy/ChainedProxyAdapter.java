@@ -35,7 +35,7 @@ public class ChainedProxyAdapter implements ChainedProxy {
     }
 
     @Override
-    public SSLEngine newSSLEngine() {
+    public SSLEngine newSslEngine() {
         return null;
     }
 

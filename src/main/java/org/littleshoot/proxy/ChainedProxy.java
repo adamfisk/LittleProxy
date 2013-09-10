@@ -12,7 +12,7 @@ import java.net.InetSocketAddress;
  * sensible defaults.
  * </p>
  */
-public interface ChainedProxy extends SSLEngineSource {
+public interface ChainedProxy extends SslEngineSource {
     /**
      * Return the {@link InetSocketAddress} for connecting to the chained proxy.
      * Returning null indicates that we won't chain.
@@ -40,7 +40,7 @@ public interface ChainedProxy extends SSLEngineSource {
     /**
      * Implement this method to tell LittleProxy whether or not to encrypt
      * connections to the chained proxy for the given request. If true,
-     * LittleProxy will call {@link SSLEngineSource#getSSLContext()} to obtain
+     * LittleProxy will call {@link SslEngineSource#getSSLContext()} to obtain
      * an SSLContext used by the upstream proxy.
      * 
      * @return true of the connection to the chained proxy should be encrypted

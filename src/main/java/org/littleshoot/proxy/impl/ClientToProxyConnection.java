@@ -42,7 +42,7 @@ import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.FlowContext;
 import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
-import org.littleshoot.proxy.SSLEngineSource;
+import org.littleshoot.proxy.SslEngineSource;
 
 /**
  * <p>
@@ -115,7 +115,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
-            SSLEngineSource sslEngineSource,
+            SslEngineSource sslEngineSource,
             ChannelPipeline pipeline) {
         super(AWAITING_INITIAL, proxyServer, sslEngineSource, false);
 

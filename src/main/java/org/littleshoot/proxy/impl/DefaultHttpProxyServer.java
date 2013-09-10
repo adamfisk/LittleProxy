@@ -48,7 +48,7 @@ import org.littleshoot.proxy.HttpFiltersSourceAdapter;
 import org.littleshoot.proxy.HttpProxyServer;
 import org.littleshoot.proxy.HttpProxyServerBootstrap;
 import org.littleshoot.proxy.ProxyAuthenticator;
-import org.littleshoot.proxy.SSLEngineSource;
+import org.littleshoot.proxy.SslEngineSource;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
 import org.slf4j.Logger;
@@ -88,7 +88,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private final TransportProtocol transportProtocol;
     private final InetSocketAddress address;
-    private final SSLEngineSource sslEngineSource;
+    private final SslEngineSource sslEngineSource;
     private final ProxyAuthenticator proxyAuthenticator;
     private final ChainedProxyManager chainProxyManager;
     private final HttpFiltersSource filtersSource;
@@ -139,7 +139,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private DefaultHttpProxyServer(String name,
             TransportProtocol transportProtocol,
             InetSocketAddress address,
-            SSLEngineSource sslContextSource,
+            SslEngineSource sslEngineSource,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
             HttpFiltersSource filterSource,
@@ -148,7 +148,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers) {
         this(new ServerGroup(name), transportProtocol, address,
-                sslContextSource,
+                sslEngineSource,
                 proxyAuthenticator, chainProxyManager, filterSource, useDnsSec,
                 transparent, idleConnectionTimeout,
                 activityTrackers);
@@ -170,7 +170,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param sslEngineSource
      *            (optional) if specified, this Proxy will encrypt inbound
      *            connections from clients using an {@link SSLEngine} obtained
-     *            from this {@link SSLEngineSource}.
+     *            from this {@link SslEngineSource}.
      * @param proxyAuthenticator
      *            (optional) If specified, requests to the proxy will be
      *            authenticated using HTTP BASIC authentication per the provided
@@ -194,7 +194,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
             InetSocketAddress address,
-            SSLEngineSource sslEngineSource,
+            SslEngineSource sslEngineSource,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
             HttpFiltersSource filtersSource,
@@ -317,7 +317,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return chainProxyManager;
     }
 
-    protected SSLEngineSource getSslEngineSource() {
+    protected SslEngineSource getSslEngineSource() {
         return sslEngineSource;
     }
 
@@ -505,7 +505,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private int port = 8080;
         private boolean allowLocalOnly = true;
         private boolean listenOnAllAddresses = true;
-        private SSLEngineSource sslEngineSource = null;
+        private SslEngineSource sslEngineSource = null;
         private ProxyAuthenticator proxyAuthenticator = null;
         private ChainedProxyManager chainProxyManager = null;
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
@@ -522,7 +522,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 DefaultHttpProxyServer original,
                 TransportProtocol transportProtocol,
                 InetSocketAddress address,
-                SSLEngineSource sslContextSource,
+                SslEngineSource sslContextSource,
                 ProxyAuthenticator proxyAuthenticator,
                 ChainedProxyManager chainProxyManager,
                 HttpFiltersSource filtersSource, boolean useDnsSec,
@@ -593,8 +593,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
-        public HttpProxyServerBootstrap withSSLEngineSource(
-                SSLEngineSource sslEngineSource) {
+        public HttpProxyServerBootstrap withSslEngineSource(
+                SslEngineSource sslEngineSource) {
             this.sslEngineSource = sslEngineSource;
             return this;
         }

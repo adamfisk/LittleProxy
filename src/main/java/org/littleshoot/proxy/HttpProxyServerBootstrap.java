@@ -24,8 +24,8 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withListenOnAllAddresses(
             boolean listenOnAllAddresses);
 
-    HttpProxyServerBootstrap withSSLEngineSource(
-            SSLEngineSource sslEngineSource);
+    HttpProxyServerBootstrap withSslEngineSource(
+            SslEngineSource sslEngineSource);
 
     HttpProxyServerBootstrap withProxyAuthenticator(
             ProxyAuthenticator proxyAuthenticator);

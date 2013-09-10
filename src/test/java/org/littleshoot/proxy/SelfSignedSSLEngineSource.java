@@ -18,11 +18,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Basic {@link SSLEngineSource} for unit testing. The {@link SSLContext} uses
+ * Basic {@link SslEngineSource} for unit testing. The {@link SSLContext} uses
  * self-signed certificates that are generated lazily if the given key store
  * file doesn't yet exist.
  */
-public class SelfSignedSSLEngineSource implements SSLEngineSource {
+public class SelfSignedSSLEngineSource implements SslEngineSource {
     private static final Logger LOG = LoggerFactory
             .getLogger(SelfSignedSSLEngineSource.class);
 
@@ -44,7 +44,7 @@ public class SelfSignedSSLEngineSource implements SSLEngineSource {
     }
 
     @Override
-    public SSLEngine newSSLEngine() {
+    public SSLEngine newSslEngine() {
         return sslContext.createSSLEngine();
     }
 

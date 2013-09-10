@@ -45,7 +45,7 @@ public class NetworkUtils {
         InetAddress address = getLocalHostViaUdp();
         if (address.isLoopbackAddress() || address.isAnyLocalAddress()) {
             // UDP didn't work, resort to looking at interfaces
-            InetAddress alternateAddress = firstLocalNonLoopbackIPv4Address();
+            InetAddress alternateAddress = firstLocalNonLoopbackIpv4Address();
             if (alternateAddress != null) {
                 address = alternateAddress;
             }
@@ -79,7 +79,7 @@ public class NetworkUtils {
      * 
      * @return
      */
-    public static InetAddress firstLocalNonLoopbackIPv4Address() {
+    public static InetAddress firstLocalNonLoopbackIpv4Address() {
         try {
             Enumeration<NetworkInterface> networkInterfaces = NetworkInterface
                     .getNetworkInterfaces();

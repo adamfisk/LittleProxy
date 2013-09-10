@@ -6,6 +6,6 @@ import javax.net.ssl.SSLEngine;
 /**
  * Source for {@link SSLContext}s.
  */
-public interface SSLEngineSource {
-    SSLEngine newSSLEngine();
+public interface SslEngineSource {
+    SSLEngine newSslEngine();
 }

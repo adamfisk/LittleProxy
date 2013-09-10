@@ -5,14 +5,14 @@ import static org.littleshoot.proxy.TransportProtocol.*;
 import javax.net.ssl.SSLEngine;
 
 public class EncryptedUDTChainedProxyTest extends BaseChainedProxyTest {
-    private final SSLEngineSource sslEngineSource = new SelfSignedSSLEngineSource(
+    private final SslEngineSource sslEngineSource = new SelfSignedSSLEngineSource(
             "chain_proxy_keystore_1.jks");
 
     @Override
     protected HttpProxyServerBootstrap downstreamProxy() {
         return super.downstreamProxy()
                 .withTransportProtocol(UDT)
-                .withSSLEngineSource(sslEngineSource);
+                .withSslEngineSource(sslEngineSource);
     }
 
     @Override
@@ -29,8 +29,8 @@ public class EncryptedUDTChainedProxyTest extends BaseChainedProxyTest {
             }
 
             @Override
-            public SSLEngine newSSLEngine() {
-                return sslEngineSource.newSSLEngine();
+            public SSLEngine newSslEngine() {
+                return sslEngineSource.newSslEngine();
             }
         };
     }

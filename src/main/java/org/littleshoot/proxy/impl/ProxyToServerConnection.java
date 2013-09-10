@@ -57,8 +57,6 @@ import org.littleshoot.proxy.UnknownTransportProtocolError;
  */
 @Sharable
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
-    private static final int MAXIMUM_QUEUED_WRITES = 10;
-
     private final ClientToProxyConnection clientConnection;
     private volatile TransportProtocol transportProtocol;
     private volatile InetSocketAddress remoteAddress;
