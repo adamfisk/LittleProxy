@@ -13,6 +13,7 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.HttpMethod;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -542,5 +543,9 @@ public class HttpRelayingHandler extends SimpleChannelInboundHandler<HttpObject>
             }
         }
     }
-    
+
+    public HttpMethod getMethodFromRequest() {
+        return requestQueue.peek().getMethod();
+    }
+
 }
