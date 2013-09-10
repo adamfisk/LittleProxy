@@ -66,19 +66,7 @@ public class DefaultRelayChannelInitializer extends ChannelInitializer<Channel> 
         //
         // We also importantly need to follow the cache directives
         // in the HTTP response.
-        final HttpResponseDecoder decoder;
-        if(httpRequest.getMethod() == HttpMethod.HEAD) {
-            decoder = new HttpResponseDecoder(8192, 8192*2, 8192*2) {
-                @Override
-                protected boolean isContentAlwaysEmpty(final HttpMessage msg) {
-                    return true;
-                }
-            };
-        } else {
-            decoder = new HttpResponseDecoder(8192, 8192*2, 8192*2);
-        }
-        pipeline.addLast("decoder", decoder);
-        
+
         LOG.debug("Querying for host and port: {}", hostAndPort);
         final boolean shouldFilter;
         final HttpFilter filter;
@@ -94,29 +82,32 @@ public class DefaultRelayChannelInitializer extends ChannelInitializer<Channel> 
             else {
                 LOG.debug("Using filter: {}", filter);
                 shouldFilter = filter.filterResponses(httpRequest);
-                // We decompress and aggregate chunks for responses from 
+                // We decompress and aggregate chunks for responses from
                 // sites we're applying rules to.
                 if (shouldFilter) {
-                    pipeline.addLast("inflater", 
+                    pipeline.addLast("inflater",
                         new HttpContentDecompressor());
-                    pipeline.addLast("aggregator",            
+                    pipeline.addLast("aggregator",
                         new HttpObjectAggregator(filter.getMaxResponseSize()));//2048576));
                 }
             }
             LOG.debug("Filtering: "+shouldFilter);
         }
-        
+
         final HttpRelayingHandler handler;
         if (shouldFilter) {
             LOG.info("Creating relay handler with filter");
-            handler = new HttpRelayingHandler(browserToProxyChannel, 
+            handler = new HttpRelayingHandler(browserToProxyChannel,
                 channelGroup, filter, relayListener, hostAndPort);
         } else {
             LOG.info("Creating non-filtering relay handler");
-            handler = new HttpRelayingHandler(browserToProxyChannel, 
+            handler = new HttpRelayingHandler(browserToProxyChannel,
                 channelGroup, relayListener, hostAndPort);
         }
-        
+
+        final ProxyHttpResponseDecoder decoder = new ProxyHttpResponseDecoder(8192, 8192*2, 8192*2, handler);
+        pipeline.addLast("decoder", decoder);
+
         final ProxyHttpRequestEncoder encoder = 
             new ProxyHttpRequestEncoder(handler, requestFilter, 
                 chainProxyManager != null
