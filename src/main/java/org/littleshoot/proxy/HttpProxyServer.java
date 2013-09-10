@@ -5,34 +5,30 @@ package org.littleshoot.proxy;
  */
 public interface HttpProxyServer {
 
-    /**
-     * Starts the server.
-     */
-    void start();
-    
-    /**
-     * Stops the server.
-     */
-    void stop();
-    
-    /**
-     * Starts the server.
-     * 
-     * @param localOnly If true, the server will only allow connections from 
-     * the local computer. This can significantly improve security in some 
-     * cases.
-     * @param anyAddress Whether or not to bind to "any" address - 0.0.0.0.
-     * This is the default.
-     */
-    void start(boolean localOnly, boolean anyAddress);
+    int getIdleConnectionTimeout();
+
+    void setIdleConnectionTimeout(int idleConnectionTimeout);
 
     /**
-     * Adds a new handler for proxy authentication. Handlers are called in the
-     * order they're added. If one handler accepts the user's credentials, it
-     * passes them on to the next handler.
+     * <p>
+     * Clone the existing server, with a port 1 higher and everything else the
+     * same.
+     * </p>
      * 
-     * @param pah The new authentication handler.
+     * <p>
+     * The new server will share event loops with the original server. The event
+     * loops will use whatever name was given to the first server in the clone
+     * group.
+     * </p>
+     * 
+     * @return a bootstrap that allows customizing and starting the cloned
+     *         server
      */
-    void addProxyAuthenticationHandler(ProxyAuthorizationHandler pah);
-    
+    HttpProxyServerBootstrap clone();
+
+    /**
+     * Stops the server and all related clones.
+     */
+    void stop();
+
 }
