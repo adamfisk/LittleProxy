@@ -503,12 +503,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /**
-     * When the ClientToProxyConnection becomes writeable, resume reading on all
+     * When the ClientToProxyConnection becomes writable, resume reading on all
      * associated ProxyToServerConnections.
      */
     @Override
-    synchronized protected void becameWriteable() {
-        super.becameWriteable();
+    synchronized protected void becameWritable() {
+        super.becameWritable();
         for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
                 .values()) {
             synchronized (serverConnection) {

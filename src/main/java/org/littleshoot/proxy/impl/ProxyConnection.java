@@ -5,12 +5,12 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
+import io.netty.channel.EventLoop;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpContentDecompressor;
@@ -53,13 +53,13 @@ import org.littleshoot.proxy.SslEngineSource;
  * </p>
  * 
  * <ul>
- * <li>{@see #connected(Channel)} - Once the underlying channel is active, the
+ * <li>{@link #connected(Channel)} - Once the underlying channel is active, the
  * ProxyConnection is considered connected and moves into
  * {@link ConnectionState#AWAITING_INITIAL}. The Channel is recorded at this
  * time for later referencing.</li>
- * <li>{@see #disconnected()} - When the underlying channel goes inactive, the
+ * <li>{@link #disconnected()} - When the underlying channel goes inactive, the
  * ProxyConnection moves into {@link ConnectionState#DISCONNECTED}</li>
- * <li>{@see #becameWriteable()} - When the underlying channel becomes
+ * <li>{@link #becameWritable()} - When the underlying channel becomes
  * writeable, this callback is invoked.</li>
  * </ul>
  * 
@@ -272,25 +272,32 @@ abstract class ProxyConnection<I extends HttpObject> extends
     }
 
     /**
-     * Encapsulates the writing to the channel. In addition to writing to the
-     * channel, this method makes sure that if the channel becomes saturated
-     * that the {@link #becameSaturated()} callback gets invoked.
+     * Encapsulates the writing to the channel. This method makes sure that all
+     * writes happen on the channel's EventLoop. This avoids a race condition in
+     * Netty whereby channel writability changes can get confused. This is
+     * important to us because the
+     * {@link #channelWritabilityChanged(ChannelHandlerContext)} method causes
+     * us to mark our connections as saturated/not saturated. If we mark a
+     * connection as saturated and then never get a writability change to mark
+     * it as unsaturated, the client will hang.
      * 
      * @param msg
      * @return
      */
-    protected ChannelFuture writeToChannel(Object msg) {
-        ChannelFuture future = channel.writeAndFlush(msg);
-        future.addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture future)
-                    throws Exception {
-                if (!channel.isWritable()) {
-                    becameSaturated();
+    protected ChannelFuture writeToChannel(final Object msg) {
+        EventLoop eventLoop = channel.eventLoop();
+        if (eventLoop.inEventLoop()) {
+            return channel.writeAndFlush(msg);
+        } else {
+            final ChannelPromise promise = channel.newPromise();
+            eventLoop.execute(new Runnable() {
+                @Override
+                public void run() {
+                    channel.writeAndFlush(msg, promise);
                 }
-            }
-        });
-        return future;
+            });
+            return promise;
+        }
     }
 
     /***************************************************************************
@@ -420,7 +427,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Callback that's invoked when this connection becomes writeable again.
      */
-    protected void becameWriteable() {
+    protected void becameWritable() {
         LOG.debug("Became writeable");
     }
 
@@ -448,7 +455,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
             return null;
         } else {
             final Promise<Void> promise = channel.newPromise();
-            channel.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(
+            writeToChannel(Unpooled.EMPTY_BUFFER).addListener(
                     new GenericFutureListener<Future<? super Void>>() {
                         @Override
                         public void operationComplete(
@@ -598,9 +605,12 @@ abstract class ProxyConnection<I extends HttpObject> extends
     @Override
     public final void channelWritabilityChanged(ChannelHandlerContext ctx)
             throws Exception {
+        LOG.debug("Writability changed. Is writable: {}", channel.isWritable());
         try {
             if (this.channel.isWritable()) {
-                becameWriteable();
+                becameWritable();
+            } else {
+                becameSaturated();
             }
         } finally {
             super.channelWritabilityChanged(ctx);

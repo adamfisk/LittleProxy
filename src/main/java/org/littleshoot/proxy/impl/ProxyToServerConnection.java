@@ -293,8 +293,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     @Override
-    protected void becameWriteable() {
-        super.becameWriteable();
+    protected void becameWritable() {
+        super.becameWritable();
         this.clientConnection.serverBecameWriteable(this);
     }
 
