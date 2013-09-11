@@ -332,9 +332,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 if (pipeline.get("requestReadMonitor") != null) {
                     pipeline.remove("requestReadMonitor");
                 }
-                if (pipeline.get("idle") != null) {
-                    pipeline.remove("idle");
-                }
                 tunneling = true;
                 return channel.newSucceededFuture();
             } catch (Throwable t) {

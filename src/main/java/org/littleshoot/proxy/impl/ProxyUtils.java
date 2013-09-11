@@ -318,18 +318,6 @@ public class ProxyUtils {
                         .getMethod());
     }
 
-    public static boolean isPOST(HttpObject httpObject) {
-        return httpObject instanceof HttpRequest
-                && HttpMethod.POST.equals(((HttpRequest) httpObject)
-                        .getMethod());
-    }
-
-    public static boolean isPUT(HttpObject httpObject) {
-        return httpObject instanceof HttpRequest
-                && HttpMethod.PUT
-                        .equals(((HttpRequest) httpObject).getMethod());
-    }
-
     private static boolean checkTrueOrFalse(final String val,
             final String str1, final String str2) {
         final String str = val.trim();

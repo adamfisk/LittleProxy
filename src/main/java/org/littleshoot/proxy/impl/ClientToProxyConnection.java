@@ -600,6 +600,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 "idle",
                 new IdleStateHandler(0, 0, proxyServer
                         .getIdleConnectionTimeout()));
+        
         pipeline.addLast("handler", this);
     }
 

@@ -639,29 +639,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("requestWrittenMonitor", requestWrittenMonitor);
 
         // Set idle timeout
-        if (ProxyUtils.isCONNECT(httpRequest)) {
-            // Could be any protocol if it's connect, so hard to say what the
-            // timeout should be, if any. Don't set one.
-        } else {
-            // We close idle connections to remote servers after the
-            // specified timeouts in seconds. If we're sending data, the
-            // write timeout should be reasonably low. If we're reading
-            // data, however, the read timeout is more relevant.
-            int readTimeoutSeconds;
-            int writeTimeoutSeconds;
-            if (ProxyUtils.isPOST(httpRequest) || ProxyUtils.isPUT(httpRequest)) {
-                readTimeoutSeconds = 0;
-                writeTimeoutSeconds = this.proxyServer
-                        .getIdleConnectionTimeout();
-            } else {
-                readTimeoutSeconds = this.proxyServer
-                        .getIdleConnectionTimeout();
-                writeTimeoutSeconds = 0;
-            }
-            pipeline.addLast("idle", new IdleStateHandler(readTimeoutSeconds,
-                    writeTimeoutSeconds, 0));
-        }
-
+        pipeline.addLast(
+                "idle",
+                new IdleStateHandler(0, 0, proxyServer
+                        .getIdleConnectionTimeout()));
+        
         pipeline.addLast("handler", this);
     }
 
