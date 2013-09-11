@@ -10,7 +10,6 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
-import io.netty.channel.EventLoop;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpContentDecompressor;
@@ -271,33 +270,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
         writeToChannel(buf);
     }
 
-    /**
-     * Encapsulates the writing to the channel. This method makes sure that all
-     * writes happen on the channel's EventLoop. This avoids a race condition in
-     * Netty whereby channel writability changes can get confused. This is
-     * important to us because the
-     * {@link #channelWritabilityChanged(ChannelHandlerContext)} method causes
-     * us to mark our connections as saturated/not saturated. If we mark a
-     * connection as saturated and then never get a writability change to mark
-     * it as unsaturated, the client will hang.
-     * 
-     * @param msg
-     * @return
-     */
     protected ChannelFuture writeToChannel(final Object msg) {
-        EventLoop eventLoop = channel.eventLoop();
-        if (eventLoop.inEventLoop()) {
-            return channel.writeAndFlush(msg);
-        } else {
-            final ChannelPromise promise = channel.newPromise();
-            eventLoop.execute(new Runnable() {
-                @Override
-                public void run() {
-                    channel.writeAndFlush(msg, promise);
-                }
-            });
-            return promise;
-        }
+        return channel.writeAndFlush(msg);
     }
 
     /***************************************************************************

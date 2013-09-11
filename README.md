@@ -22,7 +22,7 @@ You can embed LittleProxy in your own projects through maven with the following:
 
 Once you've included LittleProxy, you can start the server with the following:
 
-```
+```java
 HttpProxyServer server =
     DefaultHttpProxyServer.bootstrap()
         .withPort(8080)
@@ -32,7 +32,7 @@ HttpProxyServer server =
 There are lots of filters and such you can also add to LittleProxy. You can add
 request and response filters using an `HttpFiltersSource(Adapter)`, for example:
 
-```
+```java
 HttpProxyServer server =
     DefaultHttpProxyServer.bootstrap()
         .withPort(8080)
@@ -78,7 +78,7 @@ listening on different ports, you can clone an existing server.  The cloned
 servers will share event loops to reduce resource usage and when one clone is
 stopped, all are stopped.
 
-```
+```java
 existingServer.clone().withPort(8081).start()
 ```
 
