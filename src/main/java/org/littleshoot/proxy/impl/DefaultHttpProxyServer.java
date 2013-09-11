@@ -342,8 +342,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * Represents a group of servers that share thread pools.
      */
     private static class ServerGroup {
-        private static final int MAXIMUM_INCOMING_THREADS = 20;
-        private static final int MAXIMUM_OUTGOING_THREADS = 20;
+        private static final int INCOMING_ACCEPTOR_THREADS = 2;
+        private static final int INCOMING_WORKER_THREADS = 8;
+        private static final int OUTGOING_WORKER_THREADS = 8;
 
         /**
          * A name for this ServerGroup to use in naming threads.
@@ -396,22 +397,26 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     throw new UnknownTransportProtocolError(transportProtocol);
                 }
 
+                NioEventLoopGroup inboundAcceptorGroup = new NioEventLoopGroup(
+                        INCOMING_ACCEPTOR_THREADS,
+                        new CategorizedThreadFactory("ClientToProxyAcceptor"),
+                        selectorProvider);
+                NioEventLoopGroup inboundWorkerGroup = new NioEventLoopGroup(
+                        INCOMING_WORKER_THREADS,
+                        new CategorizedThreadFactory("ClientToProxyWorker"),
+                        selectorProvider);
+                inboundWorkerGroup.setIoRatio(90);
+                NioEventLoopGroup outboundWorkerGroup = new NioEventLoopGroup(
+                        OUTGOING_WORKER_THREADS,
+                        new CategorizedThreadFactory("ProxyToServerWorker"),
+                        selectorProvider);
+                outboundWorkerGroup.setIoRatio(90);
                 this.clientToProxyBossPools.put(transportProtocol,
-                        new NioEventLoopGroup(
-                                MAXIMUM_INCOMING_THREADS,
-                                CLIENT_TO_PROXY_THREAD_FACTORY,
-                                selectorProvider));
+                        inboundAcceptorGroup);
                 this.clientToProxyWorkerPools.put(transportProtocol,
-                        new NioEventLoopGroup(
-                                MAXIMUM_INCOMING_THREADS,
-                                CLIENT_TO_PROXY_THREAD_FACTORY,
-                                selectorProvider));
-                this.proxyToServerWorkerPools.put(
-                        transportProtocol,
-                        new NioEventLoopGroup(
-                                MAXIMUM_OUTGOING_THREADS,
-                                PROXY_TO_SERVER_THREAD_FACTORY,
-                                selectorProvider));
+                        inboundWorkerGroup);
+                this.proxyToServerWorkerPools.put(transportProtocol,
+                        outboundWorkerGroup);
             }
 
             Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
@@ -473,28 +478,22 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
             LOG.info("Done shutting down proxy");
         }
-
-        private final ThreadFactory CLIENT_TO_PROXY_THREAD_FACTORY = new ThreadFactory() {
-
+        
+        private class CategorizedThreadFactory implements ThreadFactory {
+            private String category;
             private int num = 0;
+
+            public CategorizedThreadFactory(String category) {
+                super();
+                this.category = category;
+            }
 
             public Thread newThread(final Runnable r) {
                 final Thread t = new Thread(r,
-                        name + "-" + "ClientToProxy-" + num++);
+                        name + "-" + category + "-" + num++);
                 return t;
             }
-        };
-
-        private final ThreadFactory PROXY_TO_SERVER_THREAD_FACTORY = new ThreadFactory() {
-
-            private int num = 0;
-
-            public Thread newThread(final Runnable r) {
-                final Thread t = new Thread(r,
-                        name + "-" + "ProxyToServer-" + num++);
-                return t;
-            }
-        };
+        }
     }
 
     private static class DefaultHttpProxyServerBootstrap implements
