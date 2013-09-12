@@ -3,7 +3,7 @@
 <rss version="0.91">
   <channel>
     <title>LittleProxy - Checkstyle report</title>
-    <link>http://www.littleshoot.org/littleproxy</link>
+    <link>http://adamfisk.github.io/LittleProxy/</link>
     <description>LittleProxy - Checkstyle report</description>
     <language>en-us</language>
     <copyright>&#169;2009 - 2013 LittleShoot</copyright>
@@ -13,9 +13,9 @@
              Warnings: 0,
              Infos: 0
       </title>
-            <link>http://www.littleshoot.org/littleproxy/checkstyle.html</link>
+            <link>http://adamfisk.github.io/LittleProxy//checkstyle.html</link>
       <description>
-        <p>Click <a href="http://www.littleshoot.org/littleproxy/checkstyle.html">here</a> for the full Checkstyle report.</p>
+        <p>Click <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html">here</a> for the full Checkstyle report.</p>
 
         <table summary="Files" boder="1">
           <thead>
@@ -29,7 +29,7 @@
           <tbody>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ChainedProxy.java">org/littleshoot/proxy/ChainedProxy.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.ChainedProxy.java">org/littleshoot/proxy/ChainedProxy.java</a>
                 </td>
                 <td>
                   0
@@ -43,7 +43,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpProxyServerBootstrap.java">org/littleshoot/proxy/HttpProxyServerBootstrap.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.HttpProxyServerBootstrap.java">org/littleshoot/proxy/HttpProxyServerBootstrap.java</a>
                 </td>
                 <td>
                   0
@@ -57,7 +57,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpFilters.java">org/littleshoot/proxy/HttpFilters.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.HttpFilters.java">org/littleshoot/proxy/HttpFilters.java</a>
                 </td>
                 <td>
                   0
@@ -71,7 +71,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.FlowContext.java">org/littleshoot/proxy/FlowContext.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.FlowContext.java">org/littleshoot/proxy/FlowContext.java</a>
                 </td>
                 <td>
                   0
@@ -85,7 +85,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ChainedProxyAdapter.java">org/littleshoot/proxy/ChainedProxyAdapter.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.ChainedProxyAdapter.java">org/littleshoot/proxy/ChainedProxyAdapter.java</a>
                 </td>
                 <td>
                   0
@@ -99,7 +99,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ActivityTrackerAdapter.java">org/littleshoot/proxy/ActivityTrackerAdapter.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.ActivityTrackerAdapter.java">org/littleshoot/proxy/ActivityTrackerAdapter.java</a>
                 </td>
                 <td>
                   0
@@ -113,7 +113,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyToServerConnection.java">org/littleshoot/proxy/impl/ProxyToServerConnection.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.ProxyToServerConnection.java">org/littleshoot/proxy/impl/ProxyToServerConnection.java</a>
                 </td>
                 <td>
                   0
@@ -127,7 +127,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyUtils.java">org/littleshoot/proxy/impl/ProxyUtils.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.ProxyUtils.java">org/littleshoot/proxy/impl/ProxyUtils.java</a>
                 </td>
                 <td>
                   0
@@ -141,7 +141,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpFiltersSourceAdapter.java">org/littleshoot/proxy/HttpFiltersSourceAdapter.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.HttpFiltersSourceAdapter.java">org/littleshoot/proxy/HttpFiltersSourceAdapter.java</a>
                 </td>
                 <td>
                   0
@@ -155,7 +155,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpFiltersSource.java">org/littleshoot/proxy/HttpFiltersSource.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.HttpFiltersSource.java">org/littleshoot/proxy/HttpFiltersSource.java</a>
                 </td>
                 <td>
                   0
@@ -169,7 +169,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.TransportProtocol.java">org/littleshoot/proxy/TransportProtocol.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.TransportProtocol.java">org/littleshoot/proxy/TransportProtocol.java</a>
                 </td>
                 <td>
                   0
@@ -183,7 +183,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.FullFlowContext.java">org/littleshoot/proxy/FullFlowContext.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.FullFlowContext.java">org/littleshoot/proxy/FullFlowContext.java</a>
                 </td>
                 <td>
                   0
@@ -197,7 +197,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyConnection.java">org/littleshoot/proxy/impl/ProxyConnection.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.ProxyConnection.java">org/littleshoot/proxy/impl/ProxyConnection.java</a>
                 </td>
                 <td>
                   0
@@ -211,7 +211,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.Launcher.java">org/littleshoot/proxy/Launcher.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.Launcher.java">org/littleshoot/proxy/Launcher.java</a>
                 </td>
                 <td>
                   0
@@ -225,7 +225,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.SslEngineSource.java">org/littleshoot/proxy/SslEngineSource.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.SslEngineSource.java">org/littleshoot/proxy/SslEngineSource.java</a>
                 </td>
                 <td>
                   0
@@ -239,7 +239,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ClientToProxyConnection.java">org/littleshoot/proxy/impl/ClientToProxyConnection.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.ClientToProxyConnection.java">org/littleshoot/proxy/impl/ClientToProxyConnection.java</a>
                 </td>
                 <td>
                   0
@@ -253,7 +253,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.DefaultHttpProxyServer.java">org/littleshoot/proxy/impl/DefaultHttpProxyServer.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.DefaultHttpProxyServer.java">org/littleshoot/proxy/impl/DefaultHttpProxyServer.java</a>
                 </td>
                 <td>
                   0
@@ -267,7 +267,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.NetworkUtils.java">org/littleshoot/proxy/impl/NetworkUtils.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.NetworkUtils.java">org/littleshoot/proxy/impl/NetworkUtils.java</a>
                 </td>
                 <td>
                   0
@@ -281,7 +281,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ProxyAuthenticator.java">org/littleshoot/proxy/ProxyAuthenticator.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.ProxyAuthenticator.java">org/littleshoot/proxy/ProxyAuthenticator.java</a>
                 </td>
                 <td>
                   0
@@ -295,7 +295,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpProxyServer.java">org/littleshoot/proxy/HttpProxyServer.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.HttpProxyServer.java">org/littleshoot/proxy/HttpProxyServer.java</a>
                 </td>
                 <td>
                   0
@@ -309,7 +309,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.HttpFiltersAdapter.java">org/littleshoot/proxy/HttpFiltersAdapter.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.HttpFiltersAdapter.java">org/littleshoot/proxy/HttpFiltersAdapter.java</a>
                 </td>
                 <td>
                   0
@@ -323,7 +323,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.UnknownTransportProtocolError.java">org/littleshoot/proxy/UnknownTransportProtocolError.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.UnknownTransportProtocolError.java">org/littleshoot/proxy/UnknownTransportProtocolError.java</a>
                 </td>
                 <td>
                   0
@@ -337,7 +337,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ActivityTracker.java">org/littleshoot/proxy/ActivityTracker.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.ActivityTracker.java">org/littleshoot/proxy/ActivityTracker.java</a>
                 </td>
                 <td>
                   0
@@ -351,7 +351,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.ChainedProxyManager.java">org/littleshoot/proxy/ChainedProxyManager.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.ChainedProxyManager.java">org/littleshoot/proxy/ChainedProxyManager.java</a>
                 </td>
                 <td>
                   0
@@ -365,7 +365,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ConnectionFlowStep.java">org/littleshoot/proxy/impl/ConnectionFlowStep.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.ConnectionFlowStep.java">org/littleshoot/proxy/impl/ConnectionFlowStep.java</a>
                 </td>
                 <td>
                   0
@@ -379,7 +379,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ConnectionState.java">org/littleshoot/proxy/impl/ConnectionState.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.ConnectionState.java">org/littleshoot/proxy/impl/ConnectionState.java</a>
                 </td>
                 <td>
                   0
@@ -393,7 +393,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ConnectionFlow.java">org/littleshoot/proxy/impl/ConnectionFlow.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.ConnectionFlow.java">org/littleshoot/proxy/impl/ConnectionFlow.java</a>
                 </td>
                 <td>
                   0
@@ -407,7 +407,7 @@
               </tr>
                           <tr>
                 <td>
-                  <a href="http://www.littleshoot.org/littleproxy/checkstyle.html#org.littleshoot.proxy.impl.ProxyConnectionLogger.java">org/littleshoot/proxy/impl/ProxyConnectionLogger.java</a>
+                  <a href="http://adamfisk.github.io/LittleProxy//checkstyle.html#org.littleshoot.proxy.impl.ProxyConnectionLogger.java">org/littleshoot/proxy/impl/ProxyConnectionLogger.java</a>
                 </td>
                 <td>
                   0
