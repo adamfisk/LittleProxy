@@ -8,7 +8,7 @@
   <description>
     LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework. 
   </description>
-  <url>http://adamfisk.github.io/LittleProxy/</url>
+  <url>http://littleproxy.org</url>
 
   <properties>
      <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -18,7 +18,7 @@
 
   <organization>
     <name>LittleShoot</name>
-    <url>http://www.littleshoot.org</url>
+    <url>http://littleproxy.org</url>
   </organization>
 
   <licenses>
