@@ -4,8 +4,8 @@ import org.littleshoot.proxy.impl.ClientToProxyConnection;
 import org.littleshoot.proxy.impl.ProxyToServerConnection;
 
 /**
- * Extension of {@link FullFlowContext} that provides additional information
- * (which we know after actually processing the request from the client).
+ * Extension of {@link FlowContext} that provides additional information (which
+ * we know after actually processing the request from the client).
  */
 public class FullFlowContext extends FlowContext {
     private final String serverHostAndPort;
