@@ -75,7 +75,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
     protected final DefaultHttpProxyServer proxyServer;
-    protected final boolean runsAsSSLClient;
+    protected final boolean runsAsSslClient;
 
     protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
@@ -95,16 +95,16 @@ abstract class ProxyConnection<I extends HttpObject> extends
      *            the state in which this connection starts out
      * @param proxyServer
      *            the {@link DefaultHttpProxyServer} in which we're running
-     * @param runsAsSSLClient
+     * @param runsAsSslClient
      *            determines whether this connection acts as an SSL client or
      *            server (determines who does the handshake)
      */
     protected ProxyConnection(ConnectionState initialState,
             DefaultHttpProxyServer proxyServer,
-            boolean runsAsSSLClient) {
+            boolean runsAsSslClient) {
         become(initialState);
         this.proxyServer = proxyServer;
-        this.runsAsSSLClient = runsAsSSLClient;
+        this.runsAsSslClient = runsAsSslClient;
     }
 
     /***************************************************************************
@@ -336,10 +336,13 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * 
      * @param sslEngine
      *            the {@link SSLEngine} for doing the encryption
+     * @param authenticateClients
+     *            determines whether to authenticate clients or not
      * @return a Future for when the SSL handshake has completed
      */
-    protected Future<Channel> encrypt(SSLEngine sslEngine) {
-        return encrypt(ctx.pipeline(), sslEngine);
+    protected Future<Channel> encrypt(SSLEngine sslEngine,
+            boolean authenticateClients) {
+        return encrypt(ctx.pipeline(), sslEngine, authenticateClients);
     }
 
     /**
@@ -349,15 +352,18 @@ abstract class ProxyConnection<I extends HttpObject> extends
      *            the ChannelPipeline on which to enable encryption
      * @param sslEngine
      *            the {@link SSLEngine} for doing the encryption
+     * @param authenticateClients
+     *            determines whether to authenticate clients or not
      * @return a Future for when the SSL handshake has completed
      */
     protected Future<Channel> encrypt(ChannelPipeline pipeline,
-            SSLEngine sslEngine) {
+            SSLEngine sslEngine,
+            boolean authenticateClients) {
         LOG.debug("Enabling encryption with SSLEngine: {}",
                 sslEngine);
         this.sslEngine = sslEngine;
-        sslEngine.setUseClientMode(runsAsSSLClient);
-        // sslEngine.setNeedClientAuth(!runsAsSSLClient);
+        sslEngine.setUseClientMode(runsAsSslClient);
+        sslEngine.setNeedClientAuth(authenticateClients);
         SslHandler handler = new SslHandler(sslEngine);
         pipeline.addFirst("ssl", handler);
         return handler.handshakeFuture().addListener(
@@ -387,7 +393,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
             @Override
             protected Future<?> execute() {
-                return encrypt(sslEngine);
+                return encrypt(sslEngine, !runsAsSslClient);
             }
         };
     };

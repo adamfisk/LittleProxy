@@ -589,7 +589,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         @Override
         protected Future<?> execute() {
             return clientConnection.encrypt(proxyServer.getMitmManager()
-                    .clientSslEngineFor(sslEngine.getSession()));
+                    .clientSslEngineFor(sslEngine.getSession()), false);
         }
     };
 

@@ -6,12 +6,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.Security;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 
 import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.SslEngineSource;
@@ -31,17 +35,28 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     private static final String PASSWORD = "Be Your Own Lantern";
     private static final String PROTOCOL = "TLS";
     private final File keyStoreFile;
+    private final boolean trustAllServers;
 
     private SSLContext sslContext;
 
-    public SelfSignedSslEngineSource(String keyStorePath) {
+    public SelfSignedSslEngineSource(String keyStorePath,
+            boolean trustAllServers) {
+        this.trustAllServers = trustAllServers;
         this.keyStoreFile = new File(keyStorePath);
         initializeKeyStore();
         initializeSSLContext();
     }
 
+    public SelfSignedSslEngineSource(String keyStorePath) {
+        this(keyStorePath, false);
+    }
+
+    public SelfSignedSslEngineSource(boolean trustAllServers) {
+        this("littleproxy_keystore.jks", trustAllServers);
+    }
+
     public SelfSignedSslEngineSource() {
-        this("littleproxy_keystore.jks");
+        this(false);
     }
 
     @Override
@@ -92,9 +107,34 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
                     .getInstance(algorithm);
             tmf.init(ks);
 
+            TrustManager[] trustManagers = null;
+            if (!trustAllServers) {
+                trustManagers = tmf.getTrustManagers();
+            } else {
+                trustManagers = new TrustManager[] { new X509TrustManager() {
+                    // TrustManager that trusts all servers
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] arg0,
+                            String arg1)
+                            throws CertificateException {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] arg0,
+                            String arg1)
+                            throws CertificateException {
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return null;
+                    }
+                } };
+            }
+
             // Initialize the SSLContext to work with our key managers.
             sslContext = SSLContext.getInstance(PROTOCOL);
-            sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+            sslContext.init(kmf.getKeyManagers(), trustManagers, null);
         } catch (final Exception e) {
             throw new Error(
                     "Failed to initialize the server-side SSLContext", e);

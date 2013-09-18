@@ -9,7 +9,8 @@ import org.littleshoot.proxy.MitmManager;
  * {@link MitmManager} that uses self-signed certs for everything.
  */
 public class SelfSignedMitmManager implements MitmManager {
-    SelfSignedSslEngineSource selfSignedSslEngineSource = new SelfSignedSslEngineSource();
+    SelfSignedSslEngineSource selfSignedSslEngineSource =
+            new SelfSignedSslEngineSource(true);
 
     @Override
     public SSLEngine serverSslEngine() {

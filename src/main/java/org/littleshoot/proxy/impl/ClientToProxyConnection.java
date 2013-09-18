@@ -123,18 +123,20 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         if (sslEngineSource != null) {
             LOG.debug("Enabling encryption of traffic from client to proxy");
-            encrypt(pipeline, sslEngineSource.newSslEngine()).addListener(
-                    new GenericFutureListener<Future<? super Channel>>() {
-                        @Override
-                        public void operationComplete(
-                                Future<? super Channel> future)
-                                throws Exception {
-                            if (future.isSuccess()) {
-                                clientSslSession = sslEngine.getSession();
-                                recordClientSSLHandshakeSucceeded();
-                            }
-                        }
-                    });
+            encrypt(pipeline, sslEngineSource.newSslEngine(), true)
+                    .addListener(
+                            new GenericFutureListener<Future<? super Channel>>() {
+                                @Override
+                                public void operationComplete(
+                                        Future<? super Channel> future)
+                                        throws Exception {
+                                    if (future.isSuccess()) {
+                                        clientSslSession = sslEngine
+                                                .getSession();
+                                        recordClientSSLHandshakeSucceeded();
+                                    }
+                                }
+                            });
         }
 
         LOG.debug("Created ClientToProxyConnection");
@@ -354,7 +356,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return writeToChannel(response);
         };
     };
-    
+
     /**
      * On connect of the client, start waiting for an initial
      * {@link HttpRequest}.
@@ -600,7 +602,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 "idle",
                 new IdleStateHandler(0, 0, proxyServer
                         .getIdleConnectionTimeout()));
-        
+
         pipeline.addLast("handler", this);
     }
 
