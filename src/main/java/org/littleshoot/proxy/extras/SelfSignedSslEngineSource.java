@@ -1,4 +1,4 @@
-package org.littleshoot.proxy;
+package org.littleshoot.proxy.extras;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,17 +14,18 @@ import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManagerFactory;
 
 import org.apache.commons.io.IOUtils;
+import org.littleshoot.proxy.SslEngineSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Basic {@link SslEngineSource} for unit testing. The {@link SSLContext} uses
+ * Basic {@link SslEngineSource} for testing. The {@link SSLContext} uses
  * self-signed certificates that are generated lazily if the given key store
  * file doesn't yet exist.
  */
-public class SelfSignedSSLEngineSource implements SslEngineSource {
+public class SelfSignedSslEngineSource implements SslEngineSource {
     private static final Logger LOG = LoggerFactory
-            .getLogger(SelfSignedSSLEngineSource.class);
+            .getLogger(SelfSignedSslEngineSource.class);
 
     private static final String ALIAS = "littleproxy";
     private static final String PASSWORD = "Be Your Own Lantern";
@@ -33,13 +34,13 @@ public class SelfSignedSSLEngineSource implements SslEngineSource {
 
     private SSLContext sslContext;
 
-    public SelfSignedSSLEngineSource(String keyStorePath) {
+    public SelfSignedSslEngineSource(String keyStorePath) {
         this.keyStoreFile = new File(keyStorePath);
         initializeKeyStore();
         initializeSSLContext();
     }
 
-    public SelfSignedSSLEngineSource() {
+    public SelfSignedSslEngineSource() {
         this("littleproxy_keystore.jks");
     }
 

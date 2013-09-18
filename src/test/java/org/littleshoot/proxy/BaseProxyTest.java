@@ -415,9 +415,18 @@ public abstract class BaseProxyTest {
 
     private void checkStatistics(HttpHost host) {
         boolean isHTTPS = host.getSchemeName().equalsIgnoreCase("HTTPS");
-        int numberOfExpectedClientInteractions = isAuthenticating() ? 2 : 1;
-        int numberOfExpectedServerInteractions = isHTTPS && !isChained() ? 0
-                : 1;
+        int numberOfExpectedClientInteractions = 1;
+        int numberOfExpectedServerInteractions = 1;
+        if (isAuthenticating()) {
+            numberOfExpectedClientInteractions += 1;
+        }
+        if (isHTTPS && isMITM()) {
+            numberOfExpectedClientInteractions += 1;
+            numberOfExpectedServerInteractions += 1;
+        }
+        if (isHTTPS && !isChained()) {
+            numberOfExpectedServerInteractions -= 1;
+        }
         assertTrue(bytesReceivedFromClient.get() > 0);
         assertEquals(numberOfExpectedClientInteractions,
                 requestsReceivedFromClient.get());
@@ -443,6 +452,10 @@ public abstract class BaseProxyTest {
      * Override this to indicate that the test uses authentication.
      */
     protected boolean isAuthenticating() {
+        return false;
+    }
+
+    protected boolean isMITM() {
         return false;
     }
 

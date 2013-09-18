@@ -30,6 +30,8 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import javax.net.ssl.SSLSession;
+
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ActivityTracker;
@@ -38,6 +40,7 @@ import org.littleshoot.proxy.ChainedProxyAdapter;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
 
@@ -145,8 +148,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             Queue<ChainedProxy> availableChainedProxies,
             HttpFilters currentFilters)
             throws UnknownHostException {
-        super(DISCONNECTED, proxyServer, chainedProxy != null ? chainedProxy
-                : null, true);
+        super(DISCONNECTED, proxyServer, true);
         this.clientConnection = clientConnection;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxy = chainedProxy;
@@ -355,8 +357,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return serverHostAndPort;
     }
 
-    public boolean isChained() {
+    public boolean hasDownstreamChainedProxy() {
         return getChainedProxyAddress() != null;
+    }
+
+    public boolean hasUpstreamChainedProxy() {
+        return proxyServer.getSslEngineSource() != null;
     }
 
     public InetSocketAddress getChainedProxyAddress() {
@@ -447,19 +453,49 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 .then(ConnectChannel);
 
         if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-            this.connectionFlow.then(EncryptChannel);
+            this.connectionFlow
+                    .then(EncryptChannel(chainedProxy.newSslEngine()));
         }
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
-            if (isChained()) {
-                // If we're chaining to another proxy, send over the CONNECT
-                // request
+            MitmManager mitmManager = proxyServer.getMitmManager();
+            boolean isMitmEnabled = mitmManager != null;
+
+            if (isMitmEnabled) {
+                boolean clientChannelAlreadyEncrypted = this.sslEngine != null;
+                boolean serverChannelAlreadyEncrypted = clientConnection.sslEngine != null;
+
+                if (!serverChannelAlreadyEncrypted) {
+                    this.connectionFlow.then(
+                            EncryptChannel(mitmManager.serverSslEngine()));
+                }
+
+                this.connectionFlow
+                        .then(clientConnection.RespondCONNECTSuccessful);
+
+                // Encrypt client channel if and only if we haven't already done
+                // so for chaining.
+                if (!clientChannelAlreadyEncrypted) {
+                    this.connectionFlow.then(MitmEncryptClientChannel);
+                }
+            }
+
+            if (hasDownstreamChainedProxy()) {
                 this.connectionFlow.then(HTTPCONNECTWithChainedProxy);
             }
 
-            this.connectionFlow.then(StartTunneling)
-                    .then(clientConnection.RespondCONNECTSuccessful)
-                    .then(clientConnection.StartTunneling);
+            if (!isMitmEnabled || hasDownstreamChainedProxy()) {
+                this.connectionFlow.then(StartTunneling);
+            }
+
+            if (!isMitmEnabled) {
+                this.connectionFlow
+                        .then(clientConnection.RespondCONNECTSuccessful);
+            }
+
+            if (!isMitmEnabled || hasUpstreamChainedProxy()) {
+                this.connectionFlow.then(clientConnection.StartTunneling);
+            }
         }
     }
 
@@ -513,16 +549,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     };
 
     /**
-     * Encrypts the channel.
-     */
-    private ConnectionFlowStep EncryptChannel = new ConnectionFlowStep(this,
-            HANDSHAKING) {
-        protected Future<?> execute() {
-            return encrypt();
-        }
-    };
-
-    /**
      * Writes the HTTP CONNECT to the server and waits for a 200 response.
      */
     private ConnectionFlowStep HTTPCONNECTWithChainedProxy = new ConnectionFlowStep(
@@ -553,6 +579,35 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             } else {
                 flow.fail();
             }
+        }
+    };
+
+    /**
+     * <p>
+     * Encrypts the client channel based on our server {@link SSLSession}.
+     * </p>
+     * 
+     * <p>
+     * This does not wait for the handshake to finish so that we can go on and
+     * respond to the CONNECT request.
+     * </p>
+     */
+    private ConnectionFlowStep MitmEncryptClientChannel = new ConnectionFlowStep(
+            this, HANDSHAKING) {
+        @Override
+        boolean shouldExecuteOnEventLoop() {
+            return false;
+        }
+
+        @Override
+        boolean shouldSuppressInitialRequest() {
+            return true;
+        }
+
+        @Override
+        protected Future<?> execute() {
+            return clientConnection.encrypt(proxyServer.getMitmManager()
+                    .clientSslEngineFor(sslEngine.getSession()));
         }
     };
 
@@ -602,12 +657,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.transportProtocol = chainedProxy.getTransportProtocol();
             this.remoteAddress = chainedProxy.getChainedProxyAddress();
             this.localAddress = chainedProxy.getLocalAddress();
-            this.sslEngineSource = chainedProxy;
         } else {
             this.transportProtocol = TransportProtocol.TCP;
             this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
             this.localAddress = null;
-            this.sslEngineSource = null;
         }
     }
 

@@ -32,6 +32,9 @@ public interface HttpProxyServerBootstrap {
 
     HttpProxyServerBootstrap withChainProxyManager(
             ChainedProxyManager chainProxyManager);
+    
+    HttpProxyServerBootstrap withSslManInTheMiddle(
+            MitmManager mitmManager);
 
     HttpProxyServerBootstrap withFiltersSource(
             HttpFiltersSource filtersSource);

@@ -117,13 +117,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             final DefaultHttpProxyServer proxyServer,
             SslEngineSource sslEngineSource,
             ChannelPipeline pipeline) {
-        super(AWAITING_INITIAL, proxyServer, sslEngineSource, false);
+        super(AWAITING_INITIAL, proxyServer, false);
 
         initChannelPipeline(pipeline);
 
         if (sslEngineSource != null) {
             LOG.debug("Enabling encryption of traffic from client to proxy");
-            encrypt(pipeline).addListener(
+            encrypt(pipeline, sslEngineSource.newSslEngine()).addListener(
                     new GenericFutureListener<Future<? super Channel>>() {
                         @Override
                         public void operationComplete(
@@ -354,7 +354,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return writeToChannel(response);
         };
     };
-
+    
     /**
      * On connect of the client, start waiting for an initial
      * {@link HttpRequest}.
@@ -864,7 +864,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (!proxyServer.isTransparent()) {
             LOG.debug("Modifying request headers for proxying");
 
-            if (!currentServerConnection.isChained()) {
+            if (!currentServerConnection.hasDownstreamChainedProxy()) {
                 LOG.debug("Modifying request for proxy chaining");
                 // Strip host from uri
                 String uri = httpRequest.getUri();
