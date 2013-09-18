@@ -623,13 +623,21 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         public HttpProxyServerBootstrap withChainProxyManager(
                 ChainedProxyManager chainProxyManager) {
             this.chainProxyManager = chainProxyManager;
+            if (this.mitmManager != null) {
+                LOG.warn("Enabled proxy chaining with man in the middle.  These are mutually exclusive - man in the middle will be disabled.");
+                this.mitmManager = null;
+            }
             return this;
         }
 
         @Override
-        public HttpProxyServerBootstrap withSslManInTheMiddle(
+        public HttpProxyServerBootstrap withManInTheMiddle(
                 MitmManager mitmManager) {
             this.mitmManager = mitmManager;
+            if (this.chainProxyManager != null) {
+                LOG.warn("Enabled man in the middle along with proxy chaining.  These are mutually exclusive - proxy chaining will be disabled.");
+                this.chainProxyManager = null;
+            }
             return this;
         }
 

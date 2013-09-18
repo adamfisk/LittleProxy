@@ -30,10 +30,24 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withProxyAuthenticator(
             ProxyAuthenticator proxyAuthenticator);
 
+    /**
+     * Note - This and {@link #withManInTheMiddle(MitmManager)} are currently
+     * mutually exclusive.
+     * 
+     * @param mitmManager
+     * @return
+     */
     HttpProxyServerBootstrap withChainProxyManager(
             ChainedProxyManager chainProxyManager);
-    
-    HttpProxyServerBootstrap withSslManInTheMiddle(
+
+    /**
+     * Note - This and {@link #withChainProxyManager(ChainedProxyManager)} are
+     * currently mutually exclusive.
+     * 
+     * @param mitmManager
+     * @return
+     */
+    HttpProxyServerBootstrap withManInTheMiddle(
             MitmManager mitmManager);
 
     HttpProxyServerBootstrap withFiltersSource(

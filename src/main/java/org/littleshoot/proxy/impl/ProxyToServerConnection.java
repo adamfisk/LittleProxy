@@ -63,6 +63,7 @@ import org.littleshoot.proxy.UnknownTransportProtocolError;
 @Sharable
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private final ClientToProxyConnection clientConnection;
+    private final ProxyToServerConnection serverConnection = this;
     private volatile TransportProtocol transportProtocol;
     private volatile InetSocketAddress remoteAddress;
     private volatile InetSocketAddress localAddress;
@@ -453,8 +454,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 .then(ConnectChannel);
 
         if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-            this.connectionFlow
-                    .then(EncryptChannel(chainedProxy.newSslEngine()));
+            connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
+                    .newSslEngine()));
         }
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
@@ -462,39 +463,20 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             boolean isMitmEnabled = mitmManager != null;
 
             if (isMitmEnabled) {
-                boolean clientChannelAlreadyEncrypted = this.sslEngine != null;
-                boolean serverChannelAlreadyEncrypted = clientConnection.sslEngine != null;
-
-                if (!serverChannelAlreadyEncrypted) {
-                    this.connectionFlow.then(
-                            EncryptChannel(mitmManager.serverSslEngine()));
+                connectionFlow.then(serverConnection.EncryptChannel(
+                        mitmManager.serverSslEngine()))
+                        .then(clientConnection.RespondCONNECTSuccessful)
+                        .then(serverConnection.MitmEncryptClientChannel);
+            } else {
+                // If we're chaining, forward the CONNECT request
+                if (hasDownstreamChainedProxy()) {
+                    connectionFlow.then(
+                            serverConnection.HTTPCONNECTWithChainedProxy);
                 }
 
-                this.connectionFlow
-                        .then(clientConnection.RespondCONNECTSuccessful);
-
-                // Encrypt client channel if and only if we haven't already done
-                // so for chaining.
-                if (!clientChannelAlreadyEncrypted) {
-                    this.connectionFlow.then(MitmEncryptClientChannel);
-                }
-            }
-
-            if (hasDownstreamChainedProxy()) {
-                this.connectionFlow.then(HTTPCONNECTWithChainedProxy);
-            }
-
-            if (!isMitmEnabled || hasDownstreamChainedProxy()) {
-                this.connectionFlow.then(StartTunneling);
-            }
-
-            if (!isMitmEnabled) {
-                this.connectionFlow
-                        .then(clientConnection.RespondCONNECTSuccessful);
-            }
-
-            if (!isMitmEnabled || hasUpstreamChainedProxy()) {
-                this.connectionFlow.then(clientConnection.StartTunneling);
+                connectionFlow.then(serverConnection.StartTunneling)
+                        .then(clientConnection.RespondCONNECTSuccessful)
+                        .then(clientConnection.StartTunneling);
             }
         }
     }
