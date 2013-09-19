@@ -22,6 +22,7 @@ import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -588,8 +589,20 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         @Override
         protected Future<?> execute() {
-            return clientConnection.encrypt(proxyServer.getMitmManager()
-                    .clientSslEngineFor(sslEngine.getSession()), false);
+            return clientConnection
+                    .encrypt(proxyServer.getMitmManager()
+                            .clientSslEngineFor(sslEngine.getSession()), false)
+                    .addListener(
+                            new GenericFutureListener<Future<? super Channel>>() {
+                                @Override
+                                public void operationComplete(
+                                        Future<? super Channel> future)
+                                        throws Exception {
+                                    if (future.isSuccess()) {
+                                        clientConnection.setMitming(true);
+                                    }
+                                }
+                            });
         }
     };
 

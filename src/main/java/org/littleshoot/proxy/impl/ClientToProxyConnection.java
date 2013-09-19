@@ -112,6 +112,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private volatile HttpFilters currentFilters;
 
     private volatile SSLSession clientSslSession;
+    
+    /**
+     * Tracks whether or not this ClientToProxyConnection is current doing MITM. 
+     */
+    private volatile boolean isMitming = false;
 
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
@@ -203,8 +208,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         LOG.debug("Finding ProxyToServerConnection for: {}", serverHostAndPort);
-        currentServerConnection = this.serverConnectionsByHostAndPort
-                .get(serverHostAndPort);
+        currentServerConnection = this.isMitming() ?
+                this.currentServerConnection
+                : this.serverConnectionsByHostAndPort.get(serverHostAndPort);
 
         boolean newConnectionRequired = false;
         if (ProxyUtils.isCONNECT(httpRequest)) {
@@ -1087,6 +1093,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private void writeEmptyBuffer() {
         write(Unpooled.EMPTY_BUFFER);
+    }
+    
+    public boolean isMitming() {
+        return isMitming;
+    }
+    
+    protected void setMitming(boolean isMitming) {
+        this.isMitming = isMitming;
     }
 
     /***************************************************************************
