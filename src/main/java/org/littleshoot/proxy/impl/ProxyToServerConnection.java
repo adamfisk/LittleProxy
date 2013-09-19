@@ -363,10 +363,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return getChainedProxyAddress() != null;
     }
 
-    public boolean hasUpstreamChainedProxy() {
-        return proxyServer.getSslEngineSource() != null;
-    }
-
     public InetSocketAddress getChainedProxyAddress() {
         return chainedProxy == null ? null : chainedProxy
                 .getChainedProxyAddress();
