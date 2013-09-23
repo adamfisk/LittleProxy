@@ -217,7 +217,10 @@ public abstract class BaseProxyTest {
                 httpPostWithApacheClient(new HttpHost("test.localhost"),
                         DEFAULT_RESOURCE, true);
 
-        // The second expected response is what squid returns here.
+        assertReceivedBadGateway(response);
+    }
+
+    protected void assertReceivedBadGateway(String response) {
         assertTrue(
                 "Received: " + response,
                 response.startsWith("Bad Gateway")
@@ -395,22 +398,30 @@ public abstract class BaseProxyTest {
 
     private void compareProxiedAndUnproxiedPOST(HttpHost host,
             String resourceUrl) throws Exception {
-        String unproxiedResponse = httpPostWithApacheClient(host,
-                resourceUrl, false);
         String proxiedResponse = httpPostWithApacheClient(host,
                 resourceUrl, true);
-        assertEquals(unproxiedResponse, proxiedResponse);
-        checkStatistics(host);
+        if (expectBadGatewayForEverything()) {
+            assertReceivedBadGateway(proxiedResponse);
+        } else {
+            String unproxiedResponse = httpPostWithApacheClient(host,
+                    resourceUrl, false);
+            assertEquals(unproxiedResponse, proxiedResponse);
+            checkStatistics(host);
+        }
     }
 
     private void compareProxiedAndUnproxiedGET(HttpHost host,
             String resourceUrl) throws Exception {
-        // String unproxiedResponse = httpGetWithApacheClient(host,
-        // resourceUrl, false);
         String proxiedResponse = httpGetWithApacheClient(host,
                 resourceUrl, true, false);
-        // assertEquals(unproxiedResponse, proxiedResponse);
-        checkStatistics(host);
+        if (expectBadGatewayForEverything()) {
+            assertReceivedBadGateway(proxiedResponse);
+        } else {
+            String unproxiedResponse = httpGetWithApacheClient(host,
+                    resourceUrl, false, false);
+            assertEquals(unproxiedResponse, proxiedResponse);
+            checkStatistics(host);
+        }
     }
 
     private void checkStatistics(HttpHost host) {
@@ -456,6 +467,10 @@ public abstract class BaseProxyTest {
     }
 
     protected boolean isMITM() {
+        return false;
+    }
+
+    protected boolean expectBadGatewayForEverything() {
         return false;
     }
 

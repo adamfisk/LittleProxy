@@ -121,6 +121,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
             SslEngineSource sslEngineSource,
+            boolean authenticateClients,
             ChannelPipeline pipeline) {
         super(AWAITING_INITIAL, proxyServer, false);
 
@@ -128,7 +129,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         if (sslEngineSource != null) {
             LOG.debug("Enabling encryption of traffic from client to proxy");
-            encrypt(pipeline, sslEngineSource.newSslEngine(), true)
+            encrypt(pipeline, sslEngineSource.newSslEngine(), authenticateClients)
                     .addListener(
                             new GenericFutureListener<Future<? super Channel>>() {
                                 @Override

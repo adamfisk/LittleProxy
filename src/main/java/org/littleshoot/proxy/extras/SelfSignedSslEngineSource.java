@@ -10,6 +10,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 
+import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -36,23 +37,29 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     private static final String PROTOCOL = "TLS";
     private final File keyStoreFile;
     private final boolean trustAllServers;
+    private final boolean sendCerts;
 
     private SSLContext sslContext;
 
     public SelfSignedSslEngineSource(String keyStorePath,
-            boolean trustAllServers) {
+            boolean trustAllServers, boolean sendCerts) {
         this.trustAllServers = trustAllServers;
+        this.sendCerts = sendCerts;
         this.keyStoreFile = new File(keyStorePath);
         initializeKeyStore();
         initializeSSLContext();
     }
 
     public SelfSignedSslEngineSource(String keyStorePath) {
-        this(keyStorePath, false);
+        this(keyStorePath, false, true);
     }
 
     public SelfSignedSslEngineSource(boolean trustAllServers) {
-        this("littleproxy_keystore.jks", trustAllServers);
+        this(trustAllServers, true);
+    }
+
+    public SelfSignedSslEngineSource(boolean trustAllServers, boolean sendCerts) {
+        this("littleproxy_keystore.jks", trustAllServers, sendCerts);
     }
 
     public SelfSignedSslEngineSource() {
@@ -131,10 +138,17 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
                     }
                 } };
             }
+            
+            KeyManager[] keyManagers = null;
+            if (sendCerts) {
+                keyManagers = kmf.getKeyManagers();
+            } else {
+                keyManagers = new KeyManager[0];
+            }
 
             // Initialize the SSLContext to work with our key managers.
             sslContext = SSLContext.getInstance(PROTOCOL);
-            sslContext.init(kmf.getKeyManagers(), trustManagers, null);
+            sslContext.init(keyManagers, trustManagers, null);
         } catch (final Exception e) {
             throw new Error(
                     "Failed to initialize the server-side SSLContext", e);

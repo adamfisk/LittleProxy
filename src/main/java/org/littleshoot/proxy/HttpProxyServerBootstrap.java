@@ -27,6 +27,8 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withSslEngineSource(
             SslEngineSource sslEngineSource);
 
+    HttpProxyServerBootstrap withAuthenticateSslClients(boolean authenticateClients);
+
     HttpProxyServerBootstrap withProxyAuthenticator(
             ProxyAuthenticator proxyAuthenticator);
 

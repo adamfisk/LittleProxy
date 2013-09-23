@@ -39,7 +39,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
                     .getTransportProtocol());
         }
     };
-    
+
     private final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
         @Override
         public void requestReceivedFromClient(FlowContext flowContext,
@@ -92,19 +92,25 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
     @Override
     public void testSimplePostRequest() throws Exception {
         super.testSimplePostRequest();
-        assertThatDownstreamProxyReceivedSentRequests();
+        if (!expectBadGatewayForEverything()) {
+            assertThatDownstreamProxyReceivedSentRequests();
+        }
     }
 
     @Override
     public void testSimpleGetRequest() throws Exception {
         super.testSimpleGetRequest();
-        assertThatDownstreamProxyReceivedSentRequests();
+        if (!expectBadGatewayForEverything()) {
+            assertThatDownstreamProxyReceivedSentRequests();
+        }
     }
 
     @Override
     public void testProxyWithBadAddress() throws Exception {
         super.testProxyWithBadAddress();
-        assertThatDownstreamProxyReceivedSentRequests();
+        if (!expectBadGatewayForEverything()) {
+            assertThatDownstreamProxyReceivedSentRequests();
+        }
     }
 
     @Override
