@@ -92,6 +92,11 @@ public abstract class BaseProxyTest {
     protected HttpProxyServer proxyServer;
 
     /**
+     * Holds the most recent response after executing a test method.
+     */
+    protected String lastResponse;
+
+    /**
      * The web server that provides the back-end.
      */
     private Server webServer;
@@ -181,22 +186,26 @@ public abstract class BaseProxyTest {
 
     @Test
     public void testSimpleGetRequest() throws Exception {
-        compareProxiedAndUnproxiedGET(webHost, DEFAULT_RESOURCE);
+        lastResponse =
+                compareProxiedAndUnproxiedGET(webHost, DEFAULT_RESOURCE);
     }
 
     @Test
     public void testSimpleGetRequestOverHTTPS() throws Exception {
-        compareProxiedAndUnproxiedGET(httpsWebHost, DEFAULT_RESOURCE);
+        lastResponse =
+                compareProxiedAndUnproxiedGET(httpsWebHost, DEFAULT_RESOURCE);
     }
 
     @Test
     public void testSimplePostRequest() throws Exception {
-        compareProxiedAndUnproxiedPOST(webHost, DEFAULT_RESOURCE);
+        lastResponse =
+                compareProxiedAndUnproxiedPOST(webHost, DEFAULT_RESOURCE);
     }
 
     @Test
     public void testSimplePostRequestOverHTTPS() throws Exception {
-        compareProxiedAndUnproxiedPOST(httpsWebHost, DEFAULT_RESOURCE);
+        lastResponse =
+                compareProxiedAndUnproxiedPOST(httpsWebHost, DEFAULT_RESOURCE);
     }
 
     /**
@@ -396,7 +405,7 @@ public abstract class BaseProxyTest {
         return httpClient;
     }
 
-    private void compareProxiedAndUnproxiedPOST(HttpHost host,
+    private String compareProxiedAndUnproxiedPOST(HttpHost host,
             String resourceUrl) throws Exception {
         String proxiedResponse = httpPostWithApacheClient(host,
                 resourceUrl, true);
@@ -408,9 +417,10 @@ public abstract class BaseProxyTest {
             assertEquals(unproxiedResponse, proxiedResponse);
             checkStatistics(host);
         }
+        return proxiedResponse;
     }
 
-    private void compareProxiedAndUnproxiedGET(HttpHost host,
+    private String compareProxiedAndUnproxiedGET(HttpHost host,
             String resourceUrl) throws Exception {
         String proxiedResponse = httpGetWithApacheClient(host,
                 resourceUrl, true, false);
@@ -422,6 +432,7 @@ public abstract class BaseProxyTest {
             assertEquals(unproxiedResponse, proxiedResponse);
             checkStatistics(host);
         }
+        return proxiedResponse;
     }
 
     private void checkStatistics(HttpHost host) {
