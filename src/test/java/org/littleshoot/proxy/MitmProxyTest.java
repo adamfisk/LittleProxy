@@ -1,6 +1,8 @@
 package org.littleshoot.proxy;
 
+import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 
 import java.util.Queue;
 
@@ -23,6 +25,35 @@ public class MitmProxyTest extends BaseProxyTest {
                     }
                 })
                 .withManInTheMiddle(new SelfSignedMitmManager())
+                .withFiltersSource(new HttpFiltersSourceAdapter() {
+                    @Override
+                    public HttpFilters filterRequest(HttpRequest originalRequest) {
+                        return new HttpFiltersAdapter(originalRequest) {
+                            @Override
+                            public HttpResponse requestPre(HttpObject httpObject) {
+                                System.out.println("*********** requestPre: " + httpObject);
+                                return null;
+                            }
+
+                            @Override
+                            public HttpResponse requestPost(
+                                    HttpObject httpObject) {
+                                System.out.println("*********** requestPost: " + httpObject);
+                                return null;
+                            }
+
+                            @Override
+                            public void responsePre(HttpObject httpObject) {
+                                System.out.println("*********** responsePre: " + httpObject);
+                            }
+
+                            @Override
+                            public void responsePost(HttpObject httpObject) {
+                                System.out.println("*********** responsePost: " + httpObject);
+                            }
+                        };
+                    }
+                })
                 .start();
     }
 

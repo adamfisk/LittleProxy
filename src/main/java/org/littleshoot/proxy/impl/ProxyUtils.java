@@ -64,7 +64,7 @@ public class ProxyUtils {
 
     // Schemes are case-insensitive:
     // http://tools.ietf.org/html/rfc3986#section-3.1
-    private static Pattern HTTP_PREFIX = Pattern.compile("http.*",
+    private static Pattern HTTP_PREFIX = Pattern.compile("^https?://.*",
             Pattern.CASE_INSENSITIVE);
 
     /**

@@ -366,14 +366,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
         sslEngine.setNeedClientAuth(authenticateClients);
         SslHandler handler = new SslHandler(sslEngine);
         pipeline.addFirst("ssl", handler);
-        return handler.handshakeFuture().addListener(
-                new GenericFutureListener<Future<? super Channel>>() {
-                    @Override
-                    public void operationComplete(Future<? super Channel> future)
-                            throws Exception {
-
-                    }
-                });
+        return handler.handshakeFuture();
     }
 
     /**

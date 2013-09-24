@@ -283,7 +283,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      **************************************************************************/
 
     /**
-     * Semd a response to the client.
+     * Send a response to the client.
      * 
      * @param serverConnection
      *            the ProxyToServerConnection that's responding
