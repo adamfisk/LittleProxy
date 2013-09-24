@@ -231,7 +231,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         proxyServer,
                         this,
                         serverHostAndPort,
-                        currentFilters,
                         httpRequest);
                 // Remember the connection for later
                 serverConnectionsByHostAndPort.put(serverHostAndPort,
@@ -254,7 +253,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         LOG.debug("Writing request to ProxyToServerConnection");
-        currentServerConnection.write(httpRequest);
+        currentServerConnection.write(httpRequest, currentFilters);
 
         // Figure out our next state
         if (ProxyUtils.isCONNECT(httpRequest)) {

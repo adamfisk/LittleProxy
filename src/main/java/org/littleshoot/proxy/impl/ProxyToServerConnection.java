@@ -75,7 +75,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * The filters to apply to response/chunks received from server.
      */
-    private final HttpFilters currentFilters;
+    private volatile HttpFilters currentFilters;
 
     /**
      * Encapsulates the flow for establishing a connection, which can vary
@@ -128,7 +128,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     static ProxyToServerConnection create(DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
             String serverHostAndPort,
-            HttpFilters currentFilters, HttpRequest initialHttpRequest)
+            HttpRequest initialHttpRequest)
             throws UnknownHostException {
         Queue<ChainedProxy> chainedProxies = new ConcurrentLinkedQueue<ChainedProxy>();
         ChainedProxyManager chainedProxyManager = proxyServer
@@ -138,8 +138,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     chainedProxies);
         }
         return new ProxyToServerConnection(proxyServer, clientConnection,
-                serverHostAndPort, chainedProxies.poll(), chainedProxies,
-                currentFilters);
+                serverHostAndPort, chainedProxies.poll(), chainedProxies);
     }
 
     private ProxyToServerConnection(
@@ -147,15 +146,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             ClientToProxyConnection clientConnection,
             String serverHostAndPort,
             ChainedProxy chainedProxy,
-            Queue<ChainedProxy> availableChainedProxies,
-            HttpFilters currentFilters)
+            Queue<ChainedProxy> availableChainedProxies)
             throws UnknownHostException {
         super(DISCONNECTED, proxyServer, true);
         this.clientConnection = clientConnection;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxy = chainedProxy;
         this.availableChainedProxies = availableChainedProxies;
-        this.currentFilters = currentFilters;
         setupConnectionParameters();
     }
 
@@ -236,6 +233,18 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /***************************************************************************
      * Writing
      **************************************************************************/
+
+    /**
+     * Like {@link #write(Object)} and also sets the current filters to the
+     * given value.
+     * 
+     * @param msg
+     * @param filters
+     */
+    void write(Object msg, HttpFilters filters) {
+        this.currentFilters = filters;
+        write(msg);
+    }
 
     @Override
     void write(Object msg) {

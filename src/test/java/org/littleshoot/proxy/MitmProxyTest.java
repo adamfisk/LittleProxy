@@ -22,6 +22,8 @@ public class MitmProxyTest extends BaseProxyTest {
     private Set<HttpMethod> requestPostMethodsSeen = new HashSet<HttpMethod>();
     private StringBuilder responsePreBody = new StringBuilder();
     private StringBuilder responsePostBody = new StringBuilder();
+    private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
+    private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
 
     @Override
     protected void setUp() {
@@ -63,7 +65,10 @@ public class MitmProxyTest extends BaseProxyTest {
 
                             @Override
                             public void responsePre(HttpObject httpObject) {
-                                if (httpObject instanceof HttpContent) {
+                                if (httpObject instanceof HttpResponse) {
+                                    responsePreOriginalRequestMethodsSeen
+                                            .add(originalRequest.getMethod());
+                                } else if (httpObject instanceof HttpContent) {
                                     responsePreBody.append(((HttpContent) httpObject)
                                             .content().toString(
                                                     Charset.forName("UTF-8")));
@@ -72,7 +77,10 @@ public class MitmProxyTest extends BaseProxyTest {
 
                             @Override
                             public void responsePost(HttpObject httpObject) {
-                                if (httpObject instanceof HttpContent) {
+                                if (httpObject instanceof HttpResponse) {
+                                    responsePostOriginalRequestMethodsSeen
+                                            .add(originalRequest.getMethod());
+                                } else if (httpObject instanceof HttpContent) {
                                     responsePostBody.append(((HttpContent) httpObject)
                                             .content().toString(
                                                     Charset.forName("UTF-8")));
@@ -92,38 +100,53 @@ public class MitmProxyTest extends BaseProxyTest {
     @Override
     public void testSimpleGetRequest() throws Exception {
         super.testSimpleGetRequest();
-        assertMethodSeenInFilters(HttpMethod.GET);
+        assertMethodSeenInRequestFilters(HttpMethod.GET);
+        assertMethodSeenInResponseFilters(HttpMethod.GET);
         assertResponseFromFiltersMatchesActualResponse();
     }
 
     @Override
     public void testSimpleGetRequestOverHTTPS() throws Exception {
         super.testSimpleGetRequestOverHTTPS();
-        assertMethodSeenInFilters(HttpMethod.CONNECT);
-        assertMethodSeenInFilters(HttpMethod.GET);
+        assertMethodSeenInRequestFilters(HttpMethod.CONNECT);
+        assertMethodSeenInRequestFilters(HttpMethod.GET);
+        assertMethodSeenInResponseFilters(HttpMethod.GET);
         assertResponseFromFiltersMatchesActualResponse();
     }
 
     @Override
     public void testSimplePostRequest() throws Exception {
         super.testSimplePostRequest();
-        assertMethodSeenInFilters(HttpMethod.POST);
+        assertMethodSeenInRequestFilters(HttpMethod.POST);
+        assertMethodSeenInResponseFilters(HttpMethod.POST);
         assertResponseFromFiltersMatchesActualResponse();
     }
 
     @Override
     public void testSimplePostRequestOverHTTPS() throws Exception {
         super.testSimplePostRequestOverHTTPS();
-        assertMethodSeenInFilters(HttpMethod.CONNECT);
-        assertMethodSeenInFilters(HttpMethod.POST);
+        assertMethodSeenInRequestFilters(HttpMethod.CONNECT);
+        assertMethodSeenInRequestFilters(HttpMethod.POST);
+        assertMethodSeenInResponseFilters(HttpMethod.POST);
         assertResponseFromFiltersMatchesActualResponse();
     }
 
-    private void assertMethodSeenInFilters(HttpMethod method) {
+    private void assertMethodSeenInRequestFilters(HttpMethod method) {
         assertTrue(method + " should have been seen in requestPre filter",
                 requestPreMethodsSeen.contains(method));
         assertTrue(method + " should have been seen in requestPost filter",
                 requestPostMethodsSeen.contains(method));
+    }
+
+    private void assertMethodSeenInResponseFilters(HttpMethod method) {
+        assertTrue(
+                method
+                        + " should have been seen as the original requests's method in responsePre filter",
+                responsePreOriginalRequestMethodsSeen.contains(method));
+        assertTrue(
+                method
+                        + " should have been seen as the original requests's method in responsePost filter",
+                responsePostOriginalRequestMethodsSeen.contains(method));
     }
 
     private void assertResponseFromFiltersMatchesActualResponse() {
