@@ -105,7 +105,15 @@ Release History
 
 ### 1.0.0-beta2 (Basic Man in the Middle Support)
 
-This release added back basic support for Man in the Middle proxying.
+This release added back basic support for Man in the Middle (MITM) proxying.
+The current MITM support is intended primarily for projects that wish to use
+LittleProxy to facilitate HTTP related testing.
+ 
+[Certificate impersonation](https://github.com/adamfisk/LittleProxy/issues/85)
+would need to be implemented in order for LittleProxy to work well in an
+end-user facing capacity.  This release includes the hooks for doing so, through
+the new [MitmManager](src/main/java/org/littleshoot.proxy/MitmManager)
+abstraction.
 
 #### Fixed Bugs
 
