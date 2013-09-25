@@ -103,7 +103,7 @@ compliance testing.
 Release History
 ---------------
 
-### 1.0.0-beta2 (Basic Man in the Middle Support)
+### 1.0.0-beta2 - Basic Man in the Middle Support
 
 This release added back basic support for Man in the Middle (MITM) proxying.
 The current MITM support is intended primarily for projects that wish to use
@@ -125,7 +125,7 @@ abstraction.
 - [#93 Filters on reused ProxyToServerConnections still reference the first HttpRequest that opened the connection](https://github.com/adamfisk/LittleProxy/issues/93)
 
 
-### 1.0.0-beta1 (Netty 4 Upgrade)
+### 1.0.0-beta1 - Netty 4 Upgrade
 
 This release switched LittleProxy from Netty 3 to Netty 4.  As part of the
 upgrade, LittleProxy's public API and internal implementation were significantly
