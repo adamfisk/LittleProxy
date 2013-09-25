@@ -109,7 +109,13 @@ This release added back basic support for Man in the Middle proxying.
 
 #### Fixed Bugs
 
-[#71 Add back Man in the Middle Support](https://github.com/adamfisk/LittleProxy/issues/79)
+- [#79 Add back Man in the Middle Support](https://github.com/adamfisk/LittleProxy/issues/79)
+- [#88 Issue with HTTP 301/302 with MITM](https://github.com/adamfisk/LittleProxy/issues/88)
+- [#90 HTTPS requests without host:port get assigned to a different connection than the one opened with the initial CONNECT](https://github.com/adamfisk/LittleProxy/issues/90)
+- [#91 Allow chained proxies to not do client authentication if they don't want to](https://github.com/adamfisk/LittleProxy/issues/91)
+- [#92 MITM proxying to hosts whose names begin with "http" is broken](https://github.com/adamfisk/LittleProxy/issues/92)
+- [#93 Filters on reused ProxyToServerConnections still reference the first HttpRequest that opened the connection](https://github.com/adamfisk/LittleProxy/issues/93)
+
 
 ### 1.0.0-beta1 (Netty 4 Upgrade)
 
