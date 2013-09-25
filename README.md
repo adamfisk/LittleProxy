@@ -107,7 +107,9 @@ Release History
 
 This release added back basic support for Man in the Middle (MITM) proxying.
 The current MITM support is intended primarily for projects that wish to use
-LittleProxy to facilitate HTTP related testing.
+LittleProxy to facilitate HTTP related testing.  See
+[MitmProxyTest](src/test/java/org/littleshoot/proxy/MitmProxyTest.java) for an
+example of how to use the updated MITM support.
  
 [Certificate impersonation](https://github.com/adamfisk/LittleProxy/issues/85)
 would need to be implemented in order for LittleProxy to work well in an
