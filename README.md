@@ -109,7 +109,7 @@ This release added back basic support for Man in the Middle proxying.
 
 #### Fixed Bugs
 
-#71 Add back Man in the Middle Support
+[#71 Add back Man in the Middle Support](https://github.com/adamfisk/LittleProxy/issues/79)
 
 ### 1.0.0-beta1 (Netty 4 Upgrade)
 
