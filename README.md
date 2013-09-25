@@ -115,7 +115,7 @@ end-user facing capacity.  This release includes the hooks for doing so, through
 the new [MitmManager](src/main/java/org/littleshoot/proxy/MitmManager.java)
 abstraction.
 
-#### Fixed Bugs
+#### Fixed Issues
 
 - [#79 Add back Man in the Middle Support](https://github.com/adamfisk/LittleProxy/issues/79)
 - [#88 Issue with HTTP 301/302 with MITM](https://github.com/adamfisk/LittleProxy/issues/88)
