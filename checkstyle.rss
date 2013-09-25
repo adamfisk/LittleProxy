@@ -8,8 +8,8 @@
     <language>en-us</language>
     <copyright>&#169;2009 - 2013 LittleShoot</copyright>
     <item>
-      <title>File: 28,
-             Errors: 1044,
+      <title>File: 31,
+             Errors: 1196,
              Warnings: 0,
              Infos: 0
       </title>
@@ -52,7 +52,7 @@
                   0
                 </td>
                 <td>
-                  17
+                  68
                 </td>
               </tr>
                           <tr>
@@ -122,7 +122,7 @@
                   0
                 </td>
                 <td>
-                  132
+                  136
                 </td>
               </tr>
                           <tr>
@@ -183,6 +183,20 @@
               </tr>
                           <tr>
                 <td>
+                  <a href="http://littleproxy.org/checkstyle.html#org.littleshoot.proxy.Launcher.java">org/littleshoot/proxy/Launcher.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  16
+                </td>
+              </tr>
+                          <tr>
+                <td>
                   <a href="http://littleproxy.org/checkstyle.html#org.littleshoot.proxy.FullFlowContext.java">org/littleshoot/proxy/FullFlowContext.java</a>
                 </td>
                 <td>
@@ -206,21 +220,7 @@
                   0
                 </td>
                 <td>
-                  155
-                </td>
-              </tr>
-                          <tr>
-                <td>
-                  <a href="http://littleproxy.org/checkstyle.html#org.littleshoot.proxy.Launcher.java">org/littleshoot/proxy/Launcher.java</a>
-                </td>
-                <td>
-                  0
-                </td>
-                <td>
-                  0
-                </td>
-                <td>
-                  10
+                  159
                 </td>
               </tr>
                           <tr>
@@ -248,7 +248,7 @@
                   0
                 </td>
                 <td>
-                  216
+                  230
                 </td>
               </tr>
                           <tr>
@@ -262,7 +262,7 @@
                   0
                 </td>
                 <td>
-                  200
+                  223
                 </td>
               </tr>
                           <tr>
@@ -337,6 +337,20 @@
               </tr>
                           <tr>
                 <td>
+                  <a href="http://littleproxy.org/checkstyle.html#org.littleshoot.proxy.extras.SelfSignedSslEngineSource.java">org/littleshoot/proxy/extras/SelfSignedSslEngineSource.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  38
+                </td>
+              </tr>
+                          <tr>
+                <td>
                   <a href="http://littleproxy.org/checkstyle.html#org.littleshoot.proxy.ActivityTracker.java">org/littleshoot/proxy/ActivityTracker.java</a>
                 </td>
                 <td>
@@ -361,6 +375,20 @@
                 </td>
                 <td>
                   5
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://littleproxy.org/checkstyle.html#org.littleshoot.proxy.MitmManager.java">org/littleshoot/proxy/MitmManager.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  6
                 </td>
               </tr>
                           <tr>
@@ -403,6 +431,20 @@
                 </td>
                 <td>
                   32
+                </td>
+              </tr>
+                          <tr>
+                <td>
+                  <a href="http://littleproxy.org/checkstyle.html#org.littleshoot.proxy.extras.SelfSignedMitmManager.java">org/littleshoot/proxy/extras/SelfSignedMitmManager.java</a>
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  0
+                </td>
+                <td>
+                  6
                 </td>
               </tr>
                           <tr>
