@@ -99,3 +99,22 @@ Acknowledgments
 Many thanks to [The Measurement Factory](http://www.measurement-factory.com/) for the
 use of [Co-Advisor](http://coad.measurement-factory.com/) for HTTP standards
 compliance testing. 
+
+Release History
+---------------
+
+### 1.0.0-beta2 (Basic Man in the Middle Support)
+
+This release added back basic support for Man in the Middle proxying.
+
+#### Fixed Bugs
+
+#71 Add back Man in the Middle Support
+
+### 1.0.0-beta1 (Netty 4 Upgrade)
+
+This release switched LittleProxy from Netty 3 to Netty 4.  As part of the
+upgrade, LittleProxy's public API and internal implementation were significantly
+refactored for maintainability and API stability.
+
+Support for Man in the Middle proxying was temporarily dropped in this release.
