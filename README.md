@@ -112,7 +112,7 @@ LittleProxy to facilitate HTTP related testing.
 [Certificate impersonation](https://github.com/adamfisk/LittleProxy/issues/85)
 would need to be implemented in order for LittleProxy to work well in an
 end-user facing capacity.  This release includes the hooks for doing so, through
-the new [MitmManager](src/main/java/org/littleshoot.proxy/MitmManager)
+the new [MitmManager](src/main/java/org/littleshoot.proxy/MitmManager.java)
 abstraction.
 
 #### Fixed Bugs
