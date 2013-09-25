@@ -26,8 +26,6 @@ import io.netty.util.concurrent.Promise;
 
 import javax.net.ssl.SSLEngine;
 
-import org.littleshoot.proxy.SslEngineSource;
-
 /**
  * <p>
  * Base class for objects that represent a connection to/from our proxy.
@@ -77,8 +75,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
     protected final DefaultHttpProxyServer proxyServer;
-    protected volatile SslEngineSource sslEngineSource;
-    protected final boolean runsAsSSLClient;
+    protected final boolean runsAsSslClient;
 
     protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
@@ -98,22 +95,16 @@ abstract class ProxyConnection<I extends HttpObject> extends
      *            the state in which this connection starts out
      * @param proxyServer
      *            the {@link DefaultHttpProxyServer} in which we're running
-     * @param sslEngineSource
-     *            (optional) if provided, this connection will be encrypted
-     *            using the given an {@link SSLEngine} obtained by calling
-     *            {@link SslEngineSource#newSslEngine()}
-     * @param runsAsSSLClient
+     * @param runsAsSslClient
      *            determines whether this connection acts as an SSL client or
      *            server (determines who does the handshake)
      */
     protected ProxyConnection(ConnectionState initialState,
             DefaultHttpProxyServer proxyServer,
-            SslEngineSource sslEngineSource,
-            boolean runsAsSSLClient) {
+            boolean runsAsSslClient) {
         become(initialState);
         this.proxyServer = proxyServer;
-        this.sslEngineSource = sslEngineSource;
-        this.runsAsSSLClient = runsAsSSLClient;
+        this.runsAsSslClient = runsAsSslClient;
     }
 
     /***************************************************************************
@@ -343,10 +334,15 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Encrypts traffic on this connection with SSL/TLS.
      * 
+     * @param sslEngine
+     *            the {@link SSLEngine} for doing the encryption
+     * @param authenticateClients
+     *            determines whether to authenticate clients or not
      * @return a Future for when the SSL handshake has completed
      */
-    protected Future<Channel> encrypt() {
-        return encrypt(ctx.pipeline());
+    protected Future<Channel> encrypt(SSLEngine sslEngine,
+            boolean authenticateClients) {
+        return encrypt(ctx.pipeline(), sslEngine, authenticateClients);
     }
 
     /**
@@ -354,25 +350,46 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * 
      * @param pipeline
      *            the ChannelPipeline on which to enable encryption
+     * @param sslEngine
+     *            the {@link SSLEngine} for doing the encryption
+     * @param authenticateClients
+     *            determines whether to authenticate clients or not
      * @return a Future for when the SSL handshake has completed
      */
-    protected Future<Channel> encrypt(ChannelPipeline pipeline) {
-        LOG.debug("Enabling encryption with SSLEngineSource: {}",
-                sslEngineSource);
-        sslEngine = sslEngineSource.newSslEngine();
-        sslEngine.setUseClientMode(runsAsSSLClient);
-        sslEngine.setNeedClientAuth(!runsAsSSLClient);
+    protected Future<Channel> encrypt(ChannelPipeline pipeline,
+            SSLEngine sslEngine,
+            boolean authenticateClients) {
+        LOG.debug("Enabling encryption with SSLEngine: {}",
+                sslEngine);
+        this.sslEngine = sslEngine;
+        sslEngine.setUseClientMode(runsAsSslClient);
+        sslEngine.setNeedClientAuth(authenticateClients);
         SslHandler handler = new SslHandler(sslEngine);
         pipeline.addFirst("ssl", handler);
-        return handler.handshakeFuture().addListener(
-                new GenericFutureListener<Future<? super Channel>>() {
-                    @Override
-                    public void operationComplete(Future<? super Channel> future)
-                            throws Exception {
-
-                    }
-                });
+        return handler.handshakeFuture();
     }
+
+    /**
+     * Encrypts the channel using the provided {@link SSLEngine}.
+     * 
+     * @param sslEngine
+     *            the {@link SSLEngine} for doing the encryption
+     */
+    protected ConnectionFlowStep EncryptChannel(
+            final SSLEngine sslEngine) {
+
+        return new ConnectionFlowStep(this, HANDSHAKING) {
+            @Override
+            boolean shouldExecuteOnEventLoop() {
+                return false;
+            }
+
+            @Override
+            protected Future<?> execute() {
+                return encrypt(sslEngine, !runsAsSslClient);
+            }
+        };
+    };
 
     /**
      * Enables decompression and aggregation of content, which is useful for

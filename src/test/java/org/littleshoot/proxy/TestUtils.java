@@ -28,6 +28,7 @@ import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.ssl.SslSocketConnector;
+import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 
 public class TestUtils {
 
@@ -89,7 +90,7 @@ public class TestUtils {
             // Add SSL connector
             org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
 
-            SelfSignedSSLEngineSource contextSource = new SelfSignedSSLEngineSource();
+            SelfSignedSslEngineSource contextSource = new SelfSignedSslEngineSource();
             SSLContext sslContext = contextSource.getSslContext();
 
             sslContextFactory.setSslContext(sslContext);

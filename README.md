@@ -99,3 +99,36 @@ Acknowledgments
 Many thanks to [The Measurement Factory](http://www.measurement-factory.com/) for the
 use of [Co-Advisor](http://coad.measurement-factory.com/) for HTTP standards
 compliance testing. 
+
+Release History
+---------------
+
+### 1.0.0-beta2 (Basic Man in the Middle Support)
+
+This release added back basic support for Man in the Middle (MITM) proxying.
+The current MITM support is intended primarily for projects that wish to use
+LittleProxy to facilitate HTTP related testing.
+ 
+[Certificate impersonation](https://github.com/adamfisk/LittleProxy/issues/85)
+would need to be implemented in order for LittleProxy to work well in an
+end-user facing capacity.  This release includes the hooks for doing so, through
+the new [MitmManager](src/main/java/org/littleshoot/proxy/MitmManager.java)
+abstraction.
+
+#### Fixed Issues
+
+- [#79 Add back Man in the Middle Support](https://github.com/adamfisk/LittleProxy/issues/79)
+- [#88 Issue with HTTP 301/302 with MITM](https://github.com/adamfisk/LittleProxy/issues/88)
+- [#90 HTTPS requests without host:port get assigned to a different connection than the one opened with the initial CONNECT](https://github.com/adamfisk/LittleProxy/issues/90)
+- [#91 Allow chained proxies to not do client authentication if they don't want to](https://github.com/adamfisk/LittleProxy/issues/91)
+- [#92 MITM proxying to hosts whose names begin with "http" is broken](https://github.com/adamfisk/LittleProxy/issues/92)
+- [#93 Filters on reused ProxyToServerConnections still reference the first HttpRequest that opened the connection](https://github.com/adamfisk/LittleProxy/issues/93)
+
+
+### 1.0.0-beta1 (Netty 4 Upgrade)
+
+This release switched LittleProxy from Netty 3 to Netty 4.  As part of the
+upgrade, LittleProxy's public API and internal implementation were significantly
+refactored for maintainability and API stability.
+
+Support for Man in the Middle proxying was temporarily dropped in this release.

@@ -12,6 +12,7 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.PropertyConfigurator;
+import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.littleshoot.proxy.impl.ProxyUtils;
 import org.slf4j.Logger;
@@ -29,6 +30,8 @@ public class Launcher {
     private static final String OPTION_PORT = "port";
 
     private static final String OPTION_HELP = "help";
+    
+    private static final String OPTION_MITM = "mitm";
 
     /**
      * Starts the proxy from the command line.
@@ -45,6 +48,8 @@ public class Launcher {
         options.addOption(null, OPTION_PORT, true, "Run on the specified port.");
         options.addOption(null, OPTION_HELP, false,
                 "Display command line help.");
+        options.addOption(null, OPTION_MITM, false, "Run as man in the middle.");
+        
         final CommandLineParser parser = new PosixParser();
         final CommandLine cmd;
         try {
@@ -82,7 +87,12 @@ public class Launcher {
                 .bootstrapFromFile("./littleproxy.properties")
                 .withPort(port)
                 .withAllowLocalOnly(false);
-
+        
+        if (cmd.hasOption(OPTION_MITM)) {
+            LOG.info("Running as Man in the Middle");
+            bootstrap.withManInTheMiddle(new SelfSignedMitmManager());
+        }
+        
         if (cmd.hasOption(OPTION_DNSSEC)) {
             final String val = cmd.getOptionValue(OPTION_DNSSEC);
             if (ProxyUtils.isTrue(val)) {

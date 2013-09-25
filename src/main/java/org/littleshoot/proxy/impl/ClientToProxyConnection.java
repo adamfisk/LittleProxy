@@ -112,29 +112,37 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private volatile HttpFilters currentFilters;
 
     private volatile SSLSession clientSslSession;
+    
+    /**
+     * Tracks whether or not this ClientToProxyConnection is current doing MITM. 
+     */
+    private volatile boolean mitming = false;
 
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
             SslEngineSource sslEngineSource,
+            boolean authenticateClients,
             ChannelPipeline pipeline) {
-        super(AWAITING_INITIAL, proxyServer, sslEngineSource, false);
+        super(AWAITING_INITIAL, proxyServer, false);
 
         initChannelPipeline(pipeline);
 
         if (sslEngineSource != null) {
             LOG.debug("Enabling encryption of traffic from client to proxy");
-            encrypt(pipeline).addListener(
-                    new GenericFutureListener<Future<? super Channel>>() {
-                        @Override
-                        public void operationComplete(
-                                Future<? super Channel> future)
-                                throws Exception {
-                            if (future.isSuccess()) {
-                                clientSslSession = sslEngine.getSession();
-                                recordClientSSLHandshakeSucceeded();
-                            }
-                        }
-                    });
+            encrypt(pipeline, sslEngineSource.newSslEngine(), authenticateClients)
+                    .addListener(
+                            new GenericFutureListener<Future<? super Channel>>() {
+                                @Override
+                                public void operationComplete(
+                                        Future<? super Channel> future)
+                                        throws Exception {
+                                    if (future.isSuccess()) {
+                                        clientSslSession = sslEngine
+                                                .getSession();
+                                        recordClientSSLHandshakeSucceeded();
+                                    }
+                                }
+                            });
         }
 
         LOG.debug("Created ClientToProxyConnection");
@@ -201,8 +209,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         LOG.debug("Finding ProxyToServerConnection for: {}", serverHostAndPort);
-        currentServerConnection = this.serverConnectionsByHostAndPort
-                .get(serverHostAndPort);
+        currentServerConnection = isMitming() || isTunneling() ?
+                this.currentServerConnection
+                : this.serverConnectionsByHostAndPort.get(serverHostAndPort);
 
         boolean newConnectionRequired = false;
         if (ProxyUtils.isCONNECT(httpRequest)) {
@@ -222,7 +231,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         proxyServer,
                         this,
                         serverHostAndPort,
-                        currentFilters,
                         httpRequest);
                 // Remember the connection for later
                 serverConnectionsByHostAndPort.put(serverHostAndPort,
@@ -245,7 +253,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         LOG.debug("Writing request to ProxyToServerConnection");
-        currentServerConnection.write(httpRequest);
+        currentServerConnection.write(httpRequest, currentFilters);
 
         // Figure out our next state
         if (ProxyUtils.isCONNECT(httpRequest)) {
@@ -274,7 +282,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      **************************************************************************/
 
     /**
-     * Semd a response to the client.
+     * Send a response to the client.
      * 
      * @param serverConnection
      *            the ProxyToServerConnection that's responding
@@ -600,7 +608,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 "idle",
                 new IdleStateHandler(0, 0, proxyServer
                         .getIdleConnectionTimeout()));
-        
+
         pipeline.addLast("handler", this);
     }
 
@@ -864,7 +872,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (!proxyServer.isTransparent()) {
             LOG.debug("Modifying request headers for proxying");
 
-            if (!currentServerConnection.isChained()) {
+            if (!currentServerConnection.hasDownstreamChainedProxy()) {
                 LOG.debug("Modifying request for proxy chaining");
                 // Strip host from uri
                 String uri = httpRequest.getUri();
@@ -1085,6 +1093,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private void writeEmptyBuffer() {
         write(Unpooled.EMPTY_BUFFER);
+    }
+    
+    public boolean isMitming() {
+        return mitming;
+    }
+    
+    protected void setMitming(boolean isMitming) {
+        this.mitming = isMitming;
     }
 
     /***************************************************************************

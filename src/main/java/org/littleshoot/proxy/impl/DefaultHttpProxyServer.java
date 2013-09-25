@@ -47,6 +47,7 @@ import org.littleshoot.proxy.HttpFiltersSource;
 import org.littleshoot.proxy.HttpFiltersSourceAdapter;
 import org.littleshoot.proxy.HttpProxyServer;
 import org.littleshoot.proxy.HttpProxyServerBootstrap;
+import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.SslEngineSource;
 import org.littleshoot.proxy.TransportProtocol;
@@ -89,8 +90,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final TransportProtocol transportProtocol;
     private final InetSocketAddress address;
     private final SslEngineSource sslEngineSource;
+    private final boolean authenticateSslClients;
     private final ProxyAuthenticator proxyAuthenticator;
     private final ChainedProxyManager chainProxyManager;
+    private final MitmManager mitmManager;
     private final HttpFiltersSource filtersSource;
     private final boolean useDnsSec;
     private final boolean transparent;
@@ -140,18 +143,20 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             TransportProtocol transportProtocol,
             InetSocketAddress address,
             SslEngineSource sslEngineSource,
+            boolean authenticateSslClients,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
+            MitmManager mitmManager,
             HttpFiltersSource filterSource,
             boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers) {
         this(new ServerGroup(name), transportProtocol, address,
-                sslEngineSource,
-                proxyAuthenticator, chainProxyManager, filterSource, useDnsSec,
-                transparent, idleConnectionTimeout,
-                activityTrackers);
+                sslEngineSource, authenticateSslClients, proxyAuthenticator,
+                chainProxyManager,
+                mitmManager, filterSource, useDnsSec, transparent,
+                idleConnectionTimeout, activityTrackers);
     }
 
     /**
@@ -171,6 +176,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            (optional) if specified, this Proxy will encrypt inbound
      *            connections from clients using an {@link SSLEngine} obtained
      *            from this {@link SslEngineSource}.
+     * @param authenticateSslClients
+     *            Indicate whether or not to authenticate clients when using SSL
      * @param proxyAuthenticator
      *            (optional) If specified, requests to the proxy will be
      *            authenticated using HTTP BASIC authentication per the provided
@@ -178,6 +185,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param chainProxyManager
      *            The proxy to send requests to if chaining proxies. Typically
      *            <code>null</code>.
+     * @param mitmManager
+     *            The {@link MitmManager} to use for man in the middle'ing
+     *            CONNECT requests
      * @param filtersSource
      *            Source for {@link HttpFilters}
      * @param useDnsSec
@@ -195,8 +205,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             TransportProtocol transportProtocol,
             InetSocketAddress address,
             SslEngineSource sslEngineSource,
+            boolean authenticateSslClients,
             ProxyAuthenticator proxyAuthenticator,
             ChainedProxyManager chainProxyManager,
+            MitmManager mitmManager,
             HttpFiltersSource filtersSource,
             boolean useDnsSec,
             boolean transparent,
@@ -206,8 +218,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.transportProtocol = transportProtocol;
         this.address = address;
         this.sslEngineSource = sslEngineSource;
+        this.authenticateSslClients = authenticateSslClients;
         this.proxyAuthenticator = proxyAuthenticator;
         this.chainProxyManager = chainProxyManager;
+        this.mitmManager = mitmManager;
         this.filtersSource = filtersSource;
         this.useDnsSec = useDnsSec;
         this.transparent = transparent;
@@ -238,8 +252,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return new DefaultHttpProxyServerBootstrap(this, transportProtocol,
                 new InetSocketAddress(address.getAddress(),
                         address.getPort() + 1),
-                sslEngineSource, proxyAuthenticator, chainProxyManager,
-                filtersSource, useDnsSec, transparent,
+                sslEngineSource, authenticateSslClients, proxyAuthenticator,
+                chainProxyManager,
+                mitmManager, filtersSource, useDnsSec, transparent,
                 idleConnectionTimeout, activityTrackers);
     }
 
@@ -272,6 +287,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 new ClientToProxyConnection(
                         DefaultHttpProxyServer.this,
                         sslEngineSource,
+                        authenticateSslClients,
                         ch.pipeline());
             };
         };
@@ -315,6 +331,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     protected ChainedProxyManager getChainProxyManager() {
         return chainProxyManager;
+    }
+
+    protected MitmManager getMitmManager() {
+        return mitmManager;
     }
 
     protected SslEngineSource getSslEngineSource() {
@@ -478,7 +498,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
             LOG.info("Done shutting down proxy");
         }
-        
+
         private class CategorizedThreadFactory implements ThreadFactory {
             private String category;
             private int num = 0;
@@ -505,8 +525,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private boolean allowLocalOnly = true;
         private boolean listenOnAllAddresses = true;
         private SslEngineSource sslEngineSource = null;
+        private boolean authenticateSslClients = true;
         private ProxyAuthenticator proxyAuthenticator = null;
         private ChainedProxyManager chainProxyManager = null;
+        private MitmManager mitmManager = null;
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
         private boolean useDnsSec = false;
         private boolean transparent = false;
@@ -521,9 +543,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 DefaultHttpProxyServer original,
                 TransportProtocol transportProtocol,
                 InetSocketAddress address,
-                SslEngineSource sslContextSource,
+                SslEngineSource sslEngineSource,
+                boolean authenticateSslClients,
                 ProxyAuthenticator proxyAuthenticator,
                 ChainedProxyManager chainProxyManager,
+                MitmManager mitmManager,
                 HttpFiltersSource filtersSource, boolean useDnsSec,
                 boolean transparent, int idleConnectionTimeout,
                 Collection<ActivityTracker> activityTrackers) {
@@ -531,7 +555,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.transportProtocol = transportProtocol;
             this.address = address;
             this.port = address.getPort();
-            this.sslEngineSource = sslContextSource;
+            this.sslEngineSource = sslEngineSource;
+            this.authenticateSslClients = authenticateSslClients;
             this.proxyAuthenticator = proxyAuthenticator;
             this.chainProxyManager = chainProxyManager;
             this.filtersSource = filtersSource;
@@ -599,6 +624,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withAuthenticateSslClients(
+                boolean authenticateSslClients) {
+            this.authenticateSslClients = authenticateSslClients;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap withProxyAuthenticator(
                 ProxyAuthenticator proxyAuthenticator) {
             this.proxyAuthenticator = proxyAuthenticator;
@@ -609,6 +641,21 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         public HttpProxyServerBootstrap withChainProxyManager(
                 ChainedProxyManager chainProxyManager) {
             this.chainProxyManager = chainProxyManager;
+            if (this.mitmManager != null) {
+                LOG.warn("Enabled proxy chaining with man in the middle.  These are mutually exclusive - man in the middle will be disabled.");
+                this.mitmManager = null;
+            }
+            return this;
+        }
+
+        @Override
+        public HttpProxyServerBootstrap withManInTheMiddle(
+                MitmManager mitmManager) {
+            this.mitmManager = mitmManager;
+            if (this.chainProxyManager != null) {
+                LOG.warn("Enabled man in the middle along with proxy chaining.  These are mutually exclusive - proxy chaining will be disabled.");
+                this.chainProxyManager = null;
+            }
             return this;
         }
 
@@ -655,17 +702,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             if (original != null) {
                 return new DefaultHttpProxyServer(original.serverGroup,
                         transportProtocol, determineListenAddress(),
-                        original.sslEngineSource,
-                        proxyAuthenticator, chainProxyManager, filtersSource,
-                        useDnsSec, transparent, idleConnectionTimeout,
-                        activityTrackers);
+                        original.sslEngineSource, authenticateSslClients,
+                        proxyAuthenticator, chainProxyManager, mitmManager,
+                        filtersSource, useDnsSec, transparent,
+                        idleConnectionTimeout, activityTrackers);
             } else {
                 return new DefaultHttpProxyServer(
                         name, transportProtocol, determineListenAddress(),
-                        sslEngineSource,
-                        proxyAuthenticator, chainProxyManager, filtersSource,
-                        useDnsSec, transparent, idleConnectionTimeout,
-                        activityTrackers);
+                        sslEngineSource, authenticateSslClients,
+                        proxyAuthenticator, chainProxyManager, mitmManager,
+                        filtersSource, useDnsSec, transparent,
+                        idleConnectionTimeout, activityTrackers);
             }
         }
 
