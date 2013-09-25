@@ -22,6 +22,7 @@ import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -29,6 +30,8 @@ import java.net.UnknownHostException;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+
+import javax.net.ssl.SSLSession;
 
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.dnssec4j.VerifiedAddressFactory;
@@ -38,6 +41,7 @@ import org.littleshoot.proxy.ChainedProxyAdapter;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
 
@@ -60,6 +64,7 @@ import org.littleshoot.proxy.UnknownTransportProtocolError;
 @Sharable
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private final ClientToProxyConnection clientConnection;
+    private final ProxyToServerConnection serverConnection = this;
     private volatile TransportProtocol transportProtocol;
     private volatile InetSocketAddress remoteAddress;
     private volatile InetSocketAddress localAddress;
@@ -70,7 +75,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * The filters to apply to response/chunks received from server.
      */
-    private final HttpFilters currentFilters;
+    private volatile HttpFilters currentFilters;
 
     /**
      * Encapsulates the flow for establishing a connection, which can vary
@@ -123,7 +128,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     static ProxyToServerConnection create(DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
             String serverHostAndPort,
-            HttpFilters currentFilters, HttpRequest initialHttpRequest)
+            HttpRequest initialHttpRequest)
             throws UnknownHostException {
         Queue<ChainedProxy> chainedProxies = new ConcurrentLinkedQueue<ChainedProxy>();
         ChainedProxyManager chainedProxyManager = proxyServer
@@ -133,8 +138,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     chainedProxies);
         }
         return new ProxyToServerConnection(proxyServer, clientConnection,
-                serverHostAndPort, chainedProxies.poll(), chainedProxies,
-                currentFilters);
+                serverHostAndPort, chainedProxies.poll(), chainedProxies);
     }
 
     private ProxyToServerConnection(
@@ -142,16 +146,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             ClientToProxyConnection clientConnection,
             String serverHostAndPort,
             ChainedProxy chainedProxy,
-            Queue<ChainedProxy> availableChainedProxies,
-            HttpFilters currentFilters)
+            Queue<ChainedProxy> availableChainedProxies)
             throws UnknownHostException {
-        super(DISCONNECTED, proxyServer, chainedProxy != null ? chainedProxy
-                : null, true);
+        super(DISCONNECTED, proxyServer, true);
         this.clientConnection = clientConnection;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxy = chainedProxy;
         this.availableChainedProxies = availableChainedProxies;
-        this.currentFilters = currentFilters;
         setupConnectionParameters();
     }
 
@@ -232,6 +233,18 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /***************************************************************************
      * Writing
      **************************************************************************/
+
+    /**
+     * Like {@link #write(Object)} and also sets the current filters to the
+     * given value.
+     * 
+     * @param msg
+     * @param filters
+     */
+    void write(Object msg, HttpFilters filters) {
+        this.currentFilters = filters;
+        write(msg);
+    }
 
     @Override
     void write(Object msg) {
@@ -355,7 +368,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return serverHostAndPort;
     }
 
-    public boolean isChained() {
+    public boolean hasDownstreamChainedProxy() {
         return getChainedProxyAddress() != null;
     }
 
@@ -447,19 +460,30 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 .then(ConnectChannel);
 
         if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-            this.connectionFlow.then(EncryptChannel);
+            connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
+                    .newSslEngine()));
         }
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
-            if (isChained()) {
-                // If we're chaining to another proxy, send over the CONNECT
-                // request
-                this.connectionFlow.then(HTTPCONNECTWithChainedProxy);
-            }
+            MitmManager mitmManager = proxyServer.getMitmManager();
+            boolean isMitmEnabled = mitmManager != null;
 
-            this.connectionFlow.then(StartTunneling)
-                    .then(clientConnection.RespondCONNECTSuccessful)
-                    .then(clientConnection.StartTunneling);
+            if (isMitmEnabled) {
+                connectionFlow.then(serverConnection.EncryptChannel(
+                        mitmManager.serverSslEngine()))
+                        .then(clientConnection.RespondCONNECTSuccessful)
+                        .then(serverConnection.MitmEncryptClientChannel);
+            } else {
+                // If we're chaining, forward the CONNECT request
+                if (hasDownstreamChainedProxy()) {
+                    connectionFlow.then(
+                            serverConnection.HTTPCONNECTWithChainedProxy);
+                }
+
+                connectionFlow.then(serverConnection.StartTunneling)
+                        .then(clientConnection.RespondCONNECTSuccessful)
+                        .then(clientConnection.StartTunneling);
+            }
         }
     }
 
@@ -513,16 +537,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     };
 
     /**
-     * Encrypts the channel.
-     */
-    private ConnectionFlowStep EncryptChannel = new ConnectionFlowStep(this,
-            HANDSHAKING) {
-        protected Future<?> execute() {
-            return encrypt();
-        }
-    };
-
-    /**
      * Writes the HTTP CONNECT to the server and waits for a 200 response.
      */
     private ConnectionFlowStep HTTPCONNECTWithChainedProxy = new ConnectionFlowStep(
@@ -553,6 +567,47 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             } else {
                 flow.fail();
             }
+        }
+    };
+
+    /**
+     * <p>
+     * Encrypts the client channel based on our server {@link SSLSession}.
+     * </p>
+     * 
+     * <p>
+     * This does not wait for the handshake to finish so that we can go on and
+     * respond to the CONNECT request.
+     * </p>
+     */
+    private ConnectionFlowStep MitmEncryptClientChannel = new ConnectionFlowStep(
+            this, HANDSHAKING) {
+        @Override
+        boolean shouldExecuteOnEventLoop() {
+            return false;
+        }
+
+        @Override
+        boolean shouldSuppressInitialRequest() {
+            return true;
+        }
+
+        @Override
+        protected Future<?> execute() {
+            return clientConnection
+                    .encrypt(proxyServer.getMitmManager()
+                            .clientSslEngineFor(sslEngine.getSession()), false)
+                    .addListener(
+                            new GenericFutureListener<Future<? super Channel>>() {
+                                @Override
+                                public void operationComplete(
+                                        Future<? super Channel> future)
+                                        throws Exception {
+                                    if (future.isSuccess()) {
+                                        clientConnection.setMitming(true);
+                                    }
+                                }
+                            });
         }
     };
 
@@ -602,12 +657,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.transportProtocol = chainedProxy.getTransportProtocol();
             this.remoteAddress = chainedProxy.getChainedProxyAddress();
             this.localAddress = chainedProxy.getLocalAddress();
-            this.sslEngineSource = chainedProxy;
         } else {
             this.transportProtocol = TransportProtocol.TCP;
             this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
             this.localAddress = null;
-            this.sslEngineSource = null;
         }
     }
 

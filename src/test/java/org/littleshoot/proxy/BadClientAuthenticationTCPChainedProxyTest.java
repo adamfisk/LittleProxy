@@ -6,15 +6,28 @@ import javax.net.ssl.SSLEngine;
 
 import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 
-public class EncryptedUDTChainedProxyTest extends BaseChainedProxyTest {
-    private final SslEngineSource sslEngineSource = new SelfSignedSslEngineSource(
+/**
+ * Tests that clients are authenticated and that if they're missing certs, we
+ * get an error.
+ */
+public class BadClientAuthenticationTCPChainedProxyTest extends
+        BaseChainedProxyTest {
+    private final SslEngineSource serverSslEngineSource = new SelfSignedSslEngineSource(
             "chain_proxy_keystore_1.jks");
+    
+    private final SslEngineSource clientSslEngineSource = new SelfSignedSslEngineSource(
+            "chain_proxy_keystore_1.jks", false, false);
 
+    @Override
+    protected boolean expectBadGatewayForEverything() {
+        return true;
+    }
+    
     @Override
     protected HttpProxyServerBootstrap downstreamProxy() {
         return super.downstreamProxy()
-                .withTransportProtocol(UDT)
-                .withSslEngineSource(sslEngineSource);
+                .withTransportProtocol(TCP)
+                .withSslEngineSource(serverSslEngineSource);
     }
 
     @Override
@@ -22,7 +35,7 @@ public class EncryptedUDTChainedProxyTest extends BaseChainedProxyTest {
         return new BaseChainedProxy() {
             @Override
             public TransportProtocol getTransportProtocol() {
-                return TransportProtocol.UDT;
+                return TransportProtocol.TCP;
             }
 
             @Override
@@ -32,7 +45,7 @@ public class EncryptedUDTChainedProxyTest extends BaseChainedProxyTest {
 
             @Override
             public SSLEngine newSslEngine() {
-                return sslEngineSource.newSslEngine();
+                return clientSslEngineSource.newSslEngine();
             }
         };
     }

@@ -92,6 +92,11 @@ public abstract class BaseProxyTest {
     protected HttpProxyServer proxyServer;
 
     /**
+     * Holds the most recent response after executing a test method.
+     */
+    protected String lastResponse;
+
+    /**
      * The web server that provides the back-end.
      */
     private Server webServer;
@@ -181,22 +186,26 @@ public abstract class BaseProxyTest {
 
     @Test
     public void testSimpleGetRequest() throws Exception {
-        compareProxiedAndUnproxiedGET(webHost, DEFAULT_RESOURCE);
+        lastResponse =
+                compareProxiedAndUnproxiedGET(webHost, DEFAULT_RESOURCE);
     }
 
     @Test
     public void testSimpleGetRequestOverHTTPS() throws Exception {
-        compareProxiedAndUnproxiedGET(httpsWebHost, DEFAULT_RESOURCE);
+        lastResponse =
+                compareProxiedAndUnproxiedGET(httpsWebHost, DEFAULT_RESOURCE);
     }
 
     @Test
     public void testSimplePostRequest() throws Exception {
-        compareProxiedAndUnproxiedPOST(webHost, DEFAULT_RESOURCE);
+        lastResponse =
+                compareProxiedAndUnproxiedPOST(webHost, DEFAULT_RESOURCE);
     }
 
     @Test
     public void testSimplePostRequestOverHTTPS() throws Exception {
-        compareProxiedAndUnproxiedPOST(httpsWebHost, DEFAULT_RESOURCE);
+        lastResponse =
+                compareProxiedAndUnproxiedPOST(httpsWebHost, DEFAULT_RESOURCE);
     }
 
     /**
@@ -217,7 +226,10 @@ public abstract class BaseProxyTest {
                 httpPostWithApacheClient(new HttpHost("test.localhost"),
                         DEFAULT_RESOURCE, true);
 
-        // The second expected response is what squid returns here.
+        assertReceivedBadGateway(response);
+    }
+
+    protected void assertReceivedBadGateway(String response) {
         assertTrue(
                 "Received: " + response,
                 response.startsWith("Bad Gateway")
@@ -393,31 +405,50 @@ public abstract class BaseProxyTest {
         return httpClient;
     }
 
-    private void compareProxiedAndUnproxiedPOST(HttpHost host,
+    private String compareProxiedAndUnproxiedPOST(HttpHost host,
             String resourceUrl) throws Exception {
-        String unproxiedResponse = httpPostWithApacheClient(host,
-                resourceUrl, false);
         String proxiedResponse = httpPostWithApacheClient(host,
                 resourceUrl, true);
-        assertEquals(unproxiedResponse, proxiedResponse);
-        checkStatistics(host);
+        if (expectBadGatewayForEverything()) {
+            assertReceivedBadGateway(proxiedResponse);
+        } else {
+            String unproxiedResponse = httpPostWithApacheClient(host,
+                    resourceUrl, false);
+            assertEquals(unproxiedResponse, proxiedResponse);
+            checkStatistics(host);
+        }
+        return proxiedResponse;
     }
 
-    private void compareProxiedAndUnproxiedGET(HttpHost host,
+    private String compareProxiedAndUnproxiedGET(HttpHost host,
             String resourceUrl) throws Exception {
-        // String unproxiedResponse = httpGetWithApacheClient(host,
-        // resourceUrl, false);
         String proxiedResponse = httpGetWithApacheClient(host,
                 resourceUrl, true, false);
-        // assertEquals(unproxiedResponse, proxiedResponse);
-        checkStatistics(host);
+        if (expectBadGatewayForEverything()) {
+            assertReceivedBadGateway(proxiedResponse);
+        } else {
+            String unproxiedResponse = httpGetWithApacheClient(host,
+                    resourceUrl, false, false);
+            assertEquals(unproxiedResponse, proxiedResponse);
+            checkStatistics(host);
+        }
+        return proxiedResponse;
     }
 
     private void checkStatistics(HttpHost host) {
         boolean isHTTPS = host.getSchemeName().equalsIgnoreCase("HTTPS");
-        int numberOfExpectedClientInteractions = isAuthenticating() ? 2 : 1;
-        int numberOfExpectedServerInteractions = isHTTPS && !isChained() ? 0
-                : 1;
+        int numberOfExpectedClientInteractions = 1;
+        int numberOfExpectedServerInteractions = 1;
+        if (isAuthenticating()) {
+            numberOfExpectedClientInteractions += 1;
+        }
+        if (isHTTPS && isMITM()) {
+            numberOfExpectedClientInteractions += 1;
+            numberOfExpectedServerInteractions += 1;
+        }
+        if (isHTTPS && !isChained()) {
+            numberOfExpectedServerInteractions -= 1;
+        }
         assertTrue(bytesReceivedFromClient.get() > 0);
         assertEquals(numberOfExpectedClientInteractions,
                 requestsReceivedFromClient.get());
@@ -443,6 +474,14 @@ public abstract class BaseProxyTest {
      * Override this to indicate that the test uses authentication.
      */
     protected boolean isAuthenticating() {
+        return false;
+    }
+
+    protected boolean isMITM() {
+        return false;
+    }
+
+    protected boolean expectBadGatewayForEverything() {
         return false;
     }
 
