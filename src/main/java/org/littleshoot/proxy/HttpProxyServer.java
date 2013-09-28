@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import java.net.InetSocketAddress;
+
 /**
  * Interface for the top-level proxy server class.
  */
@@ -31,4 +33,10 @@ public interface HttpProxyServer {
      */
     void stop();
 
+    /**
+     * Return the address on which this proxy is listening.
+     * 
+     * @return
+     */
+    InetSocketAddress getAddress();
 }

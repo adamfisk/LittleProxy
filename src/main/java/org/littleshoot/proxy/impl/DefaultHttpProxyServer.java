@@ -231,11 +231,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
     }
 
-    public boolean isUseDnsSec() {
+    boolean isUseDnsSec() {
         return useDnsSec;
     }
 
-    public boolean isTransparent() {
+    boolean isTransparent() {
         return transparent;
     }
 
@@ -245,6 +245,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     public void setIdleConnectionTimeout(int idleConnectionTimeout) {
         this.idleConnectionTimeout = idleConnectionTimeout;
+    }
+    
+    @Override
+    public InetSocketAddress getAddress() {
+        return address;
     }
 
     @Override
@@ -721,8 +726,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 return address;
             } else {
                 // Binding only to localhost can significantly improve the
-                // security of
-                // the proxy.
+                // security of the proxy.
                 if (allowLocalOnly) {
                     return new InetSocketAddress("127.0.0.1", port);
                 } else if (listenOnAllAddresses) {
