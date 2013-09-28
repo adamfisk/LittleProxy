@@ -248,7 +248,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
     
     @Override
-    public InetSocketAddress getAddress() {
+    public InetSocketAddress getListenAddress() {
         return address;
     }
 

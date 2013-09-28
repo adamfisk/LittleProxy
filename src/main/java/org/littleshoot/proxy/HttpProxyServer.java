@@ -38,5 +38,5 @@ public interface HttpProxyServer {
      * 
      * @return
      */
-    InetSocketAddress getAddress();
+    InetSocketAddress getListenAddress();
 }
