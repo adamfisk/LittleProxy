@@ -24,6 +24,7 @@ import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
+import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -44,6 +45,7 @@ import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
+import org.slf4j.spi.LocationAwareLogger;
 
 /**
  * <p>
@@ -323,22 +325,18 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void exceptionCaught(Throwable cause) {
         String message = "Caught exception on proxy -> web connection";
-        boolean reportAsError = cause == null
-                || cause.getMessage() == null
-                || !cause.getMessage().contains("Connection reset by peer");
-
-        if (reportAsError) {
-            LOG.error(message, cause);
-        } else {
-            LOG.warn(message, cause);
+        int logLevel = LocationAwareLogger.WARN_INT;
+        if (cause != null && cause.getMessage() != null) {
+            if (cause.getMessage().contains("Connection reset by peer")) {
+                logLevel = LocationAwareLogger.DEBUG_INT;
+            } else if (cause instanceof ConnectException) {
+                logLevel = LocationAwareLogger.DEBUG_INT;
+            }
         }
+        LOG.log(logLevel, message, cause);
 
         if (!is(DISCONNECTED)) {
-            if (reportAsError) {
-                LOG.error("Disconnecting open connection");
-            } else {
-                LOG.warn("Disconnecting open connection");
-            }
+            LOG.log(logLevel, "Disconnecting open connection");
             disconnect();
         }
         // This can happen if we couldn't make the initial connection due

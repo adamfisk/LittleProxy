@@ -75,6 +75,18 @@ class ProxyConnectionLogger {
         }
     }
 
+    protected void log(int level, String message, Object... params) {
+        if (level != LocationAwareLogger.DEBUG_INT || logger.isDebugEnabled()) {
+            doLog(level, message, params, null);
+        }
+    }
+    
+    protected void log(int level, String message, Throwable t) {
+        if (level != LocationAwareLogger.DEBUG_INT || logger.isDebugEnabled()) {
+            doLog(level, message, null, t);
+        }
+    }
+    
     private void doLog(int level, String message, Object[] params, Throwable t) {
         String formattedMessage = fullMessage(message);
         if (params != null && params.length > 0) {
