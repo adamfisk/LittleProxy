@@ -326,11 +326,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected void exceptionCaught(Throwable cause) {
         String message = "Caught exception on proxy -> web connection";
         int logLevel = LocationAwareLogger.WARN_INT;
-        if (cause != null && cause.getMessage() != null) {
-            if (cause.getMessage().contains("Connection reset by peer")) {
+        if (cause != null) {
+            String causeMessage = cause.getMessage();
+            if (cause instanceof ConnectException) {
                 logLevel = LocationAwareLogger.DEBUG_INT;
-            } else if (cause instanceof ConnectException) {
-                logLevel = LocationAwareLogger.DEBUG_INT;
+            } else if (causeMessage != null) {
+                if (causeMessage.contains("Connection reset by peer")) {
+                    logLevel = LocationAwareLogger.DEBUG_INT;
+                } else if (causeMessage.contains("event executor terminated")) {
+                    logLevel = LocationAwareLogger.DEBUG_INT;
+                }
             }
         }
         LOG.log(logLevel, message, cause);
