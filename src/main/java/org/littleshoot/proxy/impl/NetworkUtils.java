@@ -63,7 +63,7 @@ public class NetworkUtils {
             final InetAddress address = sock.getLocalAddress();
             return address;
         } catch (final SocketException e) {
-            LOG.warn("Exception getting address", e);
+            LOG.info("Exception getting address", e);
             return InetAddress.getLocalHost();
         } finally {
             if (sock != null) {
