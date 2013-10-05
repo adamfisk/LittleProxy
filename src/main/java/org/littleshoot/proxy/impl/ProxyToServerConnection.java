@@ -255,15 +255,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             ((ReferenceCounted) msg).retain();
         }
 
-        if (is(DISCONNECTED)) {
-            if (msg instanceof HttpRequest) {
-                LOG.debug("Currently disconnected, connect and then write the message");
-                connectAndWrite((HttpRequest) msg);
-            } else {
-                LOG.warn(
-                        "Received something other than an HttpRequest while disconnected, this shouldn't happen: {}",
-                        msg);
-            }
+        if (is(DISCONNECTED) && msg instanceof HttpRequest) {
+            LOG.debug("Currently disconnected, connect and then write the message");
+            connectAndWrite((HttpRequest) msg);
         } else {
             synchronized (connectLock) {
                 if (isConnecting()) {
