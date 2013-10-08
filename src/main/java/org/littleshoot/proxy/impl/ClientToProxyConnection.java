@@ -112,9 +112,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private volatile HttpFilters currentFilters;
 
     private volatile SSLSession clientSslSession;
-    
+
     /**
-     * Tracks whether or not this ClientToProxyConnection is current doing MITM. 
+     * Tracks whether or not this ClientToProxyConnection is current doing MITM.
      */
     private volatile boolean mitming = false;
 
@@ -129,7 +129,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         if (sslEngineSource != null) {
             LOG.debug("Enabling encryption of traffic from client to proxy");
-            encrypt(pipeline, sslEngineSource.newSslEngine(), authenticateClients)
+            encrypt(pipeline, sslEngineSource.newSslEngine(),
+                    authenticateClients)
                     .addListener(
                             new GenericFutureListener<Future<? super Channel>>() {
                                 @Override
@@ -374,6 +375,18 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         recordClientConnected();
     }
 
+    @Override
+    protected void timedOut() {
+        boolean clientReadMoreRecentlyThanServer =
+                currentServerConnection == null
+                        || this.lastReadTime > currentServerConnection.lastReadTime;
+        if (clientReadMoreRecentlyThanServer) {
+            LOG.debug("Server timed out: {}", currentServerConnection);
+            writeGatewayTimeout();
+        }
+        super.timedOut();
+    }
+
     /**
      * On disconnect of the client, disconnect all server connections.
      */
@@ -607,7 +620,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         pipeline.addLast(
                 "idle",
                 new IdleStateHandler(0, 0, proxyServer
-                        .getIdleConnectionTimeout()));
+                        .getIdleConnectionTimeout() + 2));
 
         pipeline.addLast("handler", this);
     }
@@ -1009,6 +1022,19 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /**
+     * Tells the client that the connection to the server timed out.
+     * 
+     * @param request
+     */
+    private void writeGatewayTimeout() {
+        String body = "Gateway Timeout";
+        DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
+                HttpResponseStatus.GATEWAY_TIMEOUT, body);
+        response.headers().set(HttpHeaders.Names.CONNECTION, "close");
+        write(response);
+    }
+
+    /**
      * Factory for {@link DefaultFullHttpResponse}s.
      * 
      * @param httpVersion
@@ -1094,11 +1120,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void writeEmptyBuffer() {
         write(Unpooled.EMPTY_BUFFER);
     }
-    
+
     public boolean isMitming() {
         return mitming;
     }
-    
+
     protected void setMitming(boolean isMitming) {
         this.mitming = isMitming;
     }
@@ -1203,4 +1229,5 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return new FlowContext(this);
         }
     }
+
 }

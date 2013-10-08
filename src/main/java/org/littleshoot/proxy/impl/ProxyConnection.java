@@ -82,6 +82,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     private volatile ConnectionState currentState;
     private volatile boolean tunneling = false;
+    protected volatile long lastReadTime = 0;
 
     /**
      * If using encryption, this holds our {@link SSLEngine}.
@@ -119,6 +120,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected void read(Object msg) {
         LOG.debug("Reading: {}", msg);
 
+        lastReadTime = System.currentTimeMillis();
+        
         if (tunneling) {
             // In tunneling mode, this connection is simply shoveling bytes
             readRaw((ByteBuf) msg);
@@ -287,6 +290,14 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected void disconnected() {
         become(DISCONNECTED);
         LOG.debug("Disconnected");
+    }
+    
+    /**
+     * This method is called when the underlying {@link Channel} times out due
+     * to an idle timeout.
+     */
+    protected void timedOut() {
+        disconnect();
     }
 
     /**
@@ -627,8 +638,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
             throws Exception {
         try {
             if (evt instanceof IdleStateEvent) {
-                LOG.debug("Got idle, disconnecting");
-                disconnect();
+                LOG.debug("Got idle");
+                timedOut();
             }
         } finally {
             super.userEventTriggered(ctx, evt);

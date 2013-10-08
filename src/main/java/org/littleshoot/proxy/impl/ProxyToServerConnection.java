@@ -307,6 +307,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         super.becameWritable();
         this.clientConnection.serverBecameWriteable(this);
     }
+    
+    @Override
+    protected void timedOut() {
+        super.timedOut();
+        clientConnection.timedOut();
+    }
 
     @Override
     protected void disconnected() {

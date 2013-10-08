@@ -71,6 +71,15 @@ public class TestUtils {
             public void handle(String target, Request baseRequest,
                     HttpServletRequest request, HttpServletResponse response)
                     throws IOException, ServletException {
+                if (request.getRequestURI().contains("hang")) {
+                    System.out.println("Hanging as requested");
+                    try {
+                        Thread.sleep(90000);
+                    } catch (InterruptedException ie) {
+                        System.out.println("Stopped hanging due to interruption");
+                    }
+                }
+                
                 long numberOfBytesRead = 0;
                 InputStream in = new BufferedInputStream(request
                         .getInputStream());
