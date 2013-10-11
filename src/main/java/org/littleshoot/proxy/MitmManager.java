@@ -9,7 +9,7 @@ import javax.net.ssl.SSLSession;
  */
 public interface MitmManager {
     /**
-     * Creates an {link SSLEngine} for encrypting the server connection.
+     * Creates an {@link SSLEngine} for encrypting the server connection.
      * 
      * @return
      */
