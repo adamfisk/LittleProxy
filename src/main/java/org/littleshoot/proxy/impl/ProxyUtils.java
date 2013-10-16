@@ -211,8 +211,6 @@ public class ProxyUtils {
      * 
      * @param original
      *            The original response to copy from.
-     * @param copy
-     *            The copy.
      * @return The copy with all mutable fields from the original.
      */
     public static HttpResponse copyMutableResponseFields(

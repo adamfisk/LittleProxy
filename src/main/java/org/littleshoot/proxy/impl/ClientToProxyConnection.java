@@ -63,7 +63,7 @@ import org.littleshoot.proxy.SslEngineSource;
  * <p>
  * As the ProxyToServerConnections receive responses from their servers, they
  * feed these back to the client by calling
- * {@link #respond(ProxyToServerConnection, HttpRequest, HttpResponse, HttpObject)}
+ * {@link #respond(ProxyToServerConnection, HttpFilters, HttpRequest, HttpResponse, HttpObject)}
  * .
  * </p>
  */
@@ -446,8 +446,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * 
      * @param serverConnection
      * @param lastStateBeforeFailure
-     * @param what
-     *            caused the failure
+     * @param cause
+     *            what caused the failure
      * 
      * @return true if we're falling back to a another chained proxy (or direct
      *         connection) and trying again

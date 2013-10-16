@@ -4,9 +4,9 @@ import java.net.InetSocketAddress;
 
 /**
  * Configures and starts an {@link HttpProxyServer}. The HttpProxyServer is
- * built using {@link #start()} or {@link #start(boolean, boolean)}. Sensible
- * defaults are available for all parameters such that {@link #build()} could be
- * called immediately if you wish.
+ * built using {@link #start()}. Sensible defaults are available for all
+ * parameters such that {@link #start()} could be called immediately if you
+ * wish.
  */
 public interface HttpProxyServerBootstrap {
 
@@ -45,7 +45,7 @@ public interface HttpProxyServerBootstrap {
      * </p>
      * 
      * <p>
-     * Default = <bound ip>:8080
+     * Default = [bound ip]:8080
      * </p>
      * 
      * @param address
@@ -159,7 +159,7 @@ public interface HttpProxyServerBootstrap {
      * mutually exclusive.
      * </p>
      * 
-     * @param mitmManager
+     * @param chainProxyManager
      * @return
      */
     HttpProxyServerBootstrap withChainProxyManager(

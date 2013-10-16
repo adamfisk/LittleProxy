@@ -13,8 +13,8 @@ public interface ChainedProxyManager {
 
     /**
      * <p>
-     * Based on the given httpRequest, add any {@link ChainedProxies} to the
-     * list that should be used to process the request. The upstream proxy will
+     * Based on the given httpRequest, add any {@link ChainedProxy}s to the list
+     * that should be used to process the request. The upstream proxy will
      * attempt to connect to each of these in the order that they appear until
      * it successfully connects to one.
      * </p>

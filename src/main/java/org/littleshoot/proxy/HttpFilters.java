@@ -72,7 +72,6 @@ public interface HttpFilters {
      * Filters responses on their way from the server to the proxy.
      * 
      * @param httpObject
-     * @return
      */
     void responsePre(HttpObject httpObject);
 
@@ -80,7 +79,6 @@ public interface HttpFilters {
      * Filters responses on their way from the proxy to the client.
      * 
      * @param httpObject
-     * @return
      */
     void responsePost(HttpObject httpObject);
 }

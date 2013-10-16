@@ -63,8 +63,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * {@link DefaultHttpProxyServer} is bootstrapped by calling
  * {@link #bootstrap()} or {@link #bootstrapFromFile(String)}, and then calling
- * {@link DefaultHttpProxyServerBootstrap#start()} or
- * {@link DefaultHttpProxyServerBootstrap#start(boolean, boolean)}. For example:
+ * {@link DefaultHttpProxyServerBootstrap#start()}. For example:
  * </p>
  * 
  * <pre>

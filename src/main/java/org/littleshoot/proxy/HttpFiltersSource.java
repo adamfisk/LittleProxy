@@ -1,6 +1,5 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
@@ -20,8 +19,8 @@ public interface HttpFiltersSource {
     /**
      * Indicate how many (if any) bytes to buffer for incoming
      * {@link HttpRequest}s. A value of 0 or less indicates that no buffering
-     * should happen and that messages will be passed to the request filters'
-     * {@link #filter(HttpObject)} methods chunk by chunk.
+     * should happen and that messages will be passed to the {@link HttpFilters}
+     * request filtering methods chunk by chunk.
      * 
      * @return
      */
@@ -30,8 +29,8 @@ public interface HttpFiltersSource {
     /**
      * Indicate how many (if any) bytes to buffer for incoming
      * {@link HttpResponse}s. A value of 0 or less indicates that no buffering
-     * should happen and that messages will be passed to the response filters'
-     * {@link #filter(HttpObject)} methods chunk by chunk.
+     * should happen and that messages will be passed to the {@link HttpFilters}
+     * response filtering methods chunk by chunk.
      * 
      * @return
      */

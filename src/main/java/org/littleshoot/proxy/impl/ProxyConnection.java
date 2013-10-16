@@ -50,7 +50,7 @@ import javax.net.ssl.SSLEngine;
  * </p>
  * 
  * <ul>
- * <li>{@link #connected(Channel)} - Once the underlying channel is active, the
+ * <li>{@link #connected()} - Once the underlying channel is active, the
  * ProxyConnection is considered connected and moves into
  * {@link ConnectionState#AWAITING_INITIAL}. The Channel is recorded at this
  * time for later referencing.</li>
@@ -258,7 +258,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Writes raw buffers to the connection.
      * 
      * @param buf
-     * @return a future for the asynchronous write operation
      */
     protected void writeRaw(ByteBuf buf) {
         writeToChannel(buf);
