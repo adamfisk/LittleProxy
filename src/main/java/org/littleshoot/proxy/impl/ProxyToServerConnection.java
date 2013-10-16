@@ -532,7 +532,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 40 * 1000);
 
             if (localAddress != null) {
-                return cb.connect(localAddress, remoteAddress);
+                return cb.connect(remoteAddress, localAddress);
             } else {
                 return cb.connect(remoteAddress);
             }
