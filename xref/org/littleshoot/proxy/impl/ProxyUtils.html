@@ -221,121 +221,119 @@
 <a class="jxr_linenumber" name="211" href="#211">211</a> <em class="jxr_javadoccomment">     * </em>
 <a class="jxr_linenumber" name="212" href="#212">212</a> <em class="jxr_javadoccomment">     * @param original</em>
 <a class="jxr_linenumber" name="213" href="#213">213</a> <em class="jxr_javadoccomment">     *            The original response to copy from.</em>
-<a class="jxr_linenumber" name="214" href="#214">214</a> <em class="jxr_javadoccomment">     * @param copy</em>
-<a class="jxr_linenumber" name="215" href="#215">215</a> <em class="jxr_javadoccomment">     *            The copy.</em>
-<a class="jxr_linenumber" name="216" href="#216">216</a> <em class="jxr_javadoccomment">     * @return The copy with all mutable fields from the original.</em>
-<a class="jxr_linenumber" name="217" href="#217">217</a> <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="218" href="#218">218</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> HttpResponse copyMutableResponseFields(
-<a class="jxr_linenumber" name="219" href="#219">219</a>             <strong class="jxr_keyword">final</strong> HttpResponse original) {
-<a class="jxr_linenumber" name="220" href="#220">220</a> 
-<a class="jxr_linenumber" name="221" href="#221">221</a>         HttpResponse copy = <strong class="jxr_keyword">null</strong>;
-<a class="jxr_linenumber" name="222" href="#222">222</a>         <strong class="jxr_keyword">if</strong> (original instanceof DefaultFullHttpResponse) {
-<a class="jxr_linenumber" name="223" href="#223">223</a>             ByteBuf content = ((DefaultFullHttpResponse) original).content();
-<a class="jxr_linenumber" name="224" href="#224">224</a>             copy = <strong class="jxr_keyword">new</strong> DefaultFullHttpResponse(original.getProtocolVersion(),
-<a class="jxr_linenumber" name="225" href="#225">225</a>                     original.getStatus(), content);
-<a class="jxr_linenumber" name="226" href="#226">226</a>         } <strong class="jxr_keyword">else</strong> {
-<a class="jxr_linenumber" name="227" href="#227">227</a>             copy = <strong class="jxr_keyword">new</strong> DefaultHttpResponse(original.getProtocolVersion(),
-<a class="jxr_linenumber" name="228" href="#228">228</a>                     original.getStatus());
-<a class="jxr_linenumber" name="229" href="#229">229</a>         }
-<a class="jxr_linenumber" name="230" href="#230">230</a>         <strong class="jxr_keyword">final</strong> Collection&lt;String&gt; headerNames = original.headers().names();
-<a class="jxr_linenumber" name="231" href="#231">231</a>         <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">final</strong> String name : headerNames) {
-<a class="jxr_linenumber" name="232" href="#232">232</a>             <strong class="jxr_keyword">final</strong> List&lt;String&gt; values = original.headers().getAll(name);
-<a class="jxr_linenumber" name="233" href="#233">233</a>             copy.headers().set(name, values);
-<a class="jxr_linenumber" name="234" href="#234">234</a>         }
-<a class="jxr_linenumber" name="235" href="#235">235</a>         <strong class="jxr_keyword">return</strong> copy;
-<a class="jxr_linenumber" name="236" href="#236">236</a>     }
-<a class="jxr_linenumber" name="237" href="#237">237</a> 
-<a class="jxr_linenumber" name="238" href="#238">238</a>     <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="239" href="#239">239</a> <em class="jxr_javadoccomment">     * Adds the Via header to specify that the message has passed through the</em>
-<a class="jxr_linenumber" name="240" href="#240">240</a> <em class="jxr_javadoccomment">     * proxy.</em>
-<a class="jxr_linenumber" name="241" href="#241">241</a> <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="242" href="#242">242</a> <em class="jxr_javadoccomment">     * @param msg</em>
-<a class="jxr_linenumber" name="243" href="#243">243</a> <em class="jxr_javadoccomment">     *            The HTTP message.</em>
-<a class="jxr_linenumber" name="244" href="#244">244</a> <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="245" href="#245">245</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">void</strong> addVia(<strong class="jxr_keyword">final</strong> HttpMessage msg) {
-<a class="jxr_linenumber" name="246" href="#246">246</a>         <strong class="jxr_keyword">final</strong> StringBuilder sb = <strong class="jxr_keyword">new</strong> StringBuilder();
-<a class="jxr_linenumber" name="247" href="#247">247</a>         sb.append(msg.getProtocolVersion().majorVersion());
+<a class="jxr_linenumber" name="214" href="#214">214</a> <em class="jxr_javadoccomment">     * @return The copy with all mutable fields from the original.</em>
+<a class="jxr_linenumber" name="215" href="#215">215</a> <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="216" href="#216">216</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> HttpResponse copyMutableResponseFields(
+<a class="jxr_linenumber" name="217" href="#217">217</a>             <strong class="jxr_keyword">final</strong> HttpResponse original) {
+<a class="jxr_linenumber" name="218" href="#218">218</a> 
+<a class="jxr_linenumber" name="219" href="#219">219</a>         HttpResponse copy = <strong class="jxr_keyword">null</strong>;
+<a class="jxr_linenumber" name="220" href="#220">220</a>         <strong class="jxr_keyword">if</strong> (original instanceof DefaultFullHttpResponse) {
+<a class="jxr_linenumber" name="221" href="#221">221</a>             ByteBuf content = ((DefaultFullHttpResponse) original).content();
+<a class="jxr_linenumber" name="222" href="#222">222</a>             copy = <strong class="jxr_keyword">new</strong> DefaultFullHttpResponse(original.getProtocolVersion(),
+<a class="jxr_linenumber" name="223" href="#223">223</a>                     original.getStatus(), content);
+<a class="jxr_linenumber" name="224" href="#224">224</a>         } <strong class="jxr_keyword">else</strong> {
+<a class="jxr_linenumber" name="225" href="#225">225</a>             copy = <strong class="jxr_keyword">new</strong> DefaultHttpResponse(original.getProtocolVersion(),
+<a class="jxr_linenumber" name="226" href="#226">226</a>                     original.getStatus());
+<a class="jxr_linenumber" name="227" href="#227">227</a>         }
+<a class="jxr_linenumber" name="228" href="#228">228</a>         <strong class="jxr_keyword">final</strong> Collection&lt;String&gt; headerNames = original.headers().names();
+<a class="jxr_linenumber" name="229" href="#229">229</a>         <strong class="jxr_keyword">for</strong> (<strong class="jxr_keyword">final</strong> String name : headerNames) {
+<a class="jxr_linenumber" name="230" href="#230">230</a>             <strong class="jxr_keyword">final</strong> List&lt;String&gt; values = original.headers().getAll(name);
+<a class="jxr_linenumber" name="231" href="#231">231</a>             copy.headers().set(name, values);
+<a class="jxr_linenumber" name="232" href="#232">232</a>         }
+<a class="jxr_linenumber" name="233" href="#233">233</a>         <strong class="jxr_keyword">return</strong> copy;
+<a class="jxr_linenumber" name="234" href="#234">234</a>     }
+<a class="jxr_linenumber" name="235" href="#235">235</a> 
+<a class="jxr_linenumber" name="236" href="#236">236</a>     <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="237" href="#237">237</a> <em class="jxr_javadoccomment">     * Adds the Via header to specify that the message has passed through the</em>
+<a class="jxr_linenumber" name="238" href="#238">238</a> <em class="jxr_javadoccomment">     * proxy.</em>
+<a class="jxr_linenumber" name="239" href="#239">239</a> <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="240" href="#240">240</a> <em class="jxr_javadoccomment">     * @param msg</em>
+<a class="jxr_linenumber" name="241" href="#241">241</a> <em class="jxr_javadoccomment">     *            The HTTP message.</em>
+<a class="jxr_linenumber" name="242" href="#242">242</a> <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="243" href="#243">243</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">void</strong> addVia(<strong class="jxr_keyword">final</strong> HttpMessage msg) {
+<a class="jxr_linenumber" name="244" href="#244">244</a>         <strong class="jxr_keyword">final</strong> StringBuilder sb = <strong class="jxr_keyword">new</strong> StringBuilder();
+<a class="jxr_linenumber" name="245" href="#245">245</a>         sb.append(msg.getProtocolVersion().majorVersion());
+<a class="jxr_linenumber" name="246" href="#246">246</a>         sb.append(<span class="jxr_string">"."</span>);
+<a class="jxr_linenumber" name="247" href="#247">247</a>         sb.append(msg.getProtocolVersion().minorVersion());
 <a class="jxr_linenumber" name="248" href="#248">248</a>         sb.append(<span class="jxr_string">"."</span>);
-<a class="jxr_linenumber" name="249" href="#249">249</a>         sb.append(msg.getProtocolVersion().minorVersion());
-<a class="jxr_linenumber" name="250" href="#250">250</a>         sb.append(<span class="jxr_string">"."</span>);
-<a class="jxr_linenumber" name="251" href="#251">251</a>         sb.append(hostName);
-<a class="jxr_linenumber" name="252" href="#252">252</a>         <strong class="jxr_keyword">final</strong> List&lt;String&gt; vias;
-<a class="jxr_linenumber" name="253" href="#253">253</a>         <strong class="jxr_keyword">if</strong> (msg.headers().contains(HttpHeaders.Names.VIA)) {
-<a class="jxr_linenumber" name="254" href="#254">254</a>             vias = msg.headers().getAll(HttpHeaders.Names.VIA);
-<a class="jxr_linenumber" name="255" href="#255">255</a>             vias.add(sb.toString());
-<a class="jxr_linenumber" name="256" href="#256">256</a>         } <strong class="jxr_keyword">else</strong> {
-<a class="jxr_linenumber" name="257" href="#257">257</a>             vias = Arrays.asList(sb.toString());
-<a class="jxr_linenumber" name="258" href="#258">258</a>         }
-<a class="jxr_linenumber" name="259" href="#259">259</a>         msg.headers().set(HttpHeaders.Names.VIA, vias);
-<a class="jxr_linenumber" name="260" href="#260">260</a>     }
-<a class="jxr_linenumber" name="261" href="#261">261</a> 
-<a class="jxr_linenumber" name="262" href="#262">262</a>     <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="263" href="#263">263</a> <em class="jxr_javadoccomment">     * Returns &lt;code&gt;true&lt;/code&gt; if the specified string is either "true" or</em>
-<a class="jxr_linenumber" name="264" href="#264">264</a> <em class="jxr_javadoccomment">     * "on" ignoring case.</em>
-<a class="jxr_linenumber" name="265" href="#265">265</a> <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="266" href="#266">266</a> <em class="jxr_javadoccomment">     * @param val</em>
-<a class="jxr_linenumber" name="267" href="#267">267</a> <em class="jxr_javadoccomment">     *            The string in question.</em>
-<a class="jxr_linenumber" name="268" href="#268">268</a> <em class="jxr_javadoccomment">     * @return &lt;code&gt;true&lt;/code&gt; if the specified string is either "true" or</em>
-<a class="jxr_linenumber" name="269" href="#269">269</a> <em class="jxr_javadoccomment">     *         "on" ignoring case, otherwise &lt;code&gt;false&lt;/code&gt;.</em>
-<a class="jxr_linenumber" name="270" href="#270">270</a> <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="271" href="#271">271</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> isTrue(<strong class="jxr_keyword">final</strong> String val) {
-<a class="jxr_linenumber" name="272" href="#272">272</a>         <strong class="jxr_keyword">return</strong> checkTrueOrFalse(val, <span class="jxr_string">"true"</span>, <span class="jxr_string">"on"</span>);
-<a class="jxr_linenumber" name="273" href="#273">273</a>     }
-<a class="jxr_linenumber" name="274" href="#274">274</a> 
-<a class="jxr_linenumber" name="275" href="#275">275</a>     <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="276" href="#276">276</a> <em class="jxr_javadoccomment">     * Returns &lt;code&gt;true&lt;/code&gt; if the specified string is either "false" or</em>
-<a class="jxr_linenumber" name="277" href="#277">277</a> <em class="jxr_javadoccomment">     * "off" ignoring case.</em>
-<a class="jxr_linenumber" name="278" href="#278">278</a> <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="279" href="#279">279</a> <em class="jxr_javadoccomment">     * @param val</em>
-<a class="jxr_linenumber" name="280" href="#280">280</a> <em class="jxr_javadoccomment">     *            The string in question.</em>
-<a class="jxr_linenumber" name="281" href="#281">281</a> <em class="jxr_javadoccomment">     * @return &lt;code&gt;true&lt;/code&gt; if the specified string is either "false" or</em>
-<a class="jxr_linenumber" name="282" href="#282">282</a> <em class="jxr_javadoccomment">     *         "off" ignoring case, otherwise &lt;code&gt;false&lt;/code&gt;.</em>
-<a class="jxr_linenumber" name="283" href="#283">283</a> <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="284" href="#284">284</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> isFalse(<strong class="jxr_keyword">final</strong> String val) {
-<a class="jxr_linenumber" name="285" href="#285">285</a>         <strong class="jxr_keyword">return</strong> checkTrueOrFalse(val, <span class="jxr_string">"false"</span>, <span class="jxr_string">"off"</span>);
-<a class="jxr_linenumber" name="286" href="#286">286</a>     }
-<a class="jxr_linenumber" name="287" href="#287">287</a> 
-<a class="jxr_linenumber" name="288" href="#288">288</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> extractBooleanDefaultFalse(<strong class="jxr_keyword">final</strong> Properties props,
-<a class="jxr_linenumber" name="289" href="#289">289</a>             <strong class="jxr_keyword">final</strong> String key) {
-<a class="jxr_linenumber" name="290" href="#290">290</a>         <strong class="jxr_keyword">final</strong> String throttle = props.getProperty(key);
-<a class="jxr_linenumber" name="291" href="#291">291</a>         <strong class="jxr_keyword">if</strong> (StringUtils.isNotBlank(throttle)) {
-<a class="jxr_linenumber" name="292" href="#292">292</a>             <strong class="jxr_keyword">return</strong> throttle.trim().equalsIgnoreCase(<span class="jxr_string">"true"</span>);
-<a class="jxr_linenumber" name="293" href="#293">293</a>         }
-<a class="jxr_linenumber" name="294" href="#294">294</a>         <strong class="jxr_keyword">return</strong> false;
-<a class="jxr_linenumber" name="295" href="#295">295</a>     }
-<a class="jxr_linenumber" name="296" href="#296">296</a> 
-<a class="jxr_linenumber" name="297" href="#297">297</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> extractBooleanDefaultTrue(<strong class="jxr_keyword">final</strong> Properties props,
-<a class="jxr_linenumber" name="298" href="#298">298</a>             <strong class="jxr_keyword">final</strong> String key) {
-<a class="jxr_linenumber" name="299" href="#299">299</a>         <strong class="jxr_keyword">final</strong> String throttle = props.getProperty(key);
-<a class="jxr_linenumber" name="300" href="#300">300</a>         <strong class="jxr_keyword">if</strong> (StringUtils.isNotBlank(throttle)) {
-<a class="jxr_linenumber" name="301" href="#301">301</a>             <strong class="jxr_keyword">return</strong> throttle.trim().equalsIgnoreCase(<span class="jxr_string">"true"</span>);
-<a class="jxr_linenumber" name="302" href="#302">302</a>         }
-<a class="jxr_linenumber" name="303" href="#303">303</a>         <strong class="jxr_keyword">return</strong> <strong class="jxr_keyword">true</strong>;
-<a class="jxr_linenumber" name="304" href="#304">304</a>     }
-<a class="jxr_linenumber" name="305" href="#305">305</a>     
-<a class="jxr_linenumber" name="306" href="#306">306</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">int</strong> extractInt(<strong class="jxr_keyword">final</strong> Properties props, <strong class="jxr_keyword">final</strong> String key) {
-<a class="jxr_linenumber" name="307" href="#307">307</a>         <strong class="jxr_keyword">final</strong> String readThrottleString = props.getProperty(key);
-<a class="jxr_linenumber" name="308" href="#308">308</a>         <strong class="jxr_keyword">if</strong> (StringUtils.isNotBlank(readThrottleString) &amp;&amp;
-<a class="jxr_linenumber" name="309" href="#309">309</a>             NumberUtils.isNumber(readThrottleString)) {
-<a class="jxr_linenumber" name="310" href="#310">310</a>             <strong class="jxr_keyword">return</strong> Integer.parseInt(readThrottleString);
-<a class="jxr_linenumber" name="311" href="#311">311</a>         }
-<a class="jxr_linenumber" name="312" href="#312">312</a>         <strong class="jxr_keyword">return</strong> -1;
-<a class="jxr_linenumber" name="313" href="#313">313</a>     }
-<a class="jxr_linenumber" name="314" href="#314">314</a> 
-<a class="jxr_linenumber" name="315" href="#315">315</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> isCONNECT(HttpObject httpObject) {
-<a class="jxr_linenumber" name="316" href="#316">316</a>         <strong class="jxr_keyword">return</strong> httpObject instanceof HttpRequest
-<a class="jxr_linenumber" name="317" href="#317">317</a>                 &amp;&amp; HttpMethod.CONNECT.equals(((HttpRequest) httpObject)
-<a class="jxr_linenumber" name="318" href="#318">318</a>                         .getMethod());
-<a class="jxr_linenumber" name="319" href="#319">319</a>     }
-<a class="jxr_linenumber" name="320" href="#320">320</a> 
-<a class="jxr_linenumber" name="321" href="#321">321</a>     <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> checkTrueOrFalse(<strong class="jxr_keyword">final</strong> String val,
-<a class="jxr_linenumber" name="322" href="#322">322</a>             <strong class="jxr_keyword">final</strong> String str1, <strong class="jxr_keyword">final</strong> String str2) {
-<a class="jxr_linenumber" name="323" href="#323">323</a>         <strong class="jxr_keyword">final</strong> String str = val.trim();
-<a class="jxr_linenumber" name="324" href="#324">324</a>         <strong class="jxr_keyword">return</strong> StringUtils.isNotBlank(str)
-<a class="jxr_linenumber" name="325" href="#325">325</a>                 &amp;&amp; (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
-<a class="jxr_linenumber" name="326" href="#326">326</a>     }
-<a class="jxr_linenumber" name="327" href="#327">327</a> 
-<a class="jxr_linenumber" name="328" href="#328">328</a> }
+<a class="jxr_linenumber" name="249" href="#249">249</a>         sb.append(hostName);
+<a class="jxr_linenumber" name="250" href="#250">250</a>         <strong class="jxr_keyword">final</strong> List&lt;String&gt; vias;
+<a class="jxr_linenumber" name="251" href="#251">251</a>         <strong class="jxr_keyword">if</strong> (msg.headers().contains(HttpHeaders.Names.VIA)) {
+<a class="jxr_linenumber" name="252" href="#252">252</a>             vias = msg.headers().getAll(HttpHeaders.Names.VIA);
+<a class="jxr_linenumber" name="253" href="#253">253</a>             vias.add(sb.toString());
+<a class="jxr_linenumber" name="254" href="#254">254</a>         } <strong class="jxr_keyword">else</strong> {
+<a class="jxr_linenumber" name="255" href="#255">255</a>             vias = Arrays.asList(sb.toString());
+<a class="jxr_linenumber" name="256" href="#256">256</a>         }
+<a class="jxr_linenumber" name="257" href="#257">257</a>         msg.headers().set(HttpHeaders.Names.VIA, vias);
+<a class="jxr_linenumber" name="258" href="#258">258</a>     }
+<a class="jxr_linenumber" name="259" href="#259">259</a> 
+<a class="jxr_linenumber" name="260" href="#260">260</a>     <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="261" href="#261">261</a> <em class="jxr_javadoccomment">     * Returns &lt;code&gt;true&lt;/code&gt; if the specified string is either "true" or</em>
+<a class="jxr_linenumber" name="262" href="#262">262</a> <em class="jxr_javadoccomment">     * "on" ignoring case.</em>
+<a class="jxr_linenumber" name="263" href="#263">263</a> <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="264" href="#264">264</a> <em class="jxr_javadoccomment">     * @param val</em>
+<a class="jxr_linenumber" name="265" href="#265">265</a> <em class="jxr_javadoccomment">     *            The string in question.</em>
+<a class="jxr_linenumber" name="266" href="#266">266</a> <em class="jxr_javadoccomment">     * @return &lt;code&gt;true&lt;/code&gt; if the specified string is either "true" or</em>
+<a class="jxr_linenumber" name="267" href="#267">267</a> <em class="jxr_javadoccomment">     *         "on" ignoring case, otherwise &lt;code&gt;false&lt;/code&gt;.</em>
+<a class="jxr_linenumber" name="268" href="#268">268</a> <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="269" href="#269">269</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> isTrue(<strong class="jxr_keyword">final</strong> String val) {
+<a class="jxr_linenumber" name="270" href="#270">270</a>         <strong class="jxr_keyword">return</strong> checkTrueOrFalse(val, <span class="jxr_string">"true"</span>, <span class="jxr_string">"on"</span>);
+<a class="jxr_linenumber" name="271" href="#271">271</a>     }
+<a class="jxr_linenumber" name="272" href="#272">272</a> 
+<a class="jxr_linenumber" name="273" href="#273">273</a>     <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="274" href="#274">274</a> <em class="jxr_javadoccomment">     * Returns &lt;code&gt;true&lt;/code&gt; if the specified string is either "false" or</em>
+<a class="jxr_linenumber" name="275" href="#275">275</a> <em class="jxr_javadoccomment">     * "off" ignoring case.</em>
+<a class="jxr_linenumber" name="276" href="#276">276</a> <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="277" href="#277">277</a> <em class="jxr_javadoccomment">     * @param val</em>
+<a class="jxr_linenumber" name="278" href="#278">278</a> <em class="jxr_javadoccomment">     *            The string in question.</em>
+<a class="jxr_linenumber" name="279" href="#279">279</a> <em class="jxr_javadoccomment">     * @return &lt;code&gt;true&lt;/code&gt; if the specified string is either "false" or</em>
+<a class="jxr_linenumber" name="280" href="#280">280</a> <em class="jxr_javadoccomment">     *         "off" ignoring case, otherwise &lt;code&gt;false&lt;/code&gt;.</em>
+<a class="jxr_linenumber" name="281" href="#281">281</a> <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="282" href="#282">282</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> isFalse(<strong class="jxr_keyword">final</strong> String val) {
+<a class="jxr_linenumber" name="283" href="#283">283</a>         <strong class="jxr_keyword">return</strong> checkTrueOrFalse(val, <span class="jxr_string">"false"</span>, <span class="jxr_string">"off"</span>);
+<a class="jxr_linenumber" name="284" href="#284">284</a>     }
+<a class="jxr_linenumber" name="285" href="#285">285</a> 
+<a class="jxr_linenumber" name="286" href="#286">286</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> extractBooleanDefaultFalse(<strong class="jxr_keyword">final</strong> Properties props,
+<a class="jxr_linenumber" name="287" href="#287">287</a>             <strong class="jxr_keyword">final</strong> String key) {
+<a class="jxr_linenumber" name="288" href="#288">288</a>         <strong class="jxr_keyword">final</strong> String throttle = props.getProperty(key);
+<a class="jxr_linenumber" name="289" href="#289">289</a>         <strong class="jxr_keyword">if</strong> (StringUtils.isNotBlank(throttle)) {
+<a class="jxr_linenumber" name="290" href="#290">290</a>             <strong class="jxr_keyword">return</strong> throttle.trim().equalsIgnoreCase(<span class="jxr_string">"true"</span>);
+<a class="jxr_linenumber" name="291" href="#291">291</a>         }
+<a class="jxr_linenumber" name="292" href="#292">292</a>         <strong class="jxr_keyword">return</strong> false;
+<a class="jxr_linenumber" name="293" href="#293">293</a>     }
+<a class="jxr_linenumber" name="294" href="#294">294</a> 
+<a class="jxr_linenumber" name="295" href="#295">295</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> extractBooleanDefaultTrue(<strong class="jxr_keyword">final</strong> Properties props,
+<a class="jxr_linenumber" name="296" href="#296">296</a>             <strong class="jxr_keyword">final</strong> String key) {
+<a class="jxr_linenumber" name="297" href="#297">297</a>         <strong class="jxr_keyword">final</strong> String throttle = props.getProperty(key);
+<a class="jxr_linenumber" name="298" href="#298">298</a>         <strong class="jxr_keyword">if</strong> (StringUtils.isNotBlank(throttle)) {
+<a class="jxr_linenumber" name="299" href="#299">299</a>             <strong class="jxr_keyword">return</strong> throttle.trim().equalsIgnoreCase(<span class="jxr_string">"true"</span>);
+<a class="jxr_linenumber" name="300" href="#300">300</a>         }
+<a class="jxr_linenumber" name="301" href="#301">301</a>         <strong class="jxr_keyword">return</strong> <strong class="jxr_keyword">true</strong>;
+<a class="jxr_linenumber" name="302" href="#302">302</a>     }
+<a class="jxr_linenumber" name="303" href="#303">303</a>     
+<a class="jxr_linenumber" name="304" href="#304">304</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">int</strong> extractInt(<strong class="jxr_keyword">final</strong> Properties props, <strong class="jxr_keyword">final</strong> String key) {
+<a class="jxr_linenumber" name="305" href="#305">305</a>         <strong class="jxr_keyword">final</strong> String readThrottleString = props.getProperty(key);
+<a class="jxr_linenumber" name="306" href="#306">306</a>         <strong class="jxr_keyword">if</strong> (StringUtils.isNotBlank(readThrottleString) &amp;&amp;
+<a class="jxr_linenumber" name="307" href="#307">307</a>             NumberUtils.isNumber(readThrottleString)) {
+<a class="jxr_linenumber" name="308" href="#308">308</a>             <strong class="jxr_keyword">return</strong> Integer.parseInt(readThrottleString);
+<a class="jxr_linenumber" name="309" href="#309">309</a>         }
+<a class="jxr_linenumber" name="310" href="#310">310</a>         <strong class="jxr_keyword">return</strong> -1;
+<a class="jxr_linenumber" name="311" href="#311">311</a>     }
+<a class="jxr_linenumber" name="312" href="#312">312</a> 
+<a class="jxr_linenumber" name="313" href="#313">313</a>     <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> isCONNECT(HttpObject httpObject) {
+<a class="jxr_linenumber" name="314" href="#314">314</a>         <strong class="jxr_keyword">return</strong> httpObject instanceof HttpRequest
+<a class="jxr_linenumber" name="315" href="#315">315</a>                 &amp;&amp; HttpMethod.CONNECT.equals(((HttpRequest) httpObject)
+<a class="jxr_linenumber" name="316" href="#316">316</a>                         .getMethod());
+<a class="jxr_linenumber" name="317" href="#317">317</a>     }
+<a class="jxr_linenumber" name="318" href="#318">318</a> 
+<a class="jxr_linenumber" name="319" href="#319">319</a>     <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">static</strong> <strong class="jxr_keyword">boolean</strong> checkTrueOrFalse(<strong class="jxr_keyword">final</strong> String val,
+<a class="jxr_linenumber" name="320" href="#320">320</a>             <strong class="jxr_keyword">final</strong> String str1, <strong class="jxr_keyword">final</strong> String str2) {
+<a class="jxr_linenumber" name="321" href="#321">321</a>         <strong class="jxr_keyword">final</strong> String str = val.trim();
+<a class="jxr_linenumber" name="322" href="#322">322</a>         <strong class="jxr_keyword">return</strong> StringUtils.isNotBlank(str)
+<a class="jxr_linenumber" name="323" href="#323">323</a>                 &amp;&amp; (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
+<a class="jxr_linenumber" name="324" href="#324">324</a>     }
+<a class="jxr_linenumber" name="325" href="#325">325</a> 
+<a class="jxr_linenumber" name="326" href="#326">326</a> }
 </pre>
 <hr/><div id="footer">This page was automatically generated by <a href="http://maven.apache.org/">Maven</a></div></body>
 </html>

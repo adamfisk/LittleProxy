@@ -10,38 +10,46 @@
 
 <a class="jxr_linenumber" name="1" href="#1">1</a>   <strong class="jxr_keyword">package</strong> org.littleshoot.proxy;
 <a class="jxr_linenumber" name="2" href="#2">2</a>   
-<a class="jxr_linenumber" name="3" href="#3">3</a>   <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="4" href="#4">4</a>   <em class="jxr_javadoccomment"> * Interface for the top-level proxy server class.</em>
-<a class="jxr_linenumber" name="5" href="#5">5</a>   <em class="jxr_javadoccomment"> */</em>
-<a class="jxr_linenumber" name="6" href="#6">6</a>   <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">interface</strong> <a href="../../../org/littleshoot/proxy/HttpProxyServer.html">HttpProxyServer</a> {
-<a class="jxr_linenumber" name="7" href="#7">7</a>   
-<a class="jxr_linenumber" name="8" href="#8">8</a>       <strong class="jxr_keyword">int</strong> getIdleConnectionTimeout();
+<a class="jxr_linenumber" name="3" href="#3">3</a>   <strong class="jxr_keyword">import</strong> java.net.InetSocketAddress;
+<a class="jxr_linenumber" name="4" href="#4">4</a>   
+<a class="jxr_linenumber" name="5" href="#5">5</a>   <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="6" href="#6">6</a>   <em class="jxr_javadoccomment"> * Interface for the top-level proxy server class.</em>
+<a class="jxr_linenumber" name="7" href="#7">7</a>   <em class="jxr_javadoccomment"> */</em>
+<a class="jxr_linenumber" name="8" href="#8">8</a>   <strong class="jxr_keyword">public</strong> <strong class="jxr_keyword">interface</strong> <a href="../../../org/littleshoot/proxy/HttpProxyServer.html">HttpProxyServer</a> {
 <a class="jxr_linenumber" name="9" href="#9">9</a>   
-<a class="jxr_linenumber" name="10" href="#10">10</a>      <strong class="jxr_keyword">void</strong> setIdleConnectionTimeout(<strong class="jxr_keyword">int</strong> idleConnectionTimeout);
+<a class="jxr_linenumber" name="10" href="#10">10</a>      <strong class="jxr_keyword">int</strong> getIdleConnectionTimeout();
 <a class="jxr_linenumber" name="11" href="#11">11</a>  
-<a class="jxr_linenumber" name="12" href="#12">12</a>      <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="13" href="#13">13</a>  <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
-<a class="jxr_linenumber" name="14" href="#14">14</a>  <em class="jxr_javadoccomment">     * Clone the existing server, with a port 1 higher and everything else the</em>
-<a class="jxr_linenumber" name="15" href="#15">15</a>  <em class="jxr_javadoccomment">     * same.</em>
-<a class="jxr_linenumber" name="16" href="#16">16</a>  <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
-<a class="jxr_linenumber" name="17" href="#17">17</a>  <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="18" href="#18">18</a>  <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
-<a class="jxr_linenumber" name="19" href="#19">19</a>  <em class="jxr_javadoccomment">     * The new server will share event loops with the original server. The event</em>
-<a class="jxr_linenumber" name="20" href="#20">20</a>  <em class="jxr_javadoccomment">     * loops will use whatever name was given to the first server in the clone</em>
-<a class="jxr_linenumber" name="21" href="#21">21</a>  <em class="jxr_javadoccomment">     * group.</em>
-<a class="jxr_linenumber" name="22" href="#22">22</a>  <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
-<a class="jxr_linenumber" name="23" href="#23">23</a>  <em class="jxr_javadoccomment">     * </em>
-<a class="jxr_linenumber" name="24" href="#24">24</a>  <em class="jxr_javadoccomment">     * @return a bootstrap that allows customizing and starting the cloned</em>
-<a class="jxr_linenumber" name="25" href="#25">25</a>  <em class="jxr_javadoccomment">     *         server</em>
-<a class="jxr_linenumber" name="26" href="#26">26</a>  <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="27" href="#27">27</a>      <a href="../../../org/littleshoot/proxy/HttpProxyServerBootstrap.html">HttpProxyServerBootstrap</a> clone();
-<a class="jxr_linenumber" name="28" href="#28">28</a>  
-<a class="jxr_linenumber" name="29" href="#29">29</a>      <em class="jxr_javadoccomment">/**</em>
-<a class="jxr_linenumber" name="30" href="#30">30</a>  <em class="jxr_javadoccomment">     * Stops the server and all related clones.</em>
-<a class="jxr_linenumber" name="31" href="#31">31</a>  <em class="jxr_javadoccomment">     */</em>
-<a class="jxr_linenumber" name="32" href="#32">32</a>      <strong class="jxr_keyword">void</strong> stop();
-<a class="jxr_linenumber" name="33" href="#33">33</a>  
-<a class="jxr_linenumber" name="34" href="#34">34</a>  }
+<a class="jxr_linenumber" name="12" href="#12">12</a>      <strong class="jxr_keyword">void</strong> setIdleConnectionTimeout(<strong class="jxr_keyword">int</strong> idleConnectionTimeout);
+<a class="jxr_linenumber" name="13" href="#13">13</a>  
+<a class="jxr_linenumber" name="14" href="#14">14</a>      <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="15" href="#15">15</a>  <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
+<a class="jxr_linenumber" name="16" href="#16">16</a>  <em class="jxr_javadoccomment">     * Clone the existing server, with a port 1 higher and everything else the</em>
+<a class="jxr_linenumber" name="17" href="#17">17</a>  <em class="jxr_javadoccomment">     * same.</em>
+<a class="jxr_linenumber" name="18" href="#18">18</a>  <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
+<a class="jxr_linenumber" name="19" href="#19">19</a>  <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="20" href="#20">20</a>  <em class="jxr_javadoccomment">     * &lt;p&gt;</em>
+<a class="jxr_linenumber" name="21" href="#21">21</a>  <em class="jxr_javadoccomment">     * The new server will share event loops with the original server. The event</em>
+<a class="jxr_linenumber" name="22" href="#22">22</a>  <em class="jxr_javadoccomment">     * loops will use whatever name was given to the first server in the clone</em>
+<a class="jxr_linenumber" name="23" href="#23">23</a>  <em class="jxr_javadoccomment">     * group.</em>
+<a class="jxr_linenumber" name="24" href="#24">24</a>  <em class="jxr_javadoccomment">     * &lt;/p&gt;</em>
+<a class="jxr_linenumber" name="25" href="#25">25</a>  <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="26" href="#26">26</a>  <em class="jxr_javadoccomment">     * @return a bootstrap that allows customizing and starting the cloned</em>
+<a class="jxr_linenumber" name="27" href="#27">27</a>  <em class="jxr_javadoccomment">     *         server</em>
+<a class="jxr_linenumber" name="28" href="#28">28</a>  <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="29" href="#29">29</a>      <a href="../../../org/littleshoot/proxy/HttpProxyServerBootstrap.html">HttpProxyServerBootstrap</a> clone();
+<a class="jxr_linenumber" name="30" href="#30">30</a>  
+<a class="jxr_linenumber" name="31" href="#31">31</a>      <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="32" href="#32">32</a>  <em class="jxr_javadoccomment">     * Stops the server and all related clones.</em>
+<a class="jxr_linenumber" name="33" href="#33">33</a>  <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="34" href="#34">34</a>      <strong class="jxr_keyword">void</strong> stop();
+<a class="jxr_linenumber" name="35" href="#35">35</a>  
+<a class="jxr_linenumber" name="36" href="#36">36</a>      <em class="jxr_javadoccomment">/**</em>
+<a class="jxr_linenumber" name="37" href="#37">37</a>  <em class="jxr_javadoccomment">     * Return the address on which this proxy is listening.</em>
+<a class="jxr_linenumber" name="38" href="#38">38</a>  <em class="jxr_javadoccomment">     * </em>
+<a class="jxr_linenumber" name="39" href="#39">39</a>  <em class="jxr_javadoccomment">     * @return</em>
+<a class="jxr_linenumber" name="40" href="#40">40</a>  <em class="jxr_javadoccomment">     */</em>
+<a class="jxr_linenumber" name="41" href="#41">41</a>      InetSocketAddress getListenAddress();
+<a class="jxr_linenumber" name="42" href="#42">42</a>  }
 </pre>
 <hr/><div id="footer">This page was automatically generated by <a href="http://maven.apache.org/">Maven</a></div></body>
 </html>

@@ -73,7 +73,7 @@
 <a class="jxr_linenumber" name="63" href="#63">63</a>              <strong class="jxr_keyword">final</strong> InetAddress address = sock.getLocalAddress();
 <a class="jxr_linenumber" name="64" href="#64">64</a>              <strong class="jxr_keyword">return</strong> address;
 <a class="jxr_linenumber" name="65" href="#65">65</a>          } <strong class="jxr_keyword">catch</strong> (<strong class="jxr_keyword">final</strong> SocketException e) {
-<a class="jxr_linenumber" name="66" href="#66">66</a>              LOG.warn(<span class="jxr_string">"Exception getting address"</span>, e);
+<a class="jxr_linenumber" name="66" href="#66">66</a>              LOG.info(<span class="jxr_string">"Exception getting address"</span>, e);
 <a class="jxr_linenumber" name="67" href="#67">67</a>              <strong class="jxr_keyword">return</strong> InetAddress.getLocalHost();
 <a class="jxr_linenumber" name="68" href="#68">68</a>          } <strong class="jxr_keyword">finally</strong> {
 <a class="jxr_linenumber" name="69" href="#69">69</a>              <strong class="jxr_keyword">if</strong> (sock != <strong class="jxr_keyword">null</strong>) {
