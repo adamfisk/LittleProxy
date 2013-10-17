@@ -103,6 +103,13 @@ compliance testing.
 Release History
 ---------------
 
+### 1.0.0-beta3 - Bug fixes
+
+- [#96 If idleConnectionTimeout is exceeded no response is returned](https://github.com/adamfisk/LittleProxy/issues/96)
+- [#98 Turn down log level on errors/warnings about which nothing can be done](https://github.com/adamfisk/LittleProxy/issues/98)
+- [#106 UDT binding reverses local and remote addresses](https://github.com/adamfisk/LittleProxy/issues/106)
+
+
 ### 1.0.0-beta2 - Basic Man in the Middle Support
 
 This release added back basic support for Man in the Middle (MITM) proxying.
