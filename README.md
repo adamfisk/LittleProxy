@@ -69,7 +69,7 @@ HttpProxyServer server =
                     };
                 }
             }
-        });
+        })
         .start();
 ```                
 
