@@ -409,38 +409,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             // Set up worker pools for each transport protocol
             for (TransportProtocol transportProtocol : TransportProtocol
                     .values()) {
-                SelectorProvider selectorProvider = null;
-                switch (transportProtocol) {
-                case TCP:
-                    selectorProvider = SelectorProvider.provider();
-                    break;
-                case UDT:
-                    selectorProvider = NioUdtProvider.BYTE_PROVIDER;
-                    break;
-                default:
-                    throw new UnknownTransportProtocolError(transportProtocol);
+                try {
+                    initializeTransport(transportProtocol);
+                } catch (Exception e) {
+                    LOG.warn("Unable to initialize transport protocol {}: {}", transportProtocol, e.getMessage(), e);
                 }
-
-                NioEventLoopGroup inboundAcceptorGroup = new NioEventLoopGroup(
-                        INCOMING_ACCEPTOR_THREADS,
-                        new CategorizedThreadFactory("ClientToProxyAcceptor"),
-                        selectorProvider);
-                NioEventLoopGroup inboundWorkerGroup = new NioEventLoopGroup(
-                        INCOMING_WORKER_THREADS,
-                        new CategorizedThreadFactory("ClientToProxyWorker"),
-                        selectorProvider);
-                inboundWorkerGroup.setIoRatio(90);
-                NioEventLoopGroup outboundWorkerGroup = new NioEventLoopGroup(
-                        OUTGOING_WORKER_THREADS,
-                        new CategorizedThreadFactory("ProxyToServerWorker"),
-                        selectorProvider);
-                outboundWorkerGroup.setIoRatio(90);
-                this.clientToProxyBossPools.put(transportProtocol,
-                        inboundAcceptorGroup);
-                this.clientToProxyWorkerPools.put(transportProtocol,
-                        inboundWorkerGroup);
-                this.proxyToServerWorkerPools.put(transportProtocol,
-                        outboundWorkerGroup);
             }
 
             Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
@@ -454,6 +427,41 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     stop();
                 }
             }));
+        }
+        
+        private void initializeTransport(TransportProtocol transportProtocol) {
+            SelectorProvider selectorProvider = null;
+            switch (transportProtocol) {
+            case TCP:
+                selectorProvider = SelectorProvider.provider();
+                break;
+            case UDT:
+                selectorProvider = NioUdtProvider.BYTE_PROVIDER;
+                break;
+            default:
+                throw new UnknownTransportProtocolError(transportProtocol);
+            }
+
+            NioEventLoopGroup inboundAcceptorGroup = new NioEventLoopGroup(
+                    INCOMING_ACCEPTOR_THREADS,
+                    new CategorizedThreadFactory("ClientToProxyAcceptor"),
+                    selectorProvider);
+            NioEventLoopGroup inboundWorkerGroup = new NioEventLoopGroup(
+                    INCOMING_WORKER_THREADS,
+                    new CategorizedThreadFactory("ClientToProxyWorker"),
+                    selectorProvider);
+            inboundWorkerGroup.setIoRatio(90);
+            NioEventLoopGroup outboundWorkerGroup = new NioEventLoopGroup(
+                    OUTGOING_WORKER_THREADS,
+                    new CategorizedThreadFactory("ProxyToServerWorker"),
+                    selectorProvider);
+            outboundWorkerGroup.setIoRatio(90);
+            this.clientToProxyBossPools.put(transportProtocol,
+                    inboundAcceptorGroup);
+            this.clientToProxyWorkerPools.put(transportProtocol,
+                    inboundWorkerGroup);
+            this.proxyToServerWorkerPools.put(transportProtocol,
+                    outboundWorkerGroup);
         }
 
         synchronized private void stop() {
