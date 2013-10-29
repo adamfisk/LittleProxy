@@ -411,8 +411,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     .values()) {
                 try {
                     initializeTransport(transportProtocol);
-                } catch (Exception e) {
-                    LOG.warn("Unable to initialize transport protocol {}: {}", transportProtocol, e.getMessage(), e);
+                } catch (Throwable t) {
+                    LOG.warn("Unable to initialize transport protocol {}: {}",
+                            transportProtocol,
+                            t.getMessage(),
+                            t);
                 }
             }
 
