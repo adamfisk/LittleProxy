@@ -72,13 +72,15 @@ public interface HttpFilters {
      * Filters responses on their way from the server to the proxy.
      * 
      * @param httpObject
+     * @return the modified (or unmodified) HttpObject
      */
-    void responsePre(HttpObject httpObject);
+    HttpObject responsePre(HttpObject httpObject);
 
     /**
      * Filters responses on their way from the proxy to the client.
      * 
      * @param httpObject
+     * @return the modified (or unmodified) HttpObject
      */
-    void responsePost(HttpObject httpObject);
+    HttpObject responsePost(HttpObject httpObject);
 }

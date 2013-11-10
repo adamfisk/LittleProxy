@@ -301,7 +301,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     void respond(ProxyToServerConnection serverConnection, HttpFilters filters,
             HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
             HttpObject httpObject) {
-        filters.responsePre(httpObject);
+        httpObject = filters.responsePre(httpObject);
 
         if (httpObject instanceof HttpResponse) {
             HttpResponse httpResponse = (HttpResponse) httpObject;
@@ -309,7 +309,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             modifyResponseHeadersToReflectProxying(httpResponse);
         }
 
-        filters.responsePost(httpObject);
+        httpObject = filters.responsePost(httpObject);
 
         write(httpObject);
 

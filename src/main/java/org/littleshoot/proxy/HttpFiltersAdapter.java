@@ -26,11 +26,13 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public void responsePre(HttpObject httpObject) {
+    public HttpObject responsePre(HttpObject httpObject) {
+        return httpObject;
     }
 
     @Override
-    public void responsePost(HttpObject httpObject) {
+    public HttpObject responsePost(HttpObject httpObject) {
+        return httpObject;
     }
 
 }

@@ -45,6 +45,8 @@ public class HttpFilterTest {
         final String url1 = "http://localhost:8924/";
         final String url2 = "http://localhost:8924/testing";
         final String url3 = "http://localhost:8924/testing2";
+        final String url4 = "http://localhost:8924/testing3";
+        final String url5 = "http://localhost:8924/testing4";
         final HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest originalRequest) {
                 shouldFilterCalls.incrementAndGet();
@@ -78,8 +80,12 @@ public class HttpFilterTest {
                         return null;
                     }
 
-                    public void responsePre(
-                            io.netty.handler.codec.http.HttpObject httpObject) {
+                    public HttpObject responsePre(HttpObject httpObject) {
+                        if (originalRequest.getUri().contains("testing3")) {
+                            return new DefaultFullHttpResponse(
+                                    HttpVersion.HTTP_1_1,
+                                    HttpResponseStatus.FORBIDDEN);
+                        }
                         filterResponseCalls.incrementAndGet();
                         if (httpObject instanceof FullHttpResponse) {
                             fullHttpResponsesReceived.incrementAndGet();
@@ -88,14 +94,20 @@ public class HttpFilterTest {
                             ((HttpResponse) httpObject).headers().set(
                                     "Header-Pre", "1");
                         }
+                        return httpObject;
                     };
 
-                    public void responsePost(
-                            io.netty.handler.codec.http.HttpObject httpObject) {
+                    public HttpObject responsePost(HttpObject httpObject) {
+                        if (originalRequest.getUri().contains("testing4")) {
+                            return new DefaultFullHttpResponse(
+                                    HttpVersion.HTTP_1_1,
+                                    HttpResponseStatus.FORBIDDEN);
+                        }
                         if (httpObject instanceof HttpResponse) {
                             ((HttpResponse) httpObject).headers().set(
                                     "Header-Post", "2");
                         }
+                        return httpObject;
                     };
                 };
             };
@@ -178,6 +190,12 @@ public class HttpFilterTest {
         assertEquals(url2, second.getUri());
         assertEquals(url3, third.getUri());
 
+        org.apache.http.HttpResponse response4 = getResponse(url4);
+        org.apache.http.HttpResponse response5 = getResponse(url5);
+        
+        assertEquals(403, response4.getStatusLine().getStatusCode());
+        assertEquals(403, response5.getStatusLine().getStatusCode());
+        
         webServer.stop();
         server.stop();
     }

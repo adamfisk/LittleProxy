@@ -64,7 +64,7 @@ public class MitmProxyTest extends BaseProxyTest {
                             }
 
                             @Override
-                            public void responsePre(HttpObject httpObject) {
+                            public HttpObject responsePre(HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePreOriginalRequestMethodsSeen
                                             .add(originalRequest.getMethod());
@@ -73,10 +73,11 @@ public class MitmProxyTest extends BaseProxyTest {
                                             .content().toString(
                                                     Charset.forName("UTF-8")));
                                 }
+                                return httpObject;
                             }
 
                             @Override
-                            public void responsePost(HttpObject httpObject) {
+                            public HttpObject responsePost(HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePostOriginalRequestMethodsSeen
                                             .add(originalRequest.getMethod());
@@ -85,6 +86,7 @@ public class MitmProxyTest extends BaseProxyTest {
                                             .content().toString(
                                                     Charset.forName("UTF-8")));
                                 }
+                                return httpObject;
                             }
                         };
                     }
