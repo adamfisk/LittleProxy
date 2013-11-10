@@ -302,6 +302,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
             HttpObject httpObject) {
         httpObject = filters.responsePre(httpObject);
+        if (httpObject == null) {
+            forceDisconnect(serverConnection);
+            return;
+        }
 
         if (httpObject instanceof HttpResponse) {
             HttpResponse httpResponse = (HttpResponse) httpObject;
@@ -310,6 +314,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         httpObject = filters.responsePost(httpObject);
+        if (httpObject == null) {
+            forceDisconnect(serverConnection);
+            return;
+        }
 
         write(httpObject);
 
@@ -657,6 +665,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             LOG.debug("Closing connection to client after writes");
             disconnect();
         }
+    }
+    
+    private void forceDisconnect(ProxyToServerConnection serverConnection) {
+        LOG.debug("Forcing disconnect");
+        serverConnection.disconnect();
+        disconnect();
     }
 
     /**

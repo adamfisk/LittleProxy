@@ -31,10 +31,10 @@ import org.littleshoot.proxy.impl.ProxyUtils;
  * 
  * <p>
  * {@link HttpFiltersSource#getMaximumRequestBufferSizeInBytes()} and
- * {@link HttpFiltersSource#getMaximumResponseBufferSizeInBytes()} can be
- * used to instruct the proxy to buffer the {@link HttpObject}s sent to all of
- * its request/response filters, in which case it will buffer up to the
- * specified limit and then send either complete {@link HttpRequest}s or
+ * {@link HttpFiltersSource#getMaximumResponseBufferSizeInBytes()} can be used
+ * to instruct the proxy to buffer the {@link HttpObject}s sent to all of its
+ * request/response filters, in which case it will buffer up to the specified
+ * limit and then send either complete {@link HttpRequest}s or
  * {@link HttpResponse}s to the filter methods. When buffering, if the proxy
  * receives more data than fits in the specified maximum bytes to buffer, the
  * proxy will stop processing the request and respond with a 502 Bad Gateway
@@ -72,7 +72,8 @@ public interface HttpFilters {
      * Filters responses on their way from the server to the proxy.
      * 
      * @param httpObject
-     * @return the modified (or unmodified) HttpObject
+     * @return the modified (or unmodified) HttpObject. Returning null will
+     *         force a disconnect.
      */
     HttpObject responsePre(HttpObject httpObject);
 
@@ -80,7 +81,8 @@ public interface HttpFilters {
      * Filters responses on their way from the proxy to the client.
      * 
      * @param httpObject
-     * @return the modified (or unmodified) HttpObject
+     * @return the modified (or unmodified) HttpObject. Returning null will
+     *         force a disconnect.
      */
     HttpObject responsePost(HttpObject httpObject);
 }
