@@ -3,6 +3,10 @@ package org.littleshoot.proxy;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
+import java.lang.management.OperatingSystemMXBean;
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.security.SecureRandom;
@@ -227,5 +231,36 @@ public class TestUtils {
                 }
             }
         }
+    }
+    
+    public static long getOpenFileDescriptorsAndPrintMemoryUsage() throws Exception {
+        // Below courtesy of:
+        // http://stackoverflow.com/questions/10999076/programmatically-print-the-heap-usage-that-is-typically-printed-on-jvm-exit-when
+        MemoryUsage mu = ManagementFactory.getMemoryMXBean()
+                .getHeapMemoryUsage();
+        MemoryUsage muNH = ManagementFactory.getMemoryMXBean()
+                .getNonHeapMemoryUsage();
+        System.out.println("Init :" + mu.getInit() + "\nMax :" + mu.getMax()
+                + "\nUsed :" + mu.getUsed() + "\nCommitted :"
+                + mu.getCommitted() + "\nInit NH :" + muNH.getInit()
+                + "\nMax NH :" + muNH.getMax() + "\nUsed NH:" + muNH.getUsed()
+                + "\nCommitted NH:" + muNH.getCommitted());
+
+        // Below courtesy of:
+        // http://neopatel.blogspot.com/2011/05/java-count-open-file-handles.html
+        OperatingSystemMXBean osStats = ManagementFactory
+                .getOperatingSystemMXBean();
+        long numberOfOpenFileDescriptors = 0;
+        if (osStats.getClass().getName()
+                .equals("com.sun.management.UnixOperatingSystem")) {
+            Method method = osStats.getClass().getDeclaredMethod(
+                    "getOpenFileDescriptorCount");
+            method.setAccessible(true);
+            numberOfOpenFileDescriptors = (Long) method.invoke(osStats);
+            System.out.println("Open File Descriptors: "
+                    + numberOfOpenFileDescriptors);
+            method.setAccessible(false);
+        }
+        return numberOfOpenFileDescriptors;
     }
 }

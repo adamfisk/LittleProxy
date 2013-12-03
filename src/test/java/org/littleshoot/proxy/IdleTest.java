@@ -1,9 +1,5 @@
 package org.littleshoot.proxy;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
-import java.lang.management.OperatingSystemMXBean;
-import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
@@ -54,7 +50,7 @@ public class IdleTest {
     public void test() throws Exception {
         System.out
                 .println("------------------ Memory Usage At Beginning ------------------");
-        long initialFileDescriptors = getOpenFileDescriptorsAndPrintMemoryUsage();
+        long initialFileDescriptors = TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
         Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(
                 "127.0.0.1", PROXY_PORT));
         for (int i = 0; i < NUMBER_OF_CONNECTIONS_TO_OPEN; i++) {
@@ -66,13 +62,13 @@ public class IdleTest {
         System.out
                 .println("\n\n------------------ Memory Usage Before Idle Timeout ------------------");
 
-        long fileDescriptorsWhileConnectionsOpen = getOpenFileDescriptorsAndPrintMemoryUsage();
+        long fileDescriptorsWhileConnectionsOpen = TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
         Thread.sleep(10000);
 
         System.gc();
         System.out
                 .println("\n\n------------------ Memory Usage After Idle Timeout ------------------");
-        long fileDescriptorsAfterConnectionsClosed = getOpenFileDescriptorsAndPrintMemoryUsage();
+        long fileDescriptorsAfterConnectionsClosed = TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
 
         double fdDeltaToOpen = fileDescriptorsWhileConnectionsOpen
                 - initialFileDescriptors;
@@ -83,36 +79,5 @@ public class IdleTest {
         Assert.assertTrue(
                 "Number of file descriptors after close should be much closer to initial value than number of file descriptors while open",
                 fdDeltaRatio < 0.01);
-    }
-
-    private long getOpenFileDescriptorsAndPrintMemoryUsage() throws Exception {
-        // Below courtesy of:
-        // http://stackoverflow.com/questions/10999076/programmatically-print-the-heap-usage-that-is-typically-printed-on-jvm-exit-when
-        MemoryUsage mu = ManagementFactory.getMemoryMXBean()
-                .getHeapMemoryUsage();
-        MemoryUsage muNH = ManagementFactory.getMemoryMXBean()
-                .getNonHeapMemoryUsage();
-        System.out.println("Init :" + mu.getInit() + "\nMax :" + mu.getMax()
-                + "\nUsed :" + mu.getUsed() + "\nCommitted :"
-                + mu.getCommitted() + "\nInit NH :" + muNH.getInit()
-                + "\nMax NH :" + muNH.getMax() + "\nUsed NH:" + muNH.getUsed()
-                + "\nCommitted NH:" + muNH.getCommitted());
-
-        // Below courtesy of:
-        // http://neopatel.blogspot.com/2011/05/java-count-open-file-handles.html
-        OperatingSystemMXBean osStats = ManagementFactory
-                .getOperatingSystemMXBean();
-        long numberOfOpenFileDescriptors = 0;
-        if (osStats.getClass().getName()
-                .equals("com.sun.management.UnixOperatingSystem")) {
-            Method method = osStats.getClass().getDeclaredMethod(
-                    "getOpenFileDescriptorCount");
-            method.setAccessible(true);
-            numberOfOpenFileDescriptors = (Long) method.invoke(osStats);
-            System.out.println("Open File Descriptors: "
-                    + numberOfOpenFileDescriptors);
-            method.setAccessible(false);
-        }
-        return numberOfOpenFileDescriptors;
     }
 }
