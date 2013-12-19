@@ -22,7 +22,7 @@ public interface HttpFiltersSource {
      * {@link HttpRequest}s. A value of 0 or less indicates that no buffering
      * should happen and that messages will be passed to the {@link HttpFilters}
      * request filtering methods chunk by chunk. A positive value will cause
-     * LittleProxy to try an create a {@link FullHttpRequeste} using the data
+     * LittleProxy to try an create a {@link FullHttpRequest} using the data
      * received from the client, with its content already decompressed (in case
      * the client was compressing it). If the request size exceeds the maximum
      * buffer size, the request will fail.

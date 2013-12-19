@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import io.netty.handler.codec.http.HttpObject;
+
 import java.net.InetSocketAddress;
 
 import javax.net.ssl.SSLEngine;
@@ -38,7 +40,11 @@ public class ChainedProxyAdapter implements ChainedProxy {
     public SSLEngine newSslEngine() {
         return null;
     }
-
+    
+    @Override
+    public void filterRequest(HttpObject httpObject) {
+    }
+    
     @Override
     public void connectionSucceeded() {
     }

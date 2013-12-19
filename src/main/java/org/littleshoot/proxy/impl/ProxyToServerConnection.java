@@ -284,6 +284,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void writeHttp(HttpObject httpObject) {
+        if (chainedProxy != null) {
+            chainedProxy.filterRequest(httpObject);
+        }
         if (httpObject instanceof HttpRequest) {
             HttpRequest httpRequest = (HttpRequest) httpObject;
             // Remember that we issued this HttpRequest for later

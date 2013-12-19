@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import io.netty.handler.codec.http.HttpObject;
+
 import java.net.InetSocketAddress;
 
 /**
@@ -8,8 +10,8 @@ import java.net.InetSocketAddress;
  * </p>
  * 
  * <p>
- * Sub-classes may wish to extend {@link ChainedProxyAdapter} for
- * sensible defaults.
+ * Sub-classes may wish to extend {@link ChainedProxyAdapter} for sensible
+ * defaults.
  * </p>
  */
 public interface ChainedProxy extends SslEngineSource {
@@ -40,12 +42,19 @@ public interface ChainedProxy extends SslEngineSource {
     /**
      * Implement this method to tell LittleProxy whether or not to encrypt
      * connections to the chained proxy for the given request. If true,
-     * LittleProxy will call {@link SslEngineSource#newSslEngine()} to obtain
-     * an SSLContext used by the upstream proxy.
+     * LittleProxy will call {@link SslEngineSource#newSslEngine()} to obtain an
+     * SSLContext used by the upstream proxy.
      * 
      * @return true of the connection to the chained proxy should be encrypted
      */
     boolean requiresEncryption();
+
+    /**
+     * Filters requests on their way to the chained proxy.
+     * 
+     * @param httpObject
+     */
+    void filterRequest(HttpObject httpObject);
 
     /**
      * Called to let us know that connecting to this proxy succeeded.
