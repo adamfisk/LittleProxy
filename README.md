@@ -103,6 +103,12 @@ compliance testing.
 Release History
 ---------------
 
+### 1.0.0-beta4 - Bug fixes
+
+- [#113 Handle exceptions in filter implementations](https://github.com/adamfisk/LittleProxy/issues/113)
+- [#117 withPort() after clone() doesn't work](https://github.com/adamfisk/LittleProxy/issues/117)
+
+
 ### 1.0.0-beta3 - Bug fixes
 
 - [#96 If idleConnectionTimeout is exceeded no response is returned](https://github.com/adamfisk/LittleProxy/issues/96)
