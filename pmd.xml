@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pmd version="4.3" timestamp="2013-10-17T06:46:31.107">
+<pmd version="4.3" timestamp="2013-12-19T14:41:17.227">
 <file name="/Users/ox.to.a.cart/Documents/eclipse_workspace/LittleProxy/src/main/java/org/littleshoot/proxy/impl/ClientToProxyConnection.java">
-<violation beginline="676" endline="684" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="shouldCloseClientConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
+<violation beginline="690" endline="698" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="shouldCloseClientConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
 These nested if statements could be combined
 </violation>
-<violation beginline="729" endline="736" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="shouldCloseServerConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
+<violation beginline="743" endline="750" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="shouldCloseServerConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
 These nested if statements could be combined
 </violation>
-<violation beginline="871" endline="874" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="fixHttpVersionHeaderIfNecessary" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
+<violation beginline="885" endline="888" begincolumn="13" endcolumn="13" rule="CollapsibleIfStatements" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" method="fixHttpVersionHeaderIfNecessary" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#CollapsibleIfStatements" priority="3">
 These nested if statements could be combined
 </violation>
-<violation beginline="1061" endline="1072" begincolumn="13" endcolumn="5" rule="UnusedFormalParameter" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedFormalParameter" priority="3">
+<violation beginline="1075" endline="1086" begincolumn="13" endcolumn="5" rule="UnusedFormalParameter" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="ClientToProxyConnection" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedFormalParameter" priority="3">
 Avoid unused method parameters such as 'httpVersion'.
 </violation>
 </file>
@@ -18,10 +18,10 @@ Avoid unused method parameters such as 'httpVersion'.
 <violation beginline="270" endline="270" begincolumn="29" endcolumn="35" rule="UnusedPrivateMethod" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer" method="start" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedPrivateMethod" priority="3">
 Avoid unused private methods such as 'start()'.
 </violation>
-<violation beginline="546" endline="573" begincolumn="17" endcolumn="9" rule="UnusedFormalParameter" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer$DefaultHttpProxyServerBootstrap" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedFormalParameter" priority="3">
+<violation beginline="557" endline="584" begincolumn="17" endcolumn="9" rule="UnusedFormalParameter" ruleset="Unused Code Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer$DefaultHttpProxyServerBootstrap" externalInfoUrl="http://pmd.sourceforge.net/rules/unusedcode.html#UnusedFormalParameter" priority="3">
 Avoid unused constructor parameters such as 'mitmManager'.
 </violation>
-<violation beginline="730" endline="730" begincolumn="50" endcolumn="60" rule="AvoidUsingHardCodedIP" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer$DefaultHttpProxyServerBootstrap" method="determineListenAddress" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#AvoidUsingHardCodedIP" priority="3">
+<violation beginline="742" endline="742" begincolumn="50" endcolumn="60" rule="AvoidUsingHardCodedIP" ruleset="Basic Rules" package="org.littleshoot.proxy.impl" class="DefaultHttpProxyServer$DefaultHttpProxyServerBootstrap" method="determineListenAddress" externalInfoUrl="http://pmd.sourceforge.net/rules/basic.html#AvoidUsingHardCodedIP" priority="3">
 Do not hard code IPv4 or IPv6 addresses, even 127.0.0.1 !
 </violation>
 </file>
