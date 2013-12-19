@@ -613,6 +613,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         @Override
         public HttpProxyServerBootstrap withPort(int port) {
+            this.address = null;
             this.port = port;
             return this;
         }
@@ -717,7 +718,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             if (original != null) {
                 return new DefaultHttpProxyServer(original.serverGroup,
                         transportProtocol, determineListenAddress(),
-                        original.sslEngineSource, authenticateSslClients,
+                        sslEngineSource, authenticateSslClients,
                         proxyAuthenticator, chainProxyManager, mitmManager,
                         filtersSource, useDnsSec, transparent,
                         idleConnectionTimeout, activityTrackers);
