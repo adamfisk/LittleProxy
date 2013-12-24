@@ -549,6 +549,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this, AWAITING_CONNECT_OK) {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
+            chainedProxy.filterRequest(initialRequest);
             return writeToChannel(initialRequest);
         }
 
