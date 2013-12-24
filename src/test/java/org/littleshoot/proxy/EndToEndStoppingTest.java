@@ -4,27 +4,13 @@ import static org.junit.Assert.*;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 
-import java.security.SecureRandom;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
 import java.util.concurrent.TimeUnit;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpException;
-import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.conn.routing.HttpRoute;
-import org.apache.http.conn.routing.HttpRoutePlanner;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
@@ -93,46 +79,9 @@ public class EndToEndStoppingTest {
     }
 
     private void runSiteTestWithHttpClient(final String site) throws Exception {
-        final int PROXY_PORT = 7777;
-        final DefaultHttpClient client = new DefaultHttpClient();
-        client.setRoutePlanner(new HttpRoutePlanner() {
-
-            @Override
-            public HttpRoute determineRoute(HttpHost target,
-                    org.apache.http.HttpRequest request, HttpContext context)
-                    throws HttpException {
-                return new HttpRoute(target, null, new HttpHost("localhost",
-                        PROXY_PORT, "http"), // true);
-                        "https".equalsIgnoreCase(target.getSchemeName()));
-            }
-        });
-        final SSLContext sslContext = SSLContext.getInstance("SSL");
-
-        // set up a TrustManager that trusts everything for testing
-        sslContext.init(null, new TrustManager[] { new X509TrustManager() {
-
-            @Override
-            public void checkClientTrusted(X509Certificate[] arg0, String arg1)
-                    throws CertificateException {
-            }
-
-            @Override
-            public void checkServerTrusted(X509Certificate[] arg0, String arg1)
-                    throws CertificateException {
-            }
-
-            @Override
-            public X509Certificate[] getAcceptedIssuers() {
-                return null;
-            }
-
-        } }, new SecureRandom());
-
-        final SSLSocketFactory sf = new SSLSocketFactory(sslContext,
-                SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
-        final Scheme sch = new Scheme("https", 443, sf);
-        client.getConnectionManager().getSchemeRegistry().register(sch);
-
+        final int PROXY_PORT = 9097;
+        final HttpClient client = TestUtils.createProxiedHttpClient(PROXY_PORT);
+        
         // final HttpPost get = new HttpPost(site);
         final HttpGet get = new HttpGet(site);
         // HttpResponse response = client.execute(get);
