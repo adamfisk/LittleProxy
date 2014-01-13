@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
@@ -15,7 +17,8 @@ public interface HttpFiltersSource {
      * @param originalRequest
      * @return
      */
-    HttpFilters filterRequest(HttpRequest originalRequest);
+    HttpFilters filterRequest(HttpRequest originalRequest,
+            ChannelHandlerContext ctx);
 
     /**
      * Indicate how many (if any) bytes to buffer for incoming

@@ -191,7 +191,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         // Set up our filters based on the original request
         currentFilters = proxyServer.getFiltersSource().filterRequest(
-                originalRequest);
+                originalRequest, ctx);
 
         // Do the pre filtering
         if (shortCircuitRespond(currentFilters.requestPre(httpRequest))) {

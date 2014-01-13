@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpRequest;
 
 /**
@@ -7,9 +8,14 @@ import io.netty.handler.codec.http.HttpRequest;
  */
 public class HttpFiltersSourceAdapter implements HttpFiltersSource {
 
-    @Override
     public HttpFilters filterRequest(HttpRequest originalRequest) {
-        return new HttpFiltersAdapter(originalRequest);
+        return filterRequest(originalRequest, null);
+    }
+    
+    @Override
+    public HttpFilters filterRequest(HttpRequest originalRequest,
+            ChannelHandlerContext ctx) {
+        return new HttpFiltersAdapter(originalRequest, ctx);
     }
 
     @Override
