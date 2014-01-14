@@ -14,4 +14,3 @@ jmeter.log
 lib/
 LittleProxy.pro
 /bin
-build.sbt
