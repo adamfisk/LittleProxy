@@ -1,5 +1,6 @@
 package org.littleshoot.proxy.impl;
 
+import org.littleshoot.proxy.HttpFilters2;
 import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -157,14 +158,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected ConnectionState readHTTPInitial(HttpRequest httpRequest) {
         LOG.debug("Got request: {}", httpRequest);
 
-        boolean authenticationRequired = authenticationRequired(httpRequest);
-
-        if (authenticationRequired) {
-            LOG.debug("Not authenticated!!");
-            return AWAITING_PROXY_AUTHENTICATION;
-        } else {
-            return doReadHTTPInitial(httpRequest);
-        }
+        return doReadHTTPInitial(httpRequest);
     }
 
     /**
@@ -192,6 +186,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // Set up our filters based on the original request
         currentFilters = proxyServer.getFiltersSource().filterRequest(
                 originalRequest, ctx);
+
+        boolean authenticationRequired = authenticationRequired(httpRequest);
+
+        if (authenticationRequired) {
+            LOG.debug("Not authenticated!!");
+            return AWAITING_PROXY_AUTHENTICATION;
+        }
 
         // Do the pre filtering
         if (shortCircuitRespond(currentFilters.requestPre(httpRequest))) {
@@ -790,6 +791,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private boolean authenticationRequired(HttpRequest request) {
+
+        if (currentFilters instanceof HttpFilters2) {
+            Boolean filterResult = ((HttpFilters2) currentFilters).authenticationRequired(request);
+            if (filterResult != null) {
+                return filterResult.booleanValue();
+            }
+        }
+
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
             if (proxyServer.getProxyAuthenticator() != null) {
                 writeAuthenticationRequired();
@@ -1037,8 +1046,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Tells the client that the connection to the server timed out.
-     * 
-     * @param request
      */
     private void writeGatewayTimeout() {
         String body = "Gateway Timeout";
@@ -1104,7 +1111,15 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private String identifyHostAndPort(HttpRequest httpRequest) {
-        String hostAndPort = ProxyUtils.parseHostAndPort(httpRequest);
+        String hostAndPort = null;
+
+        if (currentFilters instanceof HttpFilters2) {
+            hostAndPort = ((HttpFilters2)currentFilters).parseHostAndPort(httpRequest);
+        }
+
+        if (hostAndPort == null) {
+            hostAndPort = ProxyUtils.parseHostAndPort(httpRequest);
+        }
         if (StringUtils.isBlank(hostAndPort)) {
             List<String> hosts = httpRequest.headers().getAll(
                     HttpHeaders.Names.HOST);

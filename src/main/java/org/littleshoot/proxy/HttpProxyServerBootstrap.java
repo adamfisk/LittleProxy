@@ -251,6 +251,22 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * <p>
+     * Specify the timeout for connecting to the backend server on a new
+     * connection, in milliseconds.
+     * </p>
+     *
+     * <p>
+     * Default = 40000
+     * </p>
+     *
+     * @param backendConnectTimeout
+     * @return
+     */
+    HttpProxyServerBootstrap withBackendConnectTimeout(
+            int backendConnectTimeout);
+
+    /**
+     * <p>
      * Add an {@link ActivityTracker} for tracking activity in this proxy.
      * </p>
      * 
