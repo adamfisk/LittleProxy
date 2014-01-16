@@ -164,8 +164,8 @@ public class TestUtils {
                 proxy);
         if (supportSSL) {
             SSLSocketFactory sf = new SSLSocketFactory(
-                    new TrustSelfSignedStrategy());
-            sf.setHostnameVerifier(new X509HostnameVerifier() {
+                    new TrustSelfSignedStrategy(),
+                    new X509HostnameVerifier() {
                 public boolean verify(String arg0, SSLSession arg1) {
                     return true;
                 }
