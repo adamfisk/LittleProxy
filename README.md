@@ -37,37 +37,32 @@ HttpProxyServer server =
     DefaultHttpProxyServer.bootstrap()
         .withPort(8080)
         .withFiltersSource(new HttpFiltersSourceAdapter() {
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
-                // Check the originalRequest to see if we want to filter it
-                boolean wantToFilterRequest = ...;
-                
-                if (!wantToFilterRequest) {
-                    return null;
-                } else {
-                    return new HttpFiltersAdapter(originalRequest) {
-                        @Override
-                        public HttpResponse requestPre(HttpObject httpObject) {
-                            // TODO: implement your filtering here
-                            return null;
-                        }
-                    
-                        @Override
-                        public HttpResponse requestPost(HttpObject httpObject) {
-                            // TODO: implement your filtering here
-                            return null;
-                        }
-                    
-                        @Override
-                        public void responsePre(HttpObject httpObject) {
-                            // TODO: implement your filtering here
-                        }
-                    
-                        @Override
-                        public void responsePost(HttpObject httpObject) {
-                            // TODO: implement your filtering here
-                        }   
-                    };
-                }
+            public HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext ctx) {
+               return new HttpFiltersAdapter(originalRequest) {
+                  @Override
+                  public HttpResponse requestPre(HttpObject httpObject) {
+                      // TODO: implement your filtering here
+                      return null;
+                  }
+
+                  @Override
+                  public HttpResponse requestPost(HttpObject httpObject) {
+                      // TODO: implement your filtering here
+                      return null;
+                  }
+
+                  @Override
+                  public HttpObject responsePre(HttpObject httpObject) {
+                      // TODO: implement your filtering here
+                      return httpObject;
+                  }
+
+                  @Override
+                  public HttpObject responsePost(HttpObject httpObject) {
+                      // TODO: implement your filtering here
+                      return httpObject;
+                  }   
+               };
             }
         })
         .start();
