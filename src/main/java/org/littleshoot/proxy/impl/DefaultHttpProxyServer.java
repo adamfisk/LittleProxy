@@ -39,7 +39,6 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLEngine;
 
-import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.HttpFilters;
@@ -52,6 +51,7 @@ import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.SslEngineSource;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
+import org.littleshoot.proxy.extras.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -165,7 +165,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            our ServerGroup for shared thread pools and such
      * @param transportProtocol
      *            The protocol to use for data transport
-     * @param port
      *            The port the server should run on.
      * @param transportProtocol
      *            The protocol to use for data transport
