@@ -792,10 +792,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean authenticationRequired(HttpRequest request) {
 
+        // Only do our processing if the filter allows us
         if (currentFilters instanceof HttpFilters2) {
-            Boolean filterResult = ((HttpFilters2) currentFilters).authenticationRequired(request);
-            if (filterResult != null) {
-                return filterResult.booleanValue();
+            if (((HttpFilters2) currentFilters).skipProxyAuthorizationProcessing(request)) {
+                return false;
             }
         }
 
