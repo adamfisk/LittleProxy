@@ -22,6 +22,7 @@
     </appender>
     <appender name="ASYNC" class="org.apache.log4j.AsyncAppender">
     	<param name="BufferSize" value="500"/>
+        <param name="LocationInfo" value="true"/>
     	<appender-ref ref="RollingTextFile"/>
         <appender-ref ref="stdout"/>
     </appender>
