@@ -239,7 +239,7 @@ public interface HttpProxyServerBootstrap {
      * </p>
      *
      * <p>
-     * WARNING: enabling this setting breaks the HTTP specification
+     * WARNING: enabling this setting breaks the HTTP specification (RFC 2616, sec 14.45)
      * </p>
      *
      * <p>
