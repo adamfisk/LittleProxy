@@ -37,12 +37,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import javax.net.ssl.SSLEngine;
-
 import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
-import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.HttpFiltersSource;
 import org.littleshoot.proxy.HttpFiltersSourceAdapter;
 import org.littleshoot.proxy.HttpProxyServer;
@@ -96,6 +93,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final HttpFiltersSource filtersSource;
     private final boolean useDnsSec;
     private final boolean transparent;
+    private final boolean stripVia;
     private volatile int idleConnectionTimeout;
 
     /**
@@ -149,24 +147,21 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HttpFiltersSource filterSource,
             boolean useDnsSec,
             boolean transparent,
+            boolean stripVia,
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers) {
         this(new ServerGroup(name), transportProtocol, address,
                 sslEngineSource, authenticateSslClients, proxyAuthenticator,
                 chainProxyManager,
                 mitmManager, filterSource, useDnsSec, transparent,
-                idleConnectionTimeout, activityTrackers);
+                stripVia, idleConnectionTimeout, activityTrackers);
     }
 
     /**
      * Creates a new proxy server.
-     * 
+     *
      * @param serverGroup
      *            our ServerGroup for shared thread pools and such
-     * @param transportProtocol
-     *            The protocol to use for data transport
-     * @param port
-     *            The port the server should run on.
      * @param transportProtocol
      *            The protocol to use for data transport
      * @param address
@@ -198,7 +193,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param idleConnectionTimeout
      *            The timeout (in seconds) for auto-closing idle connections.
      * @param activityTrackers
-     *            for tracking activity on this proxy
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
@@ -211,6 +205,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HttpFiltersSource filtersSource,
             boolean useDnsSec,
             boolean transparent,
+            boolean stripVia,
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers) {
         this.serverGroup = serverGroup;
@@ -224,6 +219,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.filtersSource = filtersSource;
         this.useDnsSec = useDnsSec;
         this.transparent = transparent;
+        this.stripVia = stripVia;
         this.idleConnectionTimeout = idleConnectionTimeout;
         if (activityTrackers != null) {
             this.activityTrackers.addAll(activityTrackers);
@@ -236,6 +232,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     boolean isTransparent() {
         return transparent;
+    }
+
+    boolean isStripVia() {
+        return stripVia;
     }
 
     public int getIdleConnectionTimeout() {
@@ -547,6 +547,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
         private boolean useDnsSec = false;
         private boolean transparent = false;
+        private boolean stripVia = false;
         private int idleConnectionTimeout = 70;
         private DefaultHttpProxyServer original;
         private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
@@ -696,6 +697,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withStripVia(
+                boolean stripVia) {
+            this.stripVia = stripVia;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap withIdleConnectionTimeout(
                 int idleConnectionTimeout) {
             this.idleConnectionTimeout = idleConnectionTimeout;
@@ -721,14 +729,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         sslEngineSource, authenticateSslClients,
                         proxyAuthenticator, chainProxyManager, mitmManager,
                         filtersSource, useDnsSec, transparent,
-                        idleConnectionTimeout, activityTrackers);
+                        stripVia, idleConnectionTimeout, activityTrackers);
             } else {
                 return new DefaultHttpProxyServer(
                         name, transportProtocol, determineListenAddress(),
                         sslEngineSource, authenticateSslClients,
                         proxyAuthenticator, chainProxyManager, mitmManager,
                         filtersSource, useDnsSec, transparent,
-                        idleConnectionTimeout, activityTrackers);
+                        stripVia, idleConnectionTimeout, activityTrackers);
             }
         }
 

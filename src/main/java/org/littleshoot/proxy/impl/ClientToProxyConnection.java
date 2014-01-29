@@ -915,7 +915,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             switchProxyConnectionHeader(headers);
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
-            ProxyUtils.addVia(httpRequest);
+            if (!proxyServer.isStripVia()) {
+                ProxyUtils.addVia(httpRequest);
+            }
         }
     }
 
@@ -932,7 +934,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpHeaders headers = httpResponse.headers();
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
-            ProxyUtils.addVia(httpResponse);
+            if (!proxyServer.isStripVia()) {
+                ProxyUtils.addVia(httpResponse);
+            }
 
             /*
              * RFC2616 Section 14.18

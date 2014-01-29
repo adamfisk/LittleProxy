@@ -235,6 +235,25 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * <p>
+     * Specify whether or not to strip the <code>Via</code> header.
+     * </p>
+     *
+     * <p>
+     * WARNING: enabling this setting breaks the HTTP specification
+     * </p>
+     *
+     * <p>
+     * Default = false
+     * </p>
+     *
+     * @param stripVia
+     * @return
+     */
+    HttpProxyServerBootstrap withStripVia(
+            boolean stripVia);
+
+    /**
+     * <p>
      * Specify the timeout after which to disconnect idle connections, in
      * seconds.
      * </p>
