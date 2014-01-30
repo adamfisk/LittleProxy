@@ -170,6 +170,14 @@
       <artifactId>slf4j-api</artifactId>
       <version>1.7.2</version>
     </dependency>
+    
+    <!-- Test dependencies -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-exec</artifactId>
+      <version>1.2</version>
+      <scope>test</scope>
+    </dependency>
 
   </dependencies>
 
