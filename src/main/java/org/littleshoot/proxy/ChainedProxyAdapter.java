@@ -11,8 +11,8 @@ import javax.net.ssl.SSLEngine;
  */
 public class ChainedProxyAdapter implements ChainedProxy {
     /**
-     * {@link ChainedProxy} that simply has the upstream proxy make a direct
-     * connection to the server.
+     * {@link ChainedProxy} that simply has the downstream proxy make a direct
+     * connection to the upstream server.
      */
     public static ChainedProxy FALLBACK_TO_DIRECT_CONNECTION = new ChainedProxyAdapter();
 

@@ -12,7 +12,7 @@ import org.junit.Assert;
 
 /**
  * Tests a proxy chained to a missing downstream proxy. When the downstream
- * proxy is unavailable, the upstream proxy should just fall back to a direct
+ * proxy is unavailable, the downstream proxy should just fall back to a direct
  * connection.
  */
 public class ChainedProxyWithFallbackTest extends BaseProxyTest {
@@ -24,7 +24,7 @@ public class ChainedProxyWithFallbackTest extends BaseProxyTest {
     protected void setUp() {
         unableToConnect.set(false);
         this.proxyServer = bootstrapProxy()
-                .withName("Upstream")
+                .withName("Downstream")
                 .withPort(proxyServerPort)
                 .withChainProxyManager(new ChainedProxyManager() {
                     @Override

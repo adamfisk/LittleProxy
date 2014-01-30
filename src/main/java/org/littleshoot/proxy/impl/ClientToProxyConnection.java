@@ -902,7 +902,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (!proxyServer.isTransparent()) {
             LOG.debug("Modifying request headers for proxying");
 
-            if (!currentServerConnection.hasDownstreamChainedProxy()) {
+            if (!currentServerConnection.hasUpstreamChainedProxy()) {
                 LOG.debug("Modifying request for proxy chaining");
                 // Strip host from uri
                 String uri = httpRequest.getUri();

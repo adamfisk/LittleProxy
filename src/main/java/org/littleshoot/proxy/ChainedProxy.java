@@ -43,7 +43,7 @@ public interface ChainedProxy extends SslEngineSource {
      * Implement this method to tell LittleProxy whether or not to encrypt
      * connections to the chained proxy for the given request. If true,
      * LittleProxy will call {@link SslEngineSource#newSslEngine()} to obtain an
-     * SSLContext used by the upstream proxy.
+     * SSLContext used by the downstream proxy.
      * 
      * @return true of the connection to the chained proxy should be encrypted
      */

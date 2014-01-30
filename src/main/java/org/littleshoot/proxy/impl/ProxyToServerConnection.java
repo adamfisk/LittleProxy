@@ -374,7 +374,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return serverHostAndPort;
     }
 
-    public boolean hasDownstreamChainedProxy() {
+    public boolean hasUpstreamChainedProxy() {
         return getChainedProxyAddress() != null;
     }
 
@@ -481,7 +481,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                         .then(serverConnection.MitmEncryptClientChannel);
             } else {
                 // If we're chaining, forward the CONNECT request
-                if (hasDownstreamChainedProxy()) {
+                if (hasUpstreamChainedProxy()) {
                     connectionFlow.then(
                             serverConnection.HTTPCONNECTWithChainedProxy);
                 }

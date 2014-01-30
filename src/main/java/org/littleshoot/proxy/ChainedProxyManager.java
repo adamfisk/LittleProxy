@@ -14,7 +14,7 @@ public interface ChainedProxyManager {
     /**
      * <p>
      * Based on the given httpRequest, add any {@link ChainedProxy}s to the list
-     * that should be used to process the request. The upstream proxy will
+     * that should be used to process the request. The downstream proxy will
      * attempt to connect to each of these in the order that they appear until
      * it successfully connects to one.
      * </p>

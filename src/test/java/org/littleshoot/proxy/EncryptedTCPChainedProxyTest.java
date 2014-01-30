@@ -11,8 +11,8 @@ public class EncryptedTCPChainedProxyTest extends BaseChainedProxyTest {
             "chain_proxy_keystore_1.jks");
 
     @Override
-    protected HttpProxyServerBootstrap downstreamProxy() {
-        return super.downstreamProxy()
+    protected HttpProxyServerBootstrap upstreamProxy() {
+        return super.upstreamProxy()
                 .withTransportProtocol(TCP)
                 .withSslEngineSource(sslEngineSource);
     }

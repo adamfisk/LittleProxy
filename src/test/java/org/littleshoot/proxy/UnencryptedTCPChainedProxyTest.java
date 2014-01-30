@@ -4,8 +4,8 @@ import static org.littleshoot.proxy.TransportProtocol.*;
 
 public class UnencryptedTCPChainedProxyTest extends BaseChainedProxyTest {
     @Override
-    protected HttpProxyServerBootstrap downstreamProxy() {
-        return super.downstreamProxy()
+    protected HttpProxyServerBootstrap upstreamProxy() {
+        return super.upstreamProxy()
                 .withTransportProtocol(TCP);
     }
 
