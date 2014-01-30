@@ -1,6 +1,7 @@
 package org.littleshoot.proxy.impl;
 
 import org.littleshoot.proxy.HttpFilters2;
+import org.littleshoot.proxy.ProxyAuthenticator;
 import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -792,15 +793,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean authenticationRequired(HttpRequest request) {
 
-        // Only do our processing if the filter allows us
-        if (currentFilters instanceof HttpFilters2) {
-            if (((HttpFilters2) currentFilters).skipProxyAuthorizationProcessing(request)) {
-                return false;
-            }
-        }
+        final ProxyAuthenticator authenticator = proxyServer.getProxyAuthenticator();
+
+        if (authenticator == null) return false;
 
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
-            if (proxyServer.getProxyAuthenticator() != null) {
+            if (authenticator != null) {
                 writeAuthenticationRequired();
                 return true;
             }
@@ -819,7 +817,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     ":");
             String password = StringUtils.substringAfter(decodedString,
                     ":");
-            if (!proxyServer.getProxyAuthenticator().authenticate(userName,
+            if (!authenticator.authenticate(userName,
                     password)) {
                 writeAuthenticationRequired();
                 return true;
