@@ -1,6 +1,5 @@
 package org.littleshoot.proxy.impl;
 
-import org.littleshoot.proxy.HttpFilters2;
 import org.littleshoot.proxy.ProxyAuthenticator;
 import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
@@ -159,7 +158,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected ConnectionState readHTTPInitial(HttpRequest httpRequest) {
         LOG.debug("Got request: {}", httpRequest);
 
-        return doReadHTTPInitial(httpRequest);
+        boolean authenticationRequired = authenticationRequired(httpRequest);
+
+        if (authenticationRequired) {
+            LOG.debug("Not authenticated!!");
+            return AWAITING_PROXY_AUTHENTICATION;
+        } else {
+            return doReadHTTPInitial(httpRequest);
+        }
     }
 
     /**
@@ -187,13 +193,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // Set up our filters based on the original request
         currentFilters = proxyServer.getFiltersSource().filterRequest(
                 originalRequest, ctx);
-
-        boolean authenticationRequired = authenticationRequired(httpRequest);
-
-        if (authenticationRequired) {
-            LOG.debug("Not authenticated!!");
-            return AWAITING_PROXY_AUTHENTICATION;
-        }
 
         // Do the pre filtering
         if (shortCircuitRespond(currentFilters.requestPre(httpRequest))) {
@@ -798,11 +797,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (authenticator == null) return false;
 
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
-            if (authenticator != null) {
-                writeAuthenticationRequired();
-                return true;
-            }
-            return false;
+            writeAuthenticationRequired();
+            return true;
         }
 
         List<String> values = request.headers().getAll(
@@ -1109,15 +1105,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private String identifyHostAndPort(HttpRequest httpRequest) {
-        String hostAndPort = null;
-
-        if (currentFilters instanceof HttpFilters2) {
-            hostAndPort = ((HttpFilters2)currentFilters).parseHostAndPort(httpRequest);
-        }
-
-        if (hostAndPort == null) {
-            hostAndPort = ProxyUtils.parseHostAndPort(httpRequest);
-        }
+        String hostAndPort = ProxyUtils.parseHostAndPort(httpRequest);
         if (StringUtils.isBlank(hostAndPort)) {
             List<String> hosts = httpRequest.headers().getAll(
                     HttpHeaders.Names.HOST);
