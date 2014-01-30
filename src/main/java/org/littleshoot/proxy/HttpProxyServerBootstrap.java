@@ -251,7 +251,7 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * <p>
-     * Specify the timeout for connecting to the backend server on a new
+     * Specify the timeout for connecting to the upstream server on a new
      * connection, in milliseconds.
      * </p>
      *
@@ -259,11 +259,11 @@ public interface HttpProxyServerBootstrap {
      * Default = 40000
      * </p>
      *
-     * @param backendConnectTimeout
+     * @param connectTimeout
      * @return
      */
-    HttpProxyServerBootstrap withBackendConnectTimeout(
-            int backendConnectTimeout);
+    HttpProxyServerBootstrap withConnectTimeout(
+            int connectTimeout);
 
     /**
      * <p>

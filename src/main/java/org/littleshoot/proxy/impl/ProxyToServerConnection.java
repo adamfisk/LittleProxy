@@ -532,7 +532,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     initChannelPipeline(ch.pipeline(), initialRequest);
                 };
             });
-            cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, proxyServer.getBackendConnectTimeout());
+            cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, proxyServer.getConnectTimeout());
 
             if (localAddress != null) {
                 return cb.connect(remoteAddress, localAddress);
