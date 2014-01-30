@@ -1,5 +1,6 @@
 package org.littleshoot.proxy.impl;
 
+import org.littleshoot.proxy.ProxyAuthenticator;
 import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -790,12 +791,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private boolean authenticationRequired(HttpRequest request) {
+
+        final ProxyAuthenticator authenticator = proxyServer.getProxyAuthenticator();
+
+        if (authenticator == null) return false;
+
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
-            if (proxyServer.getProxyAuthenticator() != null) {
-                writeAuthenticationRequired();
-                return true;
-            }
-            return false;
+            writeAuthenticationRequired();
+            return true;
         }
 
         List<String> values = request.headers().getAll(
@@ -810,7 +813,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     ":");
             String password = StringUtils.substringAfter(decodedString,
                     ":");
-            if (!proxyServer.getProxyAuthenticator().authenticate(userName,
+            if (!authenticator.authenticate(userName,
                     password)) {
                 writeAuthenticationRequired();
                 return true;
@@ -1037,8 +1040,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Tells the client that the connection to the server timed out.
-     * 
-     * @param request
      */
     private void writeGatewayTimeout() {
         String body = "Gateway Timeout";

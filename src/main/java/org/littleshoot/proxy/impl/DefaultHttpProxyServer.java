@@ -96,6 +96,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final HttpFiltersSource filtersSource;
     private final boolean useDnsSec;
     private final boolean transparent;
+    private final int backendConnectTimeout;
     private volatile int idleConnectionTimeout;
 
     /**
@@ -150,12 +151,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout,
-            Collection<ActivityTracker> activityTrackers) {
+            Collection<ActivityTracker> activityTrackers,
+            int backendConnectTimeout) {
         this(new ServerGroup(name), transportProtocol, address,
                 sslEngineSource, authenticateSslClients, proxyAuthenticator,
                 chainProxyManager,
                 mitmManager, filterSource, useDnsSec, transparent,
-                idleConnectionTimeout, activityTrackers);
+                idleConnectionTimeout, activityTrackers, backendConnectTimeout);
     }
 
     /**
@@ -163,10 +165,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * 
      * @param serverGroup
      *            our ServerGroup for shared thread pools and such
-     * @param transportProtocol
-     *            The protocol to use for data transport
-     * @param port
-     *            The port the server should run on.
      * @param transportProtocol
      *            The protocol to use for data transport
      * @param address
@@ -199,6 +197,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            The timeout (in seconds) for auto-closing idle connections.
      * @param activityTrackers
      *            for tracking activity on this proxy
+     * @param backendConnectTimeout
+     *            number of milliseconds to wait to connect o the backend server
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
@@ -212,7 +212,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout,
-            Collection<ActivityTracker> activityTrackers) {
+            Collection<ActivityTracker> activityTrackers,
+            int backendConnectTimeout) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.address = address;
@@ -228,6 +229,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         if (activityTrackers != null) {
             this.activityTrackers.addAll(activityTrackers);
         }
+        this.backendConnectTimeout = backendConnectTimeout;
     }
 
     boolean isUseDnsSec() {
@@ -245,6 +247,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public void setIdleConnectionTimeout(int idleConnectionTimeout) {
         this.idleConnectionTimeout = idleConnectionTimeout;
     }
+
+    public int getBackendConnectTimeout() { return backendConnectTimeout; }
     
     @Override
     public InetSocketAddress getListenAddress() {
@@ -259,7 +263,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 sslEngineSource, authenticateSslClients, proxyAuthenticator,
                 chainProxyManager,
                 mitmManager, filtersSource, useDnsSec, transparent,
-                idleConnectionTimeout, activityTrackers);
+                idleConnectionTimeout, activityTrackers, backendConnectTimeout);
     }
 
     @Override
@@ -550,6 +554,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private int idleConnectionTimeout = 70;
         private DefaultHttpProxyServer original;
         private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
+        private int backendConnectTimeout = 40000;
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -565,7 +570,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 MitmManager mitmManager,
                 HttpFiltersSource filtersSource, boolean useDnsSec,
                 boolean transparent, int idleConnectionTimeout,
-                Collection<ActivityTracker> activityTrackers) {
+                Collection<ActivityTracker> activityTrackers,
+                int backendConnectTimeout) {
             this.original = original;
             this.transportProtocol = transportProtocol;
             this.address = address;
@@ -581,6 +587,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             if (activityTrackers != null) {
                 this.activityTrackers.addAll(activityTrackers);
             }
+            this.backendConnectTimeout = backendConnectTimeout;
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
@@ -590,6 +597,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     props, "transparent");
             this.idleConnectionTimeout = ProxyUtils.extractInt(props,
                     "idle_connection_timeout");
+            this.backendConnectTimeout = ProxyUtils.extractInt(props,
+                    "backend_connect_timeout");
         }
 
         @Override
@@ -703,6 +712,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withBackendConnectTimeout(
+                int backendConnectTimeout) {
+            this.backendConnectTimeout = backendConnectTimeout;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap plusActivityTracker(
                 ActivityTracker activityTracker) {
             activityTrackers.add(activityTracker);
@@ -721,14 +737,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         sslEngineSource, authenticateSslClients,
                         proxyAuthenticator, chainProxyManager, mitmManager,
                         filtersSource, useDnsSec, transparent,
-                        idleConnectionTimeout, activityTrackers);
+                        idleConnectionTimeout, activityTrackers, backendConnectTimeout);
             } else {
                 return new DefaultHttpProxyServer(
                         name, transportProtocol, determineListenAddress(),
                         sslEngineSource, authenticateSslClients,
                         proxyAuthenticator, chainProxyManager, mitmManager,
                         filtersSource, useDnsSec, transparent,
-                        idleConnectionTimeout, activityTrackers);
+                        idleConnectionTimeout, activityTrackers, backendConnectTimeout);
             }
         }
 

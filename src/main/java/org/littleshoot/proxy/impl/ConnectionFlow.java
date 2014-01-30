@@ -135,6 +135,7 @@ class ConnectionFlow {
      * 
      * @param LOG
      */
+    @SuppressWarnings("unchecked")
     private void doProcessCurrentStep(final ProxyConnectionLogger LOG) {
         currentStep.execute().addListener(
                 new GenericFutureListener<Future<?>>() {
@@ -174,6 +175,7 @@ class ConnectionFlow {
      * Disconnects the {@link ProxyToServerConnection} and informs the
      * {@link ClientToProxyConnection} that our connection failed.
      */
+    @SuppressWarnings("unchecked")
     void fail(final Throwable cause) {
         final ConnectionState lastStateBeforeFailure = serverConnection
                 .getCurrentState();
