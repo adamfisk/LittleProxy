@@ -9,13 +9,13 @@ import io.netty.handler.codec.http.HttpRequest;
 public class HttpFiltersSourceAdapter implements HttpFiltersSource {
 
     public HttpFilters filterRequest(HttpRequest originalRequest) {
-        return filterRequest(originalRequest, null);
+        return new HttpFiltersAdapter(originalRequest, null);
     }
     
     @Override
     public HttpFilters filterRequest(HttpRequest originalRequest,
             ChannelHandlerContext ctx) {
-        return new HttpFiltersAdapter(originalRequest, ctx);
+        return filterRequest(originalRequest);
     }
 
     @Override
