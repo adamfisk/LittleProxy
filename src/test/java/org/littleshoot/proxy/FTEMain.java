@@ -45,6 +45,11 @@ public class FTEMain extends ChainedMain {
                 "--proxy_port", LITTLEPROXY_UPSTREAM_PORT);
     }
 
+    @Override
+    protected int getUpstreamPort() {
+        return FTEPROXY_CLIENT_PORT;
+    }
+
     private void fteProxy(Object... args) throws Exception {
         Executor cmdExec = new DefaultExecutor();
         cmdExec.setStreamHandler(new PumpStreamHandler(System.out, System.err,

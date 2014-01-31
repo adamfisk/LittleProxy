@@ -58,7 +58,7 @@ public class ChainedMain {
                             @Override
                             public InetSocketAddress getChainedProxyAddress() {
                                 return new InetSocketAddress(LOCALHOST,
-                                        LITTLEPROXY_UPSTREAM_PORT);
+                                        getUpstreamPort());
                             }
 
                             @Override
@@ -85,6 +85,10 @@ public class ChainedMain {
                                 LITTLEPROXY_UPSTREAM_PORT))
                 .start();
 
+    }
+    
+    protected int getUpstreamPort() {
+        return LITTLEPROXY_UPSTREAM_PORT;
     }
 
 }
