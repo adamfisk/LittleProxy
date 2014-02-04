@@ -77,7 +77,7 @@ stopped, all are stopped.
 existingServer.clone().withPort(8081).start()
 ```
 
-For examples of configuring logging, see [src/test/resources/log4j.xml].
+For examples of configuring logging, see [src/test/resources/log4j.xml](src/test/resources/log4j.xml).
 
 If you have questions, please visit our Google Group here:
 
