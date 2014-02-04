@@ -63,7 +63,7 @@ public class ChainedMain {
 
                             @Override
                             public boolean requiresEncryption() {
-                                return true;
+                                return ChainedMain.this.requiresEncryption();
                             }
 
                             @Override
@@ -76,19 +76,24 @@ public class ChainedMain {
                 .start();
 
         // Upstream LittleProxy
-        DefaultHttpProxyServer
+        HttpProxyServerBootstrap bootstrap = DefaultHttpProxyServer
                 .bootstrap()
                 .withName("Upstream")
-                .withSslEngineSource(sslSource)
                 .withAddress(
                         new InetSocketAddress(LOCALHOST,
-                                LITTLEPROXY_UPSTREAM_PORT))
-                .start();
-
+                                LITTLEPROXY_UPSTREAM_PORT));
+        if (requiresEncryption()) {
+            bootstrap.withSslEngineSource(sslSource);
+        }
+        bootstrap.start();
     }
-    
+
     protected int getUpstreamPort() {
         return LITTLEPROXY_UPSTREAM_PORT;
+    }
+
+    protected boolean requiresEncryption() {
+        return true;
     }
 
 }

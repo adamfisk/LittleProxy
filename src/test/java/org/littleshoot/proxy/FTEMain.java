@@ -20,7 +20,7 @@ import org.apache.commons.exec.ShutdownHookProcessDestroyer;
  * </pre>
  */
 public class FTEMain extends ChainedMain {
-    private static final String FTEPROXY_LOCATION = "/Users/ox.to.a.cart/git/fteproxy/bin/fteproxy";
+    private static final String FTEPROXY_LOCATION = "/Users/ox.to.a.cart/git/fteproxy_master/bin/fteproxy";
     private static final int FTEPROXY_CLIENT_PORT = 8081;
     private static final int FTEPROXY_SERVER_PORT = 8082;
 
@@ -48,6 +48,11 @@ public class FTEMain extends ChainedMain {
     @Override
     protected int getUpstreamPort() {
         return FTEPROXY_CLIENT_PORT;
+    }
+
+    @Override
+    protected boolean requiresEncryption() {
+        return false;
     }
 
     private void fteProxy(Object... args) throws Exception {

@@ -598,7 +598,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.idleConnectionTimeout = ProxyUtils.extractInt(props,
                     "idle_connection_timeout");
             this.connectTimeout = ProxyUtils.extractInt(props,
-                    "connect_timeout");
+                    "connect_timeout", 0);
         }
 
         @Override
