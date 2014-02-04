@@ -37,7 +37,7 @@ public class ChainedMain {
     protected static final int LITTLEPROXY_UPSTREAM_PORT = 8083;
 
     public static void main(String[] args) throws Exception {
-        new FTEMain().run();
+        new ChainedMain().run();
     }
 
     public void run() throws Exception {
