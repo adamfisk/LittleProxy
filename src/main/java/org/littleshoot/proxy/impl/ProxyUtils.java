@@ -302,12 +302,16 @@ public class ProxyUtils {
     }
     
     public static int extractInt(final Properties props, final String key) {
+        return extractInt(props, key, -1);
+    }
+    
+    public static int extractInt(final Properties props, final String key, int defaultValue) {
         final String readThrottleString = props.getProperty(key);
         if (StringUtils.isNotBlank(readThrottleString) &&
             NumberUtils.isNumber(readThrottleString)) {
             return Integer.parseInt(readThrottleString);
         }
-        return -1;
+        return defaultValue;
     }
 
     public static boolean isCONNECT(HttpObject httpObject) {

@@ -12,6 +12,7 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.PropertyConfigurator;
+import org.apache.log4j.xml.DOMConfigurator;
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.littleshoot.proxy.impl.ProxyUtils;
@@ -125,9 +126,9 @@ public class Launcher {
 
     private static void pollLog4JConfigurationFileIfAvailable() {
         File log4jConfigurationFile = new File(
-                "src/main/resources/log4j.properties");
+                "src/test/resources/log4j.xml");
         if (log4jConfigurationFile.exists()) {
-            PropertyConfigurator.configureAndWatch(
+            DOMConfigurator.configureAndWatch(
                     log4jConfigurationFile.getAbsolutePath(), 15);
         }
     }
