@@ -426,7 +426,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // We need to make a copy here because the response will be
         // modified in various ways before we need to do things like
         // analyze response headers for whether or not to close the
-        // connection (which may not happen for awhile for large, chunked
+        // connection (which may not happen for a while for large, chunked
         // responses, for example).
         currentHttpResponse = ProxyUtils.copyMutableResponseFields(response);
     }

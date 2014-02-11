@@ -1,6 +1,5 @@
 package org.littleshoot.proxy.impl;
 
-import org.littleshoot.proxy.ProxyAuthenticator;
 import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -43,6 +42,7 @@ import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.FlowContext;
 import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.SslEngineSource;
 
 /**
@@ -587,7 +587,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     @Override
     protected void exceptionCaught(Throwable cause) {
         String message = "Caught an exception on ClientToProxyConnection";
-        if (cause instanceof ClosedChannelException) {
+        boolean shouldWarn = cause instanceof ClosedChannelException ||
+                cause.getMessage().contains("Connection reset by peer"); 
+        if (shouldWarn) {
             LOG.warn(message, cause);
         } else {
             LOG.error(message, cause);
