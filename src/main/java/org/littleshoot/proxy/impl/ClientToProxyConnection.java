@@ -234,6 +234,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         this,
                         serverHostAndPort,
                         httpRequest);
+                if (currentServerConnection == null) {
+                    LOG.debug("Unable to create server connection, probably no chained proxies available");
+                    writeBadGateway(httpRequest);
+                    resumeReading();
+                    return DISCONNECT_REQUESTED;
+                }
                 // Remember the connection for later
                 serverConnectionsByHostAndPort.put(serverHostAndPort,
                         currentServerConnection);
@@ -315,7 +321,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         httpObject = filters.responsePost(httpObject);
-        if (httpObject == null) {
+        if (httpObject == null && serverConnection != null) {
             forceDisconnect(serverConnection);
             return;
         }

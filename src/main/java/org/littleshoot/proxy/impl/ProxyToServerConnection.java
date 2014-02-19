@@ -138,6 +138,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         if (chainedProxyManager != null) {
             chainedProxyManager.lookupChainedProxies(initialHttpRequest,
                     chainedProxies);
+            if (chainedProxies.size() == 0) {
+                // ChainedProxyManager returned no proxies, can't connect
+                return null;
+            }
         }
         return new ProxyToServerConnection(proxyServer, clientConnection,
                 serverHostAndPort, chainedProxies.poll(), chainedProxies);
@@ -310,7 +314,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         super.becameWritable();
         this.clientConnection.serverBecameWriteable(this);
     }
-    
+
     @Override
     protected void timedOut() {
         super.timedOut();
@@ -532,7 +536,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     initChannelPipeline(ch.pipeline(), initialRequest);
                 };
             });
-            cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, proxyServer.getConnectTimeout());
+            cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS,
+                    proxyServer.getConnectTimeout());
 
             if (localAddress != null) {
                 return cb.connect(remoteAddress, localAddress);

@@ -25,6 +25,11 @@ public interface ChainedProxyManager {
      * the list.
      * </p>
      * 
+     * <p>
+     * To keep the proxy from attempting any connection, leave the list blank.
+     * This will cause the proxy to return a 502 response.
+     * </p>
+     * 
      * @param httpRequest
      * @param chainedProxies
      */
