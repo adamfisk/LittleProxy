@@ -321,7 +321,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         httpObject = filters.responsePost(httpObject);
-        if (httpObject == null && serverConnection != null) {
+        if (httpObject == null) {
             forceDisconnect(serverConnection);
             return;
         }
