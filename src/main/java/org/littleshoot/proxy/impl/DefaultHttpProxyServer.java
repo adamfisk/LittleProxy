@@ -42,6 +42,9 @@ import javax.net.ssl.SSLEngine;
 import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
+import org.littleshoot.proxy.DefaultHostResolver;
+import org.littleshoot.proxy.DnsSecServerResolver;
+import org.littleshoot.proxy.HostResolver;
 import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.HttpFiltersSource;
 import org.littleshoot.proxy.HttpFiltersSourceAdapter;
@@ -94,10 +97,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ChainedProxyManager chainProxyManager;
     private final MitmManager mitmManager;
     private final HttpFiltersSource filtersSource;
-    private final boolean useDnsSec;
     private final boolean transparent;
     private final int connectTimeout;
     private volatile int idleConnectionTimeout;
+    private final HostResolver serverResolver;
 
     /**
      * Track all ActivityTrackers for tracking proxying activity.
@@ -148,16 +151,16 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             ChainedProxyManager chainProxyManager,
             MitmManager mitmManager,
             HttpFiltersSource filterSource,
-            boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers,
-            int connectTimeout) {
+            int connectTimeout, HostResolver serverResolver) {
         this(new ServerGroup(name), transportProtocol, address,
                 sslEngineSource, authenticateSslClients, proxyAuthenticator,
                 chainProxyManager,
-                mitmManager, filterSource, useDnsSec, transparent,
-                idleConnectionTimeout, activityTrackers, connectTimeout);
+                mitmManager, filterSource, transparent,
+                idleConnectionTimeout, activityTrackers, connectTimeout,
+                serverResolver);
     }
 
     /**
@@ -187,9 +190,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            CONNECT requests
      * @param filtersSource
      *            Source for {@link HttpFilters}
-     * @param useDnsSec
-     *            (optional) Enables the use of secure DNS lookups for outbound
-     *            connections.
      * @param transparent
      *            If true, this proxy will run as a transparent proxy (not
      *            touching requests and responses).
@@ -198,7 +198,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param activityTrackers
      *            for tracking activity on this proxy
      * @param connectTimeout
-     *            number of milliseconds to wait to connect to the upstream server
+     *            number of milliseconds to wait to connect to the upstream
+     *            server
+     * @param serverResolver
+     *            the {@link HostResolver} to use for resolving server addresses
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
@@ -209,11 +212,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             ChainedProxyManager chainProxyManager,
             MitmManager mitmManager,
             HttpFiltersSource filtersSource,
-            boolean useDnsSec,
             boolean transparent,
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers,
-            int connectTimeout) {
+            int connectTimeout,
+            HostResolver serverResolver) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.address = address;
@@ -223,17 +226,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.chainProxyManager = chainProxyManager;
         this.mitmManager = mitmManager;
         this.filtersSource = filtersSource;
-        this.useDnsSec = useDnsSec;
         this.transparent = transparent;
         this.idleConnectionTimeout = idleConnectionTimeout;
         if (activityTrackers != null) {
             this.activityTrackers.addAll(activityTrackers);
         }
         this.connectTimeout = connectTimeout;
-    }
-
-    boolean isUseDnsSec() {
-        return useDnsSec;
+        this.serverResolver = serverResolver;
     }
 
     boolean isTransparent() {
@@ -248,8 +247,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.idleConnectionTimeout = idleConnectionTimeout;
     }
 
-    public int getConnectTimeout() { return connectTimeout; }
+    public int getConnectTimeout() {
+        return connectTimeout;
+    }
     
+    public HostResolver getServerResolver() {
+        return serverResolver;
+    }
+
     @Override
     public InetSocketAddress getListenAddress() {
         return address;
@@ -262,8 +267,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         address.getPort() + 1),
                 sslEngineSource, authenticateSslClients, proxyAuthenticator,
                 chainProxyManager,
-                mitmManager, filtersSource, useDnsSec, transparent,
-                idleConnectionTimeout, activityTrackers, connectTimeout);
+                mitmManager, filtersSource, transparent,
+                idleConnectionTimeout, activityTrackers, connectTimeout,
+                serverResolver);
     }
 
     @Override
@@ -435,7 +441,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 }
             }));
         }
-        
+
         private void initializeTransport(TransportProtocol transportProtocol) {
             SelectorProvider selectorProvider = null;
             switch (transportProtocol) {
@@ -549,12 +555,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private ChainedProxyManager chainProxyManager = null;
         private MitmManager mitmManager = null;
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
-        private boolean useDnsSec = false;
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
         private DefaultHttpProxyServer original;
         private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
         private int connectTimeout = 40000;
+        private HostResolver serverResolver = new DefaultHostResolver();
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -568,10 +574,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 ProxyAuthenticator proxyAuthenticator,
                 ChainedProxyManager chainProxyManager,
                 MitmManager mitmManager,
-                HttpFiltersSource filtersSource, boolean useDnsSec,
+                HttpFiltersSource filtersSource,
                 boolean transparent, int idleConnectionTimeout,
                 Collection<ActivityTracker> activityTrackers,
-                int connectTimeout) {
+                int connectTimeout, HostResolver serverResolver) {
             this.original = original;
             this.transportProtocol = transportProtocol;
             this.address = address;
@@ -581,18 +587,18 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.proxyAuthenticator = proxyAuthenticator;
             this.chainProxyManager = chainProxyManager;
             this.filtersSource = filtersSource;
-            this.useDnsSec = useDnsSec;
             this.transparent = transparent;
             this.idleConnectionTimeout = idleConnectionTimeout;
             if (activityTrackers != null) {
                 this.activityTrackers.addAll(activityTrackers);
             }
             this.connectTimeout = connectTimeout;
+            this.serverResolver = serverResolver;
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
-            this.useDnsSec = ProxyUtils.extractBooleanDefaultFalse(
-                    props, "dnssec");
+            this.withUseDnsSec(ProxyUtils.extractBooleanDefaultFalse(
+                    props, "dnssec"));
             this.transparent = ProxyUtils.extractBooleanDefaultFalse(
                     props, "transparent");
             this.idleConnectionTimeout = ProxyUtils.extractInt(props,
@@ -693,7 +699,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         @Override
         public HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec) {
-            this.useDnsSec = useDnsSec;
+            if (useDnsSec) {
+                this.serverResolver = new DnsSecServerResolver();
+            } else {
+                this.serverResolver = new DefaultHostResolver();
+            }
             return this;
         }
 
@@ -719,6 +729,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withServerResolver(
+                HostResolver serverResolver) {
+            this.serverResolver = serverResolver;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap plusActivityTracker(
                 ActivityTracker activityTracker) {
             activityTrackers.add(activityTracker);
@@ -736,15 +753,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         transportProtocol, determineListenAddress(),
                         sslEngineSource, authenticateSslClients,
                         proxyAuthenticator, chainProxyManager, mitmManager,
-                        filtersSource, useDnsSec, transparent,
-                        idleConnectionTimeout, activityTrackers, connectTimeout);
+                        filtersSource, transparent,
+                        idleConnectionTimeout, activityTrackers, connectTimeout,
+                        serverResolver);
             } else {
                 return new DefaultHttpProxyServer(
                         name, transportProtocol, determineListenAddress(),
                         sslEngineSource, authenticateSslClients,
                         proxyAuthenticator, chainProxyManager, mitmManager,
-                        filtersSource, useDnsSec, transparent,
-                        idleConnectionTimeout, activityTrackers, connectTimeout);
+                        filtersSource, transparent,
+                        idleConnectionTimeout, activityTrackers, connectTimeout,
+                        serverResolver);
             }
         }
 

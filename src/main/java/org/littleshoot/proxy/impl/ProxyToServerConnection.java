@@ -25,7 +25,6 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import java.net.ConnectException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.LinkedList;
@@ -35,7 +34,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import javax.net.ssl.SSLSession;
 
 import org.apache.commons.lang3.StringUtils;
-import org.littleshoot.dnssec4j.VerifiedAddressFactory;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxy;
 import org.littleshoot.proxy.ChainedProxyAdapter;
@@ -769,14 +767,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             port = 80;
         }
 
-        if (proxyServer.isUseDnsSec()) {
-            return VerifiedAddressFactory.newInetSocketAddress(host, port,
-                    proxyServer.isUseDnsSec());
-        } else {
-            InetAddress ia = InetAddress.getByName(host);
-            String address = ia.getHostAddress();
-            return new InetSocketAddress(address, port);
-        }
+        return proxyServer.getServerResolver().resolve(host, port);
     }
 
     /***************************************************************************
