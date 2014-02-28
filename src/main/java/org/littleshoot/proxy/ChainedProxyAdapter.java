@@ -1,10 +1,14 @@
 package org.littleshoot.proxy;
 
 import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 
 import java.net.InetSocketAddress;
 
 import javax.net.ssl.SSLEngine;
+
+import org.littleshoot.proxy.ntlm.NtlmHandler;
 
 /**
  * Convenience base class for implementations of {@link ChainedProxy}.
@@ -15,6 +19,8 @@ public class ChainedProxyAdapter implements ChainedProxy {
      * connection to the upstream server.
      */
     public static ChainedProxy FALLBACK_TO_DIRECT_CONNECTION = new ChainedProxyAdapter();
+
+    private NtlmHandler ntlmHandler;
 
     @Override
     public InetSocketAddress getChainedProxyAddress() {
@@ -37,6 +43,11 @@ public class ChainedProxyAdapter implements ChainedProxy {
     }
 
     @Override
+    public boolean requiresNtlmAuthentication() {
+        return ntlmHandler != null;
+    }
+
+    @Override
     public SSLEngine newSslEngine() {
         return null;
     }
@@ -56,4 +67,24 @@ public class ChainedProxyAdapter implements ChainedProxy {
     @Override
     public void disconnected() {
     }
+
+    public void setNtlmMessageHandler(NtlmHandler handler) {
+        ntlmHandler = handler;
+    }
+
+    @Override
+    public void writeType1Header(HttpRequest httpRequest) {
+        ntlmHandler.writeType1Header(httpRequest);
+    }
+
+    @Override
+    public void readType2Header(HttpResponse httpResponse) throws Exception {
+        ntlmHandler.readType2Header(httpResponse);
+    }
+
+    @Override
+    public void writeType3Header(HttpRequest httpRequest) {
+        ntlmHandler.writeType3Header(httpRequest);
+    }
+
 }

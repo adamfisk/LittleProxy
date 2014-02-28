@@ -11,6 +11,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
+import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpMessage;
 import io.netty.handler.codec.http.HttpMethod;
@@ -19,6 +20,7 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
+import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
@@ -472,6 +474,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     .newSslEngine()));
         }
 
+        if (chainedProxy != null && chainedProxy.requiresNtlmAuthentication()) {
+            connectionFlow.then(serverConnection.NtlmWithChainedProxy);
+        }
+
         if (ProxyUtils.isCONNECT(initialRequest)) {
             MitmManager mitmManager = proxyServer.getMitmManager();
             boolean isMitmEnabled = mitmManager != null;
@@ -553,6 +559,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
             chainedProxy.filterRequest(initialRequest);
+            if (chainedProxy.requiresNtlmAuthentication()) {
+                chainedProxy.writeType3Header(initialRequest);
+            }
+            issuedRequests.add(initialRequest);
             return writeToChannel(initialRequest);
         }
 
@@ -579,6 +589,50 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
     };
+
+    private ConnectionFlowStep NtlmWithChainedProxy = new ConnectionFlowStep(this, NTLM_HANDSHAKING) {
+
+        protected Future<?> execute() {
+            HttpRequest request = copyAsFull(initialRequest);
+            chainedProxy.writeType1Header(request);
+            issuedRequests.add(request);
+            LOG.debug("Type1 message to NTLM chained proxy {}", request);
+            return writeToChannel(request);
+        }
+
+        void onSuccess(ConnectionFlow flow) {
+            // Do nothing, since we want to wait for the Type-2 response to come back
+        }
+
+        void read(ConnectionFlow flow, Object msg) {
+            // Here we're setting Type-2 response from a chained proxy
+            LOG.debug("Type2 message from NTLM chained proxy {}", msg);
+            if (msg instanceof HttpResponse) {
+                HttpResponse httpResponse = (HttpResponse) msg;
+                try {
+                    chainedProxy.readType2Header(httpResponse);
+                } catch (Exception e) {
+                    LOG.warn("Failed to handle NTLM Type2 message", e);
+                    flow.fail();
+                }
+			}
+
+            if (msg instanceof LastHttpContent) {
+                LOG.debug("Completed reading NTLM Type2 message");
+                flow.advance();
+                return;
+            }
+
+            // We are only interested in headers, not content
+            if (msg instanceof HttpContent) {
+                LOG.debug("Ignoring NTLM Type2 {}", msg);
+            }
+        }
+    };
+
+    private static HttpRequest copyAsFull(HttpRequest origin) {
+        return new DefaultFullHttpRequest(origin.getProtocolVersion(), origin.getMethod(), origin.getUri());
+    }
 
     /**
      * <p>
@@ -735,6 +789,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 shouldForwardInitialRequest);
 
         if (shouldForwardInitialRequest) {
+            if (chainedProxy != null && chainedProxy.requiresNtlmAuthentication()) {
+                chainedProxy.writeType3Header(initialRequest);
+            }
             LOG.debug("Writing initial request: {}", initialRequest);
             write(initialRequest);
         } else {
