@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLSession;
@@ -118,6 +119,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Tracks whether or not this ClientToProxyConnection is current doing MITM.
      */
     private volatile boolean mitming = false;
+    
+    private AtomicBoolean authenticated = new AtomicBoolean();
 
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
@@ -799,7 +802,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private boolean authenticationRequired(HttpRequest request) {
-
+        
+        if (authenticated.get()) {
+            return false;
+        }
+        
         final ProxyAuthenticator authenticator = proxyServer.getProxyAuthenticator();
 
         if (authenticator == null) return false;
@@ -836,6 +843,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 HttpHeaders.Names.PROXY_AUTHORIZATION);
         LOG.info(authentication);
         request.headers().remove(HttpHeaders.Names.PROXY_AUTHORIZATION);
+        authenticated.set(true);
         return false;
     }
 
