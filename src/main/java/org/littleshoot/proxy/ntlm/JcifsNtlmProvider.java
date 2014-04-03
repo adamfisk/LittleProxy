@@ -29,15 +29,15 @@ public class JcifsNtlmProvider implements NtlmProvider {
 	private Type2Message type2;
 
 	public JcifsNtlmProvider(int flags, String user, String password, String domain, String workstation) {
-		this.flags = flags > 0 ? flags: getDefaultFlags();
+		this.flags = flags > 0 ? flags : getDefaultFlags();
 		this.user = checkNotNull(user);
 		this.password = checkNotNull(password);
 		this.domain = checkNotNull(domain);
 		this.workstation = checkNotNull(workstation);
 	}
 
-	public JcifsNtlmProvider(String username, String password) {
-		this(getDefaultFlags(), username, password, EMPTY, EMPTY);
+	public JcifsNtlmProvider(String user, String password, String domain) {
+		this(0, user, password, domain, EMPTY);
 	}
 
 	@Override

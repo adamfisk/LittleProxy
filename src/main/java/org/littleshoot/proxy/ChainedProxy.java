@@ -16,7 +16,7 @@ import org.littleshoot.proxy.ntlm.NtlmHandler;
  * defaults.
  * </p>
  */
-public interface ChainedProxy extends SslEngineSource, NtlmHandler {
+public interface ChainedProxy extends SslEngineSource {
     /**
      * Return the {@link InetSocketAddress} for connecting to the chained proxy.
      * Returning null indicates that we won't chain.
@@ -51,13 +51,16 @@ public interface ChainedProxy extends SslEngineSource, NtlmHandler {
      */
     boolean requiresEncryption();
 
-    /**
-     * Implement this method to tell LittleProxy whether or not to do preemptive
-     * NTLM authentication to the chained proxy.
+   /**
+     * Tell LittleProxy whether or not to do preemptive NTLM authentication to
+     * the chained proxy. Same instance should be returned to maintain state
+     * during NLTM handshake.
      *
-     * @return true to do NTLM handshake
+     * null indicates that we won't do NTLM handshake.
+     *
+     * @return NtlmHandler
      */
-    boolean requiresNtlmAuthentication();
+    NtlmHandler getNtlmHandler();
 
     /**
      * Filters requests on their way to the chained proxy.

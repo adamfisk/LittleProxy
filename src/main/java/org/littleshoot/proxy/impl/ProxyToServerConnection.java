@@ -474,7 +474,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     .newSslEngine()));
         }
 
-        if (chainedProxy != null && chainedProxy.requiresNtlmAuthentication()) {
+        if (chainedProxy != null && chainedProxy.getNtlmHandler() != null) {
             connectionFlow.then(serverConnection.NtlmWithChainedProxy);
         }
 
@@ -559,8 +559,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
             chainedProxy.filterRequest(initialRequest);
-            if (chainedProxy.requiresNtlmAuthentication()) {
-                chainedProxy.writeType3Header(initialRequest);
+            if (chainedProxy.getNtlmHandler() != null) {
+                chainedProxy.getNtlmHandler().writeType3Header(initialRequest);
             }
             issuedRequests.add(initialRequest);
             return writeToChannel(initialRequest);
@@ -594,7 +594,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         protected Future<?> execute() {
             HttpRequest request = copyAsFull(initialRequest);
-            chainedProxy.writeType1Header(request);
+            chainedProxy.getNtlmHandler().writeType1Header(request);
             issuedRequests.add(request);
             LOG.debug("Type1 message to NTLM chained proxy {}", request);
             return writeToChannel(request);
@@ -610,7 +610,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             if (msg instanceof HttpResponse) {
                 HttpResponse httpResponse = (HttpResponse) msg;
                 try {
-                    chainedProxy.readType2Header(httpResponse);
+                    chainedProxy.getNtlmHandler().readType2Header(httpResponse);
                 } catch (Exception e) {
                     LOG.warn("Failed to handle NTLM Type2 message", e);
                     flow.fail();
@@ -789,8 +789,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 shouldForwardInitialRequest);
 
         if (shouldForwardInitialRequest) {
-            if (chainedProxy != null && chainedProxy.requiresNtlmAuthentication()) {
-                chainedProxy.writeType3Header(initialRequest);
+            if (chainedProxy != null && chainedProxy.getNtlmHandler() != null) {
+                chainedProxy.getNtlmHandler().writeType3Header(initialRequest);
             }
             LOG.debug("Writing initial request: {}", initialRequest);
             write(initialRequest);
