@@ -334,15 +334,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 }
             }
         });
-        if (future.isSuccess()) {
-            future.awaitUninterruptibly();
+        Throwable cause = future.cause();
+        if (cause != null) {
+            throw new RuntimeException(cause);
         } else {
-            Throwable cause = future.cause();
-            if (cause != null) {
-                throw new RuntimeException(cause);
-            } else {
-                throw new RuntimeException("Error binding: no details.");
-            }
+            future.awaitUninterruptibly();
         }
     }
 
