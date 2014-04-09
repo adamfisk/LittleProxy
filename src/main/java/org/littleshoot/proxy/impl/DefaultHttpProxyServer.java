@@ -325,13 +325,25 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             throw new UnknownTransportProtocolError(transportProtocol);
         }
         serverBootstrap.childHandler(initializer);
-        serverBootstrap.bind(address).addListener(new ChannelFutureListener() {
+        ChannelFuture future = serverBootstrap.bind(address).addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future)
                     throws Exception {
-                registerChannel(future.channel());
+                if (future.isSuccess()) {
+                    registerChannel(future.channel());
+                }
             }
         }).awaitUninterruptibly();
+        if (future.isSuccess()) {
+            future.awaitUninterruptibly();
+        } else {
+            Throwable cause = future.cause();
+            if (cause != null) {
+                throw new RuntimeException(cause);
+            } else {
+                throw new RuntimeException("Error binding: no details.");
+            }
+        }
     }
 
     /**
