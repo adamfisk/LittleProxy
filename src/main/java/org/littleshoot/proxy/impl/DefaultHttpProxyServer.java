@@ -333,7 +333,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     registerChannel(future.channel());
                 }
             }
-        }).awaitUninterruptibly();
+        });
         if (future.isSuccess()) {
             future.awaitUninterruptibly();
         } else {
