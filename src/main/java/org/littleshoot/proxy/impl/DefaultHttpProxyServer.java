@@ -329,16 +329,15 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             @Override
             public void operationComplete(ChannelFuture future)
                     throws Exception {
+                System.out.println("cause1: " + future.cause() + ", " + future);
                 if (future.isSuccess()) {
                     registerChannel(future.channel());
                 }
             }
-        });
+        }).awaitUninterruptibly();
         Throwable cause = future.cause();
         if (cause != null) {
             throw new RuntimeException(cause);
-        } else {
-            future.awaitUninterruptibly();
         }
     }
 
