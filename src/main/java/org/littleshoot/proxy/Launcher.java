@@ -11,8 +11,8 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.PropertyConfigurator;
 import org.apache.log4j.xml.DOMConfigurator;
+import org.littleshoot.proxy.common.Constants;
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.littleshoot.proxy.impl.ProxyUtils;
@@ -29,6 +29,8 @@ public class Launcher {
     private static final String OPTION_DNSSEC = "dnssec";
 
     private static final String OPTION_PORT = "port";
+    
+    private static final String OPTION_NIC = "nic";
 
     private static final String OPTION_HELP = "help";
     
@@ -47,6 +49,7 @@ public class Launcher {
         options.addOption(null, OPTION_DNSSEC, true,
                 "Request and verify DNSSEC signatures.");
         options.addOption(null, OPTION_PORT, true, "Run on the specified port.");
+        options.addOption(null, OPTION_NIC, true, "Run on a specified Nic");
         options.addOption(null, OPTION_HELP, false,
                 "Display command line help.");
         options.addOption(null, OPTION_MITM, false, "Run as man in the middle.");
@@ -88,6 +91,11 @@ public class Launcher {
                 .bootstrapFromFile("./littleproxy.properties")
                 .withPort(port)
                 .withAllowLocalOnly(false);
+        
+        if (cmd.hasOption(OPTION_NIC)) {
+        	final String val = cmd.getOptionValue(OPTION_NIC);
+        	Constants.NICIP = val;
+        }
         
         if (cmd.hasOption(OPTION_MITM)) {
             LOG.info("Running as Man in the Middle");
