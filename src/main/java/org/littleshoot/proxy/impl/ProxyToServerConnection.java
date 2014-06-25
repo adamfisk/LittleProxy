@@ -26,7 +26,10 @@ import io.netty.util.concurrent.GenericFutureListener;
 
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.Enumeration;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -538,6 +541,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     proxyServer.getConnectTimeout());
 
             if (localAddress != null) {
+            	cb.bind(localAddress);
                 return cb.connect(remoteAddress, localAddress);
             } else {
                 return cb.connect(remoteAddress);
@@ -670,7 +674,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         } else {
             this.transportProtocol = TransportProtocol.TCP;
             this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
-            this.localAddress = null;
+            this.localAddress = addressLocal(proxyServer);
         }
     }
 
@@ -768,6 +772,29 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
 
         return proxyServer.getServerResolver().resolve(host, port);
+    }
+    
+    private static InetSocketAddress addressLocal(DefaultHttpProxyServer proxyServer){
+    	try {
+    		return proxyServer.getServerResolver().resolveLocalAddr();
+    	} catch(SocketException se) {
+    		se.printStackTrace();
+    		throw new RuntimeException(se.getMessage(), se);
+    	}
+    }
+    
+    private static void printActiveNIFs() {
+    	try {
+    		Enumeration<NetworkInterface> e =  NetworkInterface.getNetworkInterfaces();
+        	while(e.hasMoreElements()) {
+        		NetworkInterface ni = e.nextElement();
+        		if ( ni.isUp() ) { 
+        			System.out.println(ni.getName() + "; " + ni.isUp() + "; " + ni.isVirtual());
+        		}
+        	}
+    	} catch(Exception e) {
+    		e.printStackTrace();
+    	}
     }
 
     /***************************************************************************
