@@ -1,6 +1,10 @@
 package org.littleshoot.proxy.impl;
 
+import java.util.Arrays;
+
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.Marker;
 import org.slf4j.helpers.MessageFormatter;
 import org.slf4j.spi.LocationAwareLogger;
 
@@ -10,7 +14,7 @@ import org.slf4j.spi.LocationAwareLogger;
  * sure that the Channel and current state are always included in the log
  * messages (if available).
  * </p>
- * 
+ *
  * <p>
  * Note that this depends on us using a LocationAwareLogger so that we can
  * report the line numbers of the caller rather than this helper class.
@@ -18,82 +22,143 @@ import org.slf4j.spi.LocationAwareLogger;
  */
 class ProxyConnectionLogger {
     private final ProxyConnection connection;
-    private final LocationAwareLogger logger;
+    private final LogDispatch dispatch;
+    private final Logger logger;
     private final String fqcn = this.getClass().getCanonicalName();
+
+
 
     public ProxyConnectionLogger(ProxyConnection connection) {
         this.connection = connection;
-        this.logger = (LocationAwareLogger) LoggerFactory.getLogger(connection
+        final Logger lg = LoggerFactory.getLogger(connection
                 .getClass());
+        if (lg instanceof LocationAwareLogger) {
+            dispatch = new LocationAwareLogggerDispatch((LocationAwareLogger) lg);
+        }
+        else {
+            dispatch = new LoggerDispatch();
+        }
+        logger = lg;
     }
 
     protected void error(String message, Object... params) {
         if (logger.isErrorEnabled()) {
-            doLog(LocationAwareLogger.ERROR_INT, message, params, null);
+            dispatch.doLog(LocationAwareLogger.ERROR_INT, message, params, null);
         }
     }
 
     protected void error(String message, Throwable t) {
         if (logger.isErrorEnabled()) {
-            doLog(LocationAwareLogger.ERROR_INT, message, null, t);
+            dispatch.doLog(LocationAwareLogger.ERROR_INT, message, null, t);
         }
     }
 
     protected void warn(String message, Object... params) {
         if (logger.isWarnEnabled()) {
-            doLog(LocationAwareLogger.WARN_INT, message, params, null);
+            dispatch.doLog(LocationAwareLogger.WARN_INT, message, params, null);
         }
     }
 
     protected void warn(String message, Throwable t) {
         if (logger.isWarnEnabled()) {
-            doLog(LocationAwareLogger.WARN_INT, message, null, t);
+            dispatch.doLog(LocationAwareLogger.WARN_INT, message, null, t);
         }
     }
 
     protected void info(String message, Object... params) {
         if (logger.isInfoEnabled()) {
-            doLog(LocationAwareLogger.INFO_INT, message, params, null);
+            dispatch.doLog(LocationAwareLogger.INFO_INT, message, params, null);
         }
     }
 
     protected void info(String message, Throwable t) {
         if (logger.isInfoEnabled()) {
-            doLog(LocationAwareLogger.INFO_INT, message, null, t);
+            dispatch.doLog(LocationAwareLogger.INFO_INT, message, null, t);
         }
     }
 
     protected void debug(String message, Object... params) {
         if (logger.isDebugEnabled()) {
-            doLog(LocationAwareLogger.DEBUG_INT, message, params, null);
+            dispatch.doLog(LocationAwareLogger.DEBUG_INT, message, params, null);
         }
     }
 
     protected void debug(String message, Throwable t) {
         if (logger.isDebugEnabled()) {
-            doLog(LocationAwareLogger.DEBUG_INT, message, null, t);
+            dispatch.doLog(LocationAwareLogger.DEBUG_INT, message, null, t);
         }
     }
 
     protected void log(int level, String message, Object... params) {
         if (level != LocationAwareLogger.DEBUG_INT || logger.isDebugEnabled()) {
-            doLog(level, message, params, null);
+            dispatch.doLog(level, message, params, null);
         }
     }
-    
+
     protected void log(int level, String message, Throwable t) {
         if (level != LocationAwareLogger.DEBUG_INT || logger.isDebugEnabled()) {
-            doLog(level, message, null, t);
+            dispatch.doLog(level, message, null, t);
         }
     }
-    
-    private void doLog(int level, String message, Object[] params, Throwable t) {
-        String formattedMessage = fullMessage(message);
-        if (params != null && params.length > 0) {
-            formattedMessage = MessageFormatter.arrayFormat(formattedMessage,
-                    params).getMessage();
+
+    private interface LogDispatch {
+        void doLog(int level, String message, Object[] params, Throwable t);
+    }
+
+
+    private class LoggerDispatch implements LogDispatch {
+        @Override
+        public void doLog(int level, String message, Object[] params, Throwable t) {
+            String formattedMessage = fullMessage(message);
+
+            final Object[] paramsWithThrowable;
+
+            if (t != null) {
+                paramsWithThrowable = Arrays.copyOf(params,  params.length + 1);
+                paramsWithThrowable[params.length] = t;
+            }
+            else {
+                paramsWithThrowable = params;
+            }
+            switch (level) {
+            case LocationAwareLogger.TRACE_INT:
+                logger.trace(formattedMessage, paramsWithThrowable);
+                break;
+            case LocationAwareLogger.DEBUG_INT:
+                logger.debug(formattedMessage, paramsWithThrowable);
+                break;
+            case LocationAwareLogger.INFO_INT:
+                logger.info(formattedMessage, paramsWithThrowable);
+                break;
+            case LocationAwareLogger.WARN_INT:
+                logger.warn(formattedMessage, paramsWithThrowable);
+                break;
+            case LocationAwareLogger.ERROR_INT:
+            default:
+                logger.error(formattedMessage, paramsWithThrowable);
+                break;
+            }
         }
-        logger.log(null, fqcn, level, formattedMessage, null, t);
+    }
+
+
+    private class LocationAwareLogggerDispatch implements LogDispatch {
+
+        private LocationAwareLogger lal;
+
+        public LocationAwareLogggerDispatch(LocationAwareLogger lal) {
+            this.lal = lal;
+        }
+
+        @Override
+        public void doLog(int level, String message, Object[] params, Throwable t) {
+            String formattedMessage = fullMessage(message);
+            if (params != null && params.length > 0) {
+                formattedMessage = MessageFormatter.arrayFormat(formattedMessage,
+                        params).getMessage();
+            }
+            lal.log(null, fqcn, level, formattedMessage, null, t);
+        }
     }
 
     private String fullMessage(String message) {
