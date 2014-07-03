@@ -4,7 +4,6 @@ import java.util.Arrays;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.Marker;
 import org.slf4j.helpers.MessageFormatter;
 import org.slf4j.spi.LocationAwareLogger;
 
@@ -18,6 +17,8 @@ import org.slf4j.spi.LocationAwareLogger;
  * <p>
  * Note that this depends on us using a LocationAwareLogger so that we can
  * report the line numbers of the caller rather than this helper class.
+ * If the SLF4J binding does not provide a LocationAwareLogger, then a fallback
+ * to Logger is provided.
  * </p>
  */
 class ProxyConnectionLogger {
@@ -25,8 +26,6 @@ class ProxyConnectionLogger {
     private final LogDispatch dispatch;
     private final Logger logger;
     private final String fqcn = this.getClass().getCanonicalName();
-
-
 
     public ProxyConnectionLogger(ProxyConnection connection) {
         this.connection = connection;
@@ -105,7 +104,22 @@ class ProxyConnectionLogger {
         void doLog(int level, String message, Object[] params, Throwable t);
     }
 
+    private String fullMessage(String message) {
+        String stateMessage = connection.getCurrentState().toString();
+        if (connection.isTunneling()) {
+            stateMessage += " {tunneling}";
+        }
+        String messagePrefix = "(" + stateMessage + ")";
+        if (connection.channel != null) {
+            messagePrefix = messagePrefix + " " + connection.channel;
+        }
+        return messagePrefix + ": " + message;
+    }
 
+    /**
+     * Fallback dispatch if a LocationAwareLogger is not available from
+     * the SLF4J LoggerFactory.
+     */
     private class LoggerDispatch implements LogDispatch {
         @Override
         public void doLog(int level, String message, Object[] params, Throwable t) {
@@ -141,13 +155,15 @@ class ProxyConnectionLogger {
         }
     }
 
-
+    /**
+     * Dispatcher for a LocationAwareLogger.
+     */
     private class LocationAwareLogggerDispatch implements LogDispatch {
 
-        private LocationAwareLogger lal;
+        private LocationAwareLogger log;
 
-        public LocationAwareLogggerDispatch(LocationAwareLogger lal) {
-            this.lal = lal;
+        public LocationAwareLogggerDispatch(LocationAwareLogger log) {
+            this.log = log;
         }
 
         @Override
@@ -157,19 +173,7 @@ class ProxyConnectionLogger {
                 formattedMessage = MessageFormatter.arrayFormat(formattedMessage,
                         params).getMessage();
             }
-            lal.log(null, fqcn, level, formattedMessage, null, t);
+            log.log(null, fqcn, level, formattedMessage, null, t);
         }
-    }
-
-    private String fullMessage(String message) {
-        String stateMessage = connection.getCurrentState().toString();
-        if (connection.isTunneling()) {
-            stateMessage += " {tunneling}";
-        }
-        String messagePrefix = "(" + stateMessage + ")";
-        if (connection.channel != null) {
-            messagePrefix = messagePrefix + " " + connection.channel;
-        }
-        return messagePrefix + ": " + message;
     }
 }
