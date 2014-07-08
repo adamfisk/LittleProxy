@@ -63,13 +63,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
         this.proxyServer = bootstrapProxy()
                 .withName("Downstream")
                 .withPort(proxyServerPort)
-                .withChainProxyManager(new ChainedProxyManager() {
-                    @Override
-                    public void lookupChainedProxies(HttpRequest httpRequest,
-                            Queue<ChainedProxy> chainedProxies) {
-                        chainedProxies.add(newChainedProxy());
-                    }
-                })
+                .withChainProxyManager(chainedProxyManager())
                 .plusActivityTracker(DOWNSTREAM_TRACKER).start();
     }
 
@@ -78,6 +72,16 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
                 .withName("Upstream")
                 .withPort(upstreamProxyPort)
                 .plusActivityTracker(UPSTREAM_TRACKER);
+    }
+    
+    protected ChainedProxyManager chainedProxyManager() {
+        return new ChainedProxyManager() {
+            @Override
+            public void lookupChainedProxies(HttpRequest httpRequest,
+                    Queue<ChainedProxy> chainedProxies) {
+                chainedProxies.add(newChainedProxy());
+            }
+        };
     }
 
     protected ChainedProxy newChainedProxy() {
