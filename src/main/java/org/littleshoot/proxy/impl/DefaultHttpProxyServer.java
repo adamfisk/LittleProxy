@@ -28,6 +28,7 @@ import java.net.UnknownHostException;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -140,27 +141,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         return new DefaultHttpProxyServerBootstrap(props);
-    }
-
-    private DefaultHttpProxyServer(String name,
-            TransportProtocol transportProtocol,
-            InetSocketAddress address,
-            SslEngineSource sslEngineSource,
-            boolean authenticateSslClients,
-            ProxyAuthenticator proxyAuthenticator,
-            ChainedProxyManager chainProxyManager,
-            MitmManager mitmManager,
-            HttpFiltersSource filterSource,
-            boolean transparent,
-            int idleConnectionTimeout,
-            Collection<ActivityTracker> activityTrackers,
-            int connectTimeout, HostResolver serverResolver) {
-        this(new ServerGroup(name), transportProtocol, address,
-                sslEngineSource, authenticateSslClients, proxyAuthenticator,
-                chainProxyManager,
-                mitmManager, filterSource, transparent,
-                idleConnectionTimeout, activityTrackers, connectTimeout,
-                serverResolver);
     }
 
     /**
@@ -292,6 +272,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     private void doStart() {
+        serverGroup.ensureProtocol(transportProtocol);
         ServerBootstrap serverBootstrap = new ServerBootstrap().group(
                 serverGroup.clientToProxyBossPools.get(transportProtocol),
                 serverGroup.clientToProxyWorkerPools.get(transportProtocol));
@@ -375,6 +356,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     protected EventLoopGroup getProxyToServerWorkerFor(
             TransportProtocol transportProtocol) {
+        serverGroup.ensureProtocol(transportProtocol);
         return this.serverGroup.proxyToServerWorkerPools.get(transportProtocol);
     }
 
@@ -401,15 +383,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
          * These {@link EventLoopGroup}s accept incoming connections to the
          * proxies. A different EventLoopGroup is used for each
          * TransportProtocol, since these have to be configured differently.
+         *
+         * Thread safety: Only accessed while synchronized on the server group.
          */
-        private final Map<TransportProtocol, EventLoopGroup> clientToProxyBossPools = new ConcurrentHashMap<TransportProtocol, EventLoopGroup>();
+        private final Map<TransportProtocol, EventLoopGroup> clientToProxyBossPools = new HashMap<TransportProtocol, EventLoopGroup>();
 
         /**
          * These {@link EventLoopGroup}s process incoming requests to the
          * proxies. A different EventLoopGroup is used for each
          * TransportProtocol, since these have to be configured differently.
+         *
+         * Thread safety: Only accessed while synchronized on the server group.          *
          */
-        private final Map<TransportProtocol, EventLoopGroup> clientToProxyWorkerPools = new ConcurrentHashMap<TransportProtocol, EventLoopGroup>();
+        private final Map<TransportProtocol, EventLoopGroup> clientToProxyWorkerPools = new HashMap<TransportProtocol, EventLoopGroup>();
 
         /**
          * These {@link EventLoopGroup}s are used for making outgoing
@@ -422,18 +408,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         private ServerGroup(String name) {
             this.name = name;
-            // Set up worker pools for each transport protocol
-            for (TransportProtocol transportProtocol : TransportProtocol
-                    .values()) {
-                try {
-                    initializeTransport(transportProtocol);
-                } catch (Throwable t) {
-                    LOG.warn("Unable to initialize transport protocol {}: {}",
-                            transportProtocol,
-                            t.getMessage(),
-                            t);
-                }
-            }
 
             Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
                 public void uncaughtException(final Thread t, final Throwable e) {
@@ -446,6 +420,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     stop();
                 }
             }));
+        }
+
+        public synchronized void ensureProtocol(TransportProtocol transportProtocol) {
+            if (!clientToProxyWorkerPools.containsKey(transportProtocol)) {
+                initializeTransport(transportProtocol);
+            }
         }
 
         private void initializeTransport(TransportProtocol transportProtocol) {
@@ -754,23 +734,22 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         private DefaultHttpProxyServer build() {
+            final ServerGroup serverGroup;
+
             if (original != null) {
-                return new DefaultHttpProxyServer(original.serverGroup,
-                        transportProtocol, determineListenAddress(),
-                        sslEngineSource, authenticateSslClients,
-                        proxyAuthenticator, chainProxyManager, mitmManager,
-                        filtersSource, transparent,
-                        idleConnectionTimeout, activityTrackers, connectTimeout,
-                        serverResolver);
-            } else {
-                return new DefaultHttpProxyServer(
-                        name, transportProtocol, determineListenAddress(),
-                        sslEngineSource, authenticateSslClients,
-                        proxyAuthenticator, chainProxyManager, mitmManager,
-                        filtersSource, transparent,
-                        idleConnectionTimeout, activityTrackers, connectTimeout,
-                        serverResolver);
+                serverGroup = original.serverGroup;
             }
+            else {
+                serverGroup = new ServerGroup(name);
+            }
+
+            return new DefaultHttpProxyServer(serverGroup,
+                    transportProtocol, determineListenAddress(),
+                    sslEngineSource, authenticateSslClients,
+                    proxyAuthenticator, chainProxyManager, mitmManager,
+                    filtersSource, transparent,
+                    idleConnectionTimeout, activityTrackers, connectTimeout,
+                    serverResolver);
         }
 
         private InetSocketAddress determineListenAddress() {
