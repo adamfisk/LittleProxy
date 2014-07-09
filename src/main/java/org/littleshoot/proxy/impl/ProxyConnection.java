@@ -5,6 +5,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
@@ -121,7 +122,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
         LOG.debug("Reading: {}", msg);
 
         lastReadTime = System.currentTimeMillis();
-        
+
         if (tunneling) {
             // In tunneling mode, this connection is simply shoveling bytes
             readRaw((ByteBuf) msg);
@@ -291,7 +292,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
         become(DISCONNECTED);
         LOG.debug("Disconnected");
     }
-    
+
     /**
      * This method is called when the underlying {@link Channel} times out due
      * to an idle timeout.

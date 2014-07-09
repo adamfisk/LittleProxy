@@ -1250,6 +1250,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     public InetSocketAddress getClientAddress() {
+        if (channel == null) {
+            return null;
+        }
         return (InetSocketAddress) channel.remoteAddress();
     }
 

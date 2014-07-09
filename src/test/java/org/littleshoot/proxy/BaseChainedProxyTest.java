@@ -96,7 +96,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
     @Override
     public void testSimplePostRequest() throws Exception {
         super.testSimplePostRequest();
-        if (!expectBadGatewayForEverything()) {
+        if (isChained() && !expectBadGatewayForEverything()) {
             assertThatUpstreamProxyReceivedSentRequests();
         }
     }
@@ -104,7 +104,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
     @Override
     public void testSimpleGetRequest() throws Exception {
         super.testSimpleGetRequest();
-        if (!expectBadGatewayForEverything()) {
+        if (isChained() && !expectBadGatewayForEverything()) {
             assertThatUpstreamProxyReceivedSentRequests();
         }
     }
@@ -112,7 +112,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
     @Override
     public void testProxyWithBadAddress() throws Exception {
         super.testProxyWithBadAddress();
-        if (!expectBadGatewayForEverything()) {
+        if (isChained() && !expectBadGatewayForEverything()) {
             assertThatUpstreamProxyReceivedSentRequests();
         }
     }

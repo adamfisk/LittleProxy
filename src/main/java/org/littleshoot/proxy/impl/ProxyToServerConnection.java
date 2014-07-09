@@ -647,11 +647,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
         this.chainedProxy = this.availableChainedProxies.poll();
         if (chainedProxy != null) {
+            // Remove ourselves as handler on the old context
+            this.ctx.pipeline().remove(this);
+            this.ctx.close();
+            this.ctx = null;
             this.setupConnectionParameters();
             this.connectAndWrite(initialRequest);
-            return true;
+            return true; // yes, we fell back
         } else {
-            return false;
+            return false; // nothing to fall back to
         }
     }
 
