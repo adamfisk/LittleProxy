@@ -33,7 +33,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -230,7 +229,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public int getConnectTimeout() {
         return connectTimeout;
     }
-    
+
     public HostResolver getServerResolver() {
         return serverResolver;
     }
@@ -306,15 +305,16 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             throw new UnknownTransportProtocolError(transportProtocol);
         }
         serverBootstrap.childHandler(initializer);
-        ChannelFuture future = serverBootstrap.bind(address).addListener(new ChannelFutureListener() {
-            @Override
-            public void operationComplete(ChannelFuture future)
-                    throws Exception {
-                if (future.isSuccess()) {
-                    registerChannel(future.channel());
-                }
-            }
-        }).awaitUninterruptibly();
+        ChannelFuture future = serverBootstrap.bind(address)
+                .addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future)
+                            throws Exception {
+                        if (future.isSuccess()) {
+                            registerChannel(future.channel());
+                        }
+                    }
+                }).awaitUninterruptibly();
         Throwable cause = future.cause();
         if (cause != null) {
             throw new RuntimeException(cause);
@@ -356,8 +356,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     protected EventLoopGroup getProxyToServerWorkerFor(
             TransportProtocol transportProtocol) {
-        serverGroup.ensureProtocol(transportProtocol);
-        return this.serverGroup.proxyToServerWorkerPools.get(transportProtocol);
+        synchronized (serverGroup) {
+            serverGroup.ensureProtocol(transportProtocol);
+            return serverGroup.proxyToServerWorkerPools.get(transportProtocol);
+        }
     }
 
     /**
@@ -383,7 +385,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
          * These {@link EventLoopGroup}s accept incoming connections to the
          * proxies. A different EventLoopGroup is used for each
          * TransportProtocol, since these have to be configured differently.
-         *
+         * 
          * Thread safety: Only accessed while synchronized on the server group.
          */
         private final Map<TransportProtocol, EventLoopGroup> clientToProxyBossPools = new HashMap<TransportProtocol, EventLoopGroup>();
@@ -392,8 +394,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
          * These {@link EventLoopGroup}s process incoming requests to the
          * proxies. A different EventLoopGroup is used for each
          * TransportProtocol, since these have to be configured differently.
-         *
-         * Thread safety: Only accessed while synchronized on the server group.          *
+         * 
+         * Thread safety: Only accessed while synchronized on the server group.
+         * *
          */
         private final Map<TransportProtocol, EventLoopGroup> clientToProxyWorkerPools = new HashMap<TransportProtocol, EventLoopGroup>();
 
@@ -402,7 +405,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
          * connections to servers. A different EventLoopGroup is used for each
          * TransportProtocol, since these have to be configured differently.
          */
-        private final Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools = new ConcurrentHashMap<TransportProtocol, EventLoopGroup>();
+        private final Map<TransportProtocol, EventLoopGroup> proxyToServerWorkerPools = new HashMap<TransportProtocol, EventLoopGroup>();
 
         private volatile boolean stopped = false;
 
@@ -422,7 +425,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             }));
         }
 
-        public synchronized void ensureProtocol(TransportProtocol transportProtocol) {
+        public synchronized void ensureProtocol(
+                TransportProtocol transportProtocol) {
             if (!clientToProxyWorkerPools.containsKey(transportProtocol)) {
                 initializeTransport(transportProtocol);
             }
