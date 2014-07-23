@@ -101,7 +101,7 @@ public interface ActivityTracker {
 
     /**
      * Record that the proxy received bytes from the server.
-     * 
+     *
      * @param flowContext
      *            provides contextual information about the flow
      * @param numberOfBytes

@@ -104,8 +104,8 @@ public class EndToEndStoppingTest {
                     public HttpFilters filterRequest(HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
-                            public io.netty.handler.codec.http.HttpResponse requestPost(
-                                    HttpObject httpObject) {
+                            public io.netty.handler.codec.http.HttpResponse proxyToServerRequestPreProcessing(
+                                HttpObject httpObject) {
                                 System.out
                                         .println("Request with through proxy");
                                 return null;

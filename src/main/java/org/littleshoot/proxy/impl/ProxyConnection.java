@@ -5,7 +5,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
@@ -24,8 +23,10 @@ import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
+import org.littleshoot.proxy.HttpFilters;
 
 import javax.net.ssl.SSLEngine;
+import java.time.Clock;
 
 /**
  * <p>
@@ -552,6 +553,19 @@ abstract class ProxyConnection<I extends HttpObject> extends
         this.channel.config().setAutoRead(true);
     }
 
+    /**
+     * Request the ProxyServer for Filters.
+     *
+     * By default, no-op filters are returned by DefaultHttpProxyServer.
+     * Subclasses of ProxyConnection can change this behaviour.
+     *
+     * @param httpRequest Filter attached to the give HttpRequest (if any)
+     * @return
+     */
+    protected HttpFilters getHttpFiltersFromProxyServer(HttpRequest httpRequest) {
+        return proxyServer.getFiltersSource().filterRequest(httpRequest, ctx);
+    }
+
     ProxyConnectionLogger getLOG() {
         return LOG;
     }
@@ -754,14 +768,30 @@ abstract class ProxyConnection<I extends HttpObject> extends
         public void write(ChannelHandlerContext ctx,
                 Object msg, ChannelPromise promise)
                 throws Exception {
+
+            HttpRequest originalRequest = null;
+            if (msg instanceof HttpRequest) {
+                originalRequest = (HttpRequest) msg;
+            }
+
             try {
-                if (msg instanceof HttpRequest) {
-                    requestWritten(((HttpRequest) msg));
+                if (null != originalRequest) {
+                    requestWritten(originalRequest);
                 }
             } catch (Throwable t) {
                 LOG.warn("Unable to record bytesRead", t);
             } finally {
+                if (null != originalRequest) {
+                  getHttpFiltersFromProxyServer(originalRequest)
+                      .proxyToServerRequestSending();
+                }
+
                 super.write(ctx, msg, promise);
+
+                if (null != originalRequest) {
+                  getHttpFiltersFromProxyServer(originalRequest)
+                      .proxyToServerRequestSent();
+                }
             }
         }
 

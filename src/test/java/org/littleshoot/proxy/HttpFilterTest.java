@@ -54,7 +54,7 @@ public class HttpFilterTest {
 
                 return new HttpFiltersAdapter(originalRequest) {
                     @Override
-                    public HttpResponse requestPre(HttpObject httpObject) {
+                    public HttpResponse clientToProxyRequestPreProcessing(HttpObject httpObject) {
                         fullHttpRequestsReceived.incrementAndGet();
                         if (httpObject instanceof HttpRequest) {
                             HttpRequest httpRequest = (HttpRequest) httpObject;
@@ -68,7 +68,7 @@ public class HttpFilterTest {
                     }
 
                     @Override
-                    public HttpResponse requestPost(HttpObject httpObject) {
+                    public HttpResponse proxyToServerRequestPreProcessing(HttpObject httpObject) {
                         if (httpObject instanceof HttpRequest) {
                             HttpRequest httpRequest = (HttpRequest) httpObject;
                             if (httpRequest.getUri().equals("/testing2")) {
@@ -80,7 +80,7 @@ public class HttpFilterTest {
                         return null;
                     }
 
-                    public HttpObject responsePre(HttpObject httpObject) {
+                    public HttpObject serverToProxyResponsePreProcessing(HttpObject httpObject) {
                         if (originalRequest.getUri().contains("testing3")) {
                             return new DefaultFullHttpResponse(
                                     HttpVersion.HTTP_1_1,
@@ -97,7 +97,7 @@ public class HttpFilterTest {
                         return httpObject;
                     };
 
-                    public HttpObject responsePost(HttpObject httpObject) {
+                    public HttpObject proxyToClientResponsePreProcessing(HttpObject httpObject) {
                         if (originalRequest.getUri().contains("testing4")) {
                             return new DefaultFullHttpResponse(
                                     HttpVersion.HTTP_1_1,

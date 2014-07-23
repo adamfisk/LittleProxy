@@ -1,12 +1,9 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.LastHttpContent;
-
+import io.netty.handler.codec.http.*;
 import org.littleshoot.proxy.impl.ProxyUtils;
+
+import java.net.InetSocketAddress;
 
 /**
  * <p>
@@ -51,38 +48,101 @@ public interface HttpFilters {
     /**
      * Filters requests on their way from the client to the proxy.
      * 
-     * @param httpObject
+     * @param httpObject Client to Proxy HttpRequest (and HttpContent, if chunked)
      * @return if you want to interrupted processing and return a response to
      *         the client, return it here, otherwise return null to continue
      *         processing as usual
      */
-    HttpResponse requestPre(HttpObject httpObject);
+    HttpResponse clientToProxyRequestPreProcessing(HttpObject httpObject);
 
     /**
      * Filters requests on their way from the proxy to the server.
      * 
-     * @param httpObject
+     * @param httpObject Proxy to Server HttpRequest (and HttpContent, if chunked)
      * @return if you want to interrupted processing and return a response to
      *         the client, return it here, otherwise return null to continue
      *         processing as usual
      */
-    HttpResponse requestPost(HttpObject httpObject);
+    HttpResponse proxyToServerRequestPreProcessing(HttpObject httpObject);
+
+    /**
+     * TODO
+     */
+    void proxyToServerRequestSending();
+
+    /**
+     * TODO
+     */
+    void proxyToServerRequestSent();
 
     /**
      * Filters responses on their way from the server to the proxy.
      * 
-     * @param httpObject
+     * @param httpObject Server to Proxy HttpResponse (and HttpContent, if chunked)
      * @return the modified (or unmodified) HttpObject. Returning null will
      *         force a disconnect.
      */
-    HttpObject responsePre(HttpObject httpObject);
+    HttpObject serverToProxyResponsePreProcessing(HttpObject httpObject);
+
+    /**
+     * TODO
+     */
+    void serverToProxyResponseReceiving();
+
+    /**
+     * TODO
+     */
+    void serverToProxyResponseReceived();
 
     /**
      * Filters responses on their way from the proxy to the client.
      * 
-     * @param httpObject
+     * @param httpObject Proxy to Client HttpResponse (and HttpContent, if chunked)
      * @return the modified (or unmodified) HttpObject. Returning null will
      *         force a disconnect.
      */
-    HttpObject responsePost(HttpObject httpObject);
+    HttpObject proxyToClientResponsePreProcessing(HttpObject httpObject);
+
+    /**
+     * Inform filter that proxy to server connection is in queue.
+     */
+    void proxyToServerAwaitingConnection();
+
+    /**
+     * Filter DNS resolution from proxy to server.
+     *
+     * @param resolvingServerHostAndPort Server "HOST:PORT"
+     * @return alternative address resolution. Returning null will let
+     *         normal DNS resolution continue.
+     */
+    InetSocketAddress proxyToServerResolving(String resolvingServerHostAndPort);
+
+    /**
+     * Inform filter that proxy to server DNS resolution has happened.
+     *
+     * @param serverHostAndPort Server "HOST:PORT"
+     * @param resolvedRemoteAddress Address it was proxyToServerResolved to
+     */
+    void proxyToServerResolved(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress);
+
+    /**
+     * Inform filter that proxy to server connection is initiating.
+     */
+    void proxyToServerConnecting();
+
+    /**
+     * Inform filter that proxy to server ssl handshake is initiating.
+     */
+    void proxyToServerSSLHandshaking();
+
+    /**
+     * Inform filter that proxy to server connection has failed.
+     */
+    void proxyToServerConnectionFailed();
+
+    /**
+     * Inform filter that proxy to server connection has succeeded.
+     */
+    void proxyToServerConnectionSuccess();
+
 }

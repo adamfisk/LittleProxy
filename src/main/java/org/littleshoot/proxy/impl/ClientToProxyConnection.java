@@ -198,7 +198,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 originalRequest, ctx);
 
         // Do the pre filtering
-        if (shortCircuitRespond(currentFilters.requestPre(httpRequest))) {
+        if (shortCircuitRespond(currentFilters.clientToProxyRequestPreProcessing(httpRequest))) {
             return DISCONNECT_REQUESTED;
         }
 
@@ -236,6 +236,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         proxyServer,
                         this,
                         serverHostAndPort,
+                        currentFilters,
                         httpRequest);
                 if (currentServerConnection == null) {
                     LOG.debug("Unable to create server connection, probably no chained proxies available");
@@ -259,7 +260,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         modifyRequestHeadersToReflectProxying(httpRequest);
-        if (shortCircuitRespond(currentFilters.requestPost(httpRequest))) {
+        if (shortCircuitRespond(currentFilters.proxyToServerRequestPreProcessing(httpRequest))) {
             return DISCONNECT_REQUESTED;
         }
 
@@ -278,8 +279,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     @Override
     protected void readHTTPChunk(HttpContent chunk) {
-        currentFilters.requestPre(chunk);
-        currentFilters.requestPost(chunk);
+        currentFilters.clientToProxyRequestPreProcessing(chunk);
+        currentFilters.proxyToServerRequestPreProcessing(chunk);
         currentServerConnection.write(chunk);
     }
 
@@ -311,7 +312,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     void respond(ProxyToServerConnection serverConnection, HttpFilters filters,
             HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
             HttpObject httpObject) {
-        httpObject = filters.responsePre(httpObject);
+        httpObject = filters.serverToProxyResponsePreProcessing(httpObject);
         if (httpObject == null) {
             forceDisconnect(serverConnection);
             return;
@@ -323,7 +324,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             modifyResponseHeadersToReflectProxying(httpResponse);
         }
 
-        httpObject = filters.responsePost(httpObject);
+        httpObject = filters.proxyToClientResponsePreProcessing(httpObject);
         if (httpObject == null) {
             forceDisconnect(serverConnection);
             return;
