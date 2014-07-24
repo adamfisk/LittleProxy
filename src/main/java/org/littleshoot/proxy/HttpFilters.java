@@ -45,7 +45,29 @@ import java.net.InetSocketAddress;
  * A new instance of {@link HttpFilters} is created for each request, so these
  * objects can be stateful.
  * </p>
- * 
+ *
+ * <p>
+ * To monitor (and time measure?) the different steps the request/response goes
+ * through, many informative methods are provided.
+ * Those steps are reported in the following order:
+ * <ol>
+ * <li>clientToProxyRequest</li>
+ * <li>proxyToServerConnectionQueued</li>
+ * <li>proxyToServerResolutionStarted</li>
+ * <li>proxyToServerResolutionSucceeded</li>
+ * <li>proxyToServerRequest (can be multiple if chunked)</li>
+ * <li>proxyToServerConnectionStarted</li>
+ * <li>proxyToServerConnectionFailed (if connection couldn't be established)</li>
+ * <li>proxyToServerConnectionSSLHandshakeStarted (only if HTTPS required)</li>
+ * <li>proxyToServerConnectionSucceeded</li>
+ * <li>proxyToServerRequestSending</li>
+ * <li>proxyToServerRequestSent</li>
+ * <li>serverToProxyResponseReceiving</li>
+ * <li>serverToProxyResponse (can be multiple if chuncked)</li>
+ * <li>serverToProxyResponseReceived</li>
+ * <li>proxyToClientResponse</li>
+ * </ol>
+ * </p>
  */
 public interface HttpFilters {
     /**
