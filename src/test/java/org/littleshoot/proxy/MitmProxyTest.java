@@ -43,7 +43,7 @@ public class MitmProxyTest extends BaseProxyTest {
                     public HttpFilters filterRequest(HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
-                            public HttpResponse clientToProxyRequestPreProcessing(HttpObject httpObject) {
+                            public HttpResponse clientToProxyRequest(HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPreMethodsSeen
                                             .add(((HttpRequest) httpObject)
@@ -53,7 +53,7 @@ public class MitmProxyTest extends BaseProxyTest {
                             }
 
                             @Override
-                            public HttpResponse proxyToServerRequestPreProcessing(
+                            public HttpResponse proxyToServerRequest(
                                 HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPostMethodsSeen
@@ -64,7 +64,7 @@ public class MitmProxyTest extends BaseProxyTest {
                             }
 
                             @Override
-                            public HttpObject serverToProxyResponsePreProcessing(HttpObject httpObject) {
+                            public HttpObject serverToProxyResponse(HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePreOriginalRequestMethodsSeen
                                             .add(originalRequest.getMethod());
@@ -77,7 +77,7 @@ public class MitmProxyTest extends BaseProxyTest {
                             }
 
                             @Override
-                            public HttpObject proxyToClientResponsePreProcessing(HttpObject httpObject) {
+                            public HttpObject proxyToClientResponse(HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePostOriginalRequestMethodsSeen
                                             .add(originalRequest.getMethod());
@@ -134,29 +134,29 @@ public class MitmProxyTest extends BaseProxyTest {
     }
 
     private void assertMethodSeenInRequestFilters(HttpMethod method) {
-        assertTrue(method + " should have been seen in clientToProxyRequestPreProcessing filter",
+        assertTrue(method + " should have been seen in clientToProxyRequest filter",
                 requestPreMethodsSeen.contains(method));
-        assertTrue(method + " should have been seen in proxyToServerRequestPreProcessing filter",
+        assertTrue(method + " should have been seen in proxyToServerRequest filter",
                 requestPostMethodsSeen.contains(method));
     }
 
     private void assertMethodSeenInResponseFilters(HttpMethod method) {
         assertTrue(
                 method
-                        + " should have been seen as the original requests's method in serverToProxyResponsePreProcessing filter",
+                        + " should have been seen as the original requests's method in serverToProxyResponse filter",
                 responsePreOriginalRequestMethodsSeen.contains(method));
         assertTrue(
                 method
-                        + " should have been seen as the original requests's method in proxyToClientResponsePreProcessing filter",
+                        + " should have been seen as the original requests's method in proxyToClientResponse filter",
                 responsePostOriginalRequestMethodsSeen.contains(method));
     }
 
     private void assertResponseFromFiltersMatchesActualResponse() {
         assertEquals(
-                "Data received through HttpFilters.serverToProxyResponsePreProcessing should match response",
+                "Data received through HttpFilters.serverToProxyResponse should match response",
                 lastResponse, responsePreBody.toString());
         assertEquals(
-                "Data received through HttpFilters.proxyToClientResponsePreProcessing should match response",
+                "Data received through HttpFilters.proxyToClientResponse should match response",
                 lastResponse, responsePostBody.toString());
     }
 

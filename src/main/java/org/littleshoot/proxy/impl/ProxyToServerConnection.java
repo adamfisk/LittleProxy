@@ -150,7 +150,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         this.currentFilters = initialFilters;
 
         // Report connection status to HttpFilters
-        this.currentFilters.proxyToServerAwaitingConnection();
+        this.currentFilters.proxyToServerConnectionQueued();
 
         setupConnectionParameters();
     }
@@ -306,18 +306,18 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected void become(ConnectionState newState) {
         // Report connection status to HttpFilters
         if (getCurrentState() == DISCONNECTED && newState == CONNECTING) {
-            currentFilters.proxyToServerConnecting();
+            currentFilters.proxyToServerConnectionStarted();
         } else if (getCurrentState() == CONNECTING) {
             if (newState == HANDSHAKING) {
-                currentFilters.proxyToServerSSLHandshaking();
+                currentFilters.proxyToServerConnectionSSLHandshakeStarted();
             } else if (newState == AWAITING_INITIAL) {
-                currentFilters.proxyToServerConnectionSuccess();
+                currentFilters.proxyToServerConnectionSucceeded();
             } else if (newState == DISCONNECTED) {
                 currentFilters.proxyToServerConnectionFailed();
             }
         } else if (getCurrentState() == HANDSHAKING
             && newState == AWAITING_INITIAL) {
-            currentFilters.proxyToServerConnectionSuccess();
+            currentFilters.proxyToServerConnectionSucceeded();
         } else if (getCurrentState() == AWAITING_CHUNK
             && newState != AWAITING_CHUNK) {
             currentFilters.serverToProxyResponseReceived();
@@ -705,11 +705,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.transportProtocol = TransportProtocol.TCP;
 
             // Report DNS resolution to HttpFilters
-            this.remoteAddress = this.currentFilters.proxyToServerResolving(serverHostAndPort);
+            this.remoteAddress = this.currentFilters.proxyToServerResolutionStarted(serverHostAndPort);
             if (this.remoteAddress == null) {
               this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
             }
-            this.currentFilters.proxyToServerResolved(serverHostAndPort, this.remoteAddress);
+            this.currentFilters.proxyToServerResolutionSucceeded(serverHostAndPort, this.remoteAddress);
 
             this.localAddress = null;
         }

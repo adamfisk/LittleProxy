@@ -8,18 +8,21 @@ import java.net.InetSocketAddress;
 /**
  * <p>
  * Interface for objects that filter {@link HttpObject}s, including both
- * requests and responses.
+ * requests and responses, and informs of different steps in request/response.
  * </p>
  * 
  * <p>
  * Multiple methods are defined, corresponding to different steps in the request
- * processing lifecycle. Each of these methods is given the current object
- * (request, response or chunk) and is allowed to modify it in place.
+ * processing lifecycle. Some of these methods is given the current object
+ * (request, response or chunk) and is allowed to modify it in place. Others
+ * provide a notification of when specific operations happen (i.e. connection
+ * in queue, DNS resolution, SSL handshaking and so forth).
  * </p>
  * 
  * <p>
  * Because HTTP transfers can be chunked, for any given request or response, the
- * filter methods may be called multiple times, once for the initial
+ * filter methods that can modify request/response in place
+ * may be called multiple times, once for the initial
  * {@link HttpRequest} or {@link HttpResponse}, and once for each subsequent
  * {@link HttpContent}. The last chunk will always be a {@link LastHttpContent}
  * and can be checked for being last using
@@ -53,7 +56,7 @@ public interface HttpFilters {
      *         the client, return it here, otherwise return null to continue
      *         processing as usual
      */
-    HttpResponse clientToProxyRequestPreProcessing(HttpObject httpObject);
+    HttpResponse clientToProxyRequest(HttpObject httpObject);
 
     /**
      * Filters requests on their way from the proxy to the server.
@@ -63,15 +66,15 @@ public interface HttpFilters {
      *         the client, return it here, otherwise return null to continue
      *         processing as usual
      */
-    HttpResponse proxyToServerRequestPreProcessing(HttpObject httpObject);
+    HttpResponse proxyToServerRequest(HttpObject httpObject);
 
     /**
-     * TODO
+     * Informs filter that proxy to server request is being sent.
      */
     void proxyToServerRequestSending();
 
     /**
-     * TODO
+     * Informs filter that proxy to server request has been sent.
      */
     void proxyToServerRequestSent();
 
@@ -82,15 +85,15 @@ public interface HttpFilters {
      * @return the modified (or unmodified) HttpObject. Returning null will
      *         force a disconnect.
      */
-    HttpObject serverToProxyResponsePreProcessing(HttpObject httpObject);
+    HttpObject serverToProxyResponse(HttpObject httpObject);
 
     /**
-     * TODO
+     * Informs filter that server to proxy response is being received.
      */
     void serverToProxyResponseReceiving();
 
     /**
-     * TODO
+     * Informs filter that server to proxy response has been received.
      */
     void serverToProxyResponseReceived();
 
@@ -101,12 +104,12 @@ public interface HttpFilters {
      * @return the modified (or unmodified) HttpObject. Returning null will
      *         force a disconnect.
      */
-    HttpObject proxyToClientResponsePreProcessing(HttpObject httpObject);
+    HttpObject proxyToClientResponse(HttpObject httpObject);
 
     /**
-     * Inform filter that proxy to server connection is in queue.
+     * Informs filter that proxy to server connection is in queue.
      */
-    void proxyToServerAwaitingConnection();
+    void proxyToServerConnectionQueued();
 
     /**
      * Filter DNS resolution from proxy to server.
@@ -115,34 +118,34 @@ public interface HttpFilters {
      * @return alternative address resolution. Returning null will let
      *         normal DNS resolution continue.
      */
-    InetSocketAddress proxyToServerResolving(String resolvingServerHostAndPort);
+    InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort);
 
     /**
-     * Inform filter that proxy to server DNS resolution has happened.
+     * Informs filter that proxy to server DNS resolution has happened.
      *
      * @param serverHostAndPort Server "HOST:PORT"
-     * @param resolvedRemoteAddress Address it was proxyToServerResolved to
+     * @param resolvedRemoteAddress Address it was proxyToServerResolutionSucceeded to
      */
-    void proxyToServerResolved(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress);
+    void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress);
 
     /**
-     * Inform filter that proxy to server connection is initiating.
+     * Informs filter that proxy to server connection is initiating.
      */
-    void proxyToServerConnecting();
+    void proxyToServerConnectionStarted();
 
     /**
-     * Inform filter that proxy to server ssl handshake is initiating.
+     * Informs filter that proxy to server ssl handshake is initiating.
      */
-    void proxyToServerSSLHandshaking();
+    void proxyToServerConnectionSSLHandshakeStarted();
 
     /**
-     * Inform filter that proxy to server connection has failed.
+     * Informs filter that proxy to server connection has failed.
      */
     void proxyToServerConnectionFailed();
 
     /**
-     * Inform filter that proxy to server connection has succeeded.
+     * Informs filter that proxy to server connection has succeeded.
      */
-    void proxyToServerConnectionSuccess();
+    void proxyToServerConnectionSucceeded();
 
 }

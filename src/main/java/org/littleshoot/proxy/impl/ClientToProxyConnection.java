@@ -198,7 +198,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 originalRequest, ctx);
 
         // Do the pre filtering
-        if (shortCircuitRespond(currentFilters.clientToProxyRequestPreProcessing(httpRequest))) {
+        if (shortCircuitRespond(currentFilters.clientToProxyRequest(httpRequest))) {
             return DISCONNECT_REQUESTED;
         }
 
@@ -260,7 +260,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         modifyRequestHeadersToReflectProxying(httpRequest);
-        if (shortCircuitRespond(currentFilters.proxyToServerRequestPreProcessing(httpRequest))) {
+        if (shortCircuitRespond(currentFilters.proxyToServerRequest(httpRequest))) {
             return DISCONNECT_REQUESTED;
         }
 
@@ -279,8 +279,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     @Override
     protected void readHTTPChunk(HttpContent chunk) {
-        currentFilters.clientToProxyRequestPreProcessing(chunk);
-        currentFilters.proxyToServerRequestPreProcessing(chunk);
+        currentFilters.clientToProxyRequest(chunk);
+        currentFilters.proxyToServerRequest(chunk);
         currentServerConnection.write(chunk);
     }
 
@@ -312,7 +312,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     void respond(ProxyToServerConnection serverConnection, HttpFilters filters,
             HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
             HttpObject httpObject) {
-        httpObject = filters.serverToProxyResponsePreProcessing(httpObject);
+        httpObject = filters.serverToProxyResponse(httpObject);
         if (httpObject == null) {
             forceDisconnect(serverConnection);
             return;
@@ -324,7 +324,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             modifyResponseHeadersToReflectProxying(httpResponse);
         }
 
-        httpObject = filters.proxyToClientResponsePreProcessing(httpObject);
+        httpObject = filters.proxyToClientResponse(httpObject);
         if (httpObject == null) {
             forceDisconnect(serverConnection);
             return;

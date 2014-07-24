@@ -45,7 +45,7 @@ public class HttpStreamingFilterTest {
                     public HttpFilters filterRequest(HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
-                            public HttpResponse clientToProxyRequestPreProcessing(HttpObject httpObject) {
+                            public HttpResponse clientToProxyRequest(HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     numberOfInitialRequestsFiltered
                                             .incrementAndGet();

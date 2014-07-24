@@ -25,12 +25,12 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public HttpResponse clientToProxyRequestPreProcessing(HttpObject httpObject) {
+    public HttpResponse clientToProxyRequest(HttpObject httpObject) {
         return null;
     }
 
     @Override
-    public HttpResponse proxyToServerRequestPreProcessing(HttpObject httpObject) {
+    public HttpResponse proxyToServerRequest(HttpObject httpObject) {
         return null;
     }
 
@@ -43,7 +43,7 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public HttpObject serverToProxyResponsePreProcessing(HttpObject httpObject) {
+    public HttpObject serverToProxyResponse(HttpObject httpObject) {
         return httpObject;
     }
 
@@ -56,29 +56,29 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public HttpObject proxyToClientResponsePreProcessing(HttpObject httpObject) {
+    public HttpObject proxyToClientResponse(HttpObject httpObject) {
         return httpObject;
     }
 
     @Override
-    public void proxyToServerAwaitingConnection() {
+    public void proxyToServerConnectionQueued() {
     }
 
     @Override
-    public InetSocketAddress proxyToServerResolving(String resolvingServerHostAndPort) {
+    public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
         return null;
     }
 
     @Override
-    public void proxyToServerResolved(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
+    public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
     }
 
     @Override
-    public void proxyToServerConnecting() {
+    public void proxyToServerConnectionStarted() {
     }
 
     @Override
-    public void proxyToServerSSLHandshaking() {
+    public void proxyToServerConnectionSSLHandshakeStarted() {
     }
 
     @Override
@@ -86,6 +86,6 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public void proxyToServerConnectionSuccess() {
+    public void proxyToServerConnectionSucceeded() {
     }
 }
