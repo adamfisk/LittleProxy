@@ -3,9 +3,8 @@ package org.littleshoot.proxy;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
-import java.net.InetSocketAddress;
-
 import javax.net.ssl.SSLSession;
+import java.net.InetSocketAddress;
 
 /**
  * <p>

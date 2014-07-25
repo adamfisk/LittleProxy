@@ -1,18 +1,15 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.*;
-import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.*;
+import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 
 import java.nio.charset.Charset;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 
-import org.littleshoot.proxy.extras.SelfSignedMitmManager;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests just a single basic proxy running as a man in the middle.
