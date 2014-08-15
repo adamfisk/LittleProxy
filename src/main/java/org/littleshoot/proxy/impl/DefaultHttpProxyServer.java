@@ -16,6 +16,7 @@ import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
+import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
 import java.io.File;
@@ -101,6 +102,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final int connectTimeout;
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
+    private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
     /**
      * Track all ActivityTrackers for tracking proxying activity.
@@ -195,7 +197,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers,
             int connectTimeout,
-            HostResolver serverResolver) {
+            HostResolver serverResolver,
+            GlobalTrafficShapingHandler globalTrafficShapingHandler) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.address = address;
@@ -212,6 +215,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
         this.connectTimeout = connectTimeout;
         this.serverResolver = serverResolver;
+        this.globalTrafficShapingHandler = globalTrafficShapingHandler;
     }
 
     boolean isTransparent() {
@@ -238,6 +242,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     public InetSocketAddress getListenAddress() {
         return address;
     }
+    
+    public GlobalTrafficShapingHandler getGlobalTrafficShapingHandler() {
+        return globalTrafficShapingHandler;
+    }
 
     @Override
     public HttpProxyServerBootstrap clone() {
@@ -248,7 +256,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 chainProxyManager,
                 mitmManager, filtersSource, transparent,
                 idleConnectionTimeout, activityTrackers, connectTimeout,
-                serverResolver);
+                serverResolver, globalTrafficShapingHandler);
     }
 
     @Override
@@ -282,7 +290,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         DefaultHttpProxyServer.this,
                         sslEngineSource,
                         authenticateSslClients,
-                        ch.pipeline());
+                        ch.pipeline(),
+                        globalTrafficShapingHandler);
             };
         };
         switch (transportProtocol) {
@@ -551,6 +560,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
         private int connectTimeout = 40000;
         private HostResolver serverResolver = new DefaultHostResolver();
+        private GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -567,7 +577,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 HttpFiltersSource filtersSource,
                 boolean transparent, int idleConnectionTimeout,
                 Collection<ActivityTracker> activityTrackers,
-                int connectTimeout, HostResolver serverResolver) {
+                int connectTimeout, HostResolver serverResolver,
+                GlobalTrafficShapingHandler globalTrafficShapingHandler) {
             this.original = original;
             this.transportProtocol = transportProtocol;
             this.address = address;
@@ -584,6 +595,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             }
             this.connectTimeout = connectTimeout;
             this.serverResolver = serverResolver;
+            this.globalTrafficShapingHandler = globalTrafficShapingHandler;
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
@@ -733,6 +745,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withGlobalTrafficShapingHandler(GlobalTrafficShapingHandler globalTrafficShapingHandler) {
+            this.globalTrafficShapingHandler = globalTrafficShapingHandler;
+            return this;
+        }
+
+        @Override
         public HttpProxyServer start() {
             return build().start();
         }
@@ -753,7 +771,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     proxyAuthenticator, chainProxyManager, mitmManager,
                     filtersSource, transparent,
                     idleConnectionTimeout, activityTrackers, connectTimeout,
-                    serverResolver);
+                    serverResolver, globalTrafficShapingHandler);
         }
 
         private InetSocketAddress determineListenAddress() {

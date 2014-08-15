@@ -18,6 +18,7 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
@@ -122,11 +123,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     
     private AtomicBoolean authenticated = new AtomicBoolean();
 
+    private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
+
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
             SslEngineSource sslEngineSource,
             boolean authenticateClients,
-            ChannelPipeline pipeline) {
+            ChannelPipeline pipeline,
+            GlobalTrafficShapingHandler globalTrafficShapingHandler) {
         super(AWAITING_INITIAL, proxyServer, false);
 
         initChannelPipeline(pipeline);
@@ -149,6 +153,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                                 }
                             });
         }
+        this.globalTrafficShapingHandler = globalTrafficShapingHandler;
 
         LOG.debug("Created ClientToProxyConnection");
     }
@@ -236,7 +241,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         proxyServer,
                         this,
                         serverHostAndPort,
-                        httpRequest);
+                        httpRequest,
+                        globalTrafficShapingHandler);
                 if (currentServerConnection == null) {
                     LOG.debug("Unable to create server connection, probably no chained proxies available");
                     writeBadGateway(httpRequest);

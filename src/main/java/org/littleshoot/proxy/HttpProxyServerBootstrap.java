@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import io.netty.handler.traffic.GlobalTrafficShapingHandler;
+
 import java.net.InetSocketAddress;
 
 /**
@@ -282,6 +284,15 @@ public interface HttpProxyServerBootstrap {
      * @return
      */
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);
+
+    /**
+     * <p>
+     * Specify a global traffic shaping handler for this proxy server.
+     * </p>
+     * @param globalTrafficShapingHandler
+     * @return
+     */
+    HttpProxyServerBootstrap withGlobalTrafficShapingHandler(GlobalTrafficShapingHandler globalTrafficShapingHandler);
 
     /**
      * <p>
