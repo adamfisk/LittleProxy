@@ -1,7 +1,5 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.traffic.GlobalTrafficShapingHandler;
-
 import java.net.InetSocketAddress;
 
 /**
@@ -287,12 +285,13 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * <p>
-     * Specify a global traffic shaping handler for this proxy server.
+     * Specify the read and/or write bandwidth throttles for this proxy server. 0 indicates not throttling.
      * </p>
-     * @param globalTrafficShapingHandler
+     * @param readThrottleBytesPerSecond
+     * @param writeThrottleBytesPerSecond
      * @return
      */
-    HttpProxyServerBootstrap withGlobalTrafficShapingHandler(GlobalTrafficShapingHandler globalTrafficShapingHandler);
+    HttpProxyServerBootstrap withThrottling(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
 
     /**
      * <p>
