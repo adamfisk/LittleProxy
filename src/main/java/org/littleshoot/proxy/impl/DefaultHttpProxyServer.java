@@ -16,6 +16,7 @@ import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
+import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
 import java.io.File;
@@ -34,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
@@ -101,6 +104,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final int connectTimeout;
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
+    private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
     /**
      * Track all ActivityTrackers for tracking proxying activity.
@@ -181,6 +185,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            server
      * @param serverResolver
      *            the {@link HostResolver} to use for resolving server addresses
+     * @param readThrottleBytesPerSecond
+     *            read throttle bandwidth
+     * @param writeThrottleBytesPerSecond
+     *            write throttle bandwidth
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
@@ -195,7 +203,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers,
             int connectTimeout,
-            HostResolver serverResolver) {
+            HostResolver serverResolver,
+            long readThrottleBytesPerSecond,
+            long writeThrottleBytesPerSecond) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.address = address;
@@ -212,6 +222,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
         this.connectTimeout = connectTimeout;
         this.serverResolver = serverResolver;
+
+        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(ServerGroup.INCOMING_WORKER_THREADS);
+        this.globalTrafficShapingHandler = new GlobalTrafficShapingHandler(executor, writeThrottleBytesPerSecond, readThrottleBytesPerSecond, 250L);
     }
 
     boolean isTransparent() {
@@ -240,6 +253,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     @Override
+    public void setThrottle(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
+        globalTrafficShapingHandler.configure(writeThrottleBytesPerSecond, readThrottleBytesPerSecond);
+    }
+
+    public long getReadThrottle() {
+        return globalTrafficShapingHandler.getReadLimit();
+    }
+
+    public long getWriteThrottle() {
+        return globalTrafficShapingHandler.getWriteLimit();
+    }
+
+    @Override
     public HttpProxyServerBootstrap clone() {
         return new DefaultHttpProxyServerBootstrap(this, transportProtocol,
                 new InetSocketAddress(address.getAddress(),
@@ -248,7 +274,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 chainProxyManager,
                 mitmManager, filtersSource, transparent,
                 idleConnectionTimeout, activityTrackers, connectTimeout,
-                serverResolver);
+                serverResolver, globalTrafficShapingHandler.getReadLimit(),
+                globalTrafficShapingHandler.getWriteLimit());
     }
 
     @Override
@@ -282,7 +309,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         DefaultHttpProxyServer.this,
                         sslEngineSource,
                         authenticateSslClients,
-                        ch.pipeline());
+                        ch.pipeline(),
+                        globalTrafficShapingHandler);
             };
         };
         switch (transportProtocol) {
@@ -551,6 +579,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
         private int connectTimeout = 40000;
         private HostResolver serverResolver = new DefaultHostResolver();
+        private long readThrottleBytesPerSecond;
+        private long writeThrottleBytesPerSecond;
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -567,7 +597,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 HttpFiltersSource filtersSource,
                 boolean transparent, int idleConnectionTimeout,
                 Collection<ActivityTracker> activityTrackers,
-                int connectTimeout, HostResolver serverResolver) {
+                int connectTimeout, HostResolver serverResolver,
+                long readThrottleBytesPerSecond, long  writeThrottleBytesPerSecond) {
             this.original = original;
             this.transportProtocol = transportProtocol;
             this.address = address;
@@ -584,6 +615,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             }
             this.connectTimeout = connectTimeout;
             this.serverResolver = serverResolver;
+            this.readThrottleBytesPerSecond = readThrottleBytesPerSecond;
+            this.writeThrottleBytesPerSecond = writeThrottleBytesPerSecond;
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
@@ -733,6 +766,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withThrottling(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
+            this.readThrottleBytesPerSecond = readThrottleBytesPerSecond;
+            this.writeThrottleBytesPerSecond = writeThrottleBytesPerSecond;
+            return this;
+        }
+
+        @Override
         public HttpProxyServer start() {
             return build().start();
         }
@@ -753,7 +793,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     proxyAuthenticator, chainProxyManager, mitmManager,
                     filtersSource, transparent,
                     idleConnectionTimeout, activityTrackers, connectTimeout,
-                    serverResolver);
+                    serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond);
         }
 
         private InetSocketAddress determineListenAddress() {

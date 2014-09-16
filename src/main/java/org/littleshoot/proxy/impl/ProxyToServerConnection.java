@@ -6,6 +6,7 @@ import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler.Sharable;
+import io.netty.channel.AdaptiveRecvByteBufAllocator;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
@@ -20,6 +21,7 @@ import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -114,6 +116,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private volatile HttpResponse currentHttpResponse;
 
+    private volatile GlobalTrafficShapingHandler trafficHandler;
+
     /**
      * Create a new ProxyToServerConnection.
      * 
@@ -128,7 +132,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     static ProxyToServerConnection create(DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
             String serverHostAndPort,
-            HttpRequest initialHttpRequest)
+            HttpRequest initialHttpRequest,
+            GlobalTrafficShapingHandler globalTrafficShapingHandler)
             throws UnknownHostException {
         Queue<ChainedProxy> chainedProxies = new ConcurrentLinkedQueue<ChainedProxy>();
         ChainedProxyManager chainedProxyManager = proxyServer
@@ -142,7 +147,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
         return new ProxyToServerConnection(proxyServer, clientConnection,
-                serverHostAndPort, chainedProxies.poll(), chainedProxies);
+                serverHostAndPort, chainedProxies.poll(), chainedProxies, globalTrafficShapingHandler);
     }
 
     private ProxyToServerConnection(
@@ -150,13 +155,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             ClientToProxyConnection clientConnection,
             String serverHostAndPort,
             ChainedProxy chainedProxy,
-            Queue<ChainedProxy> availableChainedProxies)
+            Queue<ChainedProxy> availableChainedProxies,
+            GlobalTrafficShapingHandler globalTrafficShapingHandler)
             throws UnknownHostException {
         super(DISCONNECTED, proxyServer, true);
         this.clientConnection = clientConnection;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxy = chainedProxy;
         this.availableChainedProxies = availableChainedProxies;
+        this.trafficHandler = globalTrafficShapingHandler;
         setupConnectionParameters();
     }
 
@@ -686,6 +693,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void initChannelPipeline(ChannelPipeline pipeline,
             HttpRequest httpRequest) {
+
+        if(trafficHandler != null) {
+            long initial = trafficHandler.getReadLimit() / 4;
+            long max = trafficHandler.getReadLimit() / 2;
+            AdaptiveRecvByteBufAllocator adaptiveRecvByteBufAllocator = new AdaptiveRecvByteBufAllocator(64, (int)initial, (int)max);
+            pipeline.channel().config().setRecvByteBufAllocator(adaptiveRecvByteBufAllocator);
+            pipeline.addLast("global-traffic-shaping", trafficHandler);
+        }
+
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
         pipeline.addLast("decoder", new HeadAwareHttpResponseDecoder(
                 8192,
