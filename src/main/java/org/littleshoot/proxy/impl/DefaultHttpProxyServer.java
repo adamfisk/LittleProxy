@@ -223,8 +223,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.connectTimeout = connectTimeout;
         this.serverResolver = serverResolver;
 
-        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(50);
-        this.globalTrafficShapingHandler = new GlobalTrafficShapingHandler(executor, writeThrottleBytesPerSecond, readThrottleBytesPerSecond);
+        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(ServerGroup.INCOMING_WORKER_THREADS);
+        this.globalTrafficShapingHandler = new GlobalTrafficShapingHandler(executor, writeThrottleBytesPerSecond, readThrottleBytesPerSecond, 250L);
     }
 
     boolean isTransparent() {
