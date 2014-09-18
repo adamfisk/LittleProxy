@@ -3,9 +3,8 @@ package org.littleshoot.proxy;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
-import java.net.InetSocketAddress;
-
 import javax.net.ssl.SSLSession;
+import java.net.InetSocketAddress;
 
 /**
  * <p>
@@ -101,7 +100,7 @@ public interface ActivityTracker {
 
     /**
      * Record that the proxy received bytes from the server.
-     * 
+     *
      * @param flowContext
      *            provides contextual information about the flow
      * @param numberOfBytes

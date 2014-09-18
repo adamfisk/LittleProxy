@@ -40,25 +40,25 @@ HttpProxyServer server =
             public HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext ctx) {
                return new HttpFiltersAdapter(originalRequest) {
                   @Override
-                  public HttpResponse requestPre(HttpObject httpObject) {
+                  public HttpResponse clientToProxyRequest(HttpObject httpObject) {
                       // TODO: implement your filtering here
                       return null;
                   }
 
                   @Override
-                  public HttpResponse requestPost(HttpObject httpObject) {
+                  public HttpResponse proxyToServerRequest(HttpObject httpObject) {
                       // TODO: implement your filtering here
                       return null;
                   }
 
                   @Override
-                  public HttpObject responsePre(HttpObject httpObject) {
+                  public HttpObject serverToProxyResponse(HttpObject httpObject) {
                       // TODO: implement your filtering here
                       return httpObject;
                   }
 
                   @Override
-                  public HttpObject responsePost(HttpObject httpObject) {
+                  public HttpObject proxyToClientResponse(HttpObject httpObject) {
                       // TODO: implement your filtering here
                       return httpObject;
                   }   
