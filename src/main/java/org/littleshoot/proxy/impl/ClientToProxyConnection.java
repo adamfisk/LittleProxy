@@ -701,8 +701,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             // through to the same close semantics we'd otherwise use.
             if (httpObject != null) {
                 if (!ProxyUtils.isLastChunk(httpObject)) {
-                    LOG.debug("Not closing on middle chunk for {}",
-                            req.getUri());
+                    String uri = null;
+                    if (req != null) {
+                        uri = req.getUri();
+                    }
+                    LOG.debug("Not closing on middle chunk for {}", uri);
                     return false;
                 } else {
                     LOG.debug("Last chunk... using normal closing rules");
