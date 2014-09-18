@@ -4,6 +4,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import org.littleshoot.proxy.impl.ProxyToServerConnection;
 
 /**
  * Convenience base class for implementations of {@link HttpFilters}.
@@ -33,12 +34,12 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public HttpObject responsePre(HttpObject httpObject) {
+    public HttpObject responsePre(HttpObject httpObject, ProxyToServerConnection con) {
         return httpObject;
     }
 
     @Override
-    public HttpObject responsePost(HttpObject httpObject) {
+    public HttpObject responsePost(HttpObject httpObject, ProxyToServerConnection con) {
         return httpObject;
     }
 

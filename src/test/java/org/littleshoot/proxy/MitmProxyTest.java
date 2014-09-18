@@ -13,6 +13,7 @@ import java.util.Queue;
 import java.util.Set;
 
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
+import org.littleshoot.proxy.impl.ProxyToServerConnection;
 
 /**
  * Tests just a single basic proxy running as a man in the middle.
@@ -64,7 +65,7 @@ public class MitmProxyTest extends BaseProxyTest {
                             }
 
                             @Override
-                            public HttpObject responsePre(HttpObject httpObject) {
+                            public HttpObject responsePre(HttpObject httpObject, ProxyToServerConnection con) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePreOriginalRequestMethodsSeen
                                             .add(originalRequest.getMethod());
@@ -77,7 +78,7 @@ public class MitmProxyTest extends BaseProxyTest {
                             }
 
                             @Override
-                            public HttpObject responsePost(HttpObject httpObject) {
+                            public HttpObject responsePost(HttpObject httpObject, ProxyToServerConnection con) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePostOriginalRequestMethodsSeen
                                             .add(originalRequest.getMethod());

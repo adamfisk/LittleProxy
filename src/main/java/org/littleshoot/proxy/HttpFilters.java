@@ -6,6 +6,7 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
 
+import org.littleshoot.proxy.impl.ProxyToServerConnection;
 import org.littleshoot.proxy.impl.ProxyUtils;
 
 /**
@@ -72,17 +73,19 @@ public interface HttpFilters {
      * Filters responses on their way from the server to the proxy.
      * 
      * @param httpObject
+     * @param con connection to the server
      * @return the modified (or unmodified) HttpObject. Returning null will
      *         force a disconnect.
      */
-    HttpObject responsePre(HttpObject httpObject);
+    HttpObject responsePre(HttpObject httpObject, ProxyToServerConnection con);
 
     /**
      * Filters responses on their way from the proxy to the client.
      * 
      * @param httpObject
+     * @param con connection to the server
      * @return the modified (or unmodified) HttpObject. Returning null will
      *         force a disconnect.
      */
-    HttpObject responsePost(HttpObject httpObject);
+    HttpObject responsePost(HttpObject httpObject, ProxyToServerConnection con);
 }
