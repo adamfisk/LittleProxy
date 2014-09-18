@@ -316,10 +316,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 currentFilters.proxyToServerConnectionFailed();
             }
         } else if (getCurrentState() == HANDSHAKING
-            && newState == AWAITING_INITIAL) {
+                && newState == AWAITING_INITIAL) {
             currentFilters.proxyToServerConnectionSucceeded();
         } else if (getCurrentState() == AWAITING_CHUNK
-            && newState != AWAITING_CHUNK) {
+                && newState != AWAITING_CHUNK) {
             currentFilters.serverToProxyResponseReceived();
         }
 
@@ -420,7 +420,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected HttpFilters getHttpFiltersFromProxyServer(HttpRequest httpRequest) {
-      return currentFilters;
+        return currentFilters;
     }
 
     /***************************************************************************
@@ -705,11 +705,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.transportProtocol = TransportProtocol.TCP;
 
             // Report DNS resolution to HttpFilters
-            this.remoteAddress = this.currentFilters.proxyToServerResolutionStarted(serverHostAndPort);
+            this.remoteAddress = this.currentFilters
+                    .proxyToServerResolutionStarted(serverHostAndPort);
             if (this.remoteAddress == null) {
-              this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
+                this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
             }
-            this.currentFilters.proxyToServerResolutionSucceeded(serverHostAndPort, this.remoteAddress);
+            this.currentFilters.proxyToServerResolutionSucceeded(
+                    serverHostAndPort, this.remoteAddress);
 
             this.localAddress = null;
         }

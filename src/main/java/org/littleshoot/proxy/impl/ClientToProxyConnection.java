@@ -98,7 +98,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Tracks whether or not this ClientToProxyConnection is current doing MITM.
      */
     private volatile boolean mitming = false;
-    
+
     private AtomicBoolean authenticated = new AtomicBoolean();
 
     ClientToProxyConnection(
@@ -177,7 +177,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 originalRequest, ctx);
 
         // Do the pre filtering
-        if (shortCircuitRespond(currentFilters.clientToProxyRequest(httpRequest))) {
+        if (shortCircuitRespond(currentFilters
+                .clientToProxyRequest(httpRequest))) {
             return DISCONNECT_REQUESTED;
         }
 
@@ -239,7 +240,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         modifyRequestHeadersToReflectProxying(httpRequest);
-        if (shortCircuitRespond(currentFilters.proxyToServerRequest(httpRequest))) {
+        if (shortCircuitRespond(currentFilters
+                .proxyToServerRequest(httpRequest))) {
             return DISCONNECT_REQUESTED;
         }
 
@@ -577,7 +579,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void exceptionCaught(Throwable cause) {
         String message = "Caught an exception on ClientToProxyConnection";
         boolean shouldWarn = cause instanceof ClosedChannelException ||
-                cause.getMessage().contains("Connection reset by peer"); 
+                cause.getMessage().contains("Connection reset by peer");
         if (shouldWarn) {
             LOG.warn(message, cause);
         } else {
@@ -658,7 +660,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             disconnect();
         }
     }
-    
+
     private void forceDisconnect(ProxyToServerConnection serverConnection) {
         LOG.debug("Forcing disconnect");
         serverConnection.disconnect();
@@ -785,14 +787,16 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private boolean authenticationRequired(HttpRequest request) {
-        
+
         if (authenticated.get()) {
             return false;
         }
-        
-        final ProxyAuthenticator authenticator = proxyServer.getProxyAuthenticator();
 
-        if (authenticator == null) return false;
+        final ProxyAuthenticator authenticator = proxyServer
+                .getProxyAuthenticator();
+
+        if (authenticator == null)
+            return false;
 
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
             writeAuthenticationRequired();

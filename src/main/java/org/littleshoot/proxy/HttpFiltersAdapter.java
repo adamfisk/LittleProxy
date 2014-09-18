@@ -65,12 +65,14 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
+    public InetSocketAddress proxyToServerResolutionStarted(
+            String resolvingServerHostAndPort) {
         return null;
     }
 
     @Override
-    public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
+    public void proxyToServerResolutionSucceeded(String serverHostAndPort,
+            InetSocketAddress resolvedRemoteAddress) {
     }
 
     @Override

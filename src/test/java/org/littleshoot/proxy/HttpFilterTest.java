@@ -42,17 +42,28 @@ public class HttpFilterTest {
                 new LinkedList<HttpRequest>();
 
         final AtomicInteger requestCount = new AtomicInteger(0);
-        final long[] proxyToServerRequestSendingMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] proxyToServerRequestSentMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] serverToProxyResponseReceivingMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] serverToProxyResponseReceivedMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] proxyToServerConnectionQueuedMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] proxyToServerResolutionStartedMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] proxyToServerResolutionSucceededMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] proxyToServerConnectionStartedMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] proxyToServerConnectionSSLHandshakeStartedMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] proxyToServerConnectionFailedMills = new long[]{-1, -1, -1, -1, -1};
-        final long[] proxyToServerConnectionSucceededMills = new long[]{-1, -1, -1, -1, -1};
+        final long[] proxyToServerRequestSendingMills = new long[] { -1, -1,
+                -1, -1, -1 };
+        final long[] proxyToServerRequestSentMills = new long[] { -1, -1, -1,
+                -1, -1 };
+        final long[] serverToProxyResponseReceivingMills = new long[] { -1, -1,
+                -1, -1, -1 };
+        final long[] serverToProxyResponseReceivedMills = new long[] { -1, -1,
+                -1, -1, -1 };
+        final long[] proxyToServerConnectionQueuedMills = new long[] { -1, -1,
+                -1, -1, -1 };
+        final long[] proxyToServerResolutionStartedMills = new long[] { -1, -1,
+                -1, -1, -1 };
+        final long[] proxyToServerResolutionSucceededMills = new long[] { -1,
+                -1, -1, -1, -1 };
+        final long[] proxyToServerConnectionStartedMills = new long[] { -1, -1,
+                -1, -1, -1 };
+        final long[] proxyToServerConnectionSSLHandshakeStartedMills = new long[] {
+                -1, -1, -1, -1, -1 };
+        final long[] proxyToServerConnectionFailedMills = new long[] { -1, -1,
+                -1, -1, -1 };
+        final long[] proxyToServerConnectionSucceededMills = new long[] { -1,
+                -1, -1, -1, -1 };
 
         final String url1 = "http://localhost:" + WEB_SERVER_PORT + "/";
         final String url2 = "http://localhost:" + WEB_SERVER_PORT + "/testing";
@@ -66,7 +77,8 @@ public class HttpFilterTest {
 
                 return new HttpFiltersAdapter(originalRequest) {
                     @Override
-                    public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+                    public HttpResponse clientToProxyRequest(
+                            HttpObject httpObject) {
                         fullHttpRequestsReceived.incrementAndGet();
                         if (httpObject instanceof HttpRequest) {
                             HttpRequest httpRequest = (HttpRequest) httpObject;
@@ -80,7 +92,8 @@ public class HttpFilterTest {
                     }
 
                     @Override
-                    public HttpResponse proxyToServerRequest(HttpObject httpObject) {
+                    public HttpResponse proxyToServerRequest(
+                            HttpObject httpObject) {
                         if (httpObject instanceof HttpRequest) {
                             HttpRequest httpRequest = (HttpRequest) httpObject;
                             if (httpRequest.getUri().equals("/testing2")) {
@@ -102,7 +115,8 @@ public class HttpFilterTest {
                         proxyToServerRequestSentMills[requestCount.get()] = now();
                     }
 
-                    public HttpObject serverToProxyResponse(HttpObject httpObject) {
+                    public HttpObject serverToProxyResponse(
+                            HttpObject httpObject) {
                         if (originalRequest.getUri().contains("testing3")) {
                             return new DefaultFullHttpResponse(
                                     HttpVersion.HTTP_1_1,
@@ -129,8 +143,8 @@ public class HttpFilterTest {
                         serverToProxyResponseReceivedMills[requestCount.get()] = now();
                     }
 
-
-                    public HttpObject proxyToClientResponse(HttpObject httpObject) {
+                    public HttpObject proxyToClientResponse(
+                            HttpObject httpObject) {
                         if (originalRequest.getUri().contains("testing4")) {
                             return new DefaultFullHttpResponse(
                                     HttpVersion.HTTP_1_1,
@@ -149,14 +163,19 @@ public class HttpFilterTest {
                     }
 
                     @Override
-                    public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
+                    public InetSocketAddress proxyToServerResolutionStarted(
+                            String resolvingServerHostAndPort) {
                         proxyToServerResolutionStartedMills[requestCount.get()] = now();
-                        return super.proxyToServerResolutionStarted(resolvingServerHostAndPort);
+                        return super
+                                .proxyToServerResolutionStarted(resolvingServerHostAndPort);
                     }
 
                     @Override
-                    public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
-                        proxyToServerResolutionSucceededMills[requestCount.get()] = now();
+                    public void proxyToServerResolutionSucceeded(
+                            String serverHostAndPort,
+                            InetSocketAddress resolvedRemoteAddress) {
+                        proxyToServerResolutionSucceededMills[requestCount
+                                .get()] = now();
                     }
 
                     @Override
@@ -166,7 +185,8 @@ public class HttpFilterTest {
 
                     @Override
                     public void proxyToServerConnectionSSLHandshakeStarted() {
-                        proxyToServerConnectionSSLHandshakeStartedMills[requestCount.get()] = now();
+                        proxyToServerConnectionSSLHandshakeStartedMills[requestCount
+                                .get()] = now();
                     }
 
                     @Override
@@ -176,7 +196,8 @@ public class HttpFilterTest {
 
                     @Override
                     public void proxyToServerConnectionSucceeded() {
-                        proxyToServerConnectionSucceededMills[requestCount.get()] = now();
+                        proxyToServerConnectionSucceededMills[requestCount
+                                .get()] = now();
                     }
 
                 };
@@ -301,10 +322,10 @@ public class HttpFilterTest {
         assertTrue(serverToProxyResponseReceivingMills[i] <= serverToProxyResponseReceivedMills[i]);
 
         org.apache.http.HttpResponse response5 = getResponse(url5);
-        
+
         assertEquals(403, response4.getStatusLine().getStatusCode());
         assertEquals(403, response5.getStatusLine().getStatusCode());
-        
+
         webServer.stop();
         server.stop();
     }

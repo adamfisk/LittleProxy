@@ -15,18 +15,17 @@ import java.net.InetSocketAddress;
  * Multiple methods are defined, corresponding to different steps in the request
  * processing lifecycle. Some of these methods is given the current object
  * (request, response or chunk) and is allowed to modify it in place. Others
- * provide a notification of when specific operations happen (i.e. connection
- * in queue, DNS resolution, SSL handshaking and so forth).
+ * provide a notification of when specific operations happen (i.e. connection in
+ * queue, DNS resolution, SSL handshaking and so forth).
  * </p>
  * 
  * <p>
  * Because HTTP transfers can be chunked, for any given request or response, the
- * filter methods that can modify request/response in place
- * may be called multiple times, once for the initial
- * {@link HttpRequest} or {@link HttpResponse}, and once for each subsequent
- * {@link HttpContent}. The last chunk will always be a {@link LastHttpContent}
- * and can be checked for being last using
- * {@link ProxyUtils#isLastChunk(HttpObject)}.
+ * filter methods that can modify request/response in place may be called
+ * multiple times, once for the initial {@link HttpRequest} or
+ * {@link HttpResponse}, and once for each subsequent {@link HttpContent}. The
+ * last chunk will always be a {@link LastHttpContent} and can be checked for
+ * being last using {@link ProxyUtils#isLastChunk(HttpObject)}.
  * </p>
  * 
  * <p>
@@ -45,11 +44,11 @@ import java.net.InetSocketAddress;
  * A new instance of {@link HttpFilters} is created for each request, so these
  * objects can be stateful.
  * </p>
- *
+ * 
  * <p>
  * To monitor (and time measure?) the different steps the request/response goes
- * through, many informative methods are provided.
- * Those steps are reported in the following order:
+ * through, many informative methods are provided. Those steps are reported in
+ * the following order:
  * <ol>
  * <li>clientToProxyRequest</li>
  * <li>proxyToServerConnectionQueued</li>
@@ -73,7 +72,8 @@ public interface HttpFilters {
     /**
      * Filters requests on their way from the client to the proxy.
      * 
-     * @param httpObject Client to Proxy HttpRequest (and HttpContent, if chunked)
+     * @param httpObject
+     *            Client to Proxy HttpRequest (and HttpContent, if chunked)
      * @return if you want to interrupted processing and return a response to
      *         the client, return it here, otherwise return null to continue
      *         processing as usual
@@ -83,7 +83,8 @@ public interface HttpFilters {
     /**
      * Filters requests on their way from the proxy to the server.
      * 
-     * @param httpObject Proxy to Server HttpRequest (and HttpContent, if chunked)
+     * @param httpObject
+     *            Proxy to Server HttpRequest (and HttpContent, if chunked)
      * @return if you want to interrupted processing and return a response to
      *         the client, return it here, otherwise return null to continue
      *         processing as usual
@@ -103,7 +104,8 @@ public interface HttpFilters {
     /**
      * Filters responses on their way from the server to the proxy.
      * 
-     * @param httpObject Server to Proxy HttpResponse (and HttpContent, if chunked)
+     * @param httpObject
+     *            Server to Proxy HttpResponse (and HttpContent, if chunked)
      * @return the modified (or unmodified) HttpObject. Returning null will
      *         force a disconnect.
      */
@@ -122,7 +124,8 @@ public interface HttpFilters {
     /**
      * Filters responses on their way from the proxy to the client.
      * 
-     * @param httpObject Proxy to Client HttpResponse (and HttpContent, if chunked)
+     * @param httpObject
+     *            Proxy to Client HttpResponse (and HttpContent, if chunked)
      * @return the modified (or unmodified) HttpObject. Returning null will
      *         force a disconnect.
      */
@@ -135,20 +138,25 @@ public interface HttpFilters {
 
     /**
      * Filter DNS resolution from proxy to server.
-     *
-     * @param resolvingServerHostAndPort Server "HOST:PORT"
-     * @return alternative address resolution. Returning null will let
-     *         normal DNS resolution continue.
+     * 
+     * @param resolvingServerHostAndPort
+     *            Server "HOST:PORT"
+     * @return alternative address resolution. Returning null will let normal
+     *         DNS resolution continue.
      */
-    InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort);
+    InetSocketAddress proxyToServerResolutionStarted(
+            String resolvingServerHostAndPort);
 
     /**
      * Informs filter that proxy to server DNS resolution has happened.
-     *
-     * @param serverHostAndPort Server "HOST:PORT"
-     * @param resolvedRemoteAddress Address it was proxyToServerResolutionSucceeded to
+     * 
+     * @param serverHostAndPort
+     *            Server "HOST:PORT"
+     * @param resolvedRemoteAddress
+     *            Address it was proxyToServerResolutionSucceeded to
      */
-    void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress);
+    void proxyToServerResolutionSucceeded(String serverHostAndPort,
+            InetSocketAddress resolvedRemoteAddress);
 
     /**
      * Informs filter that proxy to server connection is initiating.

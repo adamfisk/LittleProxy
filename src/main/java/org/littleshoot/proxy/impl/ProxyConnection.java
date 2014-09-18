@@ -543,11 +543,12 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Request the ProxyServer for Filters.
-     *
+     * 
      * By default, no-op filters are returned by DefaultHttpProxyServer.
      * Subclasses of ProxyConnection can change this behaviour.
-     *
-     * @param httpRequest Filter attached to the give HttpRequest (if any)
+     * 
+     * @param httpRequest
+     *            Filter attached to the give HttpRequest (if any)
      * @return
      */
     protected HttpFilters getHttpFiltersFromProxyServer(HttpRequest httpRequest) {
@@ -770,15 +771,15 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 LOG.warn("Unable to record bytesRead", t);
             } finally {
                 if (null != originalRequest) {
-                  getHttpFiltersFromProxyServer(originalRequest)
-                      .proxyToServerRequestSending();
+                    getHttpFiltersFromProxyServer(originalRequest)
+                            .proxyToServerRequestSending();
                 }
 
                 super.write(ctx, msg, promise);
 
                 if (null != originalRequest) {
-                  getHttpFiltersFromProxyServer(originalRequest)
-                      .proxyToServerRequestSent();
+                    getHttpFiltersFromProxyServer(originalRequest)
+                            .proxyToServerRequestSent();
                 }
             }
         }

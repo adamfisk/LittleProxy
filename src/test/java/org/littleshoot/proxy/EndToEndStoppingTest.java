@@ -82,7 +82,7 @@ public class EndToEndStoppingTest {
     private void runSiteTestWithHttpClient(final String site) throws Exception {
         final int PROXY_PORT = 9097;
         final HttpClient client = TestUtils.createProxiedHttpClient(PROXY_PORT);
-        
+
         // final HttpPost get = new HttpPost(site);
         final HttpGet get = new HttpGet(site);
         // HttpResponse response = client.execute(get);
@@ -106,7 +106,7 @@ public class EndToEndStoppingTest {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
                             public io.netty.handler.codec.http.HttpResponse proxyToServerRequest(
-                                HttpObject httpObject) {
+                                    HttpObject httpObject) {
                                 System.out
                                         .println("Request with through proxy");
                                 return null;

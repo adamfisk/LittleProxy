@@ -40,7 +40,8 @@ public class MitmProxyTest extends BaseProxyTest {
                     public HttpFilters filterRequest(HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
-                            public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+                            public HttpResponse clientToProxyRequest(
+                                    HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPreMethodsSeen
                                             .add(((HttpRequest) httpObject)
@@ -51,7 +52,7 @@ public class MitmProxyTest extends BaseProxyTest {
 
                             @Override
                             public HttpResponse proxyToServerRequest(
-                                HttpObject httpObject) {
+                                    HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPostMethodsSeen
                                             .add(((HttpRequest) httpObject)
@@ -61,7 +62,8 @@ public class MitmProxyTest extends BaseProxyTest {
                             }
 
                             @Override
-                            public HttpObject serverToProxyResponse(HttpObject httpObject) {
+                            public HttpObject serverToProxyResponse(
+                                    HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePreOriginalRequestMethodsSeen
                                             .add(originalRequest.getMethod());
@@ -74,7 +76,8 @@ public class MitmProxyTest extends BaseProxyTest {
                             }
 
                             @Override
-                            public HttpObject proxyToClientResponse(HttpObject httpObject) {
+                            public HttpObject proxyToClientResponse(
+                                    HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePostOriginalRequestMethodsSeen
                                             .add(originalRequest.getMethod());
@@ -131,9 +134,11 @@ public class MitmProxyTest extends BaseProxyTest {
     }
 
     private void assertMethodSeenInRequestFilters(HttpMethod method) {
-        assertTrue(method + " should have been seen in clientToProxyRequest filter",
+        assertTrue(method
+                + " should have been seen in clientToProxyRequest filter",
                 requestPreMethodsSeen.contains(method));
-        assertTrue(method + " should have been seen in proxyToServerRequest filter",
+        assertTrue(method
+                + " should have been seen in proxyToServerRequest filter",
                 requestPostMethodsSeen.contains(method));
     }
 
