@@ -250,8 +250,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     @Override
     public HttpProxyServerBootstrap clone() {
         return new DefaultHttpProxyServerBootstrap(this, transportProtocol,
-                new InetSocketAddress(boundAddress.getAddress(),
-                        boundAddress.getPort() + 1),
+                new InetSocketAddress(requestedAddress.getAddress(),
+                        requestedAddress.getPort() == 0 ? 0 : requestedAddress.getPort() + 1),
                 sslEngineSource, authenticateSslClients, proxyAuthenticator,
                 chainProxyManager,
                 mitmManager, filtersSource, transparent,
