@@ -157,7 +157,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            our ServerGroup for shared thread pools and such
      * @param transportProtocol
      *            The protocol to use for data transport
-     * @param boundAddress
+     * @param requestedAddress
      *            The address on which this server will listen
      * @param sslEngineSource
      *            (optional) if specified, this Proxy will encrypt inbound
@@ -192,7 +192,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
-            InetSocketAddress boundAddress,
+            InetSocketAddress requestedAddress,
             SslEngineSource sslEngineSource,
             boolean authenticateSslClients,
             ProxyAuthenticator proxyAuthenticator,
@@ -206,7 +206,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HostResolver serverResolver) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
-        this.requestedAddress = boundAddress;
+        this.requestedAddress = requestedAddress;
         this.sslEngineSource = sslEngineSource;
         this.authenticateSslClients = authenticateSslClients;
         this.proxyAuthenticator = proxyAuthenticator;
