@@ -1,31 +1,20 @@
 package org.littleshoot.proxy.impl;
 
-import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelOutboundHandlerAdapter;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.ChannelPromise;
-import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpContentDecompressor;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
+import io.netty.channel.*;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
+import org.littleshoot.proxy.HttpFilters;
 
 import javax.net.ssl.SSLEngine;
+
+import static org.littleshoot.proxy.impl.ConnectionState.*;
 
 /**
  * <p>
@@ -376,6 +365,9 @@ abstract class ProxyConnection<I extends HttpObject> extends
         this.sslEngine = sslEngine;
         sslEngine.setUseClientMode(runsAsSslClient);
         sslEngine.setNeedClientAuth(authenticateClients);
+        if (null != channel) {
+            channel.config().setAutoRead(true);
+        }
         SslHandler handler = new SslHandler(sslEngine);
         pipeline.addFirst("ssl", handler);
         return handler.handshakeFuture();
@@ -550,6 +542,20 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected void resumeReading() {
         LOG.debug("Resumed reading");
         this.channel.config().setAutoRead(true);
+    }
+
+    /**
+     * Request the ProxyServer for Filters.
+     * 
+     * By default, no-op filters are returned by DefaultHttpProxyServer.
+     * Subclasses of ProxyConnection can change this behaviour.
+     * 
+     * @param httpRequest
+     *            Filter attached to the give HttpRequest (if any)
+     * @return
+     */
+    protected HttpFilters getHttpFiltersFromProxyServer(HttpRequest httpRequest) {
+        return proxyServer.getFiltersSource().filterRequest(httpRequest, ctx);
     }
 
     ProxyConnectionLogger getLOG() {
@@ -754,14 +760,30 @@ abstract class ProxyConnection<I extends HttpObject> extends
         public void write(ChannelHandlerContext ctx,
                 Object msg, ChannelPromise promise)
                 throws Exception {
+
+            HttpRequest originalRequest = null;
+            if (msg instanceof HttpRequest) {
+                originalRequest = (HttpRequest) msg;
+            }
+
             try {
-                if (msg instanceof HttpRequest) {
-                    requestWritten(((HttpRequest) msg));
+                if (null != originalRequest) {
+                    requestWritten(originalRequest);
                 }
             } catch (Throwable t) {
                 LOG.warn("Unable to record bytesRead", t);
             } finally {
+                if (null != originalRequest) {
+                    getHttpFiltersFromProxyServer(originalRequest)
+                            .proxyToServerRequestSending();
+                }
+
                 super.write(ctx, msg, promise);
+
+                if (null != originalRequest) {
+                    getHttpFiltersFromProxyServer(originalRequest)
+                            .proxyToServerRequestSent();
+                }
             }
         }
 

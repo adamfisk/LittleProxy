@@ -1,12 +1,11 @@
 package org.littleshoot.proxy.impl;
 
-import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.AdaptiveRecvByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler.Sharable;
-import io.netty.channel.AdaptiveRecvByteBufAllocator;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
@@ -25,16 +24,6 @@ import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
-
-import java.net.ConnectException;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
-import javax.net.ssl.SSLSession;
-
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxy;
@@ -46,6 +35,21 @@ import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
 import org.slf4j.spi.LocationAwareLogger;
+
+import javax.net.ssl.SSLSession;
+import java.net.ConnectException;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
+import static org.littleshoot.proxy.impl.ConnectionState.CONNECTING;
+import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECTED;
+import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
 
 /**
  * <p>
@@ -124,7 +128,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * @param proxyServer
      * @param clientConnection
      * @param serverHostAndPort
-     * @param currentFilters
+     * @param initialFilters
      * @param initialHttpRequest
      * @return
      * @throws UnknownHostException
@@ -132,6 +136,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     static ProxyToServerConnection create(DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
             String serverHostAndPort,
+            HttpFilters initialFilters,
             HttpRequest initialHttpRequest,
             GlobalTrafficShapingHandler globalTrafficShapingHandler)
             throws UnknownHostException {
@@ -146,8 +151,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 return null;
             }
         }
-        return new ProxyToServerConnection(proxyServer, clientConnection,
-                serverHostAndPort, chainedProxies.poll(), chainedProxies, globalTrafficShapingHandler);
+        return new ProxyToServerConnection(proxyServer,
+                clientConnection,
+                serverHostAndPort,
+                chainedProxies.poll(),
+                chainedProxies,
+                initialFilters,
+                globalTrafficShapingHandler);
     }
 
     private ProxyToServerConnection(
@@ -156,6 +166,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             String serverHostAndPort,
             ChainedProxy chainedProxy,
             Queue<ChainedProxy> availableChainedProxies,
+            HttpFilters initialFilters,
             GlobalTrafficShapingHandler globalTrafficShapingHandler)
             throws UnknownHostException {
         super(DISCONNECTED, proxyServer, true);
@@ -164,6 +175,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         this.chainedProxy = chainedProxy;
         this.availableChainedProxies = availableChainedProxies;
         this.trafficHandler = globalTrafficShapingHandler;
+        this.currentFilters = initialFilters;
+
+        // Report connection status to HttpFilters
+        this.currentFilters.proxyToServerConnectionQueued();
+
         setupConnectionParameters();
     }
 
@@ -187,11 +203,17 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected ConnectionState readHTTPInitial(HttpResponse httpResponse) {
         LOG.debug("Received raw response: {}", httpResponse);
 
+        currentFilters.serverToProxyResponseReceiving();
+
         rememberCurrentResponse(httpResponse);
         respondWith(httpResponse);
 
-        return ProxyUtils.isChunked(httpResponse) ? AWAITING_CHUNK
-                : AWAITING_INITIAL;
+        if (ProxyUtils.isChunked(httpResponse)) {
+            return AWAITING_CHUNK;
+        } else {
+            currentFilters.serverToProxyResponseReceived();
+            return AWAITING_INITIAL;
+        }
     }
 
     @Override
@@ -309,6 +331,30 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      **************************************************************************/
 
     @Override
+    protected void become(ConnectionState newState) {
+        // Report connection status to HttpFilters
+        if (getCurrentState() == DISCONNECTED && newState == CONNECTING) {
+            currentFilters.proxyToServerConnectionStarted();
+        } else if (getCurrentState() == CONNECTING) {
+            if (newState == HANDSHAKING) {
+                currentFilters.proxyToServerConnectionSSLHandshakeStarted();
+            } else if (newState == AWAITING_INITIAL) {
+                currentFilters.proxyToServerConnectionSucceeded();
+            } else if (newState == DISCONNECTED) {
+                currentFilters.proxyToServerConnectionFailed();
+            }
+        } else if (getCurrentState() == HANDSHAKING
+                && newState == AWAITING_INITIAL) {
+            currentFilters.proxyToServerConnectionSucceeded();
+        } else if (getCurrentState() == AWAITING_CHUNK
+                && newState != AWAITING_CHUNK) {
+            currentFilters.serverToProxyResponseReceived();
+        }
+
+        super.become(newState);
+    }
+
+    @Override
     protected void becameSaturated() {
         super.becameSaturated();
         this.clientConnection.serverBecameSaturated(this);
@@ -398,6 +444,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     public HttpRequest getInitialRequest() {
         return initialRequest;
+    }
+
+    @Override
+    protected HttpFilters getHttpFiltersFromProxyServer(HttpRequest httpRequest) {
+        return currentFilters;
     }
 
     /***************************************************************************
@@ -680,7 +731,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.localAddress = chainedProxy.getLocalAddress();
         } else {
             this.transportProtocol = TransportProtocol.TCP;
-            this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
+
+            // Report DNS resolution to HttpFilters
+            this.remoteAddress = this.currentFilters
+                    .proxyToServerResolutionStarted(serverHostAndPort);
+            if (this.remoteAddress == null) {
+                this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
+            }
+            this.currentFilters.proxyToServerResolutionSucceeded(
+                    serverHostAndPort, this.remoteAddress);
+
             this.localAddress = null;
         }
     }
@@ -767,7 +827,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * 
      * @param hostAndPort
      * @param proxyServer
-     *            the current {@link ProxyServer}
+     *            the current {@link DefaultHttpProxyServer}
      * @return
      * @throws UnknownHostException
      *             if hostAndPort could not be resolved

@@ -3,9 +3,6 @@ package org.littleshoot.proxy;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
-
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.params.ConnRoutePNames;
@@ -19,6 +16,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class HttpStreamingFilterTest {
 
@@ -45,7 +44,8 @@ public class HttpStreamingFilterTest {
                     public HttpFilters filterRequest(HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
-                            public HttpResponse requestPre(HttpObject httpObject) {
+                            public HttpResponse clientToProxyRequest(
+                                    HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     numberOfInitialRequestsFiltered
                                             .incrementAndGet();
