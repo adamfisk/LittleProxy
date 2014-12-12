@@ -120,8 +120,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private volatile HttpResponse currentHttpResponse;
 
+    /**
+     * Limits bandwidth when throttling is enabled.
+     */
     private volatile GlobalTrafficShapingHandler trafficHandler;
 
+    /**
+     * Minimum size of the adaptive recv buffer when throttling is enabled. 
+     */
+    private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
+    
     /**
      * Create a new ProxyToServerConnection.
      * 
@@ -754,11 +762,21 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private void initChannelPipeline(ChannelPipeline pipeline,
             HttpRequest httpRequest) {
 
-        if(trafficHandler != null) {
-            long initial = trafficHandler.getReadLimit() / 4;
-            long max = trafficHandler.getReadLimit() / 2;
-            AdaptiveRecvByteBufAllocator adaptiveRecvByteBufAllocator = new AdaptiveRecvByteBufAllocator(64, (int)initial, (int)max);
-            pipeline.channel().config().setRecvByteBufAllocator(adaptiveRecvByteBufAllocator);
+        if (trafficHandler != null) {
+        	if (trafficHandler.getReadLimit() > 0) {
+	            long initial = trafficHandler.getReadLimit() / 4;
+	            if (initial < MINIMUM_RECV_BUFFER_SIZE_BYTES) {
+	            	initial = MINIMUM_RECV_BUFFER_SIZE_BYTES;
+	            }
+	            
+	            long max = trafficHandler.getReadLimit() / 2;
+	            if (max < MINIMUM_RECV_BUFFER_SIZE_BYTES) {
+	            	max = MINIMUM_RECV_BUFFER_SIZE_BYTES;
+	            }
+	            
+	            AdaptiveRecvByteBufAllocator adaptiveRecvByteBufAllocator = new AdaptiveRecvByteBufAllocator(MINIMUM_RECV_BUFFER_SIZE_BYTES, (int)initial, (int)max);
+	            pipeline.channel().config().setRecvByteBufAllocator(adaptiveRecvByteBufAllocator);
+        	}
             pipeline.addLast("global-traffic-shaping", trafficHandler);
         }
 
