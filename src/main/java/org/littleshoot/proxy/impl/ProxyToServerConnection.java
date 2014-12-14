@@ -763,20 +763,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             HttpRequest httpRequest) {
 
         if (trafficHandler != null) {
-        	if (trafficHandler.getReadLimit() > 0) {
-	            long initial = trafficHandler.getReadLimit() / 4;
-	            if (initial < MINIMUM_RECV_BUFFER_SIZE_BYTES) {
-	            	initial = MINIMUM_RECV_BUFFER_SIZE_BYTES;
-	            }
-	            
-	            long max = trafficHandler.getReadLimit() / 2;
-	            if (max < MINIMUM_RECV_BUFFER_SIZE_BYTES) {
-	            	max = MINIMUM_RECV_BUFFER_SIZE_BYTES;
-	            }
-	            
-	            AdaptiveRecvByteBufAllocator adaptiveRecvByteBufAllocator = new AdaptiveRecvByteBufAllocator(MINIMUM_RECV_BUFFER_SIZE_BYTES, (int)initial, (int)max);
-	            pipeline.channel().config().setRecvByteBufAllocator(adaptiveRecvByteBufAllocator);
-        	}
             pipeline.addLast("global-traffic-shaping", trafficHandler);
         }
 

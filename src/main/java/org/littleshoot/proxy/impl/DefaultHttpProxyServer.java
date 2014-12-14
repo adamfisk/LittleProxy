@@ -232,7 +232,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.serverResolver = serverResolver;
 
         ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(ServerGroup.INCOMING_WORKER_THREADS);
-        this.globalTrafficShapingHandler = new GlobalTrafficShapingHandler(executor, writeThrottleBytesPerSecond, readThrottleBytesPerSecond, 250L);
+        this.globalTrafficShapingHandler = new GlobalTrafficShapingHandler(executor, writeThrottleBytesPerSecond, readThrottleBytesPerSecond, 250L, Long.MAX_VALUE);
     }
 
     boolean isTransparent() {
