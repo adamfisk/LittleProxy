@@ -12,9 +12,14 @@ import org.eclipse.jetty.server.Server;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.runners.MethodSorters;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
+import java.io.IOException;
+
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class ThrottlingTest {
 
     private static final int WRITE_WEB_SERVER_PORT = 8926;
@@ -60,6 +65,26 @@ public class ThrottlingTest {
     }
 
     @Test
+    public void aWarmUpTest() throws IOException {
+        // a "warm-up" test so the first test's results are not skewed due to classloading, etc. guaranteed to run
+        // first with the @FixMethodOrder(MethodSorters.NAME_ASCENDING) annotation on the class.
+
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .withThrottling(0, THROTTLED_WRITE_BYTES_PER_SECOND)
+                .start();
+
+        int proxyPort = proxyServer.getListenAddress().getPort();
+
+        HttpGet request = createHttpGet();
+        DefaultHttpClient httpClient = createHttpClient(proxyPort);
+
+        EntityUtils.consumeQuietly(httpClient.execute(new HttpHost("127.0.0.1", WRITE_WEB_SERVER_PORT), request).getEntity());
+
+        EntityUtils.consumeQuietly(httpClient.execute(new HttpHost("127.0.0.1", READ_WEB_SERVER_PORT), request).getEntity());
+    }
+
+    @Test
     public void testThrottledWrite() throws Exception {
         HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
@@ -68,17 +93,9 @@ public class ThrottlingTest {
 
         int proxyPort = proxyServer.getListenAddress().getPort();
 
-        final HttpPost request = new HttpPost("/");
-        request.getParams().setParameter(
-                CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-        final ByteArrayEntity entity = new ByteArrayEntity(largeData);
-        entity.setChunked(true);
-        request.setEntity(entity);
+        final HttpPost request = createHttpPost();
 
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", proxyPort, "http");
-        httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
-                proxy);
+        DefaultHttpClient httpClient = createHttpClient(proxyPort);
 
         long start = System.currentTimeMillis();
         final org.apache.http.HttpResponse response = httpClient.execute(
@@ -104,17 +121,9 @@ public class ThrottlingTest {
 
         int proxyPort = proxyServer.getListenAddress().getPort();
 
-        final HttpPost request = new HttpPost("/");
-        request.getParams().setParameter(
-                CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-        final ByteArrayEntity entity = new ByteArrayEntity(largeData);
-        entity.setChunked(true);
-        request.setEntity(entity);
+        final HttpPost request = createHttpPost();
 
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", proxyPort, "http");
-        httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
-                proxy);
+        DefaultHttpClient httpClient = createHttpClient(proxyPort);
 
         long start = System.currentTimeMillis();
         final org.apache.http.HttpResponse response = httpClient.execute(
@@ -139,14 +148,9 @@ public class ThrottlingTest {
 
         int proxyPort = proxyServer.getListenAddress().getPort();
 
-        final HttpGet request = new HttpGet("/");
-        request.getParams().setParameter(
-                CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+        final HttpGet request = createHttpGet();
 
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", proxyPort, "http");
-        httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
-                proxy);
+        DefaultHttpClient httpClient = createHttpClient(proxyPort);
 
         long start = System.currentTimeMillis();
         final org.apache.http.HttpResponse response = httpClient.execute(
@@ -177,14 +181,9 @@ public class ThrottlingTest {
 
         int proxyPort = proxyServer.getListenAddress().getPort();
 
-        final HttpGet request = new HttpGet("/");
-        request.getParams().setParameter(
-                CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+        final HttpGet request = createHttpGet();
 
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", proxyPort, "http");
-        httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
-                proxy);
+        DefaultHttpClient httpClient = createHttpClient(proxyPort);
 
         long start = System.currentTimeMillis();
         final org.apache.http.HttpResponse response = httpClient.execute(
@@ -203,5 +202,30 @@ public class ThrottlingTest {
         Assert.assertTrue("Unthrottled read took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms", finish - start < UNTRHOTTLED_REQUEST_TIME_MS);
 
         proxyServer.stop();
+    }
+
+    private HttpGet createHttpGet() {
+        final HttpGet request = new HttpGet("/");
+        request.getParams().setParameter(
+                CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+        return request;
+    }
+
+    private HttpPost createHttpPost() {
+        final HttpPost request = new HttpPost("/");
+        request.getParams().setParameter(
+                CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
+        final ByteArrayEntity entity = new ByteArrayEntity(largeData);
+        entity.setChunked(true);
+        request.setEntity(entity);
+        return request;
+    }
+
+    private DefaultHttpClient createHttpClient(int proxyPort) {
+        DefaultHttpClient httpClient = new DefaultHttpClient();
+        final HttpHost proxy = new HttpHost("127.0.0.1", proxyPort, "http");
+        httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
+                proxy);
+        return httpClient;
     }
 }

@@ -35,8 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
@@ -82,6 +80,12 @@ import org.slf4j.LoggerFactory;
  * 
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
+
+    /**
+     * The interval in ms at which the GlobalTrafficShapingHandler will run to compute and throttle the
+     * proxy-to-server bandwidth.
+     */
+    private static final long TRAFFIC_SHAPING_CHECK_INTERVAL_MS = 250L;
 
     private static final Logger LOG = LoggerFactory
             .getLogger(DefaultHttpProxyServer.class);
@@ -231,8 +235,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.connectTimeout = connectTimeout;
         this.serverResolver = serverResolver;
 
-        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(ServerGroup.INCOMING_WORKER_THREADS);
-        this.globalTrafficShapingHandler = new GlobalTrafficShapingHandler(executor, writeThrottleBytesPerSecond, readThrottleBytesPerSecond, 250L, Long.MAX_VALUE);
+        EventLoopGroup proxyToServerEventLoop = this.getProxyToServerWorkerFor(transportProtocol);
+        this.globalTrafficShapingHandler = new GlobalTrafficShapingHandler(proxyToServerEventLoop,
+                writeThrottleBytesPerSecond,
+                readThrottleBytesPerSecond,
+                TRAFFIC_SHAPING_CHECK_INTERVAL_MS,
+                Long.MAX_VALUE);
     }
 
     boolean isTransparent() {
