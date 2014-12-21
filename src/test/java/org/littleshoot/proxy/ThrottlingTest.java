@@ -3,6 +3,7 @@ package org.littleshoot.proxy;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.HttpClientUtils;
 import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
@@ -19,7 +20,7 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 import java.io.IOException;
 
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+@FixMethodOrder(MethodSorters.JVM)
 public class ThrottlingTest {
 
     private static final int WRITE_WEB_SERVER_PORT = 8926;
@@ -202,6 +203,115 @@ public class ThrottlingTest {
         Assert.assertTrue("Unthrottled read took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms", finish - start < UNTRHOTTLED_REQUEST_TIME_MS);
 
         proxyServer.stop();
+    }
+
+    @Test
+    public void testChangeThrottling() throws IOException {
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .withThrottling(THROTTLED_READ_BYTES_PER_SECOND, 0)
+                .start();
+
+        int proxyPort = proxyServer.getListenAddress().getPort();
+
+        final HttpGet request = createHttpGet();
+
+        DefaultHttpClient httpClient = createHttpClient(proxyPort);
+
+        long firstStart = System.currentTimeMillis();
+        org.apache.http.HttpResponse response = httpClient.execute(
+                new HttpHost("127.0.0.1",
+                        READ_WEB_SERVER_PORT), request);
+        byte[] readContent = new byte[100000];
+
+        int bytesRead = 0;
+        while (bytesRead < largeData.length) {
+            int read = response.getEntity().getContent().read(readContent, bytesRead, largeData.length - bytesRead);
+            bytesRead += read;
+        }
+
+        long firstFinish = System.currentTimeMillis();
+
+        HttpClientUtils.closeQuietly(response);
+
+        proxyServer.setThrottle(THROTTLED_READ_BYTES_PER_SECOND * 2, 0);
+
+        long secondStart = System.currentTimeMillis();
+        response = httpClient.execute(
+                new HttpHost("127.0.0.1",
+                        READ_WEB_SERVER_PORT), request);
+        readContent = new byte[100000];
+
+        bytesRead = 0;
+        while (bytesRead < largeData.length) {
+            int read = response.getEntity().getContent().read(readContent, bytesRead, largeData.length - bytesRead);
+            bytesRead += read;
+        }
+
+        long secondFinish = System.currentTimeMillis();
+
+        HttpClientUtils.closeQuietly(response);
+
+        Assert.assertTrue("Expected second read to take approximately half as long as first throttled read. First read took " + (firstFinish - firstStart) + "ms" + " but second read took " + (secondFinish - secondStart) + "ms",
+                (firstFinish - firstStart) / 2 > (secondFinish - secondStart) * (1 - ALLOWABLE_VARIATION)
+                        && ((firstFinish - firstStart) / 2 < (secondFinish - secondStart) * (1 + ALLOWABLE_VARIATION)));
+
+        proxyServer.stop();
+    }
+
+    @Test
+    public void testDisableThrottling() throws IOException {
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .withThrottling(THROTTLED_READ_BYTES_PER_SECOND, 0)
+                .start();
+
+        int proxyPort = proxyServer.getListenAddress().getPort();
+
+        final HttpGet request = createHttpGet();
+
+        DefaultHttpClient httpClient = createHttpClient(proxyPort);
+
+        long firstStart = System.currentTimeMillis();
+        org.apache.http.HttpResponse response = httpClient.execute(
+                new HttpHost("127.0.0.1",
+                        READ_WEB_SERVER_PORT), request);
+        byte[] readContent = new byte[100000];
+
+        int bytesRead = 0;
+        while (bytesRead < largeData.length) {
+            int read = response.getEntity().getContent().read(readContent, bytesRead, largeData.length - bytesRead);
+            bytesRead += read;
+        }
+
+        long firstFinish = System.currentTimeMillis();
+
+        HttpClientUtils.closeQuietly(response);
+
+        proxyServer.setThrottle(0, 0);
+
+        long secondStart = System.currentTimeMillis();
+        response = httpClient.execute(
+                new HttpHost("127.0.0.1",
+                        READ_WEB_SERVER_PORT), request);
+        readContent = new byte[100000];
+
+        bytesRead = 0;
+        while (bytesRead < largeData.length) {
+            int read = response.getEntity().getContent().read(readContent, bytesRead, largeData.length - bytesRead);
+            bytesRead += read;
+        }
+
+        long secondFinish = System.currentTimeMillis();
+
+        HttpClientUtils.closeQuietly(response);
+
+        Assert.assertTrue("Expected second read to complete within " + UNTRHOTTLED_REQUEST_TIME_MS + "ms, without throttling. First read took "
+                        + (firstFinish - firstStart) + "ms" + ". Second read took " + (secondFinish - secondStart) + "ms",
+                secondFinish - secondStart < UNTRHOTTLED_REQUEST_TIME_MS);
+
+        proxyServer.stop();
+
     }
 
     private HttpGet createHttpGet() {

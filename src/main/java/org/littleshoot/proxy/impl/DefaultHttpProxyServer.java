@@ -116,7 +116,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final int connectTimeout;
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
-    private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
+    private volatile GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
     /**
      * Track all ActivityTrackers for tracking proxying activity.
@@ -235,8 +235,25 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.connectTimeout = connectTimeout;
         this.serverResolver = serverResolver;
 
+        if (writeThrottleBytesPerSecond > 0 || readThrottleBytesPerSecond > 0) {
+            this.globalTrafficShapingHandler = createGlobalTrafficShapingHandler(transportProtocol, readThrottleBytesPerSecond, writeThrottleBytesPerSecond);
+        } else {
+            this.globalTrafficShapingHandler = null;
+        }
+    }
+
+    /**
+     * Creates a new GlobalTrafficShapingHandler for this HttpProxyServer, using this proxy's proxyToServerEventLoop.
+     *
+     * @param transportProtocol
+     * @param readThrottleBytesPerSecond
+     * @param writeThrottleBytesPerSecond
+     *
+     * @return
+     */
+    private GlobalTrafficShapingHandler createGlobalTrafficShapingHandler(TransportProtocol transportProtocol, long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
         EventLoopGroup proxyToServerEventLoop = this.getProxyToServerWorkerFor(transportProtocol);
-        this.globalTrafficShapingHandler = new GlobalTrafficShapingHandler(proxyToServerEventLoop,
+        return new GlobalTrafficShapingHandler(proxyToServerEventLoop,
                 writeThrottleBytesPerSecond,
                 readThrottleBytesPerSecond,
                 TRAFFIC_SHAPING_CHECK_INTERVAL_MS,
@@ -270,7 +287,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     @Override
     public void setThrottle(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
-        globalTrafficShapingHandler.configure(writeThrottleBytesPerSecond, readThrottleBytesPerSecond);
+        if (globalTrafficShapingHandler != null) {
+            globalTrafficShapingHandler.configure(writeThrottleBytesPerSecond, readThrottleBytesPerSecond);
+        } else {
+            // don't create a GlobalTrafficShapingHandler if throttling was not enabled and is still not enabled
+            if (readThrottleBytesPerSecond > 0 || writeThrottleBytesPerSecond > 0) {
+                globalTrafficShapingHandler = createGlobalTrafficShapingHandler(transportProtocol, readThrottleBytesPerSecond, writeThrottleBytesPerSecond);
+            }
+        }
     }
 
     public long getReadThrottle() {
@@ -286,12 +310,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return new DefaultHttpProxyServerBootstrap(this, transportProtocol,
                 new InetSocketAddress(requestedAddress.getAddress(),
                         requestedAddress.getPort() == 0 ? 0 : requestedAddress.getPort() + 1),
-                sslEngineSource, authenticateSslClients, proxyAuthenticator,
-                chainProxyManager,
-                mitmManager, filtersSource, transparent,
-                idleConnectionTimeout, activityTrackers, connectTimeout,
-                serverResolver, globalTrafficShapingHandler.getReadLimit(),
-                globalTrafficShapingHandler.getWriteLimit());
+                    sslEngineSource,
+                    authenticateSslClients,
+                    proxyAuthenticator,
+                    chainProxyManager,
+                    mitmManager,
+                    filtersSource,
+                    transparent,
+                    idleConnectionTimeout,
+                    activityTrackers,
+                    connectTimeout,
+                    serverResolver,
+                    globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getReadLimit() : 0,
+                    globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getWriteLimit() : 0);
     }
 
     @Override
