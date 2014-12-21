@@ -709,6 +709,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     .proxyToServerResolutionStarted(serverHostAndPort);
             if (this.remoteAddress == null) {
                 this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
+            } else if (this.remoteAddress.isUnresolved()) {
+                // filter returned an unresolved address, so resolve it using the proxy server's resolver
+                this.remoteAddress = proxyServer.getServerResolver().resolve(this.remoteAddress.getHostName(),
+                        this.remoteAddress.getPort());
             }
             this.currentFilters.proxyToServerResolutionSucceeded(
                     serverHostAndPort, this.remoteAddress);

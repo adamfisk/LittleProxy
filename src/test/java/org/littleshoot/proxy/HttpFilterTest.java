@@ -18,9 +18,11 @@ import java.net.Socket;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class HttpFilterTest {
@@ -325,6 +327,44 @@ public class HttpFilterTest {
 
         assertEquals(403, response4.getStatusLine().getStatusCode());
         assertEquals(403, response5.getStatusLine().getStatusCode());
+
+        webServer.stop();
+        server.stop();
+    }
+
+    @Test
+    public void testResolutionStartedFilterReturnsUnresolvedAddress() throws Exception {
+        final AtomicBoolean resolutionSucceeded = new AtomicBoolean(false);
+
+        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                return new HttpFiltersAdapter(originalRequest) {
+                    @Override
+                    public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
+                        return InetSocketAddress.createUnresolved("localhost", WEB_SERVER_PORT);
+                    }
+
+                    @Override
+                    public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
+                        assertFalse("expected to receive a resolved InetSocketAddress", resolvedRemoteAddress.isUnresolved());
+                        resolutionSucceeded.set(true);
+                    }
+                };
+            }
+        };
+
+        final HttpProxyServer server = DefaultHttpProxyServer.bootstrap()
+                .withPort(PROXY_PORT)
+                .withFiltersSource(filtersSource)
+                .start();
+
+        final Server webServer = new Server(WEB_SERVER_PORT);
+        webServer.start();
+
+        org.apache.http.HttpResponse response1 = getResponse("http://localhost:" + WEB_SERVER_PORT + "/");
+
+        assertTrue("proxyToServerResolutionSucceeded method was not called", resolutionSucceeded.get());
 
         webServer.stop();
         server.stop();
