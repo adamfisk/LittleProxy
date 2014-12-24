@@ -39,29 +39,25 @@ HttpProxyServer server =
         .withFiltersSource(new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext ctx) {
                return new HttpFiltersAdapter(originalRequest) {
-                  @Override
-                  public HttpResponse clientToProxyRequest(HttpObject httpObject) {
-                      // TODO: implement your filtering here
-                      return null;
-                  }
-
-                  @Override
-                  public HttpResponse proxyToServerRequest(HttpObject httpObject) {
-                      // TODO: implement your filtering here
-                      return null;
-                  }
-
-                  @Override
-                  public HttpObject serverToProxyResponse(HttpObject httpObject) {
-                      // TODO: implement your filtering here
-                      return httpObject;
-                  }
-
-                  @Override
-                  public HttpObject proxyToClientResponse(HttpObject httpObject) {
-                      // TODO: implement your filtering here
-                      return httpObject;
-                  }   
+                        @Override
+                        public HttpResponse requestPre(HttpObject httpObject) {
+                            return null;
+                        }
+                    
+                        @Override
+                        public HttpResponse requestPost(HttpObject httpObject) {
+                            return null;
+                        }
+                    
+                        @Override
+                        public HttpObject responsePre(HttpObject httpObject) {
+                            return httpObject;
+                        }
+                    
+                        @Override
+                        public HttpObject responsePost(HttpObject httpObject) {
+                            return httpObject;
+                        }
                };
             }
         })
