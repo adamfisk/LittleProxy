@@ -857,12 +857,29 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private RequestWrittenMonitor requestWrittenMonitor = new RequestWrittenMonitor() {
         @Override
-        protected void requestWritten(HttpRequest httpRequest) {
+        protected void requestWriting(HttpRequest httpRequest) {
             FullFlowContext flowContext = new FullFlowContext(clientConnection,
                     ProxyToServerConnection.this);
-            for (ActivityTracker tracker : proxyServer
-                    .getActivityTrackers()) {
-                tracker.requestSentToServer(flowContext, httpRequest);
+            try {
+                for (ActivityTracker tracker : proxyServer
+                        .getActivityTrackers()) {
+                    tracker.requestSentToServer(flowContext, httpRequest);
+                }
+            } catch (Throwable t) {
+                LOG.warn("Error while invoking ActivityTracker on request", t);
+            }
+
+            currentFilters.proxyToServerRequestSending();
+        }
+
+        @Override
+        protected void requestWritten(HttpRequest httpRequest) {
+        }
+
+        @Override
+        protected void contentWritten(HttpContent httpContent) {
+            if (httpContent instanceof LastHttpContent) {
+                currentFilters.proxyToServerRequestSent();
             }
         }
     };
