@@ -1,19 +1,29 @@
 package org.littleshoot.proxy.extras;
 
+import iaik.asn1.structures.AlgorithmID;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.security.KeyStore;
+import java.security.Principal;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.Security;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -35,11 +45,15 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     private static final String ALIAS = "littleproxy";
     private static final String PASSWORD = "Be Your Own Lantern";
     private static final String PROTOCOL = "TLS";
+    private static final String KEYSTORETYPE = "jks";
+    
     private final File keyStoreFile;
     private final boolean trustAllServers;
     private final boolean sendCerts;
 
     private SSLContext sslContext;
+
+	private KeyStore keyStore;
 
     public SelfSignedSslEngineSource(String keyStorePath,
             boolean trustAllServers, boolean sendCerts) {
@@ -70,6 +84,78 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     public SSLEngine newSslEngine() {
         return sslContext.createSSLEngine();
     }
+    
+    public SSLEngine newSslEngine(SSLSession remoteServerSslSession) {
+    	try{
+    		
+            javax.security.cert.X509Certificate[] remoteServerCertChain = remoteServerSslSession.getPeerCertificateChain();
+            iaik.x509.X509Certificate remoteServerCertificate =  new iaik.x509.X509Certificate(remoteServerCertChain[0].getEncoded());
+            Principal remoteServerDN = remoteServerCertificate.getSubjectDN();
+            BigInteger remoteServerSerialNumber = remoteServerCertificate.getSerialNumber();
+            
+            
+    	 	// You may find it useful to work from the comment skeleton below.
+            SSLContext dynamicSslContext = SSLContext.getInstance("SSL");
+            final char[] keyStorePassword = PASSWORD.toCharArray();
+            final String keyStoreType = KEYSTORETYPE;
+            String alias = ALIAS;
+            
+//            if (keyStoreFile != null) {
+//                keyStore = KeyStore.getInstance(keyStoreType);
+//                keyStore.load(new FileInputStream(keyStoreFile), keyStorePassword);
+//                
+//                this.ks = keyStore;
+//            } else {
+//                keyStore = null;
+//                System.out.println("keystore is null!");
+//            }
+
+            // Get our key pair and our own DN (not the remote server's DN) from the keystore.
+            PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, keyStorePassword);
+            iaik.x509.X509Certificate certificate = new iaik.x509.X509Certificate(keyStore.getCertificate(alias).getEncoded());
+            PublicKey publicKey = (PublicKey) certificate.getPublicKey();
+            Principal ourDN = certificate.getSubjectDN();
+
+            GregorianCalendar date = (GregorianCalendar) Calendar.getInstance();
+            date.set(2013, 1, 1, 0, 0, 0);
+            iaik.x509.X509Certificate serverCertificate = new iaik.x509.X509Certificate();
+            
+            serverCertificate.setSubjectDN(remoteServerDN);
+            serverCertificate.setSerialNumber(remoteServerSerialNumber);
+            serverCertificate.setIssuerDN(ourDN);
+
+            serverCertificate.setValidNotBefore(date.getTime());
+            date.add(Calendar.MONTH, 60);
+            serverCertificate.setValidNotAfter(date.getTime());
+
+            serverCertificate.setPublicKey(publicKey);
+
+            if(privateKey.getAlgorithm().equals("DSA"))
+                serverCertificate.sign(AlgorithmID.dsaWithSHA1, privateKey);
+            else if(privateKey.getAlgorithm().equals("RSA"))
+                serverCertificate.sign(AlgorithmID.sha1WithRSAEncryption, privateKey);
+            else
+                throw new RuntimeException("Unrecognized Signing Method!");
+
+
+            KeyStore serverKeyStore = KeyStore.getInstance(keyStoreType);
+            serverKeyStore.load(null, keyStorePassword);
+
+            serverKeyStore.setCertificateEntry(alias, serverCertificate);
+            serverKeyStore.setKeyEntry(alias, privateKey, keyStorePassword, new Certificate[] { serverCertificate });
+            
+            final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            keyManagerFactory.init(serverKeyStore, keyStorePassword);
+
+            dynamicSslContext.init(keyManagerFactory.getKeyManagers(),
+                              new TrustManager[] { new TrustEveryone() },
+                              null);
+            
+            return dynamicSslContext.createSSLEngine();
+    	}catch(Exception e){
+    		throw new RuntimeException("newSslEngine", e);
+    	}
+    }
 
     public SSLContext getSslContext() {
         return sslContext;
@@ -99,20 +185,20 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         }
 
         try {
-            final KeyStore ks = KeyStore.getInstance("JKS");
+            this.keyStore = KeyStore.getInstance("JKS");
             // ks.load(new FileInputStream("keystore.jks"),
             // "changeit".toCharArray());
-            ks.load(new FileInputStream(keyStoreFile), PASSWORD.toCharArray());
+            keyStore.load(new FileInputStream(keyStoreFile), PASSWORD.toCharArray());
 
             // Set up key manager factory to use our key store
             final KeyManagerFactory kmf =
                     KeyManagerFactory.getInstance(algorithm);
-            kmf.init(ks, PASSWORD.toCharArray());
+            kmf.init(keyStore, PASSWORD.toCharArray());
 
             // Set up a trust manager factory to use our key store
             TrustManagerFactory tmf = TrustManagerFactory
                     .getInstance(algorithm);
-            tmf.init(ks);
+            tmf.init(keyStore);
 
             TrustManager[] trustManagers = null;
             if (!trustAllServers) {
@@ -168,6 +254,28 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         } catch (final IOException e) {
             LOG.error("Error running commands: " + Arrays.asList(commands), e);
             return "";
+        }
+    }
+    
+    
+    /**
+     * We're carrying out a MITM attack, we don't care whether the cert
+     * chains are trusted or not ;-)
+     *
+     */
+    private static class TrustEveryone implements javax.net.ssl.X509TrustManager
+    {
+        public void checkClientTrusted(java.security.cert.X509Certificate[] chain,
+                                       String authenticationType) {
+        }
+        
+        public void checkServerTrusted(java.security.cert.X509Certificate[] chain,
+                                       String authenticationType) {
+        }
+
+        public java.security.cert.X509Certificate[] getAcceptedIssuers()
+        {
+            return null;
         }
     }
 
