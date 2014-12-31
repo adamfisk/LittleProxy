@@ -102,45 +102,26 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     		
             javax.security.cert.X509Certificate[] remoteServerCertChain = remoteServerSslSession.getPeerCertificateChain();
             iaik.x509.X509Certificate remoteServerCertificate =  new iaik.x509.X509Certificate(remoteServerCertChain[0].getEncoded());
-            Principal remoteServerDN = remoteServerCertificate.getSubjectDN();
-            BigInteger remoteServerSerialNumber = remoteServerCertificate.getSerialNumber();
-            Collection<List<?>> remoteSANList = remoteServerCertificate.getSubjectAlternativeNames();
-            
-            
+            //Principal remoteServerDN = remoteServerCertificate.getSubjectDN();
+            //BigInteger remoteServerSerialNumber = remoteServerCertificate.getSerialNumber();
+
     	 	// You may find it useful to work from the comment skeleton below.
             SSLContext dynamicSslContext = SSLContext.getInstance("SSL");
             final char[] keyStorePassword = PASSWORD.toCharArray();
             final String keyStoreType = KEYSTORETYPE;
             String alias = ALIAS;
-            
-//            if (keyStoreFile != null) {
-//                keyStore = KeyStore.getInstance(keyStoreType);
-//                keyStore.load(new FileInputStream(keyStoreFile), keyStorePassword);
-//                
-//                this.ks = keyStore;
-//            } else {
-//                keyStore = null;
-//                System.out.println("keystore is null!");
-//            }
 
             // Get our key pair and our own DN (not the remote server's DN) from the keystore.
             PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, keyStorePassword);
             iaik.x509.X509Certificate certificate = new iaik.x509.X509Certificate(keyStore.getCertificate(alias).getEncoded());
             PublicKey publicKey = (PublicKey) certificate.getPublicKey();
-            Principal ourDN = certificate.getSubjectDN();
+            Principal caSubjectDN = certificate.getSubjectDN();
+			
+			remoteServerCertificate.setPublicKey(publicKey);
+			remoteServerCertificate.setIssuerDN(caSubjectDN);
 
-            GregorianCalendar date = (GregorianCalendar) Calendar.getInstance();
-            date.set(2013, 1, 1, 0, 0, 0);
-            iaik.x509.X509Certificate serverCertificate = new iaik.x509.X509Certificate();
-            
-            serverCertificate.setSubjectDN(remoteServerDN);
-            serverCertificate.setSerialNumber(remoteServerSerialNumber);
-            serverCertificate.setIssuerDN(ourDN);
-
-            serverCertificate.setValidNotBefore(date.getTime());
-            date.add(Calendar.MONTH, 60);
-            serverCertificate.setValidNotAfter(date.getTime());
-
+               /*
+			Collection<List<?>> remoteSANList = remoteServerCertificate.getSubjectAlternativeNames();
             if(remoteSANList!=null){
             	 GeneralNames generalNames = new GeneralNames();
                  Iterator<List<?>> iter = remoteSANList.iterator();
@@ -154,11 +135,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
                  sanExt.setGeneralNames(generalNames);
                  serverCertificate.addExtension(sanExt);
             }
-            
-            
-            serverCertificate.setPublicKey(publicKey);
-
-               /*
+			   
             Enumeration enumaration = remoteServerCertificate.listExtensions();
             while(enumaration!=null &&  enumaration.hasMoreElements()){
             	serverCertificate.addExtension((V3Extension) enumaration.nextElement());
@@ -166,9 +143,9 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
              */
           
             if(privateKey.getAlgorithm().equals("DSA"))
-                serverCertificate.sign(AlgorithmID.dsaWithSHA1, privateKey);
+                remoteServerCertificate.sign(AlgorithmID.dsaWithSHA1, privateKey);
             else if(privateKey.getAlgorithm().equals("RSA"))
-                serverCertificate.sign(AlgorithmID.sha1WithRSAEncryption, privateKey);
+                remoteServerCertificate.sign(AlgorithmID.sha1WithRSAEncryption, privateKey);
             else
                 throw new RuntimeException("Unrecognized Signing Method!");
 
