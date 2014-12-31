@@ -178,7 +178,14 @@
       <version>1.2</version>
       <scope>test</scope>
     </dependency>
-
+    
+	<dependency>
+	      <groupId>iaik_jce</groupId>  
+	       <artifactId>iaik_jce</artifactId>  
+	       <version>1.0</version> 
+	      <scope>system</scope>
+		  <systemPath>${project.basedir}/lib/iaik_jce.jar</systemPath>
+	</dependency>
   </dependencies>
 
   <prerequisites>
