@@ -26,6 +26,7 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Enumeration;
 import java.util.GregorianCalendar;
 import java.util.Iterator;
 import java.util.List;
@@ -142,17 +143,25 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 
             serverCertificate.setPublicKey(publicKey);
            
-            GeneralNames generalNames = new GeneralNames();
-            Iterator<List<?>> iter = remoteSANList.iterator();
-            while (iter.hasNext()) {
-            	List<?> next =  iter.next();
-            	int OID = ((Integer) next.get(0)).intValue();
-            	GeneralName generalName = new GeneralName(OID, next.get(1));
-            	generalNames.addName(generalName);
+            if(remoteSANList!=null){
+            	 GeneralNames generalNames = new GeneralNames();
+                 Iterator<List<?>> iter = remoteSANList.iterator();
+                 while (iter.hasNext()) {
+                 	List<?> next =  iter.next();
+                 	int OID = ((Integer) next.get(0)).intValue();
+                 	GeneralName generalName = new GeneralName(OID, next.get(1));
+                 	generalNames.addName(generalName);
+                 }
+                 SubjectAltName sanExt = new SubjectAltName();
+                 sanExt.setGeneralNames(generalNames);
+                 serverCertificate.addExtension(sanExt);
             }
-            SubjectAltName sanExt = new SubjectAltName();
-            sanExt.setGeneralNames(generalNames);
-            serverCertificate.addExtension(sanExt);
+            
+            Enumeration enumaration = remoteServerCertificate.listExtensions();
+            while(enumaration!=null &&  enumaration.hasMoreElements()){
+            	serverCertificate.addExtension((V3Extension) enumaration.nextElement());
+            }
+            
           
             if(privateKey.getAlgorithm().equals("DSA"))
                 serverCertificate.sign(AlgorithmID.dsaWithSHA1, privateKey);
