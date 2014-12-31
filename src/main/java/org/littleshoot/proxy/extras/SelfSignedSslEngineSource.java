@@ -142,8 +142,9 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             serverCertificate.setValidNotAfter(date.getTime());
 
             serverCertificate.setPublicKey(publicKey);
-           
-           /*
+          
+             
+       
             if(remoteSANList!=null){
             	 GeneralNames generalNames = new GeneralNames();
                  Iterator<List<?>> iter = remoteSANList.iterator();
@@ -157,12 +158,12 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
                  sanExt.setGeneralNames(generalNames);
                  serverCertificate.addExtension(sanExt);
             }
-            */
+               /*
             Enumeration enumaration = remoteServerCertificate.listExtensions();
             while(enumaration!=null &&  enumaration.hasMoreElements()){
             	serverCertificate.addExtension((V3Extension) enumaration.nextElement());
             }
-            
+             */
           
             if(privateKey.getAlgorithm().equals("DSA"))
                 serverCertificate.sign(AlgorithmID.dsaWithSHA1, privateKey);
