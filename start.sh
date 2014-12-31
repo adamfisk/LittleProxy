@@ -1,4 +1,9 @@
 #!/bin/bash
+
+
+mvn dependency:copy-dependencies
+mvn compile
+
 currentDir=`readlink -m  $(dirname $0)`
 
 classpath=$currentDir/target/dependency/*:$currentDir/target/classes
