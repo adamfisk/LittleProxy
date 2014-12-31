@@ -1,6 +1,13 @@
 package org.littleshoot.proxy.extras;
 
+import iaik.asn1.ASN1Object;
+import iaik.asn1.ObjectID;
 import iaik.asn1.structures.AlgorithmID;
+import iaik.asn1.structures.GeneralName;
+import iaik.asn1.structures.GeneralNames;
+import iaik.x509.V3Extension;
+import iaik.x509.X509ExtensionException;
+import iaik.x509.extensions.SubjectAltName;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,10 +21,14 @@ import java.security.PublicKey;
 import java.security.Security;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.GregorianCalendar;
+import java.util.Iterator;
+import java.util.List;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -92,6 +103,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             iaik.x509.X509Certificate remoteServerCertificate =  new iaik.x509.X509Certificate(remoteServerCertChain[0].getEncoded());
             Principal remoteServerDN = remoteServerCertificate.getSubjectDN();
             BigInteger remoteServerSerialNumber = remoteServerCertificate.getSerialNumber();
+            Collection<List<?>> remoteSANList = remoteServerCertificate.getSubjectAlternativeNames();
             
             
     	 	// You may find it useful to work from the comment skeleton below.
@@ -129,7 +141,19 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             serverCertificate.setValidNotAfter(date.getTime());
 
             serverCertificate.setPublicKey(publicKey);
-
+           
+            GeneralNames generalNames = new GeneralNames();
+            Iterator<List<?>> iter = remoteSANList.iterator();
+            while (iter.hasNext()) {
+            	List<?> next =  iter.next();
+            	int OID = ((Integer) next.get(0)).intValue();
+            	GeneralName generalName = new GeneralName(OID, next.get(1));
+            	generalNames.addName(generalName);
+            }
+            SubjectAltName sanExt = new SubjectAltName();
+            sanExt.setGeneralNames(generalNames);
+            serverCertificate.addExtension(sanExt);
+          
             if(privateKey.getAlgorithm().equals("DSA"))
                 serverCertificate.sign(AlgorithmID.dsaWithSHA1, privateKey);
             else if(privateKey.getAlgorithm().equals("RSA"))
