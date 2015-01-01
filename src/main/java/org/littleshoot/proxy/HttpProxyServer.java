@@ -39,4 +39,13 @@ public interface HttpProxyServer {
      * @return
      */
     InetSocketAddress getListenAddress();
+
+    /**
+     * <p>
+     * Set the read/write throttle bandwidths (in bytes/second) for this proxy.
+     * </p>
+     * @param readThrottleBytesPerSecond
+     * @param writeThrottleBytesPerSecond
+     */
+    void setThrottle(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
 }

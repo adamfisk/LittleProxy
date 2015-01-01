@@ -3,6 +3,7 @@ package org.littleshoot.proxy.impl;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.AdaptiveRecvByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelInitializer;
@@ -10,13 +11,29 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpMessage;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpRequestEncoder;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.commons.lang3.StringUtils;
-import org.littleshoot.proxy.*;
+import org.littleshoot.proxy.ActivityTracker;
+import org.littleshoot.proxy.ChainedProxy;
+import org.littleshoot.proxy.ChainedProxyAdapter;
+import org.littleshoot.proxy.ChainedProxyManager;
+import org.littleshoot.proxy.FullFlowContext;
+import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.MitmManager;
+import org.littleshoot.proxy.TransportProtocol;
+import org.littleshoot.proxy.UnknownTransportProtocolError;
 import org.slf4j.spi.LocationAwareLogger;
 
 import javax.net.ssl.SSLSession;
@@ -27,7 +44,12 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import static org.littleshoot.proxy.impl.ConnectionState.*;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
+import static org.littleshoot.proxy.impl.ConnectionState.CONNECTING;
+import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECTED;
+import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
 
 /**
  * <p>
@@ -99,6 +121,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private volatile HttpResponse currentHttpResponse;
 
     /**
+     * Limits bandwidth when throttling is enabled.
+     */
+    private volatile GlobalTrafficShapingHandler trafficHandler;
+
+    /**
+     * Minimum size of the adaptive recv buffer when throttling is enabled. 
+     */
+    private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
+    
+    /**
      * Create a new ProxyToServerConnection.
      * 
      * @param proxyServer
@@ -113,7 +145,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             ClientToProxyConnection clientConnection,
             String serverHostAndPort,
             HttpFilters initialFilters,
-            HttpRequest initialHttpRequest)
+            HttpRequest initialHttpRequest,
+            GlobalTrafficShapingHandler globalTrafficShapingHandler)
             throws UnknownHostException {
         Queue<ChainedProxy> chainedProxies = new ConcurrentLinkedQueue<ChainedProxy>();
         ChainedProxyManager chainedProxyManager = proxyServer
@@ -131,7 +164,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 serverHostAndPort,
                 chainedProxies.poll(),
                 chainedProxies,
-                initialFilters);
+                initialFilters,
+                globalTrafficShapingHandler);
     }
 
     private ProxyToServerConnection(
@@ -140,13 +174,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             String serverHostAndPort,
             ChainedProxy chainedProxy,
             Queue<ChainedProxy> availableChainedProxies,
-            HttpFilters initialFilters)
+            HttpFilters initialFilters,
+            GlobalTrafficShapingHandler globalTrafficShapingHandler)
             throws UnknownHostException {
         super(DISCONNECTED, proxyServer, true);
         this.clientConnection = clientConnection;
         this.serverHostAndPort = serverHostAndPort;
         this.chainedProxy = chainedProxy;
         this.availableChainedProxies = availableChainedProxies;
+        this.trafficHandler = globalTrafficShapingHandler;
         this.currentFilters = initialFilters;
 
         // Report connection status to HttpFilters
@@ -725,6 +761,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void initChannelPipeline(ChannelPipeline pipeline,
             HttpRequest httpRequest) {
+
+        if (trafficHandler != null) {
+            pipeline.addLast("global-traffic-shaping", trafficHandler);
+        }
+
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
         pipeline.addLast("decoder", new HeadAwareHttpResponseDecoder(
                 8192,
