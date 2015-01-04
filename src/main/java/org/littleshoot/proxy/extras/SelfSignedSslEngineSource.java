@@ -36,6 +36,7 @@ import sun.security.x509.CertificateExtensions;
 import sun.security.x509.CertificateIssuerName;
 import sun.security.x509.CertificateSubjectName;
 import sun.security.x509.CertificateVersion;
+import sun.security.x509.CertificateX509Key;
 import sun.security.x509.Extension;
 import sun.security.x509.KeyIdentifier;
 import sun.security.x509.SubjectAlternativeNameExtension;
@@ -161,6 +162,8 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             
             //modify certificats
             remoteServerCertInfo.set(X509CertInfo.ISSUER + "." + CertificateSubjectName.DN_NAME, issuer);
+            remoteServerCertInfo.set(X509CertInfo.KEY, new CertificateX509Key(caPublicKey));
+             
 //            AlgorithmId algorithm = new AlgorithmId(AlgorithmId.md5WithRSAEncryption_oid);
 //            remoteServerCertInfo.set(CertificateAlgorithmId.NAME + "." + CertificateAlgorithmId.ALGORITHM, algorithm);
 			
