@@ -277,8 +277,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     }
 
     private void initializeSSLContext() {
-        String algorithm = Security
-                .getProperty("ssl.KeyManagerFactory.algorithm");
+        String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
         if (algorithm == null) {
             algorithm = "SunX509";
         }
@@ -290,13 +289,11 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             keyStore.load(new FileInputStream(keyStoreFile), PASSWORD.toCharArray());
 
             // Set up key manager factory to use our key store
-            final KeyManagerFactory kmf =
-                    KeyManagerFactory.getInstance(algorithm);
+            final KeyManagerFactory kmf = KeyManagerFactory.getInstance(algorithm);
             kmf.init(keyStore, PASSWORD.toCharArray());
 
             // Set up a trust manager factory to use our key store
-            TrustManagerFactory tmf = TrustManagerFactory
-                    .getInstance(algorithm);
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(algorithm);
             tmf.init(keyStore);
 
             TrustManager[] trustManagers = null;
@@ -317,8 +314,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             sslContext = SSLContext.getInstance(PROTOCOL);
             sslContext.init(keyManagers, trustManagers, null);
         } catch (final Exception e) {
-            throw new Error(
-                    "Failed to initialize the server-side SSLContext", e);
+            throw new Error("Failed to initialize the server-side SSLContext", e);
         }
     }
 
@@ -339,25 +335,21 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     }
     
     
-    /**
-     * We're carrying out a MITM attack, we don't care whether the cert
-     * chains are trusted or not ;-)
-     *
-     */
-    private static class TrustEveryone implements javax.net.ssl.X509TrustManager
-    {
-        public void checkClientTrusted(java.security.cert.X509Certificate[] chain,
-                                       String authenticationType) {
-        }
-        
-        public void checkServerTrusted(java.security.cert.X509Certificate[] chain,
-                                       String authenticationType) {
-        }
+	/**
+	 * We're carrying out a MITM attack, we don't care whether the cert chains
+	 * are trusted or not ;-)
+	 * 
+	 */
+	private static class TrustEveryone implements javax.net.ssl.X509TrustManager {
+		public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authenticationType) {
+		}
 
-        public java.security.cert.X509Certificate[] getAcceptedIssuers()
-        {
-            return null;
-        }
-    }
+		public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authenticationType) {
+		}
+
+		public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+			return null;
+		}
+	}
 
 }
