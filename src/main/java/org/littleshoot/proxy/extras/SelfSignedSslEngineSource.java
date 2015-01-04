@@ -60,7 +60,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     private static final String PASSWORD = "Be Your Own Lantern";
     private static final String PROTOCOL = "TLS";
     private static final String KEY_STORE_TYPE = "jks";
-    private static final String SIG_ALG_NAME = "SHA1withRSA";
+    private static final String SIG_ALG_NAME = "SHA256withRSA";
     
     
     private final File keyStoreFile;
@@ -155,7 +155,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         			}
         		}
 
-        		newExtensions.set(SubjectKeyIdentifierExtension.NAME, new SubjectKeyIdentifierExtension(new KeyIdentifier(caPublicKey).getIdentifier()));
+        		//newExtensions.set(SubjectKeyIdentifierExtension.NAME, new SubjectKeyIdentifierExtension(new KeyIdentifier(caPublicKey).getIdentifier()));
         		remoteServerCertInfo.set(X509CertInfo.EXTENSIONS, newExtensions);
 
         		// Sign the new certificate
