@@ -537,7 +537,7 @@
         <version>2.9.1</version>
         <configuration>
           <show>private</show>
-          <source>1.6</source>
+          <source>1.7</source>
           <links>
             <link>http://netty.io/4.0/api/</link>
           </links>
