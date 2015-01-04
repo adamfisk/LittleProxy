@@ -173,7 +173,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 			// The way we achieve that is really ugly, but there seems to be no
 			// other solution: We first sign the cert, then retrieve the
 			// outer sigalg and use it to set the inner sigalg
-           String sigAlgName = "SHA1withDSA";
+           String sigAlgName = "SHA1withRSA";
            newCert.sign(caPrivateKey, sigAlgName);
            AlgorithmId sigAlgid = (AlgorithmId)newCert.get(X509CertImpl.SIG_ALG);
            remoteServerCertInfo.set(CertificateAlgorithmId.NAME + "." + CertificateAlgorithmId.ALGORITHM, sigAlgid);
