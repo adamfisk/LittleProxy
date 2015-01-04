@@ -161,6 +161,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             
             
             //modify certificats
+            remoteServerCertInfo.set(X509CertInfo.VERSION, new CertificateVersion(CertificateVersion.V3));
             remoteServerCertInfo.set(X509CertInfo.ISSUER + "." + CertificateSubjectName.DN_NAME, issuer);
             remoteServerCertInfo.set(X509CertInfo.KEY, new CertificateX509Key(caPublicKey));
              
@@ -176,7 +177,6 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
            newCert.sign(caPrivateKey, sigAlgName);
            AlgorithmId sigAlgid = (AlgorithmId)newCert.get(X509CertImpl.SIG_ALG);
            remoteServerCertInfo.set(CertificateAlgorithmId.NAME + "." + CertificateAlgorithmId.ALGORITHM, sigAlgid);
-           remoteServerCertInfo.set(X509CertInfo.VERSION, new CertificateVersion(CertificateVersion.V3));
            
            CertificateExtensions extensions = (CertificateExtensions)remoteServerCertInfo.get(X509CertInfo.EXTENSIONS);
            Enumeration<Extension> elements = extensions.getElements();
@@ -207,7 +207,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             serverKeyStore.load(null, PASSWORD.toCharArray());
 
             serverKeyStore.setCertificateEntry(ALIAS, newCert);
-            serverKeyStore.setKeyEntry(ALIAS, caPrivateKey, PASSWORD.toCharArray(), new Certificate[] { remoteServerCertificate });
+            serverKeyStore.setKeyEntry(ALIAS, caPrivateKey, PASSWORD.toCharArray(), new Certificate[] { newCert });
             
             final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(serverKeyStore, PASSWORD.toCharArray());
