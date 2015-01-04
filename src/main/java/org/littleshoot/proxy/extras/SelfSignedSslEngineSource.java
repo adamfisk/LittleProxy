@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.SoftReference;
 import java.security.KeyStore;
 import java.security.Principal;
 import java.security.PrivateKey;
@@ -14,6 +15,7 @@ import java.security.Security;
 import java.security.cert.Certificate;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -66,6 +68,8 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     private SSLContext sslContext;
 
 	private KeyStore keyStore;
+	
+	private ConcurrentHashMap<String, SoftReference<SSLContext>> sslContextCache = new ConcurrentHashMap<>();
 
 	
 	// Add the BouncyCastle security provider if not available yet
@@ -105,115 +109,74 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         return sslContext.createSSLEngine();
     }
     
-//    Certificate genCertificate(SSLSession remoteServerSslSession){
-//    	try{
-//    	       X509V3CertificateGenerator certBuilder = new X509V3CertificateGenerator();
-//    	       X509Certificate[] remoteServerCertChain = remoteServerSslSession.getPeerCertificateChain();
-//    	       InputStream certInputStream = new ByteArrayInputStream(remoteServerCertChain[0].getEncoded());
-//    	       CertificateFactory certFactory = CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME);
-//    	       Certificate x509Cert =  certFactory.generateCertificate(certInputStream);
-//    	       // Get our key pair and our own DN (not the remote server's DN) from the keystore.
-//               PrivateKey privateKey = (PrivateKey) keyStore.getKey(ALIAS, PASSWORD.toCharArray());
-//              
-//               X509CertImpl caCert = new X509CertImpl(keyStore.getCertificate(ALIAS).getEncoded());
-//               caCert.set(arg0, arg1)
-//               iaik.x509.X509Certificate certificate = new iaik.x509.X509Certificate(keyStore.getCertificate(ALIAS).getEncoded());
-//               PublicKey publicKey = (PublicKey) certificate.getPublicKey();
-//               Principal caSubjectDN = certificate.getSubjectDN();
-//               
-//    	       certBuilder.setIssuerDN(caCert.);
-//    	       certBuilder.setSerialNumber(BigInteger.valueOf(1));
-//    	       certBuilder.setSubjectDN(x509Cert.ge)
-//    	       
-//    	} catch (SSLPeerUnverifiedException e) {
-//			e.printStackTrace();
-//		} catch (CertificateException e) {
-//			e.printStackTrace();
-//		} catch (NoSuchProviderException e) {
-//			e.printStackTrace();
-//		} catch (CertificateEncodingException e) {
-//			e.printStackTrace();
-//		}finally{
-//    		
-//    	}
-//
-//		return null;
-//    }
-    
-    
     public SSLEngine newSslEngine(SSLSession remoteServerSslSession) {
     	try{
+
+    		String sslContextKey = remoteServerSslSession.getPeerHost() +":" + remoteServerSslSession.getPeerPort();
+    		SSLContext newSslContext = null;
+    		if(!sslContextCache.contains(sslContextKey) || (newSslContext = sslContextCache.get(sslContextKey).get()) == null ){
+    			
+    			X509Certificate[] remoteServerCertChain = remoteServerSslSession.getPeerCertificateChain();
+        		X509CertImpl remoteServerCert = new X509CertImpl(remoteServerCertChain[0].getEncoded());
+        		X509CertInfo remoteServerCertInfo = (X509CertInfo) remoteServerCert.get(X509CertImpl.NAME + "." + X509CertImpl.INFO);
+
+        		newSslContext = SSLContext.getInstance("SSL");
+        		// Get our key pair and our own DN (not the remote server's DN) from the keystore.
+        		X509CertImpl caCert = new X509CertImpl(keyStore.getCertificate(ALIAS).getEncoded());
+        		PrivateKey caPrivateKey = (PrivateKey) keyStore.getKey(ALIAS, PASSWORD.toCharArray());
+        		PublicKey caPublicKey = caCert.getPublicKey();
+
+        		X509CertInfo caCertInfo = (X509CertInfo) caCert.get(X509CertImpl.NAME + "." + X509CertImpl.INFO);
+        		X500Name issuer = (X500Name) caCertInfo.get(X509CertInfo.SUBJECT + "." + CertificateIssuerName.DN_NAME);
+
+        		//modify certificats
+        		remoteServerCertInfo.set(X509CertInfo.VERSION, new CertificateVersion(CertificateVersion.V3));
+        		remoteServerCertInfo.set(X509CertInfo.ISSUER + "." + CertificateSubjectName.DN_NAME, issuer);
+        		remoteServerCertInfo.set(X509CertInfo.KEY, new CertificateX509Key(caPublicKey));
+
+        		X509CertImpl newCert = new X509CertImpl(remoteServerCertInfo);
+        		// The inner and outer signature algorithms have to match.
+        		// The way we achieve that is really ugly, but there seems to be no
+        		// other solution: We first sign the cert, then retrieve the
+        		// outer sigalg and use it to set the inner sigalg
+        		String sigAlgName = "SHA1withRSA";
+        		newCert.sign(caPrivateKey, sigAlgName);
+        		AlgorithmId sigAlgid = (AlgorithmId)newCert.get(X509CertImpl.SIG_ALG);
+        		remoteServerCertInfo.set(CertificateAlgorithmId.NAME + "." + CertificateAlgorithmId.ALGORITHM, sigAlgid);
+
+        		CertificateExtensions extensions = (CertificateExtensions)remoteServerCertInfo.get(X509CertInfo.EXTENSIONS);
+        		Enumeration<Extension> elements = extensions.getElements();
+        		CertificateExtensions newExtensions = new CertificateExtensions();
+        		while(elements!=null && elements.hasMoreElements()){
+        			Extension ext = elements.nextElement();
+        			if(ext instanceof SubjectAlternativeNameExtension){
+        				newExtensions.set(SubjectAlternativeNameExtension.NAME, ext);
+        			}
+        		}
+
+        		newExtensions.set(SubjectKeyIdentifierExtension.NAME, new SubjectKeyIdentifierExtension(new KeyIdentifier(caPublicKey).getIdentifier()));
+        		remoteServerCertInfo.set(X509CertInfo.EXTENSIONS, newExtensions);
+
+        		// Sign the new certificate
+        		newCert = new X509CertImpl(remoteServerCertInfo);
+        		newCert.sign(caPrivateKey, sigAlgName);
+
+
+        		KeyStore serverKeyStore = KeyStore.getInstance(KEYSTORETYPE);
+        		serverKeyStore.load(null, PASSWORD.toCharArray());
+
+        		serverKeyStore.setCertificateEntry(ALIAS, newCert);
+        		serverKeyStore.setKeyEntry(ALIAS, caPrivateKey, PASSWORD.toCharArray(), new Certificate[] { newCert });
+
+        		final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        		keyManagerFactory.init(serverKeyStore, PASSWORD.toCharArray());
+
+        		newSslContext.init(keyManagerFactory.getKeyManagers(), new TrustManager[] { new TrustEveryone() }, null);
+        		
+        		sslContextCache.put(sslContextKey, new SoftReference<SSLContext>(newSslContext));
+    		}
     		
-            X509Certificate[] remoteServerCertChain = remoteServerSslSession.getPeerCertificateChain();
-            X509CertImpl remoteServerCert = new X509CertImpl(remoteServerCertChain[0].getEncoded());
-            X509CertInfo remoteServerCertInfo = (X509CertInfo) remoteServerCert.get(X509CertImpl.NAME + "." + X509CertImpl.INFO);
-         
-            iaik.x509.X509Certificate remoteServerCertificate = new iaik.x509.X509Certificate(remoteServerCertChain[0].getEncoded());
-
-            SSLContext dynamicSslContext = SSLContext.getInstance("SSL");
-            // Get our key pair and our own DN (not the remote server's DN) from the keystore.
-            X509CertImpl caCert = new X509CertImpl(keyStore.getCertificate(ALIAS).getEncoded());
-            PrivateKey caPrivateKey = (PrivateKey) keyStore.getKey(ALIAS, PASSWORD.toCharArray());
-            PublicKey caPublicKey = caCert.getPublicKey();
-           
-            X509CertInfo caCertInfo = (X509CertInfo) caCert.get(X509CertImpl.NAME + "." + X509CertImpl.INFO);
-            X500Name issuer = (X500Name) caCertInfo.get(X509CertInfo.SUBJECT + "." + CertificateIssuerName.DN_NAME);
-            
-            
-            //modify certificats
-            remoteServerCertInfo.set(X509CertInfo.VERSION, new CertificateVersion(CertificateVersion.V3));
-            remoteServerCertInfo.set(X509CertInfo.ISSUER + "." + CertificateSubjectName.DN_NAME, issuer);
-            remoteServerCertInfo.set(X509CertInfo.KEY, new CertificateX509Key(caPublicKey));
-             
-//            AlgorithmId algorithm = new AlgorithmId(AlgorithmId.md5WithRSAEncryption_oid);
-//            remoteServerCertInfo.set(CertificateAlgorithmId.NAME + "." + CertificateAlgorithmId.ALGORITHM, algorithm);
-			
-           X509CertImpl newCert = new X509CertImpl(remoteServerCertInfo);
-			// The inner and outer signature algorithms have to match.
-			// The way we achieve that is really ugly, but there seems to be no
-			// other solution: We first sign the cert, then retrieve the
-			// outer sigalg and use it to set the inner sigalg
-           String sigAlgName = "SHA1withRSA";
-           newCert.sign(caPrivateKey, sigAlgName);
-           AlgorithmId sigAlgid = (AlgorithmId)newCert.get(X509CertImpl.SIG_ALG);
-           remoteServerCertInfo.set(CertificateAlgorithmId.NAME + "." + CertificateAlgorithmId.ALGORITHM, sigAlgid);
-           
-           CertificateExtensions extensions = (CertificateExtensions)remoteServerCertInfo.get(X509CertInfo.EXTENSIONS);
-           Enumeration<Extension> elements = extensions.getElements();
-           CertificateExtensions newExtensions = new CertificateExtensions();
-           while(elements!=null && elements.hasMoreElements()){
-        	   Extension ext = elements.nextElement();
-        	   if(ext instanceof SubjectAlternativeNameExtension){
-        		   newExtensions.set(SubjectAlternativeNameExtension.NAME, ext);
-        	   }
-           }
-           
-           newExtensions.set(SubjectKeyIdentifierExtension.NAME, new SubjectKeyIdentifierExtension(new KeyIdentifier(caPublicKey).getIdentifier()));
-           remoteServerCertInfo.set(X509CertInfo.EXTENSIONS, newExtensions);
-           
-//           List<String> v3ext = new ArrayList<>();
-//           CertificateExtensions ext = KeyTool.createV3Extensions(null,
-//        		   			   (CertificateExtensions)remoteServerCertInfo.get(X509CertInfo.EXTENSIONS),
-//                               v3ext,
-//                               caCert.getPublicKey(),
-//                               null);
-           
-           // Sign the new certificate
-           newCert = new X509CertImpl(remoteServerCertInfo);
-           newCert.sign(caPrivateKey, sigAlgName);
-
-
-            KeyStore serverKeyStore = KeyStore.getInstance(KEYSTORETYPE);
-            serverKeyStore.load(null, PASSWORD.toCharArray());
-
-            serverKeyStore.setCertificateEntry(ALIAS, newCert);
-            serverKeyStore.setKeyEntry(ALIAS, caPrivateKey, PASSWORD.toCharArray(), new Certificate[] { newCert });
-            
-            final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            keyManagerFactory.init(serverKeyStore, PASSWORD.toCharArray());
-
-            dynamicSslContext.init(keyManagerFactory.getKeyManagers(), new TrustManager[] { new TrustEveryone() }, null);
-            return dynamicSslContext.createSSLEngine();
+    		return newSslContext.createSSLEngine();
             
     	}catch(Exception e){
     		throw new RuntimeException("newSslEngine", e);
