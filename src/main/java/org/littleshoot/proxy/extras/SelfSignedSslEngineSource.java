@@ -1,65 +1,42 @@
 package org.littleshoot.proxy.extras;
 
-import iaik.asn1.ASN1Object;
-import iaik.asn1.ObjectID;
 import iaik.asn1.structures.AlgorithmID;
-import iaik.asn1.structures.GeneralName;
-import iaik.asn1.structures.GeneralNames;
-import iaik.x509.V3Extension;
-import iaik.x509.X509ExtensionException;
-import iaik.x509.extensions.SubjectAltName;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigInteger;
 import java.security.KeyStore;
-import java.security.NoSuchProviderException;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Security;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.Enumeration;
-import java.util.GregorianCalendar;
-import java.util.Iterator;
-import java.util.List;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
-import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
-import javax.security.auth.x500.X500Principal;
-import javax.security.cert.CertificateEncodingException;
 import javax.security.cert.X509Certificate;
 
 import org.apache.commons.io.IOUtils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.x509.X509V3CertificateGenerator;
 import org.littleshoot.proxy.SslEngineSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import sun.security.tools.KeyTool;
 import sun.security.x509.AlgorithmId;
 import sun.security.x509.CertificateAlgorithmId;
 import sun.security.x509.CertificateExtensions;
 import sun.security.x509.CertificateIssuerName;
 import sun.security.x509.CertificateSubjectName;
 import sun.security.x509.CertificateVersion;
+import sun.security.x509.KeyIdentifier;
+import sun.security.x509.SubjectKeyIdentifierExtension;
 import sun.security.x509.X500Name;
 import sun.security.x509.X509CertImpl;
 import sun.security.x509.X509CertInfo;
@@ -191,15 +168,19 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
            newCert.sign(caPrivateKey, sigAlgName);
            AlgorithmId sigAlgid = (AlgorithmId)newCert.get(X509CertImpl.SIG_ALG);
            remoteServerCertInfo.set(CertificateAlgorithmId.NAME + "." + CertificateAlgorithmId.ALGORITHM, sigAlgid);
-              
            remoteServerCertInfo.set(X509CertInfo.VERSION, new CertificateVersion(CertificateVersion.V3));
-           List<String> v3ext = new ArrayList<>();
-           CertificateExtensions ext = KeyTool.createV3Extensions(null,
-        		   			   (CertificateExtensions)remoteServerCertInfo.get(X509CertInfo.EXTENSIONS),
-                               v3ext,
-                               caCert.getPublicKey(),
-                               null);
-           remoteServerCertInfo.set(X509CertInfo.EXTENSIONS, ext);
+           
+           CertificateExtensions extensions = (CertificateExtensions)remoteServerCertInfo.get(X509CertInfo.EXTENSIONS);
+           extensions.set(SubjectKeyIdentifierExtension.NAME, new SubjectKeyIdentifierExtension(new KeyIdentifier(caCert.getPublicKey()).getIdentifier()));
+           remoteServerCertInfo.set(X509CertInfo.EXTENSIONS, extensions);
+           
+//           List<String> v3ext = new ArrayList<>();
+//           CertificateExtensions ext = KeyTool.createV3Extensions(null,
+//        		   			   (CertificateExtensions)remoteServerCertInfo.get(X509CertInfo.EXTENSIONS),
+//                               v3ext,
+//                               caCert.getPublicKey(),
+//                               null);
+           
            // Sign the new certificate
            newCert = new X509CertImpl(remoteServerCertInfo);
            newCert.sign(caPrivateKey, sigAlgName);
