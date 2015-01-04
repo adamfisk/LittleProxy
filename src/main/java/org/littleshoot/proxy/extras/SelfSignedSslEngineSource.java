@@ -27,7 +27,7 @@ import javax.net.ssl.TrustManagerFactory;
 import javax.security.cert.X509Certificate;
 
 import org.apache.commons.io.IOUtils;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
+//import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.littleshoot.proxy.SslEngineSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +59,9 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     private static final String ALIAS = "littleproxy";
     private static final String PASSWORD = "Be Your Own Lantern";
     private static final String PROTOCOL = "TLS";
-    private static final String KEYSTORETYPE = "jks";
+    private static final String KEY_STORE_TYPE = "jks";
+    private static final String SIG_ALG_NAME = "SHA1withRSA";
+    
     
     private final File keyStoreFile;
     private final boolean trustAllServers;
@@ -72,12 +74,12 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 	private ConcurrentHashMap<String, SoftReference<SSLContext>> sslContextCache = new ConcurrentHashMap<>();
 
 	
-	// Add the BouncyCastle security provider if not available yet
-	static {
-		if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-			Security.addProvider(new BouncyCastleProvider());
-		}
-	}
+//	// Add the BouncyCastle security provider if not available yet
+//	static {
+//		if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+//			Security.addProvider(new BouncyCastleProvider());
+//		}
+//	}
 	   
     public SelfSignedSslEngineSource(String keyStorePath,
             boolean trustAllServers, boolean sendCerts) {
@@ -109,7 +111,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         return sslContext.createSSLEngine();
     }
     
-    public SSLEngine newSslEngine(SSLSession remoteServerSslSession) {
+    public SSLEngine clientSslEngineFor(SSLSession remoteServerSslSession) {
     	try{
 
     		String sslContextKey = remoteServerSslSession.getPeerHost() +":" + remoteServerSslSession.getPeerPort();
@@ -139,8 +141,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         		// The way we achieve that is really ugly, but there seems to be no
         		// other solution: We first sign the cert, then retrieve the
         		// outer sigalg and use it to set the inner sigalg
-        		String sigAlgName = "SHA1withRSA";
-        		newCert.sign(caPrivateKey, sigAlgName);
+        		newCert.sign(caPrivateKey, SIG_ALG_NAME);
         		AlgorithmId sigAlgid = (AlgorithmId)newCert.get(X509CertImpl.SIG_ALG);
         		remoteServerCertInfo.set(CertificateAlgorithmId.NAME + "." + CertificateAlgorithmId.ALGORITHM, sigAlgid);
 
@@ -159,10 +160,10 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 
         		// Sign the new certificate
         		newCert = new X509CertImpl(remoteServerCertInfo);
-        		newCert.sign(caPrivateKey, sigAlgName);
+        		newCert.sign(caPrivateKey, SIG_ALG_NAME);
 
 
-        		KeyStore serverKeyStore = KeyStore.getInstance(KEYSTORETYPE);
+        		KeyStore serverKeyStore = KeyStore.getInstance(KEY_STORE_TYPE);
         		serverKeyStore.load(null, PASSWORD.toCharArray());
 
         		serverKeyStore.setCertificateEntry(ALIAS, newCert);
@@ -195,7 +196,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     	 	// You may find it useful to work from the comment skeleton below.
             SSLContext dynamicSslContext = SSLContext.getInstance("SSL");
             final char[] keyStorePassword = PASSWORD.toCharArray();
-            final String keyStoreType = KEYSTORETYPE;
+            final String keyStoreType = KEY_STORE_TYPE;
             String alias = ALIAS;
 
             // Get our key pair and our own DN (not the remote server's DN) from the keystore.
