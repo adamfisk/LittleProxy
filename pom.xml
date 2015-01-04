@@ -178,7 +178,14 @@
       <version>1.2</version>
       <scope>test</scope>
     </dependency>
-    
+	
+	<!-- cryptography -->
+	<dependency>
+		<groupId>org.bouncycastle</groupId>
+		<artifactId>bcprov-jdk16</artifactId>
+		<version>1.46</version>
+	</dependency>
+	
 	<dependency>
 	      <groupId>iaik_jce</groupId>  
 	       <artifactId>iaik_jce</artifactId>  
