@@ -13,6 +13,7 @@ import java.security.PublicKey;
 import java.security.Security;
 import java.security.cert.Certificate;
 import java.util.Arrays;
+import java.util.Enumeration;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -35,7 +36,9 @@ import sun.security.x509.CertificateExtensions;
 import sun.security.x509.CertificateIssuerName;
 import sun.security.x509.CertificateSubjectName;
 import sun.security.x509.CertificateVersion;
+import sun.security.x509.Extension;
 import sun.security.x509.KeyIdentifier;
+import sun.security.x509.SubjectAlternativeNameExtension;
 import sun.security.x509.SubjectKeyIdentifierExtension;
 import sun.security.x509.X500Name;
 import sun.security.x509.X509CertImpl;
@@ -148,8 +151,10 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 
             SSLContext dynamicSslContext = SSLContext.getInstance("SSL");
             // Get our key pair and our own DN (not the remote server's DN) from the keystore.
-            PrivateKey caPrivateKey = (PrivateKey) keyStore.getKey(ALIAS, PASSWORD.toCharArray());
             X509CertImpl caCert = new X509CertImpl(keyStore.getCertificate(ALIAS).getEncoded());
+            PrivateKey caPrivateKey = (PrivateKey) keyStore.getKey(ALIAS, PASSWORD.toCharArray());
+            PublicKey caPublicKey = caCert.getPublicKey();
+           
             X509CertInfo caCertInfo = (X509CertInfo) caCert.get(X509CertImpl.NAME + "." + X509CertImpl.INFO);
             X500Name issuer = (X500Name) caCertInfo.get(X509CertInfo.SUBJECT + "." + CertificateIssuerName.DN_NAME);
             
@@ -171,8 +176,17 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
            remoteServerCertInfo.set(X509CertInfo.VERSION, new CertificateVersion(CertificateVersion.V3));
            
            CertificateExtensions extensions = (CertificateExtensions)remoteServerCertInfo.get(X509CertInfo.EXTENSIONS);
-           extensions.set(SubjectKeyIdentifierExtension.NAME, new SubjectKeyIdentifierExtension(new KeyIdentifier(caCert.getPublicKey()).getIdentifier()));
-           remoteServerCertInfo.set(X509CertInfo.EXTENSIONS, extensions);
+           Enumeration<Extension> elements = extensions.getElements();
+           CertificateExtensions newExtensions = new CertificateExtensions();
+           while(elements!=null && elements.hasMoreElements()){
+        	   Extension ext = elements.nextElement();
+        	   if(ext instanceof SubjectAlternativeNameExtension){
+        		   newExtensions.set(SubjectAlternativeNameExtension.NAME, ext);
+        	   }
+           }
+           
+           newExtensions.set(SubjectKeyIdentifierExtension.NAME, new SubjectKeyIdentifierExtension(new KeyIdentifier(caPublicKey).getIdentifier()));
+           remoteServerCertInfo.set(X509CertInfo.EXTENSIONS, newExtensions);
            
 //           List<String> v3ext = new ArrayList<>();
 //           CertificateExtensions ext = KeyTool.createV3Extensions(null,
