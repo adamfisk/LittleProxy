@@ -50,8 +50,7 @@ import sun.security.x509.X509CertInfo;
  * file doesn't yet exist.
  */
 public class SelfSignedSslEngineSource implements SslEngineSource {
-    private static final Logger LOG = LoggerFactory
-            .getLogger(SelfSignedSslEngineSource.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SelfSignedSslEngineSource.class);
 
     private static final String ALIAS = "littleproxy";
     private static final String PASSWORD = "Be Your Own Lantern";
@@ -68,7 +67,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 
 	private KeyStore keyStore;
 	
-	private ConcurrentHashMap<String, SoftReference<SSLContext>> sslContextCache = new ConcurrentHashMap<>();
+	static ConcurrentHashMap<String, SoftReference<SSLContext>> sslContextCache = new ConcurrentHashMap<>();
 	   
     public SelfSignedSslEngineSource(String keyStorePath,
             boolean trustAllServers, boolean sendCerts) {
