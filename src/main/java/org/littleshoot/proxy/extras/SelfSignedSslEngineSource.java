@@ -67,7 +67,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 
 	private KeyStore keyStore;
 	
-	static ConcurrentHashMap<String, SoftReference<SSLContext>> sslContextCache = new ConcurrentHashMap<>();
+	static ConcurrentHashMap<String, SoftReference<SSLContext>> sslContextCache = new ConcurrentHashMap<String, SoftReference<SSLContext>>();
 	   
     public SelfSignedSslEngineSource(String keyStorePath,
             boolean trustAllServers, boolean sendCerts) {
