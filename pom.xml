@@ -178,22 +178,7 @@
       <version>1.2</version>
       <scope>test</scope>
     </dependency>
-	
-	<!-- cryptography
-	<dependency>
-		<groupId>org.bouncycastle</groupId>
-		<artifactId>bcprov-jdk16</artifactId>
-		<version>1.46</version>
-	</dependency>
-	<dependency>
-	      <groupId>iaik_jce</groupId>  
-	       <artifactId>iaik_jce</artifactId>  
-	       <version>1.0</version> 
-	      <scope>system</scope>
-		  <systemPath>${project.basedir}/lib/iaik_jce.jar</systemPath>
-	</dependency>
-	-->
-	
+
   </dependencies>
 
   <prerequisites>
@@ -364,8 +349,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.1</version>
         <configuration>
-          <source>1.7</source>
-          <target>1.7</target>
+          <source>1.6</source>
+          <target>1.6</target>
           <encoding>UTF-8</encoding>
           <!-- The following force compilation with full warnings. -->
           <!--
@@ -538,7 +523,7 @@
         <version>2.9.1</version>
         <configuration>
           <show>private</show>
-          <source>1.7</source>
+          <source>1.6</source>
           <links>
             <link>http://netty.io/4.0/api/</link>
           </links>

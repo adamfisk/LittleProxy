@@ -193,7 +193,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 
         nativeCall("keytool", "-exportcert", "-alias", ALIAS, "-keystore",
                 keyStoreFile.getName(), "-storepass", PASSWORD, "-file",
-                "littleproxy_cert");
+                "littleproxy.cer");
     }
 
     private void initializeSSLContext() {
