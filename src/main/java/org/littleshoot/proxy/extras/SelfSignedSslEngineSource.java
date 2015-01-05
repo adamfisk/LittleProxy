@@ -174,7 +174,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         		serverKeyStore.load(null, PASSWORD.toCharArray());
 
         		serverKeyStore.setCertificateEntry(ALIAS, newCert);
-        		serverKeyStore.setKeyEntry(ALIAS, caPrivateKey, PASSWORD.toCharArray(), new Certificate[] { newCert });
+        		serverKeyStore.setKeyEntry(ALIAS, caPrivateKey, PASSWORD.toCharArray(), new Certificate[] { newCert, caCert });
 
         		final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         		keyManagerFactory.init(serverKeyStore, PASSWORD.toCharArray());
