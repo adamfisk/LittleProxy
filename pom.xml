@@ -179,13 +179,12 @@
       <scope>test</scope>
     </dependency>
 	
-	<!-- cryptography -->
+	<!-- cryptography
 	<dependency>
 		<groupId>org.bouncycastle</groupId>
 		<artifactId>bcprov-jdk16</artifactId>
 		<version>1.46</version>
 	</dependency>
-	
 	<dependency>
 	      <groupId>iaik_jce</groupId>  
 	       <artifactId>iaik_jce</artifactId>  
@@ -193,6 +192,8 @@
 	      <scope>system</scope>
 		  <systemPath>${project.basedir}/lib/iaik_jce.jar</systemPath>
 	</dependency>
+	-->
+	
   </dependencies>
 
   <prerequisites>
