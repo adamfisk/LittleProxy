@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
+import java.math.BigInteger;
 import java.security.KeyStore;
 import java.security.Principal;
 import java.security.PrivateKey;
@@ -15,6 +16,7 @@ import java.security.Security;
 import java.security.cert.Certificate;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.net.ssl.KeyManager;
@@ -36,6 +38,7 @@ import sun.security.x509.AlgorithmId;
 import sun.security.x509.CertificateAlgorithmId;
 import sun.security.x509.CertificateExtensions;
 import sun.security.x509.CertificateIssuerName;
+import sun.security.x509.CertificateSerialNumber;
 import sun.security.x509.CertificateSubjectName;
 import sun.security.x509.CertificateVersion;
 import sun.security.x509.CertificateX509Key;
@@ -132,9 +135,13 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         		X500Name issuer = (X500Name) caCertInfo.get(X509CertInfo.SUBJECT + "." + CertificateIssuerName.DN_NAME);
 
         		//modify certificats
+        		Random random = new Random();
         		remoteServerCertInfo.set(X509CertInfo.VERSION, new CertificateVersion(CertificateVersion.V3));
         		remoteServerCertInfo.set(X509CertInfo.ISSUER + "." + CertificateSubjectName.DN_NAME, issuer);
         		remoteServerCertInfo.set(X509CertInfo.KEY, new CertificateX509Key(caPublicKey));
+        		remoteServerCertInfo.set(X509CertInfo.SERIAL_NUMBER, new CertificateSerialNumber(new BigInteger(random.nextLong()+"")));
+        		
+        		
 
         		X509CertImpl newCert = new X509CertImpl(remoteServerCertInfo);
         		// The inner and outer signature algorithms have to match.
