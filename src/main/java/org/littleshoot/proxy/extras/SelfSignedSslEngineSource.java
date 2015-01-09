@@ -4,24 +4,45 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.SoftReference;
+import java.math.BigInteger;
 import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.Security;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
+import java.security.cert.Certificate;
 import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
+import javax.security.cert.X509Certificate;
 
 import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.SslEngineSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import sun.security.x509.AlgorithmId;
+import sun.security.x509.CertificateAlgorithmId;
+import sun.security.x509.CertificateExtensions;
+import sun.security.x509.CertificateIssuerName;
+import sun.security.x509.CertificateSerialNumber;
+import sun.security.x509.CertificateSubjectName;
+import sun.security.x509.CertificateVersion;
+import sun.security.x509.CertificateX509Key;
+import sun.security.x509.Extension;
+import sun.security.x509.SubjectAlternativeNameExtension;
+import sun.security.x509.X500Name;
+import sun.security.x509.X509CertImpl;
+import sun.security.x509.X509CertInfo;
 
 /**
  * Basic {@link SslEngineSource} for testing. The {@link SSLContext} uses
@@ -29,18 +50,25 @@ import org.slf4j.LoggerFactory;
  * file doesn't yet exist.
  */
 public class SelfSignedSslEngineSource implements SslEngineSource {
-    private static final Logger LOG = LoggerFactory
-            .getLogger(SelfSignedSslEngineSource.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SelfSignedSslEngineSource.class);
 
     private static final String ALIAS = "littleproxy";
     private static final String PASSWORD = "Be Your Own Lantern";
     private static final String PROTOCOL = "TLS";
+    private static final String KEY_STORE_TYPE = "jks";
+    private static final String SIG_ALG_NAME = "SHA256withRSA";
+    
+    
     private final File keyStoreFile;
     private final boolean trustAllServers;
     private final boolean sendCerts;
 
     private SSLContext sslContext;
 
+	private KeyStore keyStore;
+	
+	static ConcurrentHashMap<String, SoftReference<SSLContext>> sslContextCache = new ConcurrentHashMap<String, SoftReference<SSLContext>>();
+	   
     public SelfSignedSslEngineSource(String keyStorePath,
             boolean trustAllServers, boolean sendCerts) {
         this.trustAllServers = trustAllServers;
@@ -70,6 +98,83 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     public SSLEngine newSslEngine() {
         return sslContext.createSSLEngine();
     }
+    
+    public SSLEngine clientSslEngineFor(SSLSession remoteServerSslSession) {
+    	try{
+
+    		String sslContextKey = remoteServerSslSession.getPeerHost() +":" + remoteServerSslSession.getPeerPort();
+    		SSLContext newSslContext = null;
+    		if(!sslContextCache.contains(sslContextKey) || (newSslContext = sslContextCache.get(sslContextKey).get()) == null ){
+    			
+    			X509Certificate[] remoteServerCertChain = remoteServerSslSession.getPeerCertificateChain();
+        		X509CertImpl remoteServerCert = new X509CertImpl(remoteServerCertChain[0].getEncoded());
+        		X509CertInfo remoteServerCertInfo = (X509CertInfo) remoteServerCert.get(X509CertImpl.NAME + "." + X509CertImpl.INFO);
+
+        		newSslContext = SSLContext.getInstance("SSL");
+        		// Get our key pair and our own DN (not the remote server's DN) from the keystore.
+        		X509CertImpl caCert = new X509CertImpl(keyStore.getCertificate(ALIAS).getEncoded());
+        		PrivateKey caPrivateKey = (PrivateKey) keyStore.getKey(ALIAS, PASSWORD.toCharArray());
+        		PublicKey caPublicKey = caCert.getPublicKey();
+
+        		X509CertInfo caCertInfo = (X509CertInfo) caCert.get(X509CertImpl.NAME + "." + X509CertImpl.INFO);
+        		X500Name issuer = (X500Name) caCertInfo.get(X509CertInfo.SUBJECT + "." + CertificateIssuerName.DN_NAME);
+
+        		//modify certificats
+        		Random random = new Random();
+        		remoteServerCertInfo.set(X509CertInfo.VERSION, new CertificateVersion(CertificateVersion.V3));
+        		remoteServerCertInfo.set(X509CertInfo.ISSUER + "." + CertificateSubjectName.DN_NAME, issuer);
+        		remoteServerCertInfo.set(X509CertInfo.KEY, new CertificateX509Key(caPublicKey));
+        		remoteServerCertInfo.set(X509CertInfo.SERIAL_NUMBER, new CertificateSerialNumber(new BigInteger(random.nextLong()+"")));
+        		
+        		
+
+        		X509CertImpl newCert = new X509CertImpl(remoteServerCertInfo);
+        		// The inner and outer signature algorithms have to match.
+        		// The way we achieve that is really ugly, but there seems to be no
+        		// other solution: We first sign the cert, then retrieve the
+        		// outer sigalg and use it to set the inner sigalg
+        		newCert.sign(caPrivateKey, SIG_ALG_NAME);
+        		AlgorithmId sigAlgid = (AlgorithmId)newCert.get(X509CertImpl.SIG_ALG);
+        		remoteServerCertInfo.set(CertificateAlgorithmId.NAME + "." + CertificateAlgorithmId.ALGORITHM, sigAlgid);
+
+        		CertificateExtensions extensions = (CertificateExtensions)remoteServerCertInfo.get(X509CertInfo.EXTENSIONS);
+        		Enumeration<Extension> elements = extensions.getElements();
+        		CertificateExtensions newExtensions = new CertificateExtensions();
+        		while(elements!=null && elements.hasMoreElements()){
+        			Extension ext = elements.nextElement();
+        			if(ext instanceof SubjectAlternativeNameExtension){
+        				newExtensions.set(SubjectAlternativeNameExtension.NAME, ext);
+        			}
+        		}
+
+        		//newExtensions.set(SubjectKeyIdentifierExtension.NAME, new SubjectKeyIdentifierExtension(new KeyIdentifier(caPublicKey).getIdentifier()));
+        		remoteServerCertInfo.set(X509CertInfo.EXTENSIONS, newExtensions);
+
+        		// Sign the new certificate
+        		newCert = new X509CertImpl(remoteServerCertInfo);
+        		newCert.sign(caPrivateKey, SIG_ALG_NAME);
+
+
+        		KeyStore serverKeyStore = KeyStore.getInstance(KEY_STORE_TYPE);
+        		serverKeyStore.load(null, PASSWORD.toCharArray());
+
+        		serverKeyStore.setCertificateEntry(ALIAS, newCert);
+        		serverKeyStore.setKeyEntry(ALIAS, caPrivateKey, PASSWORD.toCharArray(), new Certificate[] { newCert, caCert });
+
+        		final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        		keyManagerFactory.init(serverKeyStore, PASSWORD.toCharArray());
+
+        		newSslContext.init(keyManagerFactory.getKeyManagers(), new TrustManager[] { new TrustEveryone() }, null);
+        		
+        		sslContextCache.put(sslContextKey, new SoftReference<SSLContext>(newSslContext));
+    		}
+    		
+    		return newSslContext.createSSLEngine();
+            
+    	}catch(Exception e){
+    		throw new RuntimeException("newSslEngine", e);
+    	}
+    }
 
     public SSLContext getSslContext() {
         return sslContext;
@@ -88,55 +193,34 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 
         nativeCall("keytool", "-exportcert", "-alias", ALIAS, "-keystore",
                 keyStoreFile.getName(), "-storepass", PASSWORD, "-file",
-                "littleproxy_cert");
+                "littleproxy.cer");
     }
 
     private void initializeSSLContext() {
-        String algorithm = Security
-                .getProperty("ssl.KeyManagerFactory.algorithm");
+        String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
         if (algorithm == null) {
             algorithm = "SunX509";
         }
 
         try {
-            final KeyStore ks = KeyStore.getInstance("JKS");
+            this.keyStore = KeyStore.getInstance("JKS");
             // ks.load(new FileInputStream("keystore.jks"),
             // "changeit".toCharArray());
-            ks.load(new FileInputStream(keyStoreFile), PASSWORD.toCharArray());
+            keyStore.load(new FileInputStream(keyStoreFile), PASSWORD.toCharArray());
 
             // Set up key manager factory to use our key store
-            final KeyManagerFactory kmf =
-                    KeyManagerFactory.getInstance(algorithm);
-            kmf.init(ks, PASSWORD.toCharArray());
+            final KeyManagerFactory kmf = KeyManagerFactory.getInstance(algorithm);
+            kmf.init(keyStore, PASSWORD.toCharArray());
 
             // Set up a trust manager factory to use our key store
-            TrustManagerFactory tmf = TrustManagerFactory
-                    .getInstance(algorithm);
-            tmf.init(ks);
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(algorithm);
+            tmf.init(keyStore);
 
             TrustManager[] trustManagers = null;
             if (!trustAllServers) {
                 trustManagers = tmf.getTrustManagers();
             } else {
-                trustManagers = new TrustManager[] { new X509TrustManager() {
-                    // TrustManager that trusts all servers
-                    @Override
-                    public void checkClientTrusted(X509Certificate[] arg0,
-                            String arg1)
-                            throws CertificateException {
-                    }
-
-                    @Override
-                    public void checkServerTrusted(X509Certificate[] arg0,
-                            String arg1)
-                            throws CertificateException {
-                    }
-
-                    @Override
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return null;
-                    }
-                } };
+                trustManagers = new TrustManager[] {new TrustEveryone()};
             }
             
             KeyManager[] keyManagers = null;
@@ -150,8 +234,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             sslContext = SSLContext.getInstance(PROTOCOL);
             sslContext.init(keyManagers, trustManagers, null);
         } catch (final Exception e) {
-            throw new Error(
-                    "Failed to initialize the server-side SSLContext", e);
+            throw new Error("Failed to initialize the server-side SSLContext", e);
         }
     }
 
@@ -170,5 +253,23 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             return "";
         }
     }
+    
+    
+	/**
+	 * We're carrying out a MITM attack, we don't care whether the cert chains
+	 * are trusted or not ;-)
+	 * 
+	 */
+	private static class TrustEveryone implements javax.net.ssl.X509TrustManager {
+		public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authenticationType) {
+		}
+
+		public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authenticationType) {
+		}
+
+		public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+			return null;
+		}
+	}
 
 }
