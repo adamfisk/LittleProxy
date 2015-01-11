@@ -339,6 +339,40 @@ public class HttpFilterTest {
     }
 
     @Test
+    public void testResolutionStartedFilterReturnsUnresolvedAddress() throws Exception {
+        final AtomicBoolean resolutionSucceeded = new AtomicBoolean(false);
+
+        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                return new HttpFiltersAdapter(originalRequest) {
+                    @Override
+                    public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
+                        return InetSocketAddress.createUnresolved("localhost", WEB_SERVER_PORT);
+                    }
+
+                    @Override
+                    public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
+                        assertFalse("expected to receive a resolved InetSocketAddress", resolvedRemoteAddress.isUnresolved());
+                        resolutionSucceeded.set(true);
+                    }
+                };
+            }
+        };
+
+        final HttpProxyServer server = DefaultHttpProxyServer.bootstrap()
+                .withPort(PROXY_PORT)
+                .withFiltersSource(filtersSource)
+                .start();
+
+        getResponse("http://localhost:" + WEB_SERVER_PORT + "/");
+
+        assertTrue("proxyToServerResolutionSucceeded method was not called", resolutionSucceeded.get());
+
+        server.stop();
+    }
+
+    @Test
     public void testRequestSentInvokedAfterLastHttpContentSent() throws Exception {
         final AtomicBoolean lastHttpContentProcessed = new AtomicBoolean(false);
         final AtomicBoolean requestSentCallbackInvoked = new AtomicBoolean(false);
