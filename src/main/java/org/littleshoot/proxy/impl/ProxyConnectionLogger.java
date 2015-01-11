@@ -128,8 +128,13 @@ class ProxyConnectionLogger {
             final Object[] paramsWithThrowable;
 
             if (t != null) {
-                paramsWithThrowable = Arrays.copyOf(params,  params.length + 1);
-                paramsWithThrowable[params.length] = t;
+                if (params == null) {
+                    paramsWithThrowable = new Object[1];
+                    paramsWithThrowable[0] = t;
+                } else {
+                    paramsWithThrowable = Arrays.copyOf(params, params.length + 1);
+                    paramsWithThrowable[params.length] = t;
+                }
             }
             else {
                 paramsWithThrowable = params;

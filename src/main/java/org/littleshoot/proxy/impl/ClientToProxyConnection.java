@@ -4,13 +4,30 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.DefaultFullHttpRequest;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpRequestDecoder;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseEncoder;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
-import org.littleshoot.proxy.*;
+import org.littleshoot.proxy.ActivityTracker;
+import org.littleshoot.proxy.FlowContext;
+import org.littleshoot.proxy.FullFlowContext;
+import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.ProxyAuthenticator;
+import org.littleshoot.proxy.SslEngineSource;
 
 import javax.net.ssl.SSLSession;
 import java.io.UnsupportedEncodingException;
@@ -18,12 +35,20 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.littleshoot.proxy.impl.ConnectionState.*;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_PROXY_AUTHENTICATION;
+import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECT_REQUESTED;
+import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
 
 /**
  * <p>
@@ -101,11 +126,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     private AtomicBoolean authenticated = new AtomicBoolean();
 
+    private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
+
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
             SslEngineSource sslEngineSource,
             boolean authenticateClients,
-            ChannelPipeline pipeline) {
+            ChannelPipeline pipeline,
+            GlobalTrafficShapingHandler globalTrafficShapingHandler) {
         super(AWAITING_INITIAL, proxyServer, false);
 
         initChannelPipeline(pipeline);
@@ -128,6 +156,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                                 }
                             });
         }
+        this.globalTrafficShapingHandler = globalTrafficShapingHandler;
 
         LOG.debug("Created ClientToProxyConnection");
     }
@@ -217,7 +246,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         this,
                         serverHostAndPort,
                         currentFilters,
-                        httpRequest);
+                        httpRequest,
+                        globalTrafficShapingHandler);
                 if (currentServerConnection == null) {
                     LOG.debug("Unable to create server connection, probably no chained proxies available");
                     writeBadGateway(httpRequest);

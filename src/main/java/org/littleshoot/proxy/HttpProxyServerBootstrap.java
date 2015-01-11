@@ -285,6 +285,16 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * <p>
+     * Specify the read and/or write bandwidth throttles for this proxy server. 0 indicates not throttling.
+     * </p>
+     * @param readThrottleBytesPerSecond
+     * @param writeThrottleBytesPerSecond
+     * @return
+     */
+    HttpProxyServerBootstrap withThrottling(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
+
+    /**
+     * <p>
      * Build and starts the server.
      * </p>
      * 
