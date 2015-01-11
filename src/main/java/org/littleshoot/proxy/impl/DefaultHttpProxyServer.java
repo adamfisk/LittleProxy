@@ -1,6 +1,8 @@
 package org.littleshoot.proxy.impl;
 
 import static org.littleshoot.proxy.TransportProtocol.*;
+
+import com.google.common.base.Optional;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -105,6 +107,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     * The actual address to which the server is bound. May be different from the requestedAddress in some circumstances,
     * for example when the requested port is 0.
     */
+    private volatile InetSocketAddress localAddress;
     private volatile InetSocketAddress boundAddress;
     private final SslEngineSource sslEngineSource;
     private final boolean authenticateSslClients;
@@ -217,7 +220,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             int connectTimeout,
             HostResolver serverResolver,
             long readThrottleBytesPerSecond,
-            long writeThrottleBytesPerSecond) {
+            long writeThrottleBytesPerSecond,
+            InetSocketAddress localAddress) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.requestedAddress = requestedAddress;
@@ -240,6 +244,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         } else {
             this.globalTrafficShapingHandler = null;
         }
+        this.localAddress = localAddress;
     }
 
     /**
@@ -278,6 +283,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     public HostResolver getServerResolver() {
         return serverResolver;
+    }
+
+    public InetSocketAddress getLocalAddress() {
+        return localAddress;
     }
 
     @Override
@@ -322,7 +331,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     connectTimeout,
                     serverResolver,
                     globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getReadLimit() : 0,
-                    globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getWriteLimit() : 0);
+                    globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getWriteLimit() : 0,
+                    localAddress);
     }
 
     @Override
@@ -632,6 +642,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private HostResolver serverResolver = new DefaultHostResolver();
         private long readThrottleBytesPerSecond;
         private long writeThrottleBytesPerSecond;
+        private InetSocketAddress localAddress;
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -649,7 +660,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 boolean transparent, int idleConnectionTimeout,
                 Collection<ActivityTracker> activityTrackers,
                 int connectTimeout, HostResolver serverResolver,
-                long readThrottleBytesPerSecond, long  writeThrottleBytesPerSecond) {
+                long readThrottleBytesPerSecond,
+                long  writeThrottleBytesPerSecond,
+                InetSocketAddress localAddress) {
             this.original = original;
             this.transportProtocol = transportProtocol;
             this.requestedAddress = requestedAddress;
@@ -668,6 +681,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.serverResolver = serverResolver;
             this.readThrottleBytesPerSecond = readThrottleBytesPerSecond;
             this.writeThrottleBytesPerSecond = writeThrottleBytesPerSecond;
+            this.localAddress = localAddress;
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
@@ -704,6 +718,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         public HttpProxyServerBootstrap withPort(int port) {
             this.requestedAddress = null;
             this.port = port;
+            return this;
+        }
+
+        @Override
+        public HttpProxyServerBootstrap useNetworkInterface(InetSocketAddress inetSocketAddress) {
+            this.localAddress = inetSocketAddress;
             return this;
         }
 
@@ -844,7 +864,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     proxyAuthenticator, chainProxyManager, mitmManager,
                     filtersSource, transparent,
                     idleConnectionTimeout, activityTrackers, connectTimeout,
-                    serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond);
+                    serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond,
+                    localAddress);
         }
 
         private InetSocketAddress determineListenAddress() {
