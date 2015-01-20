@@ -672,7 +672,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             return clientConnection
                     .encrypt(proxyServer.getMitmManager()
-                            .clientSslEngineFor(sslEngine.getSession()), false)
+                            .clientSslEngineFor(sslEngine.getSession(), serverHostAndPort), false)
                     .addListener(
                             new GenericFutureListener<Future<? super Channel>>() {
                                 @Override
