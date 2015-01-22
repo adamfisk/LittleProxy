@@ -777,7 +777,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 8192 * 2));
         pipeline.addLast("responseReadMonitor", responseReadMonitor);
 
-        if (!ProxyUtils.isCONNECT(httpRequest)) {
+        if (proxyServer.getMitmManager() != null
+                || !ProxyUtils.isCONNECT(httpRequest)) {
             // Enable aggregation for filtering if necessary
             int numberOfBytesToBuffer = proxyServer.getFiltersSource()
                     .getMaximumResponseBufferSizeInBytes();
