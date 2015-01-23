@@ -16,6 +16,7 @@ import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
+import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
 import java.io.File;
@@ -80,6 +81,12 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
 
+    /**
+     * The interval in ms at which the GlobalTrafficShapingHandler will run to compute and throttle the
+     * proxy-to-server bandwidth.
+     */
+    private static final long TRAFFIC_SHAPING_CHECK_INTERVAL_MS = 250L;
+
     private static final Logger LOG = LoggerFactory
             .getLogger(DefaultHttpProxyServer.class);
 
@@ -90,7 +97,15 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ServerGroup serverGroup;
 
     private final TransportProtocol transportProtocol;
-    private final InetSocketAddress address;
+    /*
+    * The address that the server will attempt to bind to.
+    */
+    private final InetSocketAddress requestedAddress;
+    /*
+    * The actual address to which the server is bound. May be different from the requestedAddress in some circumstances,
+    * for example when the requested port is 0.
+    */
+    private volatile InetSocketAddress boundAddress;
     private final SslEngineSource sslEngineSource;
     private final boolean authenticateSslClients;
     private final ProxyAuthenticator proxyAuthenticator;
@@ -101,6 +116,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final int connectTimeout;
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
+    private volatile GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
     /**
      * Track all ActivityTrackers for tracking proxying activity.
@@ -149,7 +165,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            our ServerGroup for shared thread pools and such
      * @param transportProtocol
      *            The protocol to use for data transport
-     * @param address
+     * @param requestedAddress
      *            The address on which this server will listen
      * @param sslEngineSource
      *            (optional) if specified, this Proxy will encrypt inbound
@@ -181,10 +197,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            server
      * @param serverResolver
      *            the {@link HostResolver} to use for resolving server addresses
+     * @param readThrottleBytesPerSecond
+     *            read throttle bandwidth
+     * @param writeThrottleBytesPerSecond
+     *            write throttle bandwidth
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
-            InetSocketAddress address,
+            InetSocketAddress requestedAddress,
             SslEngineSource sslEngineSource,
             boolean authenticateSslClients,
             ProxyAuthenticator proxyAuthenticator,
@@ -195,10 +215,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers,
             int connectTimeout,
-            HostResolver serverResolver) {
+            HostResolver serverResolver,
+            long readThrottleBytesPerSecond,
+            long writeThrottleBytesPerSecond) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
-        this.address = address;
+        this.requestedAddress = requestedAddress;
         this.sslEngineSource = sslEngineSource;
         this.authenticateSslClients = authenticateSslClients;
         this.proxyAuthenticator = proxyAuthenticator;
@@ -212,6 +234,30 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
         this.connectTimeout = connectTimeout;
         this.serverResolver = serverResolver;
+
+        if (writeThrottleBytesPerSecond > 0 || readThrottleBytesPerSecond > 0) {
+            this.globalTrafficShapingHandler = createGlobalTrafficShapingHandler(transportProtocol, readThrottleBytesPerSecond, writeThrottleBytesPerSecond);
+        } else {
+            this.globalTrafficShapingHandler = null;
+        }
+    }
+
+    /**
+     * Creates a new GlobalTrafficShapingHandler for this HttpProxyServer, using this proxy's proxyToServerEventLoop.
+     *
+     * @param transportProtocol
+     * @param readThrottleBytesPerSecond
+     * @param writeThrottleBytesPerSecond
+     *
+     * @return
+     */
+    private GlobalTrafficShapingHandler createGlobalTrafficShapingHandler(TransportProtocol transportProtocol, long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
+        EventLoopGroup proxyToServerEventLoop = this.getProxyToServerWorkerFor(transportProtocol);
+        return new GlobalTrafficShapingHandler(proxyToServerEventLoop,
+                writeThrottleBytesPerSecond,
+                readThrottleBytesPerSecond,
+                TRAFFIC_SHAPING_CHECK_INTERVAL_MS,
+                Long.MAX_VALUE);
     }
 
     boolean isTransparent() {
@@ -236,19 +282,47 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     @Override
     public InetSocketAddress getListenAddress() {
-        return address;
+        return boundAddress;
+    }
+
+    @Override
+    public void setThrottle(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
+        if (globalTrafficShapingHandler != null) {
+            globalTrafficShapingHandler.configure(writeThrottleBytesPerSecond, readThrottleBytesPerSecond);
+        } else {
+            // don't create a GlobalTrafficShapingHandler if throttling was not enabled and is still not enabled
+            if (readThrottleBytesPerSecond > 0 || writeThrottleBytesPerSecond > 0) {
+                globalTrafficShapingHandler = createGlobalTrafficShapingHandler(transportProtocol, readThrottleBytesPerSecond, writeThrottleBytesPerSecond);
+            }
+        }
+    }
+
+    public long getReadThrottle() {
+        return globalTrafficShapingHandler.getReadLimit();
+    }
+
+    public long getWriteThrottle() {
+        return globalTrafficShapingHandler.getWriteLimit();
     }
 
     @Override
     public HttpProxyServerBootstrap clone() {
         return new DefaultHttpProxyServerBootstrap(this, transportProtocol,
-                new InetSocketAddress(address.getAddress(),
-                        address.getPort() + 1),
-                sslEngineSource, authenticateSslClients, proxyAuthenticator,
-                chainProxyManager,
-                mitmManager, filtersSource, transparent,
-                idleConnectionTimeout, activityTrackers, connectTimeout,
-                serverResolver);
+                new InetSocketAddress(requestedAddress.getAddress(),
+                        requestedAddress.getPort() == 0 ? 0 : requestedAddress.getPort() + 1),
+                    sslEngineSource,
+                    authenticateSslClients,
+                    proxyAuthenticator,
+                    chainProxyManager,
+                    mitmManager,
+                    filtersSource,
+                    transparent,
+                    idleConnectionTimeout,
+                    activityTrackers,
+                    connectTimeout,
+                    serverResolver,
+                    globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getReadLimit() : 0,
+                    globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getWriteLimit() : 0);
     }
 
     @Override
@@ -257,7 +331,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     private HttpProxyServer start() {
-        LOG.info("Starting proxy at address: " + this.address);
+        LOG.info("Starting proxy at address: " + this.requestedAddress);
 
         synchronized (serverGroup) {
             if (!serverGroup.stopped) {
@@ -282,7 +356,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         DefaultHttpProxyServer.this,
                         sslEngineSource,
                         authenticateSslClients,
-                        ch.pipeline());
+                        ch.pipeline(),
+                        globalTrafficShapingHandler);
             };
         };
         switch (transportProtocol) {
@@ -305,7 +380,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             throw new UnknownTransportProtocolError(transportProtocol);
         }
         serverBootstrap.childHandler(initializer);
-        ChannelFuture future = serverBootstrap.bind(address)
+        ChannelFuture future = serverBootstrap.bind(requestedAddress)
                 .addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future)
@@ -315,10 +390,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                         }
                     }
                 }).awaitUninterruptibly();
+
         Throwable cause = future.cause();
         if (cause != null) {
             throw new RuntimeException(cause);
         }
+
+        this.boundAddress = ((InetSocketAddress) future.channel().localAddress());
+        LOG.info("Proxy started at address: " + this.boundAddress);
     }
 
     /**
@@ -535,7 +614,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HttpProxyServerBootstrap {
         private String name = "LittleProxy";
         private TransportProtocol transportProtocol = TCP;
-        private InetSocketAddress address;
+        private InetSocketAddress requestedAddress;
         private int port = 8080;
         private boolean allowLocalOnly = true;
         private boolean listenOnAllAddresses = true;
@@ -551,6 +630,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
         private int connectTimeout = 40000;
         private HostResolver serverResolver = new DefaultHostResolver();
+        private long readThrottleBytesPerSecond;
+        private long writeThrottleBytesPerSecond;
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -558,7 +639,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private DefaultHttpProxyServerBootstrap(
                 DefaultHttpProxyServer original,
                 TransportProtocol transportProtocol,
-                InetSocketAddress address,
+                InetSocketAddress requestedAddress,
                 SslEngineSource sslEngineSource,
                 boolean authenticateSslClients,
                 ProxyAuthenticator proxyAuthenticator,
@@ -567,11 +648,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 HttpFiltersSource filtersSource,
                 boolean transparent, int idleConnectionTimeout,
                 Collection<ActivityTracker> activityTrackers,
-                int connectTimeout, HostResolver serverResolver) {
+                int connectTimeout, HostResolver serverResolver,
+                long readThrottleBytesPerSecond, long  writeThrottleBytesPerSecond) {
             this.original = original;
             this.transportProtocol = transportProtocol;
-            this.address = address;
-            this.port = address.getPort();
+            this.requestedAddress = requestedAddress;
+            this.port = requestedAddress.getPort();
             this.sslEngineSource = sslEngineSource;
             this.authenticateSslClients = authenticateSslClients;
             this.proxyAuthenticator = proxyAuthenticator;
@@ -585,6 +667,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             }
             this.connectTimeout = connectTimeout;
             this.serverResolver = serverResolver;
+            this.readThrottleBytesPerSecond = readThrottleBytesPerSecond;
+            this.writeThrottleBytesPerSecond = writeThrottleBytesPerSecond;
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
@@ -613,13 +697,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         @Override
         public HttpProxyServerBootstrap withAddress(InetSocketAddress address) {
-            this.address = address;
+            this.requestedAddress = address;
             return this;
         }
 
         @Override
         public HttpProxyServerBootstrap withPort(int port) {
-            this.address = null;
+            this.requestedAddress = null;
             this.port = port;
             return this;
         }
@@ -734,6 +818,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withThrottling(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
+            this.readThrottleBytesPerSecond = readThrottleBytesPerSecond;
+            this.writeThrottleBytesPerSecond = writeThrottleBytesPerSecond;
+            return this;
+        }
+
+        @Override
         public HttpProxyServer start() {
             return build().start();
         }
@@ -754,12 +845,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     proxyAuthenticator, chainProxyManager, mitmManager,
                     filtersSource, transparent,
                     idleConnectionTimeout, activityTrackers, connectTimeout,
-                    serverResolver);
+                    serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond);
         }
 
         private InetSocketAddress determineListenAddress() {
-            if (address != null) {
-                return address;
+            if (requestedAddress != null) {
+                return requestedAddress;
             } else {
                 // Binding only to localhost can significantly improve the
                 // security of the proxy.

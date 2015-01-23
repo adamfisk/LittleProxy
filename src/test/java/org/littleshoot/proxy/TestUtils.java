@@ -55,6 +55,20 @@ public class TestUtils {
     }
 
     /**
+     * Creates and starts embedded web server that is running on given port.
+     * Each response has a body that contains the specified contents.
+     *
+     * @param port
+     *            The port
+     * @return Instance of Server
+     * @throws Exception
+     *             if failed to start
+     */
+    public static Server startWebServerWithResponse(final int port, byte[] content) throws Exception {
+        return startWebServerWithResponse(port, null, content);
+    }
+
+    /**
      * Creates and starts embedded web server that is running on given port,
      * including an SSL connector on the other given port. Each response has a
      * body that indicates how many bytes were received with a message like
@@ -118,6 +132,83 @@ public class TestUtils {
              * StackOverflow thread</a> has some insights into it, but I don't
              * quite get it.</p>
              * 
+             * <p>This can cause problems with Jetty's SSL handshaking, so I
+             * have to set the handshake timeout and the maxIdleTime to 0 so
+             * that the SSLSocket has an infinite timeout.</p>
+             */
+            connector.setHandshakeTimeout(0);
+            connector.setMaxIdleTime(0);
+            httpServer.addConnector(connector);
+        }
+        httpServer.start();
+        return httpServer;
+    }
+
+    /**
+     * Creates and starts embedded web server that is running on given port,
+     * including an SSL connector on the other given port. Each response has a
+     * body that contains the specified contents.
+     *
+     * @param port
+     *            The port
+     * @param sslPort
+     *            (optional) The ssl port
+     * @param content
+     *            The response the server will return
+     * @return Instance of Server
+     * @throws Exception
+     *             if failed to start
+     */
+    public static Server startWebServerWithResponse(final int port, final Integer sslPort, final byte[] content)
+            throws Exception {
+        final Server httpServer = new Server(port);
+        httpServer.setHandler(new AbstractHandler() {
+            public void handle(String target, Request baseRequest,
+                               HttpServletRequest request, HttpServletResponse response)
+                    throws IOException, ServletException {
+                if (request.getRequestURI().contains("hang")) {
+                    System.out.println("Hanging as requested");
+                    try {
+                        Thread.sleep(90000);
+                    } catch (InterruptedException ie) {
+                        System.out.println("Stopped hanging due to interruption");
+                    }
+                }
+
+                long numberOfBytesRead = 0;
+                InputStream in = new BufferedInputStream(request
+                        .getInputStream());
+                while (in.read() != -1) {
+                    numberOfBytesRead += 1;
+                }
+                System.out.println("Done reading # of bytes: "
+                        + numberOfBytesRead);
+                response.setStatus(HttpServletResponse.SC_OK);
+                baseRequest.setHandled(true);
+
+                response.addHeader("Content-Length", Integer.toString(content.length));
+                response.getOutputStream().write(content);
+            }
+        });
+        if (sslPort != null) {
+            // Add SSL connector
+            org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
+
+            SelfSignedSslEngineSource contextSource = new SelfSignedSslEngineSource();
+            SSLContext sslContext = contextSource.getSslContext();
+
+            sslContextFactory.setSslContext(sslContext);
+            SslSocketConnector connector = new SslSocketConnector(
+                    sslContextFactory);
+            connector.setPort(sslPort);
+            /*
+             * <p>Ox: For some reason, on OS X, a non-zero timeout can causes
+             * sporadic issues. <a href="http://stackoverflow.com/questions
+             * /16191236/tomcat-startup-fails
+             * -due-to-java-net-socketexception-invalid-argument-on-mac-o">This
+             * StackOverflow thread</a> has some insights into it, but I don't
+             * quite get it.</p>
+             *
              * <p>This can cause problems with Jetty's SSL handshaking, so I
              * have to set the handshake timeout and the maxIdleTime to 0 so
              * that the SSLSocket has an infinite timeout.</p>
