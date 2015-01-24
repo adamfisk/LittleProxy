@@ -42,6 +42,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
+import org.apache.commons.collections.map.LRUMap;
 import org.apache.commons.io.IOUtils;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.DERObject;
@@ -120,6 +121,15 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      */
     private final AtomicLong mSerial;
 
+    /**
+     * There is in fact a single instance of a SslEngineSource per proxy. So the
+     * cache must be handled thread save. The dynamic contexts are expensive to
+     * create, but doesn't have to be distinct.
+     * 
+     * To avoid locks, duplicated contexts are tolerated and ignored here.
+     */
+    private LRUMap hostSSLContexts;
+
     public BouncyCastleSslEngineSource(String keyStorePath,
             boolean trustAllServers, boolean sendCerts) {
         this.trustAllServers = trustAllServers;
@@ -129,6 +139,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         initializeKeyStore();
         initializeSSLContext();
         mSerial = initSerial();
+        hostSSLContexts = new LRUMap();
     }
 
     private AtomicLong initSerial() {
@@ -351,6 +362,15 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
                     "Error, 'subjectAlternativeNames' is not allowed to be null!");
         }
 
+        synchronized (hostSSLContexts) {
+            if (hostSSLContexts.containsKey(commonName)) {
+                SSLContext ctx = (SSLContext) hostSSLContexts.get(commonName);
+                SSLEngine result = ctx.createSSLEngine();
+                log.debug("Use certificate for {} in {}ms", commonName, duration);
+                return result;
+            }
+        }
+
         final KeyPair mykp = createKeyPair(FAKE_KEYSIZE);
         final PrivateKey privKey = mykp.getPrivate();
         final PublicKey pubKey = mykp.getPublic();
@@ -422,6 +442,13 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         java.security.SecureRandom x = new java.security.SecureRandom();
         x.setSeed(System.currentTimeMillis());
         ctx.init(kmf.getKeyManagers(), null, x);
+        synchronized (hostSSLContexts) {
+            if (hostSSLContexts.containsKey(commonName)) {
+                log.debug("Duplicate generated cert ignored for cache.");
+            } else {
+                hostSSLContexts.put(commonName, ctx);
+            }
+        }
         SSLEngine result = ctx.createSSLEngine();
 
         log.info("Impersonated {} in {}ms", commonName, duration);
