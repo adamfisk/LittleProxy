@@ -36,9 +36,10 @@ public interface MitmManager {
      * @param serverSslSession
      *            the {@link SSLSession} that's been established with the server
      * @param serverHostAndPort
-     *            the server host name, optionally with port, to create the 
+     *            the server host name, optionally with port, to create the
      *            dynamic certificate for
      * @return
      */
-    SSLEngine clientSslEngineFor(SSLSession serverSslSession, String serverHostAndPort);
+    SSLEngine clientSslEngineFor(SSLSession serverSslSession,
+            String serverHostAndPort);
 }

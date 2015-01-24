@@ -31,7 +31,8 @@ public class CertificateSniffingMitmManager implements MitmManager {
 
     private BouncyCastleSslEngineSource sslEngineSource;
 
-    public CertificateSniffingMitmManager(String keyStorePath) {
+    public CertificateSniffingMitmManager(String keyStorePath)
+            throws RootCertificateException {
         sslEngineSource = new BouncyCastleSslEngineSource(keyStorePath, true,
                 true);
     }
@@ -73,10 +74,10 @@ public class CertificateSniffingMitmManager implements MitmManager {
             return sslEngineSource.createCertForHost(commonName,
                     subjectAlternativeNames);
 
-        } catch (RuntimeException e) {
-            throw e;
         } catch (Exception e) {
-            throw new IllegalStateException(e);
+            throw new FakeCertificateException(
+                    "Creation dynamic certificate failed for "
+                            + serverHostAndPort, e);
         }
     }
 

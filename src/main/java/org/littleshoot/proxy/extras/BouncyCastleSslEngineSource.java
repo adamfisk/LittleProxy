@@ -134,7 +134,8 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
     private Map<Object, Object> hostSSLContexts;
 
     public BouncyCastleSslEngineSource(String keyStorePath,
-            boolean trustAllServers, boolean sendCerts) {
+            boolean trustAllServers, boolean sendCerts)
+            throws RootCertificateException {
         this.trustAllServers = trustAllServers;
         this.sendCerts = sendCerts;
         this.keyStoreFile = new File(keyStorePath);
@@ -167,7 +168,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         return sslContext;
     }
 
-    private void initializeKeyStore() {
+    private void initializeKeyStore() throws RootCertificateException {
         if (keyStoreFile.exists()) {
             return;
         }
@@ -199,7 +200,8 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
                 IOUtils.closeQuietly(sw);
             }
         } catch (Exception e) {
-            log.error("Error during creating root CA with bouncy castle", e);
+            throw new RootCertificateException(
+                    "Error during creating root CA with bouncy castle", e);
         }
     }
 
@@ -213,9 +215,12 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * assessing web application security. Copyright 2011 mawoki@ymail.com
      * Licensed under the Apache License, Version 2.0
      * 
+     * @throws RootCertificateException
+     * 
      * @see org.zaproxy.zap.extension.dynssl.SslCertificateUtils.createRootCA()
      */
-    public static final KeyStore createRootCA() throws NoSuchAlgorithmException {
+    public static final KeyStore createRootCA()
+            throws NoSuchAlgorithmException, RootCertificateException {
         final Date startDate = Calendar.getInstance().getTime();
         final Date expireDate = new Date(startDate.getTime()
                 + (VALIDITY * 24L * 60L * 60L * 1000L));
@@ -266,7 +271,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
             ks.setKeyEntry(ALIAS, privKey, PASSWORD, new Certificate[] { cert });
 
         } catch (final Exception e) {
-            throw new IllegalStateException(
+            throw new RootCertificateException(
                     "Errors during assembling root CA.", e);
         }
         return ks;

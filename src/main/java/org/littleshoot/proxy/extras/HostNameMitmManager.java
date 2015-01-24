@@ -17,7 +17,8 @@ public class HostNameMitmManager implements MitmManager {
 
     private BouncyCastleSslEngineSource sslEngineSource;
 
-    public HostNameMitmManager(String keyStorePath) {
+    public HostNameMitmManager(String keyStorePath)
+            throws RootCertificateException {
         sslEngineSource = new BouncyCastleSslEngineSource(keyStorePath, true,
                 true);
     }
@@ -34,10 +35,8 @@ public class HostNameMitmManager implements MitmManager {
                     .emptyList();
             return sslEngineSource.createCertForHost(serverName,
                     subjectAlternativeNames);
-        } catch (RuntimeException e) {
-            throw e;
         } catch (Exception e) {
-            throw new IllegalStateException(
+            throw new FakeCertificateException(
                     "Creation dynamic certificate failed for "
                             + serverHostAndPort, e);
         }
