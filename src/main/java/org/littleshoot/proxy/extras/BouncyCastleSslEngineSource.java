@@ -30,8 +30,10 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Vector;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.KeyManager;
@@ -42,7 +44,6 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
-import org.apache.commons.collections.map.LRUMap;
 import org.apache.commons.io.IOUtils;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.DERObject;
@@ -71,6 +72,8 @@ import org.bouncycastle.x509.extension.SubjectKeyIdentifierStructure;
 import org.littleshoot.proxy.SslEngineSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.cache.CacheBuilder;
 
 /**
  * A {@link SslEngineSource} which creates a key store with a Root Certificate
@@ -128,7 +131,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * 
      * To avoid locks, duplicated contexts are tolerated and ignored here.
      */
-    private LRUMap hostSSLContexts;
+    private Map<Object, Object> hostSSLContexts;
 
     public BouncyCastleSslEngineSource(String keyStorePath,
             boolean trustAllServers, boolean sendCerts) {
@@ -139,7 +142,10 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         initializeKeyStore();
         initializeSSLContext();
         mSerial = initSerial();
-        hostSSLContexts = new LRUMap();
+        hostSSLContexts = CacheBuilder.newBuilder() //
+                .expireAfterAccess(5, TimeUnit.MINUTES) //
+                .concurrencyLevel(16) //
+                .build().asMap();
     }
 
     private AtomicLong initSerial() {
@@ -362,13 +368,11 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
                     "Error, 'subjectAlternativeNames' is not allowed to be null!");
         }
 
-        synchronized (hostSSLContexts) {
-            if (hostSSLContexts.containsKey(commonName)) {
-                SSLContext ctx = (SSLContext) hostSSLContexts.get(commonName);
-                SSLEngine result = ctx.createSSLEngine();
-                log.debug("Use certificate for {} in {}ms", commonName, duration);
-                return result;
-            }
+        final SSLContext cached = (SSLContext) hostSSLContexts.get(commonName);
+        if (cached != null) {
+            SSLEngine result = cached.createSSLEngine();
+            log.debug("Use certificate for {} in {}ms", commonName, duration);
+            return result;
         }
 
         final KeyPair mykp = createKeyPair(FAKE_KEYSIZE);
@@ -442,12 +446,10 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         java.security.SecureRandom x = new java.security.SecureRandom();
         x.setSeed(System.currentTimeMillis());
         ctx.init(kmf.getKeyManagers(), null, x);
-        synchronized (hostSSLContexts) {
-            if (hostSSLContexts.containsKey(commonName)) {
-                log.debug("Duplicate generated cert ignored for cache.");
-            } else {
-                hostSSLContexts.put(commonName, ctx);
-            }
+        if (hostSSLContexts.containsKey(commonName)) {
+            log.debug("Duplicate generated cert ignored for cache.");
+        } else {
+            hostSSLContexts.put(commonName, ctx);
         }
         SSLEngine result = ctx.createSSLEngine();
 
