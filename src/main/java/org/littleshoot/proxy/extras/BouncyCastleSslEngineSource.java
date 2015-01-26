@@ -129,13 +129,6 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      */
     private final AtomicLong serverCertificateSerial;
 
-    /**
-     * There is in fact a single instance of a SslEngineSource per proxy. So the
-     * cache must be handled thread save. The dynamic contexts are expensive to
-     * create, but doesn't have to be distinct.
-     * 
-     * To avoid locks, duplicated contexts are tolerated and ignored here.
-     */
     private Cache<String, SSLContext> serverSSLContexts;
 
     public BouncyCastleSslEngineSource(Authority authority,
