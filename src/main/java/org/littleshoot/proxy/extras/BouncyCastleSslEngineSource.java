@@ -82,7 +82,7 @@ import com.google.common.cache.CacheBuilder;
  */
 public class BouncyCastleSslEngineSource implements SslEngineSource {
 
-    private static final Logger log = LoggerFactory
+    private static final Logger LOG = LoggerFactory
             .getLogger(BouncyCastleSslEngineSource.class);
 
     static final String ALIAS = "mocuishle";
@@ -122,7 +122,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * have the same serial from the same CA, the browser gets crazy. At least,
      * Firefox v3.x does.
      */
-    private final AtomicLong mSerial;
+    private final AtomicLong serverCertificateSerial;
 
     /**
      * There is in fact a single instance of a SslEngineSource per proxy. So the
@@ -131,7 +131,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * 
      * To avoid locks, duplicated contexts are tolerated and ignored here.
      */
-    private Map<Object, Object> hostSSLContexts;
+    private Map<Object, Object> serverSSLContexts;
 
     public BouncyCastleSslEngineSource(String keyStorePath,
             boolean trustAllServers, boolean sendCerts)
@@ -139,14 +139,14 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         this.trustAllServers = trustAllServers;
         this.sendCerts = sendCerts;
         this.keyStoreFile = new File(keyStorePath);
-        Security.addProvider(new BouncyCastleProvider());
-        initializeKeyStore();
-        initializeSSLContext();
-        mSerial = initSerial();
-        hostSSLContexts = CacheBuilder.newBuilder() //
+        this.serverCertificateSerial = initSerial();
+        this.serverSSLContexts = CacheBuilder.newBuilder() //
                 .expireAfterAccess(5, TimeUnit.MINUTES) //
                 .concurrencyLevel(16) //
                 .build().asMap();
+        Security.addProvider(new BouncyCastleProvider());
+        initializeKeyStore();
+        initializeSSLContext();
     }
 
     private AtomicLong initSerial() {
@@ -175,7 +175,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         try {
             MillisecondsDuration duration = new MillisecondsDuration();
             KeyStore keystore = createRootCA();
-            log.info("Created root certificate authority key store in {}ms",
+            LOG.info("Created root certificate authority key store in {}ms",
                     duration);
 
             OutputStream os = null;
@@ -219,8 +219,8 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * 
      * @see org.zaproxy.zap.extension.dynssl.SslCertificateUtils.createRootCA()
      */
-    public static final KeyStore createRootCA()
-            throws NoSuchAlgorithmException, RootCertificateException {
+    public KeyStore createRootCA() throws NoSuchAlgorithmException,
+            RootCertificateException {
         final Date startDate = Calendar.getInstance().getTime();
         final Date expireDate = new Date(startDate.getTime()
                 + (VALIDITY * 24L * 60L * 60L * 1000L));
@@ -310,18 +310,18 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
                     // TrustManager that trusts all servers
                     public void checkClientTrusted(X509Certificate[] chain,
                             String authType) throws CertificateException {
-                        log.debug("X509TrustManager.checkClientTrusted {} {}",
+                        LOG.debug("X509TrustManager.checkClientTrusted {} {}",
                                 chain, authType);
                     }
 
                     public void checkServerTrusted(X509Certificate[] chain,
                             String authType) throws CertificateException {
-                        log.debug("X509TrustManager.checkServerTrusted {} {}",
+                        LOG.debug("X509TrustManager.checkServerTrusted {} {}",
                                 chain, authType);
                     }
 
                     public X509Certificate[] getAcceptedIssuers() {
-                        log.debug("X509TrustManager.getAcceptedIssuers");
+                        LOG.debug("X509TrustManager.getAcceptedIssuers");
                         return null;
                     }
                 } };
@@ -338,7 +338,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
             sslContext = SSLContext.getInstance(SSL_CONTEXT_PROTOCOL);
             sslContext.init(keyManagers, trustManagers, null);
         } catch (final Exception e) {
-            log.error("Failed to initialize the server-side SSLContext", e);
+            LOG.error("Failed to initialize the server-side SSLContext", e);
         }
     }
 
@@ -373,10 +373,11 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
                     "Error, 'subjectAlternativeNames' is not allowed to be null!");
         }
 
-        final SSLContext cached = (SSLContext) hostSSLContexts.get(commonName);
+        final SSLContext cached = (SSLContext) serverSSLContexts
+                .get(commonName);
         if (cached != null) {
             SSLEngine result = cached.createSSLEngine();
-            log.debug("Use certificate for {} in {}ms", commonName, duration);
+            LOG.debug("Use certificate for {} in {}ms", commonName, duration);
             return result;
         }
 
@@ -391,7 +392,8 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
 
         X500Name subject = new X509CertificateHolder(caCert.getEncoded())
                 .getSubject();
-        BigInteger serial = BigInteger.valueOf(mSerial.getAndIncrement());
+        BigInteger serial = BigInteger.valueOf(serverCertificateSerial
+                .getAndIncrement());
         Date notBefore = new Date(System.currentTimeMillis() - 1000L * 60 * 60
                 * 24 * 30);
         Date notAfter = new Date(System.currentTimeMillis() + 100
@@ -451,14 +453,14 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         java.security.SecureRandom x = new java.security.SecureRandom();
         x.setSeed(System.currentTimeMillis());
         ctx.init(kmf.getKeyManagers(), null, x);
-        if (hostSSLContexts.containsKey(commonName)) {
-            log.debug("Duplicate generated cert ignored for cache.");
+        if (serverSSLContexts.containsKey(commonName)) {
+            LOG.debug("Duplicate generated cert ignored for cache.");
         } else {
-            hostSSLContexts.put(commonName, ctx);
+            serverSSLContexts.put(commonName, ctx);
         }
         SSLEngine result = ctx.createSSLEngine();
 
-        log.info("Impersonated {} in {}ms", commonName, duration);
+        LOG.info("Impersonated {} in {}ms", commonName, duration);
         return result;
     }
 
