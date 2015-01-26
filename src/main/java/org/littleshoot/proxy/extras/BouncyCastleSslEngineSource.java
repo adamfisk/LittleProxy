@@ -1,6 +1,5 @@
 package org.littleshoot.proxy.extras;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -90,8 +89,6 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
     private static final Logger LOG = LoggerFactory
             .getLogger(BouncyCastleSslEngineSource.class);
 
-    static final String ALIAS = "mocuishle";
-    static final char[] PASSWORD = "Be Your Own Lantern".toCharArray();
     private static final String SSL_CONTEXT_PROTOCOL = "TLS";
     private static final String KEY_ALGORITHM = "RSA";
     private static final String SECURE_RANDOM_ALGORITHM = "SHA1PRNG";
@@ -105,13 +102,16 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      */
     private static final String KEY_STORE_TYPE = "PKCS12";
 
+    private static final String KEY_STORE_FILE_EXTENSION = ".p12";
+
     /**
      * Root CA has to be installed in browsers. Hundred years should avoid
      * expiration.
      */
     private static final int VALIDITY = 36500;
 
-    private final File keyStoreFile;
+    private final Authority authority;
+
     private final boolean trustAllServers;
     private final boolean sendCerts;
 
@@ -138,13 +138,13 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      */
     private Cache<String, SSLContext> serverSSLContexts;
 
-    public BouncyCastleSslEngineSource(String keyStorePath,
+    public BouncyCastleSslEngineSource(Authority authority,
             boolean trustAllServers, boolean sendCerts,
             Cache<String, SSLContext> sslContexts)
             throws RootCertificateException {
+        this.authority = authority;
         this.trustAllServers = trustAllServers;
         this.sendCerts = sendCerts;
-        this.keyStoreFile = new File(keyStorePath);
         this.serverCertificateSerial = initRandomSerial();
         this.serverSSLContexts = sslContexts;
         Security.addProvider(new BouncyCastleProvider());
@@ -152,10 +152,10 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         initializeSSLContext();
     }
 
-    public BouncyCastleSslEngineSource(String keyStorePath,
+    public BouncyCastleSslEngineSource(Authority authority,
             boolean trustAllServers, boolean sendCerts)
             throws RootCertificateException {
-        this(keyStorePath, trustAllServers, sendCerts,
+        this(authority, trustAllServers, sendCerts,
                 initDefaultCertificateCache());
     }
 
@@ -186,7 +186,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
     }
 
     private void initializeKeyStore() throws RootCertificateException {
-        if (keyStoreFile.exists()) {
+        if (authority.aliasFile(KEY_STORE_FILE_EXTENSION).exists()) {
             return;
         }
         try {
@@ -197,18 +197,18 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
 
             OutputStream os = null;
             try {
-                os = new FileOutputStream(keyStoreFile);
-                keystore.store(os, PASSWORD);
+                os = new FileOutputStream(
+                        authority.aliasFile(KEY_STORE_FILE_EXTENSION));
+                keystore.store(os, authority.password());
             } finally {
                 IOUtils.closeQuietly(os);
             }
 
-            final Certificate cert = keystore.getCertificate(ALIAS);
+            final Certificate cert = keystore.getCertificate(authority.alias());
             Writer sw = null;
             PemWriter pw = null;
             try {
-                sw = new FileWriter(new File(keyStoreFile.getParent(),
-                        "mocuishle.pem"));
+                sw = new FileWriter(authority.aliasFile(".pem"));
                 pw = new PemWriter(sw);
                 pw.writeObject(new MiscPEMGenerator(cert));
                 pw.flush();
@@ -251,9 +251,9 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         final PublicKey pubKey = keypair.getPublic();
 
         X500NameBuilder namebld = new X500NameBuilder(BCStyle.INSTANCE);
-        namebld.addRDN(BCStyle.CN, "Proxy for offline use");
-        namebld.addRDN(BCStyle.O, "Mo Cuishle");
-        namebld.addRDN(BCStyle.OU, "Certificate Authority");
+        namebld.addRDN(BCStyle.CN, authority.commonName());
+        namebld.addRDN(BCStyle.O, authority.organization());
+        namebld.addRDN(BCStyle.OU, authority.organizationalUnitName());
 
         Random rnd = new Random();
         X509v3CertificateBuilder certGen = new JcaX509v3CertificateBuilder(
@@ -285,7 +285,8 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
 
             ks = KeyStore.getInstance(KEY_STORE_TYPE);
             ks.load(null, null);
-            ks.setKeyEntry(ALIAS, privKey, PASSWORD, new Certificate[] { cert });
+            ks.setKeyEntry(authority.alias(), privKey, authority.password(),
+                    new Certificate[] { cert });
 
         } catch (final Exception e) {
             throw new RootCertificateException(
@@ -299,19 +300,21 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
             final KeyStore ks = KeyStore.getInstance(KEY_STORE_TYPE);
             FileInputStream is = null;
             try {
-                is = new FileInputStream(keyStoreFile);
-                ks.load(is, PASSWORD);
+                is = new FileInputStream(
+                        authority.aliasFile(KEY_STORE_FILE_EXTENSION));
+                ks.load(is, authority.password());
             } finally {
                 IOUtils.closeQuietly(is);
             }
-            this.caCert = ks.getCertificate(ALIAS);
-            this.caPrivKey = (PrivateKey) ks.getKey(ALIAS, PASSWORD);
+            this.caCert = ks.getCertificate(authority.alias());
+            this.caPrivKey = (PrivateKey) ks.getKey(authority.alias(),
+                    authority.password());
 
             // Set up key manager factory to use our key store
             String keyManAlg = KeyManagerFactory.getDefaultAlgorithm();
             final KeyManagerFactory kmf = KeyManagerFactory
                     .getInstance(keyManAlg);
-            kmf.init(ks, PASSWORD);
+            kmf.init(ks, authority.password());
 
             // Set up a trust manager factory to use our key store
             String trustManAlg = TrustManagerFactory.getDefaultAlgorithm();
@@ -422,8 +425,8 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
 
         X500NameBuilder namebld = new X500NameBuilder(BCStyle.INSTANCE);
         namebld.addRDN(BCStyle.CN, commonName);
-        namebld.addRDN(BCStyle.O, "Mo Cuishle");
-        namebld.addRDN(BCStyle.OU, "Offline Cache");
+        namebld.addRDN(BCStyle.O, authority.certOrganisation());
+        namebld.addRDN(BCStyle.OU, authority.certOrganizationalUnitName());
 
         X500Name subject = new X509CertificateHolder(caCert.getEncoded())
                 .getSubject();
@@ -475,8 +478,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         final Certificate[] chain = new Certificate[2];
         chain[1] = this.caCert;
         chain[0] = cert;
-        ks.setKeyEntry(BouncyCastleSslEngineSource.ALIAS, privKey,
-                BouncyCastleSslEngineSource.PASSWORD, chain);
+        ks.setKeyEntry(authority.alias(), privKey, authority.password(), chain);
 
         // ------------------- from getTunnelSSLSocketFactory ------------------
 
@@ -484,7 +486,7 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         String algorithm = KeyManagerFactory.getDefaultAlgorithm();
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(algorithm);
 
-        kmf.init(ks, PASSWORD);
+        kmf.init(ks, authority.password());
         SecureRandom random = new SecureRandom();
         random.setSeed(System.currentTimeMillis());
         ctx.init(kmf.getKeyManagers(), null, random);

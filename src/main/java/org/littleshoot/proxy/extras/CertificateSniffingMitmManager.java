@@ -31,10 +31,9 @@ public class CertificateSniffingMitmManager implements MitmManager {
 
     private BouncyCastleSslEngineSource sslEngineSource;
 
-    public CertificateSniffingMitmManager(String keyStorePath)
+    public CertificateSniffingMitmManager(Authority authority)
             throws RootCertificateException {
-        sslEngineSource = new BouncyCastleSslEngineSource(keyStorePath, true,
-                true);
+        sslEngineSource = new BouncyCastleSslEngineSource(authority, true, true);
     }
 
     public SSLEngine serverSslEngine() {

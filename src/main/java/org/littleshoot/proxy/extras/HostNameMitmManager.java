@@ -17,10 +17,9 @@ public class HostNameMitmManager implements MitmManager {
 
     private BouncyCastleSslEngineSource sslEngineSource;
 
-    public HostNameMitmManager(String keyStorePath)
+    public HostNameMitmManager(Authority authority)
             throws RootCertificateException {
-        sslEngineSource = new BouncyCastleSslEngineSource(keyStorePath, true,
-                true);
+        sslEngineSource = new BouncyCastleSslEngineSource(authority, true, true);
     }
 
     public SSLEngine serverSslEngine() {
