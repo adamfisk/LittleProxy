@@ -229,32 +229,31 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * 
      * @see org.zaproxy.zap.extension.dynssl.SslCertificateUtils.createRootCA()
      */
-    public KeyStore createRootCA() throws NoSuchAlgorithmException,
-            RootCertificateException {
-        final Date startDate = Calendar.getInstance().getTime();
-        final Date expireDate = new Date(startDate.getTime()
-                + (VALIDITY * 24L * 60L * 60L * 1000L));
-
-        final KeyPairGenerator g = KeyPairGenerator.getInstance(KEY_ALGORITHM);
-        g.initialize(ROOT_KEYSIZE,
-                SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM));
-        final KeyPair keypair = g.genKeyPair();
-
-        final PrivateKey privKey = keypair.getPrivate();
-        final PublicKey pubKey = keypair.getPublic();
-
-        X500NameBuilder namebld = new X500NameBuilder(BCStyle.INSTANCE);
-        namebld.addRDN(BCStyle.CN, authority.commonName());
-        namebld.addRDN(BCStyle.O, authority.organization());
-        namebld.addRDN(BCStyle.OU, authority.organizationalUnitName());
-
-        Random rnd = new Random();
-        X509v3CertificateBuilder certGen = new JcaX509v3CertificateBuilder(
-                namebld.build(), BigInteger.valueOf(rnd.nextInt()), startDate,
-                expireDate, namebld.build(), pubKey);
-
-        KeyStore ks = null;
+    public KeyStore createRootCA() throws RootCertificateException {
         try {
+            final Date startDate = Calendar.getInstance().getTime();
+            final Date expireDate = new Date(startDate.getTime()
+                    + (VALIDITY * 24L * 60L * 60L * 1000L));
+
+            final KeyPairGenerator g = KeyPairGenerator
+                    .getInstance(KEY_ALGORITHM);
+            g.initialize(ROOT_KEYSIZE,
+                    SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM));
+            final KeyPair keypair = g.genKeyPair();
+
+            final PrivateKey privKey = keypair.getPrivate();
+            final PublicKey pubKey = keypair.getPublic();
+
+            X500NameBuilder namebld = new X500NameBuilder(BCStyle.INSTANCE);
+            namebld.addRDN(BCStyle.CN, authority.commonName());
+            namebld.addRDN(BCStyle.O, authority.organization());
+            namebld.addRDN(BCStyle.OU, authority.organizationalUnitName());
+
+            Random rnd = new Random();
+            X509v3CertificateBuilder certGen = new JcaX509v3CertificateBuilder(
+                    namebld.build(), BigInteger.valueOf(rnd.nextInt()),
+                    startDate, expireDate, namebld.build(), pubKey);
+
             certGen.addExtension(X509Extension.subjectKeyIdentifier, false,
                     new SubjectKeyIdentifierStructure(pubKey));
             certGen.addExtension(X509Extension.basicConstraints, true,
@@ -276,19 +275,19 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
             final X509Certificate cert = new JcaX509CertificateConverter()
                     .setProvider("BC").getCertificate(certGen.build(sigGen));
 
-            ks = KeyStore.getInstance(KEY_STORE_TYPE);
+            final KeyStore ks = KeyStore.getInstance(KEY_STORE_TYPE);
             ks.load(null, null);
             ks.setKeyEntry(authority.alias(), privKey, authority.password(),
                     new Certificate[] { cert });
+            return ks;
 
         } catch (final Exception e) {
             throw new RootCertificateException(
                     "Errors during assembling root CA.", e);
         }
-        return ks;
     }
 
-    private void initializeSSLContext() {
+    private void initializeSSLContext() throws RootCertificateException {
         try {
             final KeyStore ks = KeyStore.getInstance(KEY_STORE_TYPE);
             FileInputStream is = null;
@@ -351,7 +350,8 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
             sslContext = SSLContext.getInstance(SSL_CONTEXT_PROTOCOL);
             sslContext.init(keyManagers, trustManagers, null);
         } catch (final Exception e) {
-            LOG.error("Failed to initialize the server-side SSLContext", e);
+            throw new RootCertificateException(
+                    "Failed to initialize the server-side SSLContext", e);
         }
     }
 
