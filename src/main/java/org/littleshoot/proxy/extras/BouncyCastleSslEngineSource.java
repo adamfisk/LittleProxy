@@ -23,16 +23,20 @@ import java.security.Security;
 import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Vector;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -73,6 +77,7 @@ import org.littleshoot.proxy.SslEngineSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 /**
@@ -131,25 +136,37 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * 
      * To avoid locks, duplicated contexts are tolerated and ignored here.
      */
-    private Map<Object, Object> serverSSLContexts;
+    private Cache<String, SSLContext> serverSSLContexts;
 
     public BouncyCastleSslEngineSource(String keyStorePath,
-            boolean trustAllServers, boolean sendCerts)
+            boolean trustAllServers, boolean sendCerts,
+            Cache<String, SSLContext> sslContexts)
             throws RootCertificateException {
         this.trustAllServers = trustAllServers;
         this.sendCerts = sendCerts;
         this.keyStoreFile = new File(keyStorePath);
-        this.serverCertificateSerial = initSerial();
-        this.serverSSLContexts = CacheBuilder.newBuilder() //
-                .expireAfterAccess(5, TimeUnit.MINUTES) //
-                .concurrencyLevel(16) //
-                .build().asMap();
+        this.serverCertificateSerial = initRandomSerial();
+        this.serverSSLContexts = sslContexts;
         Security.addProvider(new BouncyCastleProvider());
         initializeKeyStore();
         initializeSSLContext();
     }
 
-    private AtomicLong initSerial() {
+    public BouncyCastleSslEngineSource(String keyStorePath,
+            boolean trustAllServers, boolean sendCerts)
+            throws RootCertificateException {
+        this(keyStorePath, trustAllServers, sendCerts,
+                initDefaultCertificateCache());
+    }
+
+    private static Cache<String, SSLContext> initDefaultCertificateCache() {
+        return CacheBuilder.newBuilder() //
+                .expireAfterAccess(5, TimeUnit.MINUTES) //
+                .concurrencyLevel(16) //
+                .build();
+    }
+
+    private AtomicLong initRandomSerial() {
         final Random rnd = new Random();
         rnd.setSeed(System.currentTimeMillis());
         // prevent browser certificate caches, cause of doubled serial numbers
@@ -356,13 +373,13 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * @see org.parosproxy.paros.network.SSLConnector.getTunnelSSLSocketFactory(
      *      String)
      */
-    public SSLEngine createCertForHost(String commonName,
-            Collection<List<?>> subjectAlternativeNames)
+    public SSLEngine createCertForHost(final String commonName,
+            final Collection<List<?>> subjectAlternativeNames)
             throws NoSuchAlgorithmException, InvalidKeyException,
             CertificateException, NoSuchProviderException, SignatureException,
             KeyStoreException, IOException, UnrecoverableKeyException,
-            KeyManagementException, OperatorCreationException {
-        MillisecondsDuration duration = new MillisecondsDuration();
+            KeyManagementException, OperatorCreationException,
+            ExecutionException {
 
         if (commonName == null) {
             throw new IllegalArgumentException(
@@ -373,13 +390,31 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
                     "Error, 'subjectAlternativeNames' is not allowed to be null!");
         }
 
-        final SSLContext cached = (SSLContext) serverSSLContexts
-                .get(commonName);
-        if (cached != null) {
-            SSLEngine result = cached.createSSLEngine();
-            LOG.debug("Use certificate for {} in {}ms", commonName, duration);
-            return result;
+        SSLContext ctx;
+        if (serverSSLContexts == null) {
+            ctx = createServerContext(commonName, subjectAlternativeNames);
+        } else {
+            ctx = serverSSLContexts.get(commonName, new Callable<SSLContext>() {
+                @Override
+                public SSLContext call() throws Exception {
+                    return createServerContext(commonName,
+                            subjectAlternativeNames);
+                }
+            });
         }
+        return ctx.createSSLEngine();
+    }
+
+    private SSLContext createServerContext(String commonName,
+            Collection<List<?>> subjectAlternativeNames)
+            throws NoSuchAlgorithmException, IOException,
+            CertificateEncodingException, InvalidKeyException,
+            OperatorCreationException, CertificateException,
+            CertificateExpiredException, CertificateNotYetValidException,
+            NoSuchProviderException, SignatureException, KeyStoreException,
+            UnrecoverableKeyException, KeyManagementException {
+
+        final MillisecondsDuration duration = new MillisecondsDuration();
 
         final KeyPair mykp = createKeyPair(FAKE_KEYSIZE);
         final PrivateKey privKey = mykp.getPrivate();
@@ -450,18 +485,11 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(algorithm);
 
         kmf.init(ks, PASSWORD);
-        java.security.SecureRandom x = new java.security.SecureRandom();
-        x.setSeed(System.currentTimeMillis());
-        ctx.init(kmf.getKeyManagers(), null, x);
-        if (serverSSLContexts.containsKey(commonName)) {
-            LOG.debug("Duplicate generated cert ignored for cache.");
-        } else {
-            serverSSLContexts.put(commonName, ctx);
-        }
-        SSLEngine result = ctx.createSSLEngine();
-
+        SecureRandom random = new SecureRandom();
+        random.setSeed(System.currentTimeMillis());
+        ctx.init(kmf.getKeyManagers(), null, random);
         LOG.info("Impersonated {} in {}ms", commonName, duration);
-        return result;
+        return ctx;
     }
 
     private KeyPair createKeyPair(int keysize) throws NoSuchAlgorithmException {
