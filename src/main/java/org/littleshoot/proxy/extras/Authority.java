@@ -2,6 +2,11 @@ package org.littleshoot.proxy.extras;
 
 import java.io.File;
 
+/**
+ * Parameter object holding personal informations given to a SSLEngineSource.
+ * 
+ * XXX consider to inline within the interface SslEngineSource, if MITM is core
+ */
 public class Authority {
 
     private final File keyStoreDir;

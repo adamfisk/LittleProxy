@@ -83,6 +83,17 @@ import com.google.common.cache.CacheBuilder;
  * A {@link SslEngineSource} which creates a key store with a Root Certificate
  * Authority. The certificates are generated lazily if the given key store file
  * doesn't yet exist.
+ * 
+ * The root certificate is exported in PEM format to be used in a browser. The
+ * proxy application presents for every host a dynamically created certificate
+ * to the browser, signed by this certificate authority.
+ * 
+ * This facilitates the proxy to handle as a "Man In The Middle" to filter the
+ * decrypted content in clear text.
+ * 
+ * The hard part was done by mawoki. It's derived from Zed Attack Proxy (ZAP).
+ * ZAP is an HTTP/HTTPS proxy for assessing web application security. Copyright
+ * 2011 mawoki@ymail.com Licensed under the Apache License, Version 2.0
  */
 public class BouncyCastleSslEngineSource implements SslEngineSource {
 
@@ -131,10 +142,42 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
 
     private Cache<String, SSLContext> serverSSLContexts;
 
+    /**
+     * Creates a SSL engine source create a Certificate Authority if needed and
+     * initializes a SSL context. Exceptions will be thrown to let the manager
+     * decide how to react. Don't install a MITM manager in the proxy in case of
+     * a failure.
+     * 
+     * @param authority
+     *            a parameter object to provide personal informations of the
+     *            Certificate Authority and the dynamic certificates.
+     * 
+     * @param trustAllServers
+     * 
+     * @param sendCerts
+     * 
+     * @param sslContexts
+     *            a cache to store dynamically created server certificates.
+     *            Generation takes between 50 to 500ms, but only once per
+     *            thread, since there is a connection cache too. It's save to
+     *            give a null cache to prevent memory or locking issues.
+     * 
+     * @throws IOException
+     * @throws RootCertificateException
+     * @throws KeyStoreException
+     * @throws CertificateException
+     * @throws OperatorCreationException
+     * @throws NoSuchAlgorithmException
+     * @throws InvalidKeyException
+     * @throws KeyManagementException
+     * @throws UnrecoverableKeyException
+     */
     public BouncyCastleSslEngineSource(Authority authority,
             boolean trustAllServers, boolean sendCerts,
-            Cache<String, SSLContext> sslContexts)
-            throws RootCertificateException {
+            Cache<String, SSLContext> sslContexts) throws InvalidKeyException,
+            NoSuchAlgorithmException, OperatorCreationException,
+            CertificateException, KeyStoreException, RootCertificateException,
+            IOException, UnrecoverableKeyException, KeyManagementException {
         this.authority = authority;
         this.trustAllServers = trustAllServers;
         this.sendCerts = sendCerts;
@@ -145,9 +188,37 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         initializeSSLContext();
     }
 
+    /**
+     * Creates a SSL engine source create a Certificate Authority if needed and
+     * initializes a SSL context. This constructor defaults a cache to store
+     * dynamically created server certificates. Exceptions will be thrown to let
+     * the manager decide how to react. Don't install a MITM manager in the
+     * proxy in case of a failure.
+     * 
+     * @param authority
+     *            a parameter object to provide personal informations of the
+     *            Certificate Authority and the dynamic certificates.
+     * 
+     * @param trustAllServers
+     * 
+     * @param sendCerts
+     * 
+     * @throws IOException
+     * @throws RootCertificateException
+     * @throws KeyStoreException
+     * @throws CertificateException
+     * @throws OperatorCreationException
+     * @throws NoSuchAlgorithmException
+     * @throws InvalidKeyException
+     * @throws KeyManagementException
+     * @throws UnrecoverableKeyException
+     */
     public BouncyCastleSslEngineSource(Authority authority,
             boolean trustAllServers, boolean sendCerts)
-            throws RootCertificateException {
+            throws RootCertificateException, UnrecoverableKeyException,
+            KeyManagementException, KeyStoreException,
+            NoSuchAlgorithmException, CertificateException, IOException,
+            InvalidKeyException, OperatorCreationException {
         this(authority, trustAllServers, sendCerts,
                 initDefaultCertificateCache());
     }
@@ -178,40 +249,38 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         return sslContext;
     }
 
-    private void initializeKeyStore() throws RootCertificateException {
+    private void initializeKeyStore() throws RootCertificateException,
+            InvalidKeyException, NoSuchAlgorithmException,
+            OperatorCreationException, CertificateException, KeyStoreException,
+            IOException {
         if (authority.aliasFile(KEY_STORE_FILE_EXTENSION).exists()) {
             return;
         }
+        MillisecondsDuration duration = new MillisecondsDuration();
+        KeyStore keystore = createRootCA();
+        LOG.info("Created root certificate authority key store in {}ms",
+                duration);
+
+        OutputStream os = null;
         try {
-            MillisecondsDuration duration = new MillisecondsDuration();
-            KeyStore keystore = createRootCA();
-            LOG.info("Created root certificate authority key store in {}ms",
-                    duration);
+            os = new FileOutputStream(
+                    authority.aliasFile(KEY_STORE_FILE_EXTENSION));
+            keystore.store(os, authority.password());
+        } finally {
+            IOUtils.closeQuietly(os);
+        }
 
-            OutputStream os = null;
-            try {
-                os = new FileOutputStream(
-                        authority.aliasFile(KEY_STORE_FILE_EXTENSION));
-                keystore.store(os, authority.password());
-            } finally {
-                IOUtils.closeQuietly(os);
-            }
-
-            final Certificate cert = keystore.getCertificate(authority.alias());
-            Writer sw = null;
-            PemWriter pw = null;
-            try {
-                sw = new FileWriter(authority.aliasFile(".pem"));
-                pw = new PemWriter(sw);
-                pw.writeObject(new MiscPEMGenerator(cert));
-                pw.flush();
-            } finally {
-                IOUtils.closeQuietly(pw);
-                IOUtils.closeQuietly(sw);
-            }
-        } catch (Exception e) {
-            throw new RootCertificateException(
-                    "Error during creating root CA with bouncy castle", e);
+        final Certificate cert = keystore.getCertificate(authority.alias());
+        Writer sw = null;
+        PemWriter pw = null;
+        try {
+            sw = new FileWriter(authority.aliasFile(".pem"));
+            pw = new PemWriter(sw);
+            pw.writeObject(new MiscPEMGenerator(cert));
+            pw.flush();
+        } finally {
+            IOUtils.closeQuietly(pw);
+            IOUtils.closeQuietly(sw);
         }
     }
 
@@ -225,134 +294,129 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * assessing web application security. Copyright 2011 mawoki@ymail.com
      * Licensed under the Apache License, Version 2.0
      * 
-     * @throws RootCertificateException
+     * @throws NoSuchAlgorithmException
+     * @throws InvalidKeyException
+     * @throws OperatorCreationException
+     * @throws CertificateException
+     * @throws KeyStoreException
+     * @throws IOException
      * 
      * @see org.zaproxy.zap.extension.dynssl.SslCertificateUtils.createRootCA()
      */
-    public KeyStore createRootCA() throws RootCertificateException {
-        try {
-            final Date startDate = Calendar.getInstance().getTime();
-            final Date expireDate = new Date(startDate.getTime()
-                    + (VALIDITY * 24L * 60L * 60L * 1000L));
+    public KeyStore createRootCA() throws NoSuchAlgorithmException,
+            InvalidKeyException, OperatorCreationException,
+            CertificateException, KeyStoreException, IOException {
+        final Date startDate = Calendar.getInstance().getTime();
+        final Date expireDate = new Date(startDate.getTime()
+                + (VALIDITY * 24L * 60L * 60L * 1000L));
 
-            final KeyPairGenerator g = KeyPairGenerator
-                    .getInstance(KEY_ALGORITHM);
-            g.initialize(ROOT_KEYSIZE,
-                    SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM));
-            final KeyPair keypair = g.genKeyPair();
+        final KeyPairGenerator g = KeyPairGenerator.getInstance(KEY_ALGORITHM);
+        g.initialize(ROOT_KEYSIZE,
+                SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM));
+        final KeyPair keypair = g.genKeyPair();
 
-            final PrivateKey privKey = keypair.getPrivate();
-            final PublicKey pubKey = keypair.getPublic();
+        final PrivateKey privKey = keypair.getPrivate();
+        final PublicKey pubKey = keypair.getPublic();
 
-            X500NameBuilder namebld = new X500NameBuilder(BCStyle.INSTANCE);
-            namebld.addRDN(BCStyle.CN, authority.commonName());
-            namebld.addRDN(BCStyle.O, authority.organization());
-            namebld.addRDN(BCStyle.OU, authority.organizationalUnitName());
+        X500NameBuilder namebld = new X500NameBuilder(BCStyle.INSTANCE);
+        namebld.addRDN(BCStyle.CN, authority.commonName());
+        namebld.addRDN(BCStyle.O, authority.organization());
+        namebld.addRDN(BCStyle.OU, authority.organizationalUnitName());
 
-            Random rnd = new Random();
-            X509v3CertificateBuilder certGen = new JcaX509v3CertificateBuilder(
-                    namebld.build(), BigInteger.valueOf(rnd.nextInt()),
-                    startDate, expireDate, namebld.build(), pubKey);
+        Random rnd = new Random();
+        X509v3CertificateBuilder certGen = new JcaX509v3CertificateBuilder(
+                namebld.build(), BigInteger.valueOf(rnd.nextInt()), startDate,
+                expireDate, namebld.build(), pubKey);
 
-            certGen.addExtension(X509Extension.subjectKeyIdentifier, false,
-                    new SubjectKeyIdentifierStructure(pubKey));
-            certGen.addExtension(X509Extension.basicConstraints, true,
-                    new BasicConstraints(true));
-            certGen.addExtension(X509Extension.keyUsage, false, new KeyUsage(
-                    KeyUsage.keyCertSign | KeyUsage.digitalSignature
-                            | KeyUsage.keyEncipherment
-                            | KeyUsage.dataEncipherment | KeyUsage.cRLSign));
+        certGen.addExtension(X509Extension.subjectKeyIdentifier, false,
+                new SubjectKeyIdentifierStructure(pubKey));
+        certGen.addExtension(X509Extension.basicConstraints, true,
+                new BasicConstraints(true));
+        certGen.addExtension(X509Extension.keyUsage, false, new KeyUsage(
+                KeyUsage.keyCertSign | KeyUsage.digitalSignature
+                        | KeyUsage.keyEncipherment | KeyUsage.dataEncipherment
+                        | KeyUsage.cRLSign));
 
-            Vector<DERObject> eku = new Vector<DERObject>(3, 1);
-            eku.add(KeyPurposeId.id_kp_serverAuth);
-            eku.add(KeyPurposeId.id_kp_clientAuth);
-            eku.add(KeyPurposeId.anyExtendedKeyUsage);
-            certGen.addExtension(X509Extension.extendedKeyUsage, false,
-                    new ExtendedKeyUsage(eku));
+        Vector<DERObject> eku = new Vector<DERObject>(3, 1);
+        eku.add(KeyPurposeId.id_kp_serverAuth);
+        eku.add(KeyPurposeId.id_kp_clientAuth);
+        eku.add(KeyPurposeId.anyExtendedKeyUsage);
+        certGen.addExtension(X509Extension.extendedKeyUsage, false,
+                new ExtendedKeyUsage(eku));
 
-            final ContentSigner sigGen = new JcaContentSignerBuilder(
-                    SIGNATURE_ALGORITHM).setProvider("BC").build(privKey);
-            final X509Certificate cert = new JcaX509CertificateConverter()
-                    .setProvider("BC").getCertificate(certGen.build(sigGen));
+        final ContentSigner sigGen = new JcaContentSignerBuilder(
+                SIGNATURE_ALGORITHM).setProvider("BC").build(privKey);
+        final X509Certificate cert = new JcaX509CertificateConverter()
+                .setProvider("BC").getCertificate(certGen.build(sigGen));
 
-            final KeyStore ks = KeyStore.getInstance(KEY_STORE_TYPE);
-            ks.load(null, null);
-            ks.setKeyEntry(authority.alias(), privKey, authority.password(),
-                    new Certificate[] { cert });
-            return ks;
-
-        } catch (final Exception e) {
-            throw new RootCertificateException(
-                    "Errors during assembling root CA.", e);
-        }
+        final KeyStore ks = KeyStore.getInstance(KEY_STORE_TYPE);
+        ks.load(null, null);
+        ks.setKeyEntry(authority.alias(), privKey, authority.password(),
+                new Certificate[] { cert });
+        return ks;
     }
 
-    private void initializeSSLContext() throws RootCertificateException {
+    private void initializeSSLContext() throws KeyStoreException,
+            NoSuchAlgorithmException, CertificateException, IOException,
+            UnrecoverableKeyException, KeyManagementException {
+        final KeyStore ks = KeyStore.getInstance(KEY_STORE_TYPE);
+        FileInputStream is = null;
         try {
-            final KeyStore ks = KeyStore.getInstance(KEY_STORE_TYPE);
-            FileInputStream is = null;
-            try {
-                is = new FileInputStream(
-                        authority.aliasFile(KEY_STORE_FILE_EXTENSION));
-                ks.load(is, authority.password());
-            } finally {
-                IOUtils.closeQuietly(is);
-            }
-            this.caCert = ks.getCertificate(authority.alias());
-            this.caPrivKey = (PrivateKey) ks.getKey(authority.alias(),
-                    authority.password());
-
-            // Set up key manager factory to use our key store
-            String keyManAlg = KeyManagerFactory.getDefaultAlgorithm();
-            final KeyManagerFactory kmf = KeyManagerFactory
-                    .getInstance(keyManAlg);
-            kmf.init(ks, authority.password());
-
-            // Set up a trust manager factory to use our key store
-            String trustManAlg = TrustManagerFactory.getDefaultAlgorithm();
-            TrustManagerFactory tmf = TrustManagerFactory
-                    .getInstance(trustManAlg);
-            tmf.init(ks);
-
-            TrustManager[] trustManagers = null;
-            if (!trustAllServers) {
-                trustManagers = tmf.getTrustManagers();
-            } else {
-                trustManagers = new TrustManager[] { new X509TrustManager() {
-                    // TrustManager that trusts all servers
-                    public void checkClientTrusted(X509Certificate[] chain,
-                            String authType) throws CertificateException {
-                        LOG.debug("X509TrustManager.checkClientTrusted {} {}",
-                                chain, authType);
-                    }
-
-                    public void checkServerTrusted(X509Certificate[] chain,
-                            String authType) throws CertificateException {
-                        LOG.debug("X509TrustManager.checkServerTrusted {} {}",
-                                chain, authType);
-                    }
-
-                    public X509Certificate[] getAcceptedIssuers() {
-                        LOG.debug("X509TrustManager.getAcceptedIssuers");
-                        return null;
-                    }
-                } };
-            }
-
-            KeyManager[] keyManagers = null;
-            if (sendCerts) {
-                keyManagers = kmf.getKeyManagers();
-            } else {
-                keyManagers = new KeyManager[0];
-            }
-
-            // Initialize the SSLContext to work with our key managers.
-            sslContext = SSLContext.getInstance(SSL_CONTEXT_PROTOCOL);
-            sslContext.init(keyManagers, trustManagers, null);
-        } catch (final Exception e) {
-            throw new RootCertificateException(
-                    "Failed to initialize the server-side SSLContext", e);
+            is = new FileInputStream(
+                    authority.aliasFile(KEY_STORE_FILE_EXTENSION));
+            ks.load(is, authority.password());
+        } finally {
+            IOUtils.closeQuietly(is);
         }
+        this.caCert = ks.getCertificate(authority.alias());
+        this.caPrivKey = (PrivateKey) ks.getKey(authority.alias(),
+                authority.password());
+
+        // Set up key manager factory to use our key store
+        String keyManAlg = KeyManagerFactory.getDefaultAlgorithm();
+        final KeyManagerFactory kmf = KeyManagerFactory.getInstance(keyManAlg);
+        kmf.init(ks, authority.password());
+
+        // Set up a trust manager factory to use our key store
+        String trustManAlg = TrustManagerFactory.getDefaultAlgorithm();
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(trustManAlg);
+        tmf.init(ks);
+
+        TrustManager[] trustManagers = null;
+        if (!trustAllServers) {
+            trustManagers = tmf.getTrustManagers();
+        } else {
+            trustManagers = new TrustManager[] { new X509TrustManager() {
+                // TrustManager that trusts all servers
+                public void checkClientTrusted(X509Certificate[] chain,
+                        String authType) throws CertificateException {
+                    LOG.debug("X509TrustManager.checkClientTrusted {} {}",
+                            chain, authType);
+                }
+
+                public void checkServerTrusted(X509Certificate[] chain,
+                        String authType) throws CertificateException {
+                    LOG.debug("X509TrustManager.checkServerTrusted {} {}",
+                            chain, authType);
+                }
+
+                public X509Certificate[] getAcceptedIssuers() {
+                    LOG.debug("X509TrustManager.getAcceptedIssuers");
+                    return null;
+                }
+            } };
+        }
+
+        KeyManager[] keyManagers = null;
+        if (sendCerts) {
+            keyManagers = kmf.getKeyManagers();
+        } else {
+            keyManagers = new KeyManager[0];
+        }
+
+        // Initialize the SSLContext to work with our key managers.
+        sslContext = SSLContext.getInstance(SSL_CONTEXT_PROTOCOL);
+        sslContext.init(keyManagers, trustManagers, null);
     }
 
     /**
@@ -364,6 +428,28 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      * assessing web application security. Copyright 2011 mawoki@ymail.com
      * Licensed under the Apache License, Version 2.0
      * 
+     * @param commonName
+     *            the common name to use in the server certificate
+     * 
+     * @param subjectAlternativeNames
+     *            a List of the subject alternative names to use in the server
+     *            certificate, could be empty, but must not be null
+     * 
+     * @throws IOException
+     * @throws KeyStoreException
+     * @throws SignatureException
+     * @throws NoSuchProviderException
+     * @throws CertificateException
+     * @throws OperatorCreationException
+     * @throws NoSuchAlgorithmException
+     * @throws KeyManagementException
+     * @throws UnrecoverableKeyException
+     * @throws CertificateNotYetValidException
+     * @throws CertificateExpiredException
+     * @throws InvalidKeyException
+     * @throws CertificateEncodingException
+     * @throws ExecutionException
+     * 
      * @see org.parosproxy.paros.security.SslCertificateServiceImpl.
      *      createCertForHost(String)
      * @see org.parosproxy.paros.network.SSLConnector.getTunnelSSLSocketFactory(
@@ -371,11 +457,12 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
      */
     public SSLEngine createCertForHost(final String commonName,
             final Collection<List<?>> subjectAlternativeNames)
-            throws NoSuchAlgorithmException, InvalidKeyException,
+            throws CertificateEncodingException, InvalidKeyException,
+            CertificateExpiredException, CertificateNotYetValidException,
+            UnrecoverableKeyException, KeyManagementException,
+            NoSuchAlgorithmException, OperatorCreationException,
             CertificateException, NoSuchProviderException, SignatureException,
-            KeyStoreException, IOException, UnrecoverableKeyException,
-            KeyManagementException, OperatorCreationException,
-            ExecutionException {
+            KeyStoreException, IOException, ExecutionException {
 
         if (commonName == null) {
             throw new IllegalArgumentException(
