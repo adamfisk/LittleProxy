@@ -1,5 +1,6 @@
 package org.littleshoot.proxy.extras;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -33,7 +34,6 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import java.util.Vector;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -48,30 +48,30 @@ import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
 import org.apache.commons.io.IOUtils;
-import org.bouncycastle.asn1.ASN1Encodable;
-import org.bouncycastle.asn1.DERObject;
+import org.bouncycastle.asn1.ASN1EncodableVector;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.BasicConstraints;
-import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
+import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.bouncycastle.asn1.x509.KeyUsage;
-import org.bouncycastle.asn1.x509.X509Extension;
+import org.bouncycastle.asn1.x509.SubjectKeyIdentifier;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.cert.bc.BcX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.MiscPEMGenerator;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.util.io.pem.PemWriter;
-import org.bouncycastle.x509.extension.SubjectKeyIdentifierStructure;
 import org.littleshoot.proxy.SslEngineSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -272,11 +272,11 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
 
         final Certificate cert = keystore.getCertificate(authority.alias());
         Writer sw = null;
-        PemWriter pw = null;
+        JcaPEMWriter pw = null;
         try {
             sw = new FileWriter(authority.aliasFile(".pem"));
-            pw = new PemWriter(sw);
-            pw.writeObject(new MiscPEMGenerator(cert));
+            pw = new JcaPEMWriter(sw);
+            pw.writeObject(cert);
             pw.flush();
         } finally {
             IOUtils.closeQuietly(pw);
@@ -328,21 +328,21 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
                 namebld.build(), BigInteger.valueOf(rnd.nextInt()), startDate,
                 expireDate, namebld.build(), pubKey);
 
-        certGen.addExtension(X509Extension.subjectKeyIdentifier, false,
-                new SubjectKeyIdentifierStructure(pubKey));
-        certGen.addExtension(X509Extension.basicConstraints, true,
+        certGen.addExtension(Extension.subjectKeyIdentifier, false,
+                createSubjectKeyIdentifier(pubKey));
+        certGen.addExtension(Extension.basicConstraints, true,
                 new BasicConstraints(true));
-        certGen.addExtension(X509Extension.keyUsage, false, new KeyUsage(
+        certGen.addExtension(Extension.keyUsage, false, new KeyUsage(
                 KeyUsage.keyCertSign | KeyUsage.digitalSignature
                         | KeyUsage.keyEncipherment | KeyUsage.dataEncipherment
                         | KeyUsage.cRLSign));
 
-        Vector<DERObject> eku = new Vector<DERObject>(3, 1);
+        ASN1EncodableVector eku = new ASN1EncodableVector();
         eku.add(KeyPurposeId.id_kp_serverAuth);
         eku.add(KeyPurposeId.id_kp_clientAuth);
         eku.add(KeyPurposeId.anyExtendedKeyUsage);
-        certGen.addExtension(X509Extension.extendedKeyUsage, false,
-                new ExtendedKeyUsage(eku));
+        DERSequence seq = new DERSequence(eku);
+        certGen.addExtension(Extension.extendedKeyUsage, false, seq);
 
         final ContentSigner sigGen = new JcaContentSignerBuilder(
                 SIGNATURE_ALGORITHM).setProvider("BC").build(privKey);
@@ -354,6 +354,20 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         ks.setKeyEntry(authority.alias(), privKey, authority.password(),
                 new Certificate[] { cert });
         return ks;
+    }
+
+    private SubjectKeyIdentifier createSubjectKeyIdentifier(PublicKey pub)
+            throws IOException {
+        ByteArrayInputStream bIn = new ByteArrayInputStream(pub.getEncoded());
+        ASN1InputStream is = null;
+        try {
+            is = new ASN1InputStream(bIn);
+            SubjectPublicKeyInfo info = new SubjectPublicKeyInfo(
+                    (ASN1Sequence) is.readObject());
+            return new BcX509ExtensionUtils().createSubjectKeyIdentifier(info);
+        } finally {
+            IOUtils.closeQuietly(is);
+        }
     }
 
     private void initializeSSLContext() throws KeyStoreException,
@@ -520,25 +534,23 @@ public class BouncyCastleSslEngineSource implements SslEngineSource {
         X509v3CertificateBuilder certGen = new JcaX509v3CertificateBuilder(
                 subject, serial, notBefore, notAfter, name, pubKey);
 
-        certGen.addExtension(X509Extension.subjectKeyIdentifier, false,
-                new SubjectKeyIdentifierStructure(pubKey));
-        certGen.addExtension(X509Extension.basicConstraints, false,
+        certGen.addExtension(Extension.subjectKeyIdentifier, false,
+                createSubjectKeyIdentifier(pubKey));
+        certGen.addExtension(Extension.basicConstraints, false,
                 new BasicConstraints(false));
 
         if (!subjectAlternativeNames.isEmpty()) {
-            ASN1Encodable[] encodables = new ASN1Encodable[subjectAlternativeNames
-                    .size()];
+            ASN1EncodableVector eku = new ASN1EncodableVector();
             Iterator<List<?>> it = subjectAlternativeNames.iterator();
-            for (int i = 0; i < encodables.length; i++) {
+            while (it.hasNext()) {
                 final List<?> each = it.next();
                 final String subjectAlternativeName = String.valueOf(each
                         .get(1));
                 final int tag = Integer.parseInt(String.valueOf(each.get(0)));
-                encodables[i] = new GeneralName(tag, subjectAlternativeName);
+                eku.add(new GeneralName(tag, subjectAlternativeName));
             }
-            GeneralNames seq = new GeneralNames(new DERSequence(encodables));
-            certGen.addExtension(X509Extension.subjectAlternativeName, false,
-                    seq);
+            DERSequence seq = new DERSequence(eku);
+            certGen.addExtension(Extension.subjectAlternativeName, false, seq);
         }
 
         final ContentSigner sigGen = new JcaContentSignerBuilder(
