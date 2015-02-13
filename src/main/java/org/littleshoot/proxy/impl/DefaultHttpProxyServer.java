@@ -18,6 +18,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
+import io.netty.util.internal.SystemPropertyUtil;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -445,9 +446,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * Represents a group of servers that share thread pools.
      */
     private static class ServerGroup {
-        private static final int INCOMING_ACCEPTOR_THREADS = 2;
-        private static final int INCOMING_WORKER_THREADS = 8;
-        private static final int OUTGOING_WORKER_THREADS = 8;
+        private static final int INCOMING_ACCEPTOR_THREADS = Math.max(1, SystemPropertyUtil.getInt(
+                                "proxy.acceptor.threads.", 2));
+        private static final int INCOMING_WORKER_THREADS = Math.max(1, SystemPropertyUtil.getInt(
+                                "proxy.worker.threads.incoming", Runtime.getRuntime().availableProcessors() * 2));
+        private static final int OUTGOING_WORKER_THREADS = Math.max(1, SystemPropertyUtil.getInt(
+                                "proxy.worker.threads.outgoing", Runtime.getRuntime().availableProcessors() * 2));
 
         /**
          * A name for this ServerGroup to use in naming threads.
