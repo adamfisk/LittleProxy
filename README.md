@@ -16,7 +16,7 @@ You can embed LittleProxy in your own projects through maven with the following:
     <dependency>
         <groupId>org.littleshoot</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>1.0.0-beta8</version>
+        <version>1.1.0-beta1</version>
     </dependency>
 ```
 
@@ -41,25 +41,25 @@ HttpProxyServer server =
             public HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext ctx) {
                return new HttpFiltersAdapter(originalRequest) {
                   @Override
-                  public HttpResponse requestPre(HttpObject httpObject) {
+                  public HttpResponse clientToProxyRequest(HttpObject httpObject) {
                       // TODO: implement your filtering here
                       return null;
                   }
 
                   @Override
-                  public HttpResponse requestPost(HttpObject httpObject) {
+                  public HttpResponse proxyToServerRequest(HttpObject httpObject) {
                       // TODO: implement your filtering here
                       return null;
                   }
 
                   @Override
-                  public HttpObject responsePre(HttpObject httpObject) {
+                  public HttpObject serverToProxyResponse(HttpObject httpObject) {
                       // TODO: implement your filtering here
                       return httpObject;
                   }
 
                   @Override
-                  public HttpObject responsePost(HttpObject httpObject) {
+                  public HttpObject proxyToClientResponse(HttpObject httpObject) {
                       // TODO: implement your filtering here
                       return httpObject;
                   }   
@@ -67,7 +67,7 @@ HttpProxyServer server =
             }
         })
         .start();
-```                
+```     
 
 If you want to create additional proxy servers with similar configuration but
 listening on different ports, you can clone an existing server.  The cloned
@@ -145,3 +145,35 @@ upgrade, LittleProxy's public API and internal implementation were significantly
 refactored for maintainability and API stability.
 
 Support for Man in the Middle proxying was temporarily dropped in this release.
+
+### Backwards compatibility with 1.1 and 1.0
+
+For users of version prior to 1.1 version an filter adapter instanciation looked like this:
+
+```java
+new HttpFiltersAdapter(originalRequest) {
+  @Override
+  public HttpResponse requestPre(HttpObject httpObject) {
+      // TODO: implement your filtering here
+      return null;
+  }
+
+  @Override
+  public HttpResponse requestPost(HttpObject httpObject) {
+      // TODO: implement your filtering here
+      return null;
+  }
+
+  @Override
+  public HttpObject responsePre(HttpObject httpObject) {
+      // TODO: implement your filtering here
+      return httpObject;
+  }
+
+  @Override
+  public HttpObject responsePost(HttpObject httpObject) {
+      // TODO: implement your filtering here
+      return httpObject;
+  }   
+};
+```            
