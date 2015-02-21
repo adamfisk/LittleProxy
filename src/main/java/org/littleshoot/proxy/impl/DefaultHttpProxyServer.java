@@ -492,6 +492,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         private volatile boolean stopped = false;
 
+        /**
+         * JVM shutdown hook to stop this server group. Declared as a class-level variable to allow removing the shutdown hook when the
+         * server is stopped normally.
+         */
+        private final Thread serverGroupShutdownHook = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                stop();
+            }
+        });
+
         private ServerGroup(String name) {
             this.name = name;
 
@@ -501,11 +512,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 }
             });
 
-            Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-                public void run() {
-                    stop();
-                }
-            }));
+            Runtime.getRuntime().addShutdownHook(serverGroupShutdownHook);
         }
 
         public synchronized void ensureProtocol(
@@ -591,6 +598,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     LOG.warn("Interrupted while shutting down event loop");
                 }
             }
+
+            // remove the shutdown hook that was added when the server group was started, since it has now been stopped
+            Runtime.getRuntime().removeShutdownHook(serverGroupShutdownHook);
 
             stopped = true;
 
