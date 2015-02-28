@@ -124,7 +124,7 @@ public class Launcher {
         formatter.printHelp("littleproxy", options);
     }
 
-    private static void pollLog4JConfigurationFileIfAvailable() {
+    public static void pollLog4JConfigurationFileIfAvailable() {
         File log4jConfigurationFile = new File(
                 "src/test/resources/log4j.xml");
         if (log4jConfigurationFile.exists()) {
