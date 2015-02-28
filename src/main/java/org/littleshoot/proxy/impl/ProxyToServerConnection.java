@@ -527,6 +527,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * This method initializes our {@link ConnectionFlow} based on however this
      * connection has been configured.
+     * 
+     * TODO clean up this method
      */
     private void initializeConnectionFlow() {
         this.connectionFlow = new ConnectionFlow(clientConnection, this,
@@ -543,10 +545,27 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             boolean isMitmEnabled = mitmManager != null;
 
             if (isMitmEnabled) {
+                // A caching proxy needs to install a HostResolver which returns
+                // unresolved addresses in off line mode. An unresolved address 
+                // here means a cached response is requested and the server 
+                // shouldn't be connected. Don't connect/encrypt a channel to 
+                // the server.
+                //
+                if (remoteAddress.isUnresolved()) {
+                    // A new instance, since we can't use connectionFlow with
+                    // ConnectChannel here
+                    //
+                    connectionFlow = new ConnectionFlow(clientConnection, this,
+                            connectLock);
+                    connectionFlow.then(
+                            clientConnection.RespondCONNECTSuccessful).then(
+                            serverConnection.MitmEncryptClientChannel);
+                } else {
                 connectionFlow.then(serverConnection.EncryptChannel(
                         mitmManager.serverSslEngine()))
                         .then(clientConnection.RespondCONNECTSuccessful)
                         .then(serverConnection.MitmEncryptClientChannel);
+                }
             } else {
                 // If we're chaining, forward the CONNECT request
                 if (hasUpstreamChainedProxy()) {
@@ -672,7 +691,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             return clientConnection
                     .encrypt(proxyServer.getMitmManager()
-                            .clientSslEngineFor(sslEngine.getSession(), serverHostAndPort), false)
+                            .clientSslEngineFor(sslEngine == null ? null : sslEngine.getSession(), serverHostAndPort), false)
                     .addListener(
                             new GenericFutureListener<Future<? super Channel>>() {
                                 @Override
@@ -777,7 +796,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 8192 * 2));
         pipeline.addLast("responseReadMonitor", responseReadMonitor);
 
-        if (!ProxyUtils.isCONNECT(httpRequest)) {
+        if (proxyServer.getMitmManager() != null
+                || !ProxyUtils.isCONNECT(httpRequest)) {
             // Enable aggregation for filtering if necessary
             int numberOfBytesToBuffer = proxyServer.getFiltersSource()
                     .getMaximumResponseBufferSizeInBytes();
