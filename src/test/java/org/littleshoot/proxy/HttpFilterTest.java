@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
@@ -20,9 +21,11 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class HttpFilterTest {
@@ -66,6 +69,8 @@ public class HttpFilterTest {
                 -1, -1, -1 };
         final long[] proxyToServerConnectionSucceededMills = new long[] { -1,
                 -1, -1, -1, -1 };
+
+        final AtomicReference<ChannelHandlerContext> serverCtxReference = new AtomicReference<ChannelHandlerContext>();
 
         final String url1 = "http://localhost:" + WEB_SERVER_PORT + "/";
         final String url2 = "http://localhost:" + WEB_SERVER_PORT + "/testing";
@@ -197,9 +202,10 @@ public class HttpFilterTest {
                     }
 
                     @Override
-                    public void proxyToServerConnectionSucceeded() {
+                    public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
                         proxyToServerConnectionSucceededMills[requestCount
                                 .get()] = now();
+                        serverCtxReference.set(serverCtx);
                     }
 
                 };
@@ -327,6 +333,14 @@ public class HttpFilterTest {
 
         assertEquals(403, response4.getStatusLine().getStatusCode());
         assertEquals(403, response5.getStatusLine().getStatusCode());
+
+        assertNotNull("Server channel context from proxyToServerConnectionSucceeded() should not be null", serverCtxReference.get());
+        InetSocketAddress remoteAddress = (InetSocketAddress) serverCtxReference.get().channel().remoteAddress();
+        assertNotNull("Server's remoteAddress from proxyToServerConnectionSucceeded() should not be null", remoteAddress);
+        // make sure we're getting the right remote address (and therefore the right server channel context) in the
+        // proxyToServerConnectionSucceeded() filter method
+        assertEquals("Server's remoteAddress should connect to localhost", "localhost", remoteAddress.getHostName());
+        assertEquals("Server's port should match the web server port", WEB_SERVER_PORT, remoteAddress.getPort());
 
         webServer.stop();
         server.stop();

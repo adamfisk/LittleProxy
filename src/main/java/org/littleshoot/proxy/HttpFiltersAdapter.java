@@ -13,6 +13,7 @@ import java.net.InetSocketAddress;
 public class HttpFiltersAdapter implements HttpFilters {
     protected final HttpRequest originalRequest;
     protected final ChannelHandlerContext ctx;
+    protected volatile ChannelHandlerContext serverCtx;
 
     public HttpFiltersAdapter(HttpRequest originalRequest,
             ChannelHandlerContext ctx) {
@@ -88,6 +89,7 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public void proxyToServerConnectionSucceeded() {
+    public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
+        this.serverCtx = serverCtx;
     }
 }
