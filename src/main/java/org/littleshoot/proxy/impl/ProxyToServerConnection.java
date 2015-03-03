@@ -38,10 +38,7 @@ import org.slf4j.spi.LocationAwareLogger;
 import javax.net.ssl.SSLSession;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.Enumeration;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -59,7 +56,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
  * ProxyConnections are reused fairly liberally, and can go from disconnected to
  * connected, back to disconnected and so on.
  * </p>
- * <p/>
+ * 
  * <p>
  * Connecting a {@link ProxyToServerConnection} can involve more than just
  * connecting the underlying {@link Channel}. In particular, the connection may
@@ -128,13 +125,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private volatile GlobalTrafficShapingHandler trafficHandler;
 
     /**
-     * Minimum size of the adaptive recv buffer when throttling is enabled.
+     * Minimum size of the adaptive recv buffer when throttling is enabled. 
      */
     private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
-
+    
     /**
      * Create a new ProxyToServerConnection.
-     *
+     * 
      * @param proxyServer
      * @param clientConnection
      * @param serverHostAndPort
@@ -144,11 +141,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * @throws UnknownHostException
      */
     static ProxyToServerConnection create(DefaultHttpProxyServer proxyServer,
-                                          ClientToProxyConnection clientConnection,
-                                          String serverHostAndPort,
-                                          HttpFilters initialFilters,
-                                          HttpRequest initialHttpRequest,
-                                          GlobalTrafficShapingHandler globalTrafficShapingHandler)
+            ClientToProxyConnection clientConnection,
+            String serverHostAndPort,
+            HttpFilters initialFilters,
+            HttpRequest initialHttpRequest,
+            GlobalTrafficShapingHandler globalTrafficShapingHandler)
             throws UnknownHostException {
         Queue<ChainedProxy> chainedProxies = new ConcurrentLinkedQueue<ChainedProxy>();
         ChainedProxyManager chainedProxyManager = proxyServer
@@ -193,11 +190,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         setupConnectionParameters();
     }
 
-    /**
-     * ************************************************************************
+    /***************************************************************************
      * Reading
-     * ************************************************************************
-     */
+     **************************************************************************/
 
     @Override
     protected void read(Object msg) {
@@ -244,12 +239,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * doesn't know that any given response is to a HEAD request, so it needs to
      * be told that there's no content so that it doesn't hang waiting for it.
      * </p>
-     * <p/>
+     * 
      * <p>
      * See the documentation for {@link HttpResponseDecoder} for information
      * about why HEAD requests need special handling.
      * </p>
-     * <p/>
+     * 
      * <p>
      * Thanks to <a href="https://github.com/nataliakoval">nataliakoval</a> for
      * pointing out that with connections being reused as they are, this needs
@@ -259,7 +254,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private class HeadAwareHttpResponseDecoder extends HttpResponseDecoder {
 
         public HeadAwareHttpResponseDecoder(int maxInitialLineLength,
-                                            int maxHeaderSize, int maxChunkSize) {
+                int maxHeaderSize, int maxChunkSize) {
             super(maxInitialLineLength, maxHeaderSize, maxChunkSize);
         }
 
@@ -273,9 +268,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
                     true : super.isContentAlwaysEmpty(httpMessage);
         }
-    }
-
-    ;
+    };
 
     /***************************************************************************
      * Writing
@@ -284,7 +277,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Like {@link #write(Object)} and also sets the current filters to the
      * given value.
-     *
+     * 
      * @param msg
      * @param filters
      */
@@ -325,9 +318,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             LOG.debug("Using existing connection to: {}", remoteAddress);
             doWrite(msg);
         }
-    }
-
-    ;
+    };
 
     @Override
     protected void writeHttp(HttpObject httpObject) {
@@ -342,11 +333,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         super.writeHttp(httpObject);
     }
 
-    /**
-     * ************************************************************************
+    /***************************************************************************
      * Lifecycle
-     * ************************************************************************
-     */
+     **************************************************************************/
 
     @Override
     protected void become(ConnectionState newState) {
@@ -432,11 +421,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // connection, so there should not be any further action to take here.
     }
 
-    /**
-     * ************************************************************************
+    /***************************************************************************
      * State Management
-     * ************************************************************************
-     */
+     **************************************************************************/
     public TransportProtocol getTransportProtocol() {
         return transportProtocol;
     }
@@ -498,7 +485,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Keeps track of the current HttpResponse so that we can associate its
      * headers with future related chunks for this same transfer.
-     *
+     * 
      * @param response
      */
     private void rememberCurrentResponse(HttpResponse response) {
@@ -513,7 +500,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /**
      * Respond to the client with the given {@link HttpObject}.
-     *
+     * 
      * @param httpObject
      */
     private void respondWith(HttpObject httpObject) {
@@ -524,7 +511,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Connects to the server and then writes out the initial request (or
      * upgrades to an SSL tunnel, depending).
-     *
+     * 
      * @param initialRequest
      */
     private void connectAndWrite(final HttpRequest initialRequest) {
@@ -589,30 +576,28 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     .getProxyToServerWorkerFor(transportProtocol));
 
             switch (transportProtocol) {
-                case TCP:
-                    LOG.debug("Connecting to server with TCP");
-                    cb.channelFactory(new ChannelFactory<Channel>() {
-                        @Override
-                        public Channel newChannel() {
-                            return new NioSocketChannel();
-                        }
-                    });
-                    break;
-                case UDT:
-                    LOG.debug("Connecting to server with UDT");
-                    cb.channelFactory(NioUdtProvider.BYTE_CONNECTOR)
-                            .option(ChannelOption.SO_REUSEADDR, true);
-                    break;
-                default:
-                    throw new UnknownTransportProtocolError(transportProtocol);
+            case TCP:
+                LOG.debug("Connecting to server with TCP");
+                cb.channelFactory(new ChannelFactory<Channel>() {
+                    @Override
+                    public Channel newChannel() {
+                        return new NioSocketChannel();
+                    }
+                });
+                break;
+            case UDT:
+                LOG.debug("Connecting to server with UDT");
+                cb.channelFactory(NioUdtProvider.BYTE_CONNECTOR)
+                        .option(ChannelOption.SO_REUSEADDR, true);
+                break;
+            default:
+                throw new UnknownTransportProtocolError(transportProtocol);
             }
 
             cb.handler(new ChannelInitializer<Channel>() {
                 protected void initChannel(Channel ch) throws Exception {
                     initChannelPipeline(ch.pipeline(), initialRequest);
-                }
-
-                ;
+                };
             });
             cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS,
                     proxyServer.getConnectTimeout());
@@ -665,7 +650,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * <p>
      * Encrypts the client channel based on our server {@link SSLSession}.
      * </p>
-     * <p/>
+     * 
      * <p>
      * This does not wait for the handshake to finish so that we can go on and
      * respond to the CONNECT request.
@@ -706,13 +691,14 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * <p>
      * Called to let us know that connection failed.
      * </p>
-     * <p/>
+     * 
      * <p>
      * Try connecting to a new address, using a new set of connection
      * parameters.
      * </p>
-     *
-     * @param cause the reason that our attempt to connect failed (can be null)
+     * 
+     * @param cause
+     *            the reason that our attempt to connect failed (can be null)
      * @return true if we are trying to fall back to another connection
      */
     protected boolean connectionFailed(Throwable cause)
@@ -742,7 +728,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Set up our connection parameters based on server address and chained
      * proxies.
-     *
+     * 
      * @throws UnknownHostException
      */
     private void setupConnectionParameters() throws UnknownHostException {
@@ -773,12 +759,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /**
      * Initialize our {@link ChannelPipeline}.
-     *
+     * 
      * @param pipeline
      * @param httpRequest
      */
     private void initChannelPipeline(ChannelPipeline pipeline,
-                                     HttpRequest httpRequest) {
+            HttpRequest httpRequest) {
 
         if (trafficHandler != null) {
             pipeline.addLast("global-traffic-shaping", trafficHandler);
@@ -818,9 +804,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Do all the stuff that needs to be done after our {@link ConnectionFlow}
      * has succeeded.
      * </p>
-     *
-     * @param shouldForwardInitialRequest whether or not we should forward the initial HttpRequest to
-     *                                    the server after the connection has been established.
+     * 
+     * @param shouldForwardInitialRequest
+     *            whether or not we should forward the initial HttpRequest to
+     *            the server after the connection has been established.
      */
     void connectionSucceeded(boolean shouldForwardInitialRequest) {
         become(AWAITING_INITIAL);
@@ -845,14 +832,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /**
      * Build an {@link InetSocketAddress} for the given hostAndPort.
-     *
+     * 
      * @param hostAndPort
-     * @param proxyServer the current {@link DefaultHttpProxyServer}
+     * @param proxyServer
+     *            the current {@link DefaultHttpProxyServer}
      * @return
-     * @throws UnknownHostException if hostAndPort could not be resolved
+     * @throws UnknownHostException
+     *             if hostAndPort could not be resolved
      */
     private static InetSocketAddress addressFor(String hostAndPort,
-                                                DefaultHttpProxyServer proxyServer)
+            DefaultHttpProxyServer proxyServer)
             throws UnknownHostException {
         String host;
         int port;
@@ -869,14 +858,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return proxyServer.getServerResolver().resolve(host, port);
     }
 
-    /**
-     * ************************************************************************
+    /***************************************************************************
      * Activity Tracking/Statistics
-     * <p/>
+     * 
      * We track statistics on bytes, requests and responses by adding handlers
      * at the appropriate parts of the pipeline (see initChannelPipeline()).
-     * ************************************************************************
-     */
+     **************************************************************************/
     private final BytesReadMonitor bytesReadMonitor = new BytesReadMonitor() {
         @Override
         protected void bytesRead(int numberOfBytes) {

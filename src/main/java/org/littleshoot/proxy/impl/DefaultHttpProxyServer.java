@@ -1,8 +1,6 @@
 package org.littleshoot.proxy.impl;
 
 import static org.littleshoot.proxy.TransportProtocol.*;
-
-import com.google.common.base.Optional;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -722,7 +720,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
-        public HttpProxyServerBootstrap useNetworkInterface(InetSocketAddress inetSocketAddress) {
+        public HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress) {
             this.localAddress = inetSocketAddress;
             return this;
         }

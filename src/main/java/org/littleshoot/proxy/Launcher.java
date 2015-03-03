@@ -95,7 +95,7 @@ public class Launcher {
 
         if (cmd.hasOption(OPTION_NIC)) {
             final String val = cmd.getOptionValue(OPTION_NIC);
-            bootstrap.useNetworkInterface(new InetSocketAddress(val, 0));
+            bootstrap.withNetworkInterface(new InetSocketAddress(val, 0));
         }
 
         if (cmd.hasOption(OPTION_MITM)) {

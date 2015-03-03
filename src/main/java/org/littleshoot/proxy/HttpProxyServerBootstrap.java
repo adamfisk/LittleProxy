@@ -298,7 +298,7 @@ public interface HttpProxyServerBootstrap {
      *
      * @param inetSocketAddress to be used for outgoing communication
      */
-    HttpProxyServerBootstrap useNetworkInterface(InetSocketAddress inetSocketAddress);
+    HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress);
 
     /**
      * <p>
@@ -308,4 +308,5 @@ public interface HttpProxyServerBootstrap {
      * @return the newly built and started server
      */
     HttpProxyServer start();
+
 }
