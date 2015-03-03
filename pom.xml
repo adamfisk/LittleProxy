@@ -58,6 +58,28 @@
 
   <inceptionYear>2009</inceptionYear>
 
+    <!-- disable doclint, since Java 8 treats warnings as errors -->
+    <profiles>
+        <profile>
+            <id>doclint-java8-disable</id>
+            <activation>
+                <jdk>[1.8,)</jdk>
+            </activation>
+            <properties>
+                <javadoc.opts>-Xdoclint:none</javadoc.opts>
+            </properties>
+        </profile>
+        <profile>
+            <id>doclint-java7-earlier</id>
+            <activation>
+                <jdk>[,1.8)</jdk>
+            </activation>
+            <properties>
+                <javadoc.opts/>
+            </properties>
+        </profile>
+    </profiles>
+
   <dependencies>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -230,8 +252,6 @@
   <prerequisites>
     <maven>3.0.4</maven>
   </prerequisites>
-
-
 
   <build>
 <!--
@@ -462,7 +482,7 @@
                         <link>http://netty.io/4.0/api/</link>
                     </links>
                     <!-- disable doclint, since Java 8 treats warnings as errors -->
-                    <additionalparam>-Xdoclint:none</additionalparam>
+                    <additionalparam>${javadoc.opts}</additionalparam>
                 </configuration>
             </plugin>
             <plugin>
@@ -513,7 +533,7 @@
                 <artifactId>maven-pmd-plugin</artifactId>
                 <version>3.4</version>
                 <configuration>
-                    <linkXref>true</linkXref>
+                    <linkXRef>true</linkXRef>
                     <sourceEncoding>utf-8</sourceEncoding>
                     <minimumTokens>100</minimumTokens>
                     <targetJdk>1.6</targetJdk>
