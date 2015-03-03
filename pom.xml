@@ -461,6 +461,8 @@
                     <links>
                         <link>http://netty.io/4.0/api/</link>
                     </links>
+                    <!-- disable doclint, since Java 8 treats warnings as errors -->
+                    <additionalparam>-Xdoclint:none</additionalparam>
                 </configuration>
             </plugin>
             <plugin>
