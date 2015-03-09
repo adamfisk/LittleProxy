@@ -3,7 +3,6 @@ package org.littleshoot.proxy.impl;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.AdaptiveRecvByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelInitializer;
@@ -604,6 +603,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     proxyServer.getConnectTimeout());
 
             if (localAddress != null) {
+                cb.bind(localAddress);
                 return cb.connect(remoteAddress, localAddress);
             } else {
                 return cb.connect(remoteAddress);
@@ -753,7 +753,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.currentFilters.proxyToServerResolutionSucceeded(
                     serverHostAndPort, this.remoteAddress);
 
-            this.localAddress = null;
+            this.localAddress = proxyServer.getLocalAddress();
         }
     }
 

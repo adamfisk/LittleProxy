@@ -1,8 +1,5 @@
 package org.littleshoot.proxy;
 
-import java.io.File;
-import java.util.Arrays;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -11,13 +8,16 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.PropertyConfigurator;
 import org.apache.log4j.xml.DOMConfigurator;
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.littleshoot.proxy.impl.ProxyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.net.InetSocketAddress;
+import java.util.Arrays;
 
 /**
  * Launches a new HTTP proxy.
@@ -31,8 +31,10 @@ public class Launcher {
     private static final String OPTION_PORT = "port";
 
     private static final String OPTION_HELP = "help";
-    
+
     private static final String OPTION_MITM = "mitm";
+
+    private static final String OPTION_NIC = "nic";
 
     /**
      * Starts the proxy from the command line.
@@ -47,6 +49,7 @@ public class Launcher {
         options.addOption(null, OPTION_DNSSEC, true,
                 "Request and verify DNSSEC signatures.");
         options.addOption(null, OPTION_PORT, true, "Run on the specified port.");
+        options.addOption(null, OPTION_NIC, true, "Run on a specified Nic");
         options.addOption(null, OPTION_HELP, false,
                 "Display command line help.");
         options.addOption(null, OPTION_MITM, false, "Run as man in the middle.");
@@ -83,12 +86,18 @@ public class Launcher {
             port = defaultPort;
         }
 
+
         System.out.println("About to start server on port: " + port);
         HttpProxyServerBootstrap bootstrap = DefaultHttpProxyServer
                 .bootstrapFromFile("./littleproxy.properties")
                 .withPort(port)
                 .withAllowLocalOnly(false);
-        
+
+        if (cmd.hasOption(OPTION_NIC)) {
+            final String val = cmd.getOptionValue(OPTION_NIC);
+            bootstrap.withNetworkInterface(new InetSocketAddress(val, 0));
+        }
+
         if (cmd.hasOption(OPTION_MITM)) {
             LOG.info("Running as Man in the Middle");
             bootstrap.withManInTheMiddle(new SelfSignedMitmManager());
@@ -125,8 +134,7 @@ public class Launcher {
     }
 
     private static void pollLog4JConfigurationFileIfAvailable() {
-        File log4jConfigurationFile = new File(
-                "src/test/resources/log4j.xml");
+        File log4jConfigurationFile = new File("src/test/resources/log4j.xml");
         if (log4jConfigurationFile.exists()) {
             DOMConfigurator.configureAndWatch(
                     log4jConfigurationFile.getAbsolutePath(), 15);
