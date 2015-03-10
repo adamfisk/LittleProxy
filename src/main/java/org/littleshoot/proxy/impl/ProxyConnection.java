@@ -760,34 +760,40 @@ abstract class ProxyConnection<I extends HttpObject> extends
         public void write(ChannelHandlerContext ctx,
                 Object msg, ChannelPromise promise)
                 throws Exception {
-
             HttpRequest originalRequest = null;
             if (msg instanceof HttpRequest) {
                 originalRequest = (HttpRequest) msg;
             }
 
-            try {
-                if (null != originalRequest) {
-                    requestWritten(originalRequest);
-                }
-            } catch (Throwable t) {
-                LOG.warn("Unable to record bytesRead", t);
-            } finally {
-                if (null != originalRequest) {
-                    getHttpFiltersFromProxyServer(originalRequest)
-                            .proxyToServerRequestSending();
-                }
+            if (null != originalRequest) {
+                requestWriting(originalRequest);
+            }
 
-                super.write(ctx, msg, promise);
+            super.write(ctx, msg, promise);
 
-                if (null != originalRequest) {
-                    getHttpFiltersFromProxyServer(originalRequest)
-                            .proxyToServerRequestSent();
-                }
+            if (null != originalRequest) {
+                requestWritten(originalRequest);
+            }
+
+            if (msg instanceof HttpContent) {
+                contentWritten((HttpContent) msg);
             }
         }
 
+        /**
+         * Invoked immediately before an HttpRequest is written.
+         */
+        protected abstract void requestWriting(HttpRequest httpRequest);
+
+        /**
+         * Invoked immediately after an HttpRequest has been sent.
+         */
         protected abstract void requestWritten(HttpRequest httpRequest);
+
+        /**
+         * Invoked immediately after an HttpContent has been sent.
+         */
+        protected abstract void contentWritten(HttpContent httpContent);
     }
 
     /**
@@ -805,7 +811,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
                     responseWritten(((HttpResponse) msg));
                 }
             } catch (Throwable t) {
-                LOG.warn("Unable to record bytesRead", t);
+                LOG.warn("Error while invoking responseWritten callback", t);
             } finally {
                 super.write(ctx, msg, promise);
             }
