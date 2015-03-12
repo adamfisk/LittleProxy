@@ -11,7 +11,6 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.PropertyConfigurator;
 import org.apache.log4j.xml.DOMConfigurator;
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
@@ -124,7 +123,7 @@ public class Launcher {
         formatter.printHelp("littleproxy", options);
     }
 
-    public static void pollLog4JConfigurationFileIfAvailable() {
+    private static void pollLog4JConfigurationFileIfAvailable() {
         File log4jConfigurationFile = new File(
                 "src/test/resources/log4j.xml");
         if (log4jConfigurationFile.exists()) {
