@@ -500,23 +500,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         serverConnection.getRemoteAddress(),
                         lastStateBeforeFailure,
                         cause);
-                connectionFailedUnrecoverablyWithExactResponse(initialRequest);
+                connectionFailedUnrecoverably(initialRequest);
                 return false;
             }
         } catch (UnknownHostException uhe) {
             connectionFailedUnrecoverably(initialRequest);
             return false;
         }
-    }
-
-    private void connectionFailedUnrecoverablyWithExactResponse(HttpRequest initialRequest) {
-        writeExactResponse(initialRequest);
-        become(DISCONNECT_REQUESTED);
-    }
-
-    private void writeExactResponse(HttpRequest request) {
-        write(currentServerConnection.getCurrentHttpResponse());
-        disconnect();
     }
 
     private void connectionFailedUnrecoverably(HttpRequest initialRequest) {
