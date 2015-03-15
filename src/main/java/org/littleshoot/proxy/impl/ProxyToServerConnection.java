@@ -454,10 +454,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return initialRequest;
     }
 
-    public HttpResponse getCurrentHttpResponse( ){
-        return currentHttpResponse;
-    }
-
     @Override
     protected HttpFilters getHttpFiltersFromProxyServer(HttpRequest httpRequest) {
         return currentFilters;
@@ -638,7 +634,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             boolean connectOk = false;
             if (msg instanceof HttpResponse) {
                 HttpResponse httpResponse = (HttpResponse) msg;
-                currentHttpResponse = httpResponse;
                 int statusCode = httpResponse.getStatus().code();
                 if (statusCode >= 200 && statusCode <= 299) {
                     connectOk = true;
