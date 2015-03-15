@@ -98,7 +98,7 @@ public interface HttpFilters {
     void proxyToServerRequestSending();
 
     /**
-     * Informs filter that proxy to server request has been sent.
+     * Informs filter that the HTTP request, including any content, has been sent.
      */
     void proxyToServerRequestSent();
 

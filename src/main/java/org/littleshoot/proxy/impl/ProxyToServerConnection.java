@@ -18,6 +18,7 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
+import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.ReferenceCounted;
@@ -603,6 +604,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     proxyServer.getConnectTimeout());
 
             if (localAddress != null) {
+                cb.bind(localAddress);
                 return cb.connect(remoteAddress, localAddress);
             } else {
                 return cb.connect(remoteAddress);
@@ -752,7 +754,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.currentFilters.proxyToServerResolutionSucceeded(
                     serverHostAndPort, this.remoteAddress);
 
-            this.localAddress = null;
+            this.localAddress = proxyServer.getLocalAddress();
         }
     }
 
@@ -901,12 +903,29 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     private RequestWrittenMonitor requestWrittenMonitor = new RequestWrittenMonitor() {
         @Override
-        protected void requestWritten(HttpRequest httpRequest) {
+        protected void requestWriting(HttpRequest httpRequest) {
             FullFlowContext flowContext = new FullFlowContext(clientConnection,
                     ProxyToServerConnection.this);
-            for (ActivityTracker tracker : proxyServer
-                    .getActivityTrackers()) {
-                tracker.requestSentToServer(flowContext, httpRequest);
+            try {
+                for (ActivityTracker tracker : proxyServer
+                        .getActivityTrackers()) {
+                    tracker.requestSentToServer(flowContext, httpRequest);
+                }
+            } catch (Throwable t) {
+                LOG.warn("Error while invoking ActivityTracker on request", t);
+            }
+
+            currentFilters.proxyToServerRequestSending();
+        }
+
+        @Override
+        protected void requestWritten(HttpRequest httpRequest) {
+        }
+
+        @Override
+        protected void contentWritten(HttpContent httpContent) {
+            if (httpContent instanceof LastHttpContent) {
+                currentFilters.proxyToServerRequestSent();
             }
         }
     };

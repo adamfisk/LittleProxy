@@ -294,10 +294,17 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withThrottling(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
 
     /**
+     * All outgoing-communication of the proxy-instance is goin' to be routed via the given network-interface
+     *
+     * @param inetSocketAddress to be used for outgoing communication
+     */
+    HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress);
+
+    /**
      * <p>
      * Build and starts the server.
      * </p>
-     * 
+     *
      * @return the newly built and started server
      */
     HttpProxyServer start();
