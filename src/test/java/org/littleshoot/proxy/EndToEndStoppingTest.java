@@ -8,8 +8,12 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.util.EntityUtils;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.mockserver.integration.ClientAndServer;
+import org.mockserver.matchers.Times;
 import org.openqa.selenium.Proxy;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
@@ -18,10 +22,13 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockserver.model.HttpRequest.request;
+import static org.mockserver.model.HttpResponse.response;
 
 /**
  * End to end test making sure the proxy is able to service simple HTTP requests
@@ -29,8 +36,24 @@ import static org.junit.Assert.assertTrue;
  * contributions at: https://github.com/adamfisk/LittleProxy/issues/36
  */
 public class EndToEndStoppingTest {
+    private static final Logger log = LoggerFactory.getLogger(EndToEndStoppingTest.class);
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private ClientAndServer mockServer;
+    private int mockServerPort;
+
+    @Before
+    public void setUp() {
+        // replace this with port 0 when MockServer supports it
+        mockServerPort = new Random().nextInt(55000) + 10000;
+        mockServer = new ClientAndServer(mockServerPort);
+    }
+
+    @After
+    public void tearDown() {
+        if (mockServer != null) {
+            mockServer.stop();
+        }
+    }
 
     /**
      * This is a quick test from nasis that exhibits different behavior from
@@ -40,14 +63,13 @@ public class EndToEndStoppingTest {
      * properly tests.
      */
     public static void main(final String[] args) throws Exception {
-        int port = 9090;
         HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
-                .withPort(port)
+                .withPort(0)
                 .start();
 
         Proxy proxy = new Proxy();
         proxy.setProxyType(Proxy.ProxyType.MANUAL);
-        String proxyStr = String.format("localhost:%d", port);
+        String proxyStr = String.format("localhost:%d", proxyServer.getListenAddress().getPort());
         proxy.setHttpProxy(proxyStr);
         proxy.setSslProxy(proxyStr);
 
@@ -69,10 +91,18 @@ public class EndToEndStoppingTest {
 
     @Test
     public void testWithHttpClient() throws Exception {
+        mockServer.when(request()
+                        .withMethod("GET")
+                        .withPath("/success"),
+                Times.exactly(1))
+                .respond(response()
+                                .withStatusCode(200)
+                                .withBody("Success!")
+                );
         // final String url = "https://www.exceptional.io/api/errors?" +
         // "api_key="+"9848f38fb5ad1db0784675b75b9152c87dc1eb95"+"&protocol_version=6";
 
-        final String url = "https://www.exceptional.io";
+        final String url = "http://127.0.0.1:" + mockServerPort + "/success";
         final String[] sites = { url };// "https://www.google.com.ua"};//"https://exceptional.io"};//"http://www.google.com.ua"};
         for (final String site : sites) {
             runSiteTestWithHttpClient(site);
@@ -80,11 +110,6 @@ public class EndToEndStoppingTest {
     }
 
     private void runSiteTestWithHttpClient(final String site) throws Exception {
-        final int PROXY_PORT = 9097;
-        final HttpClient client = TestUtils.createProxiedHttpClient(PROXY_PORT);
-
-        // final HttpPost get = new HttpPost(site);
-        final HttpGet get = new HttpGet(site);
         // HttpResponse response = client.execute(get);
 
         // assertEquals(200, response.getStatusLine().getStatusCode());
@@ -98,8 +123,8 @@ public class EndToEndStoppingTest {
          * System.out.println("Request went through proxy"); } });
          */
 
-        final HttpProxyServer plain = DefaultHttpProxyServer.bootstrap()
-                .withPort(PROXY_PORT)
+        final HttpProxyServer proxy = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
                     @Override
                     public HttpFilters filterRequest(HttpRequest originalRequest) {
@@ -107,42 +132,48 @@ public class EndToEndStoppingTest {
                             @Override
                             public io.netty.handler.codec.http.HttpResponse proxyToServerRequest(
                                     HttpObject httpObject) {
-                                System.out
-                                        .println("Request with through proxy");
+                                System.out.println("Request with through proxy");
                                 return null;
                             }
                         };
                     }
                 }).start();
-        final HttpProxyServer proxy = plain;
 
-        // client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
-        // new HttpHost("75.101.134.244", PROXY_PORT));
-        // new HttpHost("localhost", PROXY_PORT, "https"));
-        HttpResponse response = client.execute(get);
-        assertEquals(200, response.getStatusLine().getStatusCode());
-        final HttpEntity entity = response.getEntity();
-        final String body =
-                IOUtils.toString(entity.getContent()).toLowerCase();
-        EntityUtils.consume(entity);
+        try {
+            final HttpClient client = TestUtils.createProxiedHttpClient(proxy.getListenAddress().getPort());
 
-        log.info("Consuming entity -- got body: {}", body);
-        EntityUtils.consume(response.getEntity());
+            // final HttpPost get = new HttpPost(site);
+            final HttpGet get = new HttpGet(site);
 
-        log.info("Stopping proxy");
-        proxy.stop();
+            // client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
+            // new HttpHost("75.101.134.244", PROXY_PORT));
+            // new HttpHost("localhost", PROXY_PORT, "https"));
+            HttpResponse response = client.execute(get);
+            assertEquals(200, response.getStatusLine().getStatusCode());
+            final HttpEntity entity = response.getEntity();
+            final String body = IOUtils.toString(entity.getContent());
+            EntityUtils.consume(entity);
+
+            log.info("Consuming entity -- got body: {}", body);
+            EntityUtils.consume(response.getEntity());
+
+            log.info("Stopping proxy");
+        } finally {
+            if (proxy != null) {
+                proxy.stop();
+            }
+        }
     }
 
     // @Test
     public void testWithWebDriver() throws Exception {
-        int port = 9090;
         HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
-                .withPort(port)
+                .withPort(0)
                 .start();
 
         Proxy proxy = new Proxy();
         proxy.setProxyType(Proxy.ProxyType.MANUAL);
-        String proxyStr = String.format("localhost:%d", port);
+        String proxyStr = String.format("localhost:%d", proxyServer.getListenAddress().getPort());
         proxy.setHttpProxy(proxyStr);
         proxy.setSslProxy(proxyStr);
 

@@ -25,7 +25,7 @@ public class MitmProxyTest extends BaseProxyTest {
     @Override
     protected void setUp() {
         this.proxyServer = bootstrapProxy()
-                .withPort(proxyServerPort)
+                .withPort(0)
                 // Include a ChainedProxyManager to make sure that MITM setting
                 // overrides this
                 .withChainProxyManager(new ChainedProxyManager() {

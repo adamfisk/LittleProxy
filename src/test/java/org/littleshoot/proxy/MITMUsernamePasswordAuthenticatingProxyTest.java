@@ -12,7 +12,7 @@ public class MITMUsernamePasswordAuthenticatingProxyTest extends
     @Override
     protected void setUp() {
         this.proxyServer = bootstrapProxy()
-                .withPort(proxyServerPort)
+                .withPort(0)
                 .withProxyAuthenticator(this)
                 .withManInTheMiddle(new SelfSignedMitmManager())
                 .start();

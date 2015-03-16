@@ -22,9 +22,6 @@ import java.io.IOException;
 
 @FixMethodOrder(MethodSorters.JVM)
 public class ThrottlingTest {
-
-    private static final int WRITE_WEB_SERVER_PORT = 8926;
-    private static final int READ_WEB_SERVER_PORT = 8927;
     private static final long THROTTLED_READ_BYTES_PER_SECOND = 25000L;
     private static final long THROTTLED_WRITE_BYTES_PER_SECOND = 25000L;
 
@@ -44,6 +41,9 @@ public class ThrottlingTest {
     // time to allow for an unthrottled local request
     private static final int UNTRHOTTLED_REQUEST_TIME_MS = 1000;
 
+    private int writeWebServerPort;
+    private int readWebServerPort;
+
     @Before
     public void setUp() throws Exception {
         // Set up some large data
@@ -55,14 +55,24 @@ public class ThrottlingTest {
         msToWriteThrottled = largeData.length  * 1000 / (int)THROTTLED_WRITE_BYTES_PER_SECOND;
         msToReadThrottled = largeData.length  * 1000 / (int)THROTTLED_READ_BYTES_PER_SECOND;
 
-        writeWebServer = TestUtils.startWebServer(WRITE_WEB_SERVER_PORT);
-        readWebServer = TestUtils.startWebServerWithResponse(READ_WEB_SERVER_PORT, largeData);
+        writeWebServer = TestUtils.startWebServer(false);
+        writeWebServerPort = TestUtils.findLocalHttpPort(writeWebServer);
+
+        readWebServer = TestUtils.startWebServerWithResponse(false, largeData);
+        readWebServerPort = TestUtils.findLocalHttpPort(readWebServer);
     }
 
     @After
     public void tearDown() throws Exception {
-        writeWebServer.stop();
-        readWebServer.stop();
+        try {
+            if (writeWebServer != null) {
+                writeWebServer.stop();
+            }
+        } finally {
+            if (readWebServer != null) {
+                readWebServer.stop();
+            }
+        }
     }
 
     @Test
@@ -80,9 +90,9 @@ public class ThrottlingTest {
         HttpGet request = createHttpGet();
         DefaultHttpClient httpClient = createHttpClient(proxyPort);
 
-        EntityUtils.consumeQuietly(httpClient.execute(new HttpHost("127.0.0.1", WRITE_WEB_SERVER_PORT), request).getEntity());
+        EntityUtils.consumeQuietly(httpClient.execute(new HttpHost("127.0.0.1", writeWebServerPort), request).getEntity());
 
-        EntityUtils.consumeQuietly(httpClient.execute(new HttpHost("127.0.0.1", READ_WEB_SERVER_PORT), request).getEntity());
+        EntityUtils.consumeQuietly(httpClient.execute(new HttpHost("127.0.0.1", readWebServerPort), request).getEntity());
     }
 
     @Test
@@ -101,7 +111,7 @@ public class ThrottlingTest {
         long start = System.currentTimeMillis();
         final org.apache.http.HttpResponse response = httpClient.execute(
                 new HttpHost("127.0.0.1",
-                        WRITE_WEB_SERVER_PORT), request);
+                        writeWebServerPort), request);
         long finish = System.currentTimeMillis();
 
         Assert.assertEquals("Received " + largeData.length + " bytes\n",
@@ -129,7 +139,7 @@ public class ThrottlingTest {
         long start = System.currentTimeMillis();
         final org.apache.http.HttpResponse response = httpClient.execute(
                 new HttpHost("127.0.0.1",
-                        WRITE_WEB_SERVER_PORT), request);
+                        writeWebServerPort), request);
         long finish = System.currentTimeMillis();
 
         Assert.assertEquals("Received " + largeData.length + " bytes\n",
@@ -156,7 +166,7 @@ public class ThrottlingTest {
         long start = System.currentTimeMillis();
         final org.apache.http.HttpResponse response = httpClient.execute(
                 new HttpHost("127.0.0.1",
-                        READ_WEB_SERVER_PORT), request);
+                        readWebServerPort), request);
         byte[] readContent = new byte[100000];
 
         int bytesRead = 0;
@@ -189,7 +199,7 @@ public class ThrottlingTest {
         long start = System.currentTimeMillis();
         final org.apache.http.HttpResponse response = httpClient.execute(
                 new HttpHost("127.0.0.1",
-                        READ_WEB_SERVER_PORT), request);
+                        readWebServerPort), request);
 
         byte[] readContent = new byte[100000];
         int bytesRead = 0;
@@ -221,7 +231,7 @@ public class ThrottlingTest {
         long firstStart = System.currentTimeMillis();
         org.apache.http.HttpResponse response = httpClient.execute(
                 new HttpHost("127.0.0.1",
-                        READ_WEB_SERVER_PORT), request);
+                        readWebServerPort), request);
         byte[] readContent = new byte[100000];
 
         int bytesRead = 0;
@@ -239,7 +249,7 @@ public class ThrottlingTest {
         long secondStart = System.currentTimeMillis();
         response = httpClient.execute(
                 new HttpHost("127.0.0.1",
-                        READ_WEB_SERVER_PORT), request);
+                        readWebServerPort), request);
         readContent = new byte[100000];
 
         bytesRead = 0;
@@ -275,7 +285,7 @@ public class ThrottlingTest {
         long firstStart = System.currentTimeMillis();
         org.apache.http.HttpResponse response = httpClient.execute(
                 new HttpHost("127.0.0.1",
-                        READ_WEB_SERVER_PORT), request);
+                        readWebServerPort), request);
         byte[] readContent = new byte[100000];
 
         int bytesRead = 0;
@@ -293,7 +303,7 @@ public class ThrottlingTest {
         long secondStart = System.currentTimeMillis();
         response = httpClient.execute(
                 new HttpHost("127.0.0.1",
-                        READ_WEB_SERVER_PORT), request);
+                        readWebServerPort), request);
         readContent = new byte[100000];
 
         bytesRead = 0;

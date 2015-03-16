@@ -37,28 +37,62 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class HttpFilterTest {
-
-    private static final int PROXY_PORT = 8923;
-    private static final int WEB_SERVER_PORT = 8924;
-
-    private long now() {
-        // using nanoseconds instead of milliseconds, since it is extremely unlikely that any two callbacks would be invoked in the same nanosecond,
-        // even on very fast hardware
-        return System.nanoTime();
-    }
-
     private Server webServer;
+    private HttpProxyServer proxyServer;
+    private int webServerPort;
 
     @Before
     public void setUp() throws Exception {
-        webServer = new Server(WEB_SERVER_PORT);
+        webServer = new Server(0);
         webServer.start();
+        webServerPort = TestUtils.findLocalHttpPort(webServer);
     }
 
     @After
     public void tearDown() throws Exception {
-        if (webServer != null) {
-            webServer.stop();
+        try {
+            if (webServer != null) {
+                webServer.stop();
+            }
+        } finally {
+            if (proxyServer != null) {
+                proxyServer.stop();
+            }
+        }
+    }
+
+    /**
+     * Sets up the HttpProxyServer instance for a test. This method initializes the proxyServer and proxyPort method variables, and should
+     * be called before making any requests through the proxy server.
+     *
+     * The proxy cannot be created in an @Before method because the filtersSource must be initialized by each test before the proxy is
+     * created.
+     *
+     * @param filtersSource HTTP filters source
+     */
+    private void setUpHttpProxyServer(HttpFiltersSource filtersSource) {
+        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .withFiltersSource(filtersSource)
+                .start();
+
+        final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", proxyServer.getListenAddress().getPort());
+        while (true) {
+            final Socket sock = new Socket();
+            try {
+                sock.connect(isa);
+                break;
+            } catch (final IOException e) {
+                // Keep trying.
+            } finally {
+                IOUtils.closeQuietly(sock);
+            }
+
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException("Interrupted while verifying proxy is connectable");
+            }
         }
     }
 
@@ -95,11 +129,11 @@ public class HttpFilterTest {
         final long[] proxyToServerConnectionSucceededNanos = new long[] { -1,
                 -1, -1, -1, -1 };
 
-        final String url1 = "http://localhost:" + WEB_SERVER_PORT + "/";
-        final String url2 = "http://localhost:" + WEB_SERVER_PORT + "/testing";
-        final String url3 = "http://localhost:" + WEB_SERVER_PORT + "/testing2";
-        final String url4 = "http://localhost:" + WEB_SERVER_PORT + "/testing3";
-        final String url5 = "http://localhost:" + WEB_SERVER_PORT + "/testing4";
+        final String url1 = "http://localhost:" + webServerPort + "/";
+        final String url2 = "http://localhost:" + webServerPort + "/testing";
+        final String url3 = "http://localhost:" + webServerPort + "/testing2";
+        final String url4 = "http://localhost:" + webServerPort + "/testing3";
+        final String url5 = "http://localhost:" + webServerPort + "/testing4";
         final HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest originalRequest) {
                 shouldFilterCalls.incrementAndGet();
@@ -242,7 +276,7 @@ public class HttpFilterTest {
             }
         };
 
-        final HttpProxyServer server = getHttpProxyServer(filtersSource);
+        setUpHttpProxyServer(filtersSource);
 
         org.apache.http.HttpResponse response1 = getResponse(url1);
         requestCount.incrementAndGet();
@@ -334,8 +368,6 @@ public class HttpFilterTest {
 
         assertEquals(403, response4.getStatusLine().getStatusCode());
         assertEquals(403, response5.getStatusLine().getStatusCode());
-
-        server.stop();
     }
 
     @Test
@@ -348,7 +380,7 @@ public class HttpFilterTest {
                 return new HttpFiltersAdapter(originalRequest) {
                     @Override
                     public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
-                        return InetSocketAddress.createUnresolved("localhost", WEB_SERVER_PORT);
+                        return InetSocketAddress.createUnresolved("localhost", webServerPort);
                     }
 
                     @Override
@@ -360,16 +392,11 @@ public class HttpFilterTest {
             }
         };
 
-        final HttpProxyServer server = DefaultHttpProxyServer.bootstrap()
-                .withPort(PROXY_PORT)
-                .withFiltersSource(filtersSource)
-                .start();
+        setUpHttpProxyServer(filtersSource);
 
-        getResponse("http://localhost:" + WEB_SERVER_PORT + "/");
+        getResponse("http://localhost:" + webServerPort + "/");
 
         assertTrue("proxyToServerResolutionSucceeded method was not called", resolutionSucceeded.get());
-
-        server.stop();
     }
 
     @Test
@@ -403,10 +430,10 @@ public class HttpFilterTest {
             }
         };
 
-        final HttpProxyServer server = getHttpProxyServer(filtersSource);
+        setUpHttpProxyServer(filtersSource);
 
         // test with a POST request with a payload. post a large amount of data, to force chunked content.
-        postToServer("http://localhost:" + WEB_SERVER_PORT + "/", 50000);
+        postToServer("http://localhost:" + webServerPort + "/", 50000);
 
 
         assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for chunked POST", lastHttpContentProcessed.get());
@@ -416,40 +443,15 @@ public class HttpFilterTest {
         lastHttpContentProcessed.set(false);
         requestSentCallbackInvoked.set(false);
 
-        getResponse("http://localhost:" + WEB_SERVER_PORT + "/");
+        getResponse("http://localhost:" + webServerPort + "/");
 
         assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for GET", lastHttpContentProcessed.get());
         assertTrue("proxyToServerRequestSent callback was not invoked for GET", requestSentCallbackInvoked.get());
-
-        server.stop();
-    }
-
-    private HttpProxyServer getHttpProxyServer(HttpFiltersSource filtersSource) throws InterruptedException {
-        final HttpProxyServer server = DefaultHttpProxyServer.bootstrap()
-                .withPort(PROXY_PORT)
-                .withFiltersSource(filtersSource)
-                .start();
-        boolean connected = false;
-        final InetSocketAddress isa = new InetSocketAddress("127.0.0.1",
-                PROXY_PORT);
-        while (!connected) {
-            final Socket sock = new Socket();
-            try {
-                sock.connect(isa);
-                break;
-            } catch (final IOException e) {
-                // Keep trying.
-            } finally {
-                IOUtils.closeQuietly(sock);
-            }
-            Thread.sleep(50);
-        }
-        return server;
     }
 
     private DefaultHttpClient getDefaultHttpClient() {
         DefaultHttpClient httpClient = new DefaultHttpClient();
-        HttpHost proxy = new HttpHost("127.0.0.1", PROXY_PORT, "http");
+        HttpHost proxy = new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort(), "http");
         httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
 
         return httpClient;
@@ -484,5 +486,11 @@ public class HttpFilterTest {
         EntityUtils.consume(responseEntity);
         httpClient.getConnectionManager().shutdown();
         return hr;
+    }
+
+    private long now() {
+        // using nanoseconds instead of milliseconds, since it is extremely unlikely that any two callbacks would be invoked in the same nanosecond,
+        // even on very fast hardware
+        return System.nanoTime();
     }
 }
