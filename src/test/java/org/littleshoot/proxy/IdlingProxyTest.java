@@ -11,7 +11,7 @@ public class IdlingProxyTest extends AbstractProxyTest {
     @Override
     protected void setUp() {
         this.proxyServer = bootstrapProxy()
-                .withPort(proxyServerPort)
+                .withPort(0)
                 .withIdleConnectionTimeout(1)
                 .start();
     }

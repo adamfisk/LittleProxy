@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.lang.management.OperatingSystemMXBean;
-import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.security.SecureRandom;
@@ -20,6 +19,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.sun.management.UnixOperatingSystemMXBean;
 import org.apache.http.HttpHost;
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.params.ConnRoutePNames;
@@ -28,6 +28,7 @@ import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.conn.ssl.X509HostnameVerifier;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
@@ -40,51 +41,38 @@ public class TestUtils {
     }
 
     /**
-     * Creates and starts embedded web server that is running on given port.
+     * Creates and starts an embedded web server on a JVM-assigned HTTP ports.
      * Each response has a body that indicates how many bytes were received with
      * a message like "Received x bytes\n".
      * 
-     * @param port
-     *            The port
      * @return Instance of Server
-     * @throws Exception
-     *             if failed to start
      */
-    public static Server startWebServer(final int port) throws Exception {
-        return startWebServer(port, null);
+    public static Server startWebServer() {
+        return startWebServer(false);
     }
 
     /**
+     * Creates and starts an embedded web server on a JVM-assigned HTTP ports.
      * Creates and starts embedded web server that is running on given port.
      * Each response has a body that contains the specified contents.
      *
-     * @param port
-     *            The port
      * @return Instance of Server
-     * @throws Exception
-     *             if failed to start
      */
-    public static Server startWebServerWithResponse(final int port, byte[] content) throws Exception {
-        return startWebServerWithResponse(port, null, content);
+    public static Server startWebServerWithResponse(byte[] content) {
+        return startWebServerWithResponse(false, content);
     }
 
     /**
-     * Creates and starts embedded web server that is running on given port,
-     * including an SSL connector on the other given port. Each response has a
-     * body that indicates how many bytes were received with a message like
+     * Creates and starts an embedded web server on JVM-assigned HTTP and HTTPS ports.
+     * Each response has a body that indicates how many bytes were received with a message like
      * "Received x bytes\n".
-     * 
-     * @param port
-     *            The port
-     * @param sslPort
-     *            (optional) The ssl port
+     *
+     * @param enableHttps if true, an HTTPS connector will be added to the web server
      * @return Instance of Server
-     * @throws Exception
-     *             if failed to start
      */
-    public static Server startWebServer(final int port, final Integer sslPort)
-            throws Exception {
-        final Server httpServer = new Server(port);
+    public static Server startWebServer(boolean enableHttps) {
+        final Server httpServer = new Server(0);
+
         httpServer.setHandler(new AbstractHandler() {
             public void handle(String target, Request baseRequest,
                     HttpServletRequest request, HttpServletResponse response)
@@ -113,7 +101,7 @@ public class TestUtils {
                 response.getOutputStream().write(content);
             }
         });
-        if (sslPort != null) {
+        if (enableHttps) {
             // Add SSL connector
             org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
 
@@ -123,7 +111,7 @@ public class TestUtils {
             sslContextFactory.setSslContext(sslContext);
             SslSocketConnector connector = new SslSocketConnector(
                     sslContextFactory);
-            connector.setPort(sslPort);
+            connector.setPort(0);
             /*
              * <p>Ox: For some reason, on OS X, a non-zero timeout can causes
              * sporadic issues. <a href="http://stackoverflow.com/questions
@@ -140,28 +128,26 @@ public class TestUtils {
             connector.setMaxIdleTime(0);
             httpServer.addConnector(connector);
         }
-        httpServer.start();
+
+        try {
+            httpServer.start();
+        } catch (Exception e) {
+            throw new RuntimeException("Error starting Jetty web server", e);
+        }
+
         return httpServer;
     }
 
     /**
-     * Creates and starts embedded web server that is running on given port,
-     * including an SSL connector on the other given port. Each response has a
-     * body that contains the specified contents.
+     * Creates and starts an embedded web server on JVM-assigned HTTP and HTTPS ports.
+     * Each response has a body that contains the specified contents.
      *
-     * @param port
-     *            The port
-     * @param sslPort
-     *            (optional) The ssl port
-     * @param content
-     *            The response the server will return
+     * @param enableHttps if true, an HTTPS connector will be added to the web server
+     * @param content The response the server will return
      * @return Instance of Server
-     * @throws Exception
-     *             if failed to start
      */
-    public static Server startWebServerWithResponse(final int port, final Integer sslPort, final byte[] content)
-            throws Exception {
-        final Server httpServer = new Server(port);
+    public static Server startWebServerWithResponse(boolean enableHttps, final byte[] content) {
+        final Server httpServer = new Server(0);
         httpServer.setHandler(new AbstractHandler() {
             public void handle(String target, Request baseRequest,
                                HttpServletRequest request, HttpServletResponse response)
@@ -190,7 +176,7 @@ public class TestUtils {
                 response.getOutputStream().write(content);
             }
         });
-        if (sslPort != null) {
+        if (enableHttps) {
             // Add SSL connector
             org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
 
@@ -200,7 +186,7 @@ public class TestUtils {
             sslContextFactory.setSslContext(sslContext);
             SslSocketConnector connector = new SslSocketConnector(
                     sslContextFactory);
-            connector.setPort(sslPort);
+            connector.setPort(0);
             /*
              * <p>Ox: For some reason, on OS X, a non-zero timeout can causes
              * sporadic issues. <a href="http://stackoverflow.com/questions
@@ -217,8 +203,46 @@ public class TestUtils {
             connector.setMaxIdleTime(0);
             httpServer.addConnector(connector);
         }
-        httpServer.start();
+
+        try {
+            httpServer.start();
+        } catch (Exception e) {
+            throw new RuntimeException("Error starting Jetty web server", e);
+        }
+
         return httpServer;
+    }
+
+    /**
+     * Finds the port the specified server is listening for HTTP connections on.
+     *
+     * @param webServer started web server
+     * @return HTTP port, or -1 if no HTTP port was found
+     */
+    public static int findLocalHttpPort(Server webServer) {
+        for (Connector connector : webServer.getConnectors()) {
+            if (!(connector instanceof SslSocketConnector)) {
+                return connector.getLocalPort();
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Finds the port the specified server is listening for HTTPS connections on.
+     *
+     * @param webServer started web server
+     * @return HTTP port, or -1 if no HTTPS port was found
+     */
+    public static int findLocalHttpsPort(Server webServer) {
+        for (Connector connector : webServer.getConnectors()) {
+            if (connector instanceof SslSocketConnector) {
+                return connector.getLocalPort();
+            }
+        }
+
+        return -1;
     }
 
     /**
@@ -291,8 +315,7 @@ public class TestUtils {
             try {
                 sock = new ServerSocket();
                 sock.bind(new InetSocketAddress("127.0.0.1", randomPort));
-                final int port = sock.getLocalPort();
-                return port;
+                return sock.getLocalPort();
             } catch (final IOException e) {
             } finally {
                 if (sock != null) {
@@ -310,8 +333,7 @@ public class TestUtils {
         try {
             sock = new ServerSocket();
             sock.bind(null);
-            final int port = sock.getLocalPort();
-            return port;
+            return sock.getLocalPort();
         } catch (final IOException e) {
             return 1024 + (Math.abs(secureRandom.nextInt() + 1) % 60000);
         } finally {
@@ -324,7 +346,7 @@ public class TestUtils {
         }
     }
     
-    public static long getOpenFileDescriptorsAndPrintMemoryUsage() throws Exception {
+    public static long getOpenFileDescriptorsAndPrintMemoryUsage() {
         // Below courtesy of:
         // http://stackoverflow.com/questions/10999076/programmatically-print-the-heap-usage-that-is-typically-printed-on-jvm-exit-when
         MemoryUsage mu = ManagementFactory.getMemoryMXBean()
@@ -337,21 +359,24 @@ public class TestUtils {
                 + "\nMax NH :" + muNH.getMax() + "\nUsed NH:" + muNH.getUsed()
                 + "\nCommitted NH:" + muNH.getCommitted());
 
-        // Below courtesy of:
-        // http://neopatel.blogspot.com/2011/05/java-count-open-file-handles.html
-        OperatingSystemMXBean osStats = ManagementFactory
-                .getOperatingSystemMXBean();
-        long numberOfOpenFileDescriptors = 0;
-        if (osStats.getClass().getName()
-                .equals("com.sun.management.UnixOperatingSystem")) {
-            Method method = osStats.getClass().getDeclaredMethod(
-                    "getOpenFileDescriptorCount");
-            method.setAccessible(true);
-            numberOfOpenFileDescriptors = (Long) method.invoke(osStats);
-            System.out.println("Open File Descriptors: "
-                    + numberOfOpenFileDescriptors);
-            method.setAccessible(false);
+        OperatingSystemMXBean osMxBean = ManagementFactory.getOperatingSystemMXBean();
+
+        if (osMxBean instanceof UnixOperatingSystemMXBean) {
+            UnixOperatingSystemMXBean unixOsMxBean = (UnixOperatingSystemMXBean) osMxBean;
+            return unixOsMxBean.getOpenFileDescriptorCount();
+        } else {
+            throw new UnsupportedOperationException("Unable to determine number of open file handles on non-Unix system");
         }
-        return numberOfOpenFileDescriptors;
+    }
+
+    /**
+     * Determines if we are running on a Unix-like operating system that exposes a {@link com.sun.management.UnixOperatingSystemMXBean}.
+     *
+     * @return true if this is a Unix OS and the JVM exposes a {@link com.sun.management.UnixOperatingSystemMXBean}, otherwise false.
+     */
+    public static boolean isUnixManagementCapable() {
+        OperatingSystemMXBean osMxBean = ManagementFactory.getOperatingSystemMXBean();
+
+        return (osMxBean instanceof UnixOperatingSystemMXBean);
     }
 }
