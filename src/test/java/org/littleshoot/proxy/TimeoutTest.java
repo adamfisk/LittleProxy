@@ -92,7 +92,7 @@ public class TimeoutTest {
         final HttpHost proxy = new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort(), "http");
         httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
 
-        HttpGet get = new HttpGet("http://1.2.3.4:");
+        HttpGet get = new HttpGet("http://1.2.3.4:53540");
 
         long start = System.nanoTime();
         HttpResponse response = httpClient.execute(get);
