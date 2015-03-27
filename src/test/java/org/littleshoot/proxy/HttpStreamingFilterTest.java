@@ -20,12 +20,10 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class HttpStreamingFilterTest {
-
-    private static final int PROXY_PORT = 8925;
-    private static final int WEB_SERVER_PORT = 8926;
-
     private Server webServer;
+    private int webServerPort = -1;
     private HttpProxyServer proxyServer;
+
     private final AtomicInteger numberOfInitialRequestsFiltered = new AtomicInteger(
             0);
     private final AtomicInteger numberOfSubsequentChunksFiltered = new AtomicInteger(
@@ -36,10 +34,11 @@ public class HttpStreamingFilterTest {
         numberOfInitialRequestsFiltered.set(0);
         numberOfSubsequentChunksFiltered.set(0);
 
-        webServer = TestUtils.startWebServer(WEB_SERVER_PORT);
+        webServer = TestUtils.startWebServer(true);
+        webServerPort = TestUtils.findLocalHttpPort(webServer);
 
         proxyServer = DefaultHttpProxyServer.bootstrap()
-                .withPort(PROXY_PORT)
+                .withPort(0)
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
                     public HttpFilters filterRequest(HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
@@ -56,7 +55,7 @@ public class HttpStreamingFilterTest {
                                 return null;
                             }
                         };
-                    };
+                    }
                 })
                 .start();
     }
@@ -64,9 +63,13 @@ public class HttpStreamingFilterTest {
     @After
     public void tearDown() throws Exception {
         try {
-            proxyServer.stop();
+            if (proxyServer != null) {
+                proxyServer.stop();
+            }
         } finally {
-            webServer.stop();
+            if (webServer != null) {
+                webServer.stop();
+            }
         }
     }
 
@@ -88,12 +91,12 @@ public class HttpStreamingFilterTest {
         request.setEntity(entity);
 
         DefaultHttpClient httpClient = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", PROXY_PORT, "http");
+        final HttpHost proxy = new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort(), "http");
         httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
                 proxy);
         final org.apache.http.HttpResponse response = httpClient.execute(
                 new HttpHost("127.0.0.1",
-                        WEB_SERVER_PORT), request);
+                        webServerPort), request);
 
         Assert.assertEquals("Received 20000 bytes\n",
                 EntityUtils.toString(response.getEntity()));
