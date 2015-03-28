@@ -1,21 +1,32 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.LastHttpContent;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.eclipse.jetty.server.Server;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.Date;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -26,12 +37,63 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class HttpFilterTest {
+    private Server webServer;
+    private HttpProxyServer proxyServer;
+    private int webServerPort;
 
-    private static final int PROXY_PORT = 8923;
-    private static final int WEB_SERVER_PORT = 8924;
+    @Before
+    public void setUp() throws Exception {
+        webServer = new Server(0);
+        webServer.start();
+        webServerPort = TestUtils.findLocalHttpPort(webServer);
+    }
 
-    private long now() {
-        return new Date().getTime();
+    @After
+    public void tearDown() throws Exception {
+        try {
+            if (webServer != null) {
+                webServer.stop();
+            }
+        } finally {
+            if (proxyServer != null) {
+                proxyServer.stop();
+            }
+        }
+    }
+
+    /**
+     * Sets up the HttpProxyServer instance for a test. This method initializes the proxyServer and proxyPort method variables, and should
+     * be called before making any requests through the proxy server.
+     *
+     * The proxy cannot be created in an @Before method because the filtersSource must be initialized by each test before the proxy is
+     * created.
+     *
+     * @param filtersSource HTTP filters source
+     */
+    private void setUpHttpProxyServer(HttpFiltersSource filtersSource) {
+        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .withFiltersSource(filtersSource)
+                .start();
+
+        final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", proxyServer.getListenAddress().getPort());
+        while (true) {
+            final Socket sock = new Socket();
+            try {
+                sock.connect(isa);
+                break;
+            } catch (final IOException e) {
+                // Keep trying.
+            } finally {
+                IOUtils.closeQuietly(sock);
+            }
+
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException("Interrupted while verifying proxy is connectable");
+            }
+        }
     }
 
     @Test
@@ -44,34 +106,34 @@ public class HttpFilterTest {
                 new LinkedList<HttpRequest>();
 
         final AtomicInteger requestCount = new AtomicInteger(0);
-        final long[] proxyToServerRequestSendingMills = new long[] { -1, -1,
+        final long[] proxyToServerRequestSendingNanos = new long[] { -1, -1,
                 -1, -1, -1 };
-        final long[] proxyToServerRequestSentMills = new long[] { -1, -1, -1,
+        final long[] proxyToServerRequestSentNanos = new long[] { -1, -1, -1,
                 -1, -1 };
-        final long[] serverToProxyResponseReceivingMills = new long[] { -1, -1,
+        final long[] serverToProxyResponseReceivingNanos = new long[] { -1, -1,
                 -1, -1, -1 };
-        final long[] serverToProxyResponseReceivedMills = new long[] { -1, -1,
+        final long[] serverToProxyResponseReceivedNanos = new long[] { -1, -1,
                 -1, -1, -1 };
-        final long[] proxyToServerConnectionQueuedMills = new long[] { -1, -1,
+        final long[] proxyToServerConnectionQueuedNanos = new long[] { -1, -1,
                 -1, -1, -1 };
-        final long[] proxyToServerResolutionStartedMills = new long[] { -1, -1,
+        final long[] proxyToServerResolutionStartedNanos = new long[] { -1, -1,
                 -1, -1, -1 };
-        final long[] proxyToServerResolutionSucceededMills = new long[] { -1,
+        final long[] proxyToServerResolutionSucceededNanos = new long[] { -1,
                 -1, -1, -1, -1 };
-        final long[] proxyToServerConnectionStartedMills = new long[] { -1, -1,
+        final long[] proxyToServerConnectionStartedNanos = new long[] { -1, -1,
                 -1, -1, -1 };
-        final long[] proxyToServerConnectionSSLHandshakeStartedMills = new long[] {
+        final long[] proxyToServerConnectionSSLHandshakeStartedNanos = new long[] {
                 -1, -1, -1, -1, -1 };
-        final long[] proxyToServerConnectionFailedMills = new long[] { -1, -1,
+        final long[] proxyToServerConnectionFailedNanos = new long[] { -1, -1,
                 -1, -1, -1 };
-        final long[] proxyToServerConnectionSucceededMills = new long[] { -1,
+        final long[] proxyToServerConnectionSucceededNanos = new long[] { -1,
                 -1, -1, -1, -1 };
 
-        final String url1 = "http://localhost:" + WEB_SERVER_PORT + "/";
-        final String url2 = "http://localhost:" + WEB_SERVER_PORT + "/testing";
-        final String url3 = "http://localhost:" + WEB_SERVER_PORT + "/testing2";
-        final String url4 = "http://localhost:" + WEB_SERVER_PORT + "/testing3";
-        final String url5 = "http://localhost:" + WEB_SERVER_PORT + "/testing4";
+        final String url1 = "http://localhost:" + webServerPort + "/";
+        final String url2 = "http://localhost:" + webServerPort + "/testing";
+        final String url3 = "http://localhost:" + webServerPort + "/testing2";
+        final String url4 = "http://localhost:" + webServerPort + "/testing3";
+        final String url5 = "http://localhost:" + webServerPort + "/testing4";
         final HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest originalRequest) {
                 shouldFilterCalls.incrementAndGet();
@@ -109,12 +171,12 @@ public class HttpFilterTest {
 
                     @Override
                     public void proxyToServerRequestSending() {
-                        proxyToServerRequestSendingMills[requestCount.get()] = now();
+                        proxyToServerRequestSendingNanos[requestCount.get()] = now();
                     }
 
                     @Override
                     public void proxyToServerRequestSent() {
-                        proxyToServerRequestSentMills[requestCount.get()] = now();
+                        proxyToServerRequestSentNanos[requestCount.get()] = now();
                     }
 
                     public HttpObject serverToProxyResponse(
@@ -137,12 +199,12 @@ public class HttpFilterTest {
 
                     @Override
                     public void serverToProxyResponseReceiving() {
-                        serverToProxyResponseReceivingMills[requestCount.get()] = now();
+                        serverToProxyResponseReceivingNanos[requestCount.get()] = now();
                     }
 
                     @Override
                     public void serverToProxyResponseReceived() {
-                        serverToProxyResponseReceivedMills[requestCount.get()] = now();
+                        serverToProxyResponseReceivedNanos[requestCount.get()] = now();
                     }
 
                     public HttpObject proxyToClientResponse(
@@ -161,13 +223,13 @@ public class HttpFilterTest {
 
                     @Override
                     public void proxyToServerConnectionQueued() {
-                        proxyToServerConnectionQueuedMills[requestCount.get()] = now();
+                        proxyToServerConnectionQueuedNanos[requestCount.get()] = now();
                     }
 
                     @Override
                     public InetSocketAddress proxyToServerResolutionStarted(
                             String resolvingServerHostAndPort) {
-                        proxyToServerResolutionStartedMills[requestCount.get()] = now();
+                        proxyToServerResolutionStartedNanos[requestCount.get()] = now();
                         return super
                                 .proxyToServerResolutionStarted(resolvingServerHostAndPort);
                     }
@@ -176,29 +238,29 @@ public class HttpFilterTest {
                     public void proxyToServerResolutionSucceeded(
                             String serverHostAndPort,
                             InetSocketAddress resolvedRemoteAddress) {
-                        proxyToServerResolutionSucceededMills[requestCount
+                        proxyToServerResolutionSucceededNanos[requestCount
                                 .get()] = now();
                     }
 
                     @Override
                     public void proxyToServerConnectionStarted() {
-                        proxyToServerConnectionStartedMills[requestCount.get()] = now();
+                        proxyToServerConnectionStartedNanos[requestCount.get()] = now();
                     }
 
                     @Override
                     public void proxyToServerConnectionSSLHandshakeStarted() {
-                        proxyToServerConnectionSSLHandshakeStartedMills[requestCount
+                        proxyToServerConnectionSSLHandshakeStartedNanos[requestCount
                                 .get()] = now();
                     }
 
                     @Override
                     public void proxyToServerConnectionFailed() {
-                        proxyToServerConnectionFailedMills[requestCount.get()] = now();
+                        proxyToServerConnectionFailedNanos[requestCount.get()] = now();
                     }
 
                     @Override
                     public void proxyToServerConnectionSucceeded() {
-                        proxyToServerConnectionSucceededMills[requestCount
+                        proxyToServerConnectionSucceededNanos[requestCount
                                 .get()] = now();
                     }
 
@@ -214,28 +276,7 @@ public class HttpFilterTest {
             }
         };
 
-        final HttpProxyServer server = DefaultHttpProxyServer.bootstrap()
-                .withPort(PROXY_PORT)
-                .withFiltersSource(filtersSource)
-                .start();
-        boolean connected = false;
-        final InetSocketAddress isa = new InetSocketAddress("127.0.0.1",
-                PROXY_PORT);
-        while (!connected) {
-            final Socket sock = new Socket();
-            try {
-                sock.connect(isa);
-                break;
-            } catch (final IOException e) {
-                // Keep trying.
-            } finally {
-                IOUtils.closeQuietly(sock);
-            }
-            Thread.sleep(50);
-        }
-
-        final Server webServer = new Server(WEB_SERVER_PORT);
-        webServer.start();
+        setUpHttpProxyServer(filtersSource);
 
         org.apache.http.HttpResponse response1 = getResponse(url1);
         requestCount.incrementAndGet();
@@ -255,16 +296,16 @@ public class HttpFilterTest {
         assertEquals(1, filterResponseCalls.get());
 
         int i = 0;
-        assertTrue(proxyToServerConnectionQueuedMills[i] <= proxyToServerResolutionStartedMills[i]);
-        assertTrue(proxyToServerResolutionStartedMills[i] <= proxyToServerResolutionSucceededMills[i]);
-        assertTrue(proxyToServerResolutionSucceededMills[i] <= proxyToServerConnectionStartedMills[i]);
-        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedMills[i]);
-        assertEquals(-1, proxyToServerConnectionFailedMills[i]);
-        assertTrue(proxyToServerConnectionStartedMills[i] <= proxyToServerConnectionSucceededMills[i]);
-        assertTrue(proxyToServerConnectionSucceededMills[i] <= proxyToServerRequestSendingMills[i]);
-        assertTrue(proxyToServerRequestSendingMills[i] <= proxyToServerRequestSentMills[i]);
-        assertTrue(proxyToServerRequestSentMills[i] <= serverToProxyResponseReceivingMills[i]);
-        assertTrue(serverToProxyResponseReceivingMills[i] <= serverToProxyResponseReceivedMills[i]);
+        assertTrue(proxyToServerConnectionQueuedNanos[i] < proxyToServerResolutionStartedNanos[i]);
+        assertTrue(proxyToServerResolutionStartedNanos[i] < proxyToServerResolutionSucceededNanos[i]);
+        assertTrue(proxyToServerResolutionSucceededNanos[i] < proxyToServerConnectionStartedNanos[i]);
+        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos[i]);
+        assertEquals(-1, proxyToServerConnectionFailedNanos[i]);
+        assertTrue(proxyToServerConnectionStartedNanos[i] < proxyToServerConnectionSucceededNanos[i]);
+        assertTrue(proxyToServerConnectionSucceededNanos[i] < proxyToServerRequestSendingNanos[i]);
+        assertTrue(proxyToServerRequestSendingNanos[i] < proxyToServerRequestSentNanos[i]);
+        assertTrue(proxyToServerRequestSentNanos[i] < serverToProxyResponseReceivingNanos[i]);
+        assertTrue(serverToProxyResponseReceivingNanos[i] < serverToProxyResponseReceivedNanos[i]);
 
         // We just open a second connection here since reusing the original
         // connection is inconsistent.
@@ -289,16 +330,16 @@ public class HttpFilterTest {
         assertEquals(1, filterResponseCalls.get());
 
         i = 2;
-        assertTrue(proxyToServerConnectionQueuedMills[i] <= proxyToServerResolutionStartedMills[i]);
-        assertTrue(proxyToServerResolutionStartedMills[i] <= proxyToServerResolutionSucceededMills[i]);
-        assertEquals(-1, proxyToServerConnectionStartedMills[i]);
-        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedMills[i]);
-        assertEquals(-1, proxyToServerConnectionFailedMills[i]);
-        assertEquals(-1, proxyToServerConnectionSucceededMills[i]);
-        assertEquals(-1, proxyToServerRequestSendingMills[i]);
-        assertEquals(-1, proxyToServerRequestSentMills[i]);
-        assertEquals(-1, serverToProxyResponseReceivingMills[i]);
-        assertEquals(-1, serverToProxyResponseReceivedMills[i]);
+        assertTrue(proxyToServerConnectionQueuedNanos[i] < proxyToServerResolutionStartedNanos[i]);
+        assertTrue(proxyToServerResolutionStartedNanos[i] < proxyToServerResolutionSucceededNanos[i]);
+        assertEquals(-1, proxyToServerConnectionStartedNanos[i]);
+        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos[i]);
+        assertEquals(-1, proxyToServerConnectionFailedNanos[i]);
+        assertEquals(-1, proxyToServerConnectionSucceededNanos[i]);
+        assertEquals(-1, proxyToServerRequestSendingNanos[i]);
+        assertEquals(-1, proxyToServerRequestSentNanos[i]);
+        assertEquals(-1, serverToProxyResponseReceivingNanos[i]);
+        assertEquals(-1, serverToProxyResponseReceivedNanos[i]);
 
         final HttpRequest first = associatedRequests.remove();
         final HttpRequest second = associatedRequests.remove();
@@ -312,24 +353,21 @@ public class HttpFilterTest {
 
         org.apache.http.HttpResponse response4 = getResponse(url4);
         i = 3;
-        assertTrue(proxyToServerConnectionQueuedMills[i] <= proxyToServerResolutionStartedMills[i]);
-        assertTrue(proxyToServerResolutionStartedMills[i] <= proxyToServerResolutionSucceededMills[i]);
-        assertTrue(proxyToServerResolutionSucceededMills[i] <= proxyToServerConnectionStartedMills[i]);
-        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedMills[i]);
-        assertEquals(-1, proxyToServerConnectionFailedMills[i]);
-        assertTrue(proxyToServerConnectionStartedMills[i] <= proxyToServerConnectionSucceededMills[i]);
-        assertTrue(proxyToServerConnectionSucceededMills[i] <= proxyToServerRequestSendingMills[i]);
-        assertTrue(proxyToServerRequestSendingMills[i] <= proxyToServerRequestSentMills[i]);
-        assertTrue(proxyToServerRequestSentMills[i] <= serverToProxyResponseReceivingMills[i]);
-        assertTrue(serverToProxyResponseReceivingMills[i] <= serverToProxyResponseReceivedMills[i]);
+        assertTrue(proxyToServerConnectionQueuedNanos[i] < proxyToServerResolutionStartedNanos[i]);
+        assertTrue(proxyToServerResolutionStartedNanos[i] < proxyToServerResolutionSucceededNanos[i]);
+        assertTrue(proxyToServerResolutionSucceededNanos[i] < proxyToServerConnectionStartedNanos[i]);
+        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos[i]);
+        assertEquals(-1, proxyToServerConnectionFailedNanos[i]);
+        assertTrue(proxyToServerConnectionStartedNanos[i] < proxyToServerConnectionSucceededNanos[i]);
+        assertTrue(proxyToServerConnectionSucceededNanos[i] < proxyToServerRequestSendingNanos[i]);
+        assertTrue(proxyToServerRequestSendingNanos[i] < proxyToServerRequestSentNanos[i]);
+        assertTrue(proxyToServerRequestSentNanos[i] < serverToProxyResponseReceivingNanos[i]);
+        assertTrue(serverToProxyResponseReceivingNanos[i] < serverToProxyResponseReceivedNanos[i]);
 
         org.apache.http.HttpResponse response5 = getResponse(url5);
 
         assertEquals(403, response4.getStatusLine().getStatusCode());
         assertEquals(403, response5.getStatusLine().getStatusCode());
-
-        webServer.stop();
-        server.stop();
     }
 
     @Test
@@ -342,7 +380,7 @@ public class HttpFilterTest {
                 return new HttpFiltersAdapter(originalRequest) {
                     @Override
                     public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
-                        return InetSocketAddress.createUnresolved("localhost", WEB_SERVER_PORT);
+                        return InetSocketAddress.createUnresolved("localhost", webServerPort);
                     }
 
                     @Override
@@ -354,33 +392,105 @@ public class HttpFilterTest {
             }
         };
 
-        final HttpProxyServer server = DefaultHttpProxyServer.bootstrap()
-                .withPort(PROXY_PORT)
-                .withFiltersSource(filtersSource)
-                .start();
+        setUpHttpProxyServer(filtersSource);
 
-        final Server webServer = new Server(WEB_SERVER_PORT);
-        webServer.start();
-
-        org.apache.http.HttpResponse response1 = getResponse("http://localhost:" + WEB_SERVER_PORT + "/");
+        getResponse("http://localhost:" + webServerPort + "/");
 
         assertTrue("proxyToServerResolutionSucceeded method was not called", resolutionSucceeded.get());
+    }
 
-        webServer.stop();
-        server.stop();
+    @Test
+    public void testRequestSentInvokedAfterLastHttpContentSent() throws Exception {
+        final AtomicBoolean lastHttpContentProcessed = new AtomicBoolean(false);
+        final AtomicBoolean requestSentCallbackInvoked = new AtomicBoolean(false);
+
+        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                return new HttpFiltersAdapter(originalRequest) {
+                    @Override
+                    public HttpResponse proxyToServerRequest(HttpObject httpObject) {
+                        if (httpObject instanceof LastHttpContent) {
+                            assertFalse("requestSentCallback should not be invoked until the LastHttpContent is processed", requestSentCallbackInvoked.get());
+
+                            lastHttpContentProcessed.set(true);
+                        }
+
+                        return null;
+                    }
+
+                    @Override
+                    public void proxyToServerRequestSent() {
+                        // proxyToServerRequestSent should only be invoked after the entire request, including payload, has been sent to the server
+                        assertTrue("proxyToServerRequestSent callback invoked before LastHttpContent was received from the client and sent to the server", lastHttpContentProcessed.get());
+
+                        requestSentCallbackInvoked.set(true);
+                    }
+                };
+            }
+        };
+
+        setUpHttpProxyServer(filtersSource);
+
+        // test with a POST request with a payload. post a large amount of data, to force chunked content.
+        postToServer("http://localhost:" + webServerPort + "/", 50000);
+
+
+        assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for chunked POST", lastHttpContentProcessed.get());
+        assertTrue("proxyToServerRequestSent callback was not invoked for chunked POST", requestSentCallbackInvoked.get());
+
+        // test with a non-payload-bearing GET request.
+        lastHttpContentProcessed.set(false);
+        requestSentCallbackInvoked.set(false);
+
+        getResponse("http://localhost:" + webServerPort + "/");
+
+        assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for GET", lastHttpContentProcessed.get());
+        assertTrue("proxyToServerRequestSent callback was not invoked for GET", requestSentCallbackInvoked.get());
+    }
+
+    private DefaultHttpClient getDefaultHttpClient() {
+        DefaultHttpClient httpClient = new DefaultHttpClient();
+        HttpHost proxy = new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort(), "http");
+        httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
+
+        return httpClient;
     }
 
     private org.apache.http.HttpResponse getResponse(final String url)
             throws Exception {
-        final DefaultHttpClient http = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", PROXY_PORT, "http");
-        http.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
+        final DefaultHttpClient http = getDefaultHttpClient();
+
         final HttpGet get = new HttpGet(url);
-        final org.apache.http.HttpResponse hr = http.execute(get);
+
+        return getHttpResponse(http, get);
+    }
+
+    private org.apache.http.HttpResponse postToServer(String url, int postSizeInBytes) throws Exception {
+        DefaultHttpClient httpClient = getDefaultHttpClient();
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < postSizeInBytes; i++) {
+            sb.append('q');
+        }
+
+        HttpPost post = new HttpPost(url);
+        post.setEntity(new StringEntity(sb.toString()));
+
+        return getHttpResponse(httpClient, post);
+    }
+
+    private org.apache.http.HttpResponse getHttpResponse(DefaultHttpClient httpClient, HttpUriRequest get) throws IOException {
+        final org.apache.http.HttpResponse hr = httpClient.execute(get);
         final HttpEntity responseEntity = hr.getEntity();
         EntityUtils.consume(responseEntity);
-        http.getConnectionManager().shutdown();
+        httpClient.getConnectionManager().shutdown();
         return hr;
     }
 
+    private long now() {
+        // using nanoseconds instead of milliseconds, since it is extremely unlikely that any two callbacks would be invoked in the same nanosecond,
+        // even on very fast hardware
+        return System.nanoTime();
+    }
 }

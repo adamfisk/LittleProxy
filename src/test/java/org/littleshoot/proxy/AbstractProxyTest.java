@@ -41,21 +41,11 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 public abstract class AbstractProxyTest {
     protected static final String DEFAULT_RESOURCE = "/";
 
-    protected static final AtomicInteger WEB_SERVER_PORT_SEQ = new AtomicInteger(
-            50000);
-    protected static final AtomicInteger WEB_SERVER_HTTPS_PORT_SEQ = new AtomicInteger(
-            53000);
-    protected static final AtomicInteger PROXY_SERVER_PORT_SEQ = new AtomicInteger(
-            56000);
+    protected int webServerPort = -1;
+    protected int httpsWebServerPort = -1;
 
-    protected int webServerPort = 0;
-    protected int httpsWebServerPort = 0;
-    protected int proxyServerPort = 0;
-
-    protected HttpHost webHost = new HttpHost("127.0.0.1",
-            webServerPort);
-    protected HttpHost httpsWebHost = new HttpHost(
-            "127.0.0.1", httpsWebServerPort, "https");
+    protected HttpHost webHost;
+    protected HttpHost httpsWebHost;
 
     /**
      * The server used by the tests.
@@ -101,18 +91,22 @@ public abstract class AbstractProxyTest {
 
     @Before
     public void runSetUp() throws Exception {
-        // Set up new ports for everything based on sequence numbers
-        webServerPort = WEB_SERVER_PORT_SEQ.getAndIncrement();
-        httpsWebServerPort = WEB_SERVER_HTTPS_PORT_SEQ.getAndIncrement();
-        proxyServerPort = PROXY_SERVER_PORT_SEQ.getAndIncrement();
+        webServer = TestUtils.startWebServer(true);
 
-        webHost = new HttpHost("127.0.0.1",
-                webServerPort);
-        httpsWebHost = new HttpHost(
-                "127.0.0.1", httpsWebServerPort, "https");
+        // find out what ports the HTTP and HTTPS connectors were bound to
+        httpsWebServerPort = TestUtils.findLocalHttpsPort(webServer);
+        if (httpsWebServerPort < 0) {
+            throw new RuntimeException("HTTPS connector should already be open and listening, but port was " + webServerPort);
+        }
 
-        webServer = TestUtils.startWebServer(webServerPort,
-                httpsWebServerPort);
+        webServerPort = TestUtils.findLocalHttpPort(webServer);
+        if (webServerPort < 0) {
+            throw new RuntimeException("HTTP connector should already be open and listening, but port was " + webServerPort);
+        }
+
+        webHost = new HttpHost("127.0.0.1", webServerPort);
+        httpsWebHost = new HttpHost("127.0.0.1", httpsWebServerPort, "https");
+
         setUp();
     }
 
@@ -171,14 +165,14 @@ public abstract class AbstractProxyTest {
         try {
             if (isProxied) {
                 final HttpHost proxy = new HttpHost("127.0.0.1",
-                        proxyServerPort);
+                        proxyServer.getListenAddress().getPort());
                 httpClient.getParams().setParameter(
                         ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if (username != null && password != null) {
                     httpClient.getCredentialsProvider()
                             .setCredentials(
                                     new AuthScope("127.0.0.1",
-                                            proxyServerPort),
+                                            proxyServer.getListenAddress().getPort()),
                                     new UsernamePasswordCredentials(username,
                                             password));
                 }
@@ -210,14 +204,14 @@ public abstract class AbstractProxyTest {
         DefaultHttpClient httpClient = buildHttpClient();
         try {
             if (isProxied) {
-                HttpHost proxy = new HttpHost("127.0.0.1", proxyServerPort);
+                HttpHost proxy = new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort());
                 httpClient.getParams().setParameter(
                         ConnRoutePNames.DEFAULT_PROXY, proxy);
                 if (username != null && password != null) {
                     httpClient.getCredentialsProvider()
                             .setCredentials(
                                     new AuthScope("127.0.0.1",
-                                            proxyServerPort),
+                                            proxyServer.getListenAddress().getPort()),
                                     new UsernamePasswordCredentials(username,
                                             password));
                 }

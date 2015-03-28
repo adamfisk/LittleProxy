@@ -13,7 +13,7 @@ public class NoChainedProxiesTest extends AbstractProxyTest {
     @Override
     protected void setUp() {
         this.proxyServer = bootstrapProxy()
-                .withPort(proxyServerPort)
+                .withPort(0)
                 .withChainProxyManager(new ChainedProxyManager() {
                     @Override
                     public void lookupChainedProxies(HttpRequest httpRequest,
