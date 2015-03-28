@@ -32,8 +32,10 @@ import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 public class HttpFilterTest {
@@ -280,14 +282,12 @@ public class HttpFilterTest {
 
         org.apache.http.HttpResponse response1 = getResponse(url1);
         requestCount.incrementAndGet();
-        assertTrue(
+        assertEquals(
                 "Response should have included the custom header from our pre filter",
-                "1".equals(response1.getFirstHeader("Header-Pre")
-                        .getValue()));
-        assertTrue(
+                "1", response1.getFirstHeader("Header-Pre").getValue());
+        assertEquals(
                 "Response should have included the custom header from our post filter",
-                "2".equals(response1.getFirstHeader("Header-Post")
-                        .getValue()));
+                "2", response1.getFirstHeader("Header-Post").getValue());
 
         assertEquals(1, associatedRequests.size());
         assertEquals(1, shouldFilterCalls.get());
@@ -296,16 +296,16 @@ public class HttpFilterTest {
         assertEquals(1, filterResponseCalls.get());
 
         int i = 0;
-        assertTrue(proxyToServerConnectionQueuedNanos[i] < proxyToServerResolutionStartedNanos[i]);
-        assertTrue(proxyToServerResolutionStartedNanos[i] < proxyToServerResolutionSucceededNanos[i]);
-        assertTrue(proxyToServerResolutionSucceededNanos[i] < proxyToServerConnectionStartedNanos[i]);
+        assertThat(proxyToServerConnectionQueuedNanos[i], lessThan(proxyToServerResolutionStartedNanos[i]));
+        assertThat(proxyToServerResolutionStartedNanos[i], lessThan(proxyToServerResolutionSucceededNanos[i]));
+        assertThat(proxyToServerResolutionSucceededNanos[i], lessThan(proxyToServerConnectionStartedNanos[i]));
         assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos[i]);
         assertEquals(-1, proxyToServerConnectionFailedNanos[i]);
-        assertTrue(proxyToServerConnectionStartedNanos[i] < proxyToServerConnectionSucceededNanos[i]);
-        assertTrue(proxyToServerConnectionSucceededNanos[i] < proxyToServerRequestSendingNanos[i]);
-        assertTrue(proxyToServerRequestSendingNanos[i] < proxyToServerRequestSentNanos[i]);
-        assertTrue(proxyToServerRequestSentNanos[i] < serverToProxyResponseReceivingNanos[i]);
-        assertTrue(serverToProxyResponseReceivingNanos[i] < serverToProxyResponseReceivedNanos[i]);
+        assertThat(proxyToServerConnectionStartedNanos[i], lessThan(proxyToServerConnectionSucceededNanos[i]));
+        assertThat(proxyToServerConnectionSucceededNanos[i], lessThan(proxyToServerRequestSendingNanos[i]));
+        assertThat(proxyToServerRequestSendingNanos[i], lessThan(proxyToServerRequestSentNanos[i]));
+        assertThat(proxyToServerRequestSentNanos[i], lessThan(serverToProxyResponseReceivingNanos[i]));
+        assertThat(serverToProxyResponseReceivingNanos[i], lessThan(serverToProxyResponseReceivedNanos[i]));
 
         // We just open a second connection here since reusing the original
         // connection is inconsistent.
@@ -330,8 +330,8 @@ public class HttpFilterTest {
         assertEquals(1, filterResponseCalls.get());
 
         i = 2;
-        assertTrue(proxyToServerConnectionQueuedNanos[i] < proxyToServerResolutionStartedNanos[i]);
-        assertTrue(proxyToServerResolutionStartedNanos[i] < proxyToServerResolutionSucceededNanos[i]);
+        assertThat(proxyToServerConnectionQueuedNanos[i], lessThan(proxyToServerResolutionStartedNanos[i]));
+        assertThat(proxyToServerResolutionStartedNanos[i], lessThan(proxyToServerResolutionSucceededNanos[i]));
         assertEquals(-1, proxyToServerConnectionStartedNanos[i]);
         assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos[i]);
         assertEquals(-1, proxyToServerConnectionFailedNanos[i]);
@@ -353,16 +353,16 @@ public class HttpFilterTest {
 
         org.apache.http.HttpResponse response4 = getResponse(url4);
         i = 3;
-        assertTrue(proxyToServerConnectionQueuedNanos[i] < proxyToServerResolutionStartedNanos[i]);
-        assertTrue(proxyToServerResolutionStartedNanos[i] < proxyToServerResolutionSucceededNanos[i]);
-        assertTrue(proxyToServerResolutionSucceededNanos[i] < proxyToServerConnectionStartedNanos[i]);
+        assertThat(proxyToServerConnectionQueuedNanos[i], lessThan(proxyToServerResolutionStartedNanos[i]));
+        assertThat(proxyToServerResolutionStartedNanos[i], lessThan(proxyToServerResolutionSucceededNanos[i]));
+        assertThat(proxyToServerResolutionSucceededNanos[i], lessThan(proxyToServerConnectionStartedNanos[i]));
         assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos[i]);
         assertEquals(-1, proxyToServerConnectionFailedNanos[i]);
-        assertTrue(proxyToServerConnectionStartedNanos[i] < proxyToServerConnectionSucceededNanos[i]);
-        assertTrue(proxyToServerConnectionSucceededNanos[i] < proxyToServerRequestSendingNanos[i]);
-        assertTrue(proxyToServerRequestSendingNanos[i] < proxyToServerRequestSentNanos[i]);
-        assertTrue(proxyToServerRequestSentNanos[i] < serverToProxyResponseReceivingNanos[i]);
-        assertTrue(serverToProxyResponseReceivingNanos[i] < serverToProxyResponseReceivedNanos[i]);
+        assertThat(proxyToServerConnectionStartedNanos[i], lessThan(proxyToServerConnectionSucceededNanos[i]));
+        assertThat(proxyToServerConnectionSucceededNanos[i], lessThan(proxyToServerRequestSendingNanos[i]));
+        assertThat(proxyToServerRequestSendingNanos[i], lessThan(proxyToServerRequestSentNanos[i]));
+        assertThat(proxyToServerRequestSentNanos[i], lessThan(serverToProxyResponseReceivingNanos[i]));
+        assertThat(serverToProxyResponseReceivingNanos[i], lessThan(serverToProxyResponseReceivedNanos[i]));
 
         org.apache.http.HttpResponse response5 = getResponse(url5);
 

@@ -1,17 +1,6 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.*;
 import io.netty.handler.codec.http.HttpRequest;
-
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.security.cert.X509Certificate;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.net.ssl.SSLException;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
-
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -33,6 +22,18 @@ import org.eclipse.jetty.server.Server;
 import org.junit.After;
 import org.junit.Before;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.security.cert.X509Certificate;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 
 /**
  * Base for tests that test the proxy. This base class encapsulates all of the
@@ -153,7 +154,7 @@ public abstract class AbstractProxyTest {
     }
 
     protected void assertReceivedBadGateway(ResponseInfo response) {
-        assertTrue("Received: " + response, response.getStatusCode() == 502);
+        assertEquals("Received: " + response, 502, response.getStatusCode());
     }
 
     protected ResponseInfo httpPostWithApacheClient(
@@ -320,16 +321,16 @@ public abstract class AbstractProxyTest {
         if (isHTTPS && !isChained()) {
             numberOfExpectedServerInteractions -= 1;
         }
-        assertTrue(bytesReceivedFromClient.get() > 0);
+        assertThat(bytesReceivedFromClient.get(), greaterThan(0));
         assertEquals(numberOfExpectedClientInteractions,
                 requestsReceivedFromClient.get());
-        assertTrue(bytesSentToServer.get() > 0);
+        assertThat(bytesSentToServer.get(), greaterThan(0));
         assertEquals(numberOfExpectedServerInteractions,
                 requestsSentToServer.get());
-        assertTrue(bytesReceivedFromServer.get() > 0);
+        assertThat(bytesReceivedFromServer.get(), greaterThan(0));
         assertEquals(numberOfExpectedServerInteractions,
                 responsesReceivedFromServer.get());
-        assertTrue(bytesSentToClient.get() > 0);
+        assertThat(bytesSentToClient.get(), greaterThan(0));
         assertEquals(numberOfExpectedClientInteractions,
                 responsesSentToClient.get());
     }

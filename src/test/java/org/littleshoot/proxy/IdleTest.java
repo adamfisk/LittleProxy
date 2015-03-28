@@ -6,11 +6,12 @@ import java.net.URL;
 
 import org.eclipse.jetty.server.Server;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
+import static org.hamcrest.Matchers.lessThan;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 /**
@@ -82,11 +83,11 @@ public class IdleTest {
                 - initialFileDescriptors;
 
         double fdDeltaRatio = Math.abs(fdDeltaToClosed / fdDeltaToOpen);
-        Assert.assertTrue(
+        assertThat(
                 "Number of file descriptors after close should be much closer to initial value than number of file descriptors while open (+/- 1%).\n"
                         + "Initial file descriptors: " + initialFileDescriptors + "; file descriptors while connections open: " + fileDescriptorsWhileConnectionsOpen + "; "
                         + "file descriptors after connections closed: " + fileDescriptorsAfterConnectionsClosed + "\n"
                         + "Ratio of file descriptors after connections are closed to descriptors before connections were closed: " + fdDeltaRatio,
-                fdDeltaRatio < 0.01);
+                fdDeltaRatio, lessThan(0.01));
     }
 }
