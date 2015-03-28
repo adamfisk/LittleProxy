@@ -2,6 +2,7 @@ sudo: false
 
 language: java
 jdk:
+  - openjdk6
   - oraclejdk7
   - oraclejdk8
 
