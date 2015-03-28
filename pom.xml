@@ -89,12 +89,18 @@
       <version>3.1</version>
     </dependency>
 
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.12</version>
-      <scope>test</scope>
-    </dependency>
+      <dependency>
+          <groupId>junit</groupId>
+          <artifactId>junit</artifactId>
+          <version>4.12</version>
+          <scope>test</scope>
+          <exclusions>
+              <exclusion>
+                  <groupId>org.hamcrest</groupId>
+                  <artifactId>hamcrest-core</artifactId>
+              </exclusion>
+          </exclusions>
+      </dependency>
 
       <dependency>
           <groupId>org.hamcrest</groupId>
@@ -110,12 +116,18 @@
       <scope>test</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>2.0.5-beta</version>
-      <scope>test</scope>
-    </dependency>
+      <dependency>
+          <groupId>org.mockito</groupId>
+          <artifactId>mockito-core</artifactId>
+          <version>2.0.5-beta</version>
+          <scope>test</scope>
+          <exclusions>
+              <exclusion>
+                  <groupId>org.hamcrest</groupId>
+                  <artifactId>hamcrest-core</artifactId>
+              </exclusion>
+          </exclusions>
+      </dependency>
 
     <dependency>
       <groupId>org.mock-server</groupId>
