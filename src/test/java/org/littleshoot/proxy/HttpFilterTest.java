@@ -31,6 +31,7 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLongArray;
 
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
@@ -108,28 +109,17 @@ public class HttpFilterTest {
                 new LinkedList<HttpRequest>();
 
         final AtomicInteger requestCount = new AtomicInteger(0);
-        final long[] proxyToServerRequestSendingNanos = new long[] { -1, -1,
-                -1, -1, -1 };
-        final long[] proxyToServerRequestSentNanos = new long[] { -1, -1, -1,
-                -1, -1 };
-        final long[] serverToProxyResponseReceivingNanos = new long[] { -1, -1,
-                -1, -1, -1 };
-        final long[] serverToProxyResponseReceivedNanos = new long[] { -1, -1,
-                -1, -1, -1 };
-        final long[] proxyToServerConnectionQueuedNanos = new long[] { -1, -1,
-                -1, -1, -1 };
-        final long[] proxyToServerResolutionStartedNanos = new long[] { -1, -1,
-                -1, -1, -1 };
-        final long[] proxyToServerResolutionSucceededNanos = new long[] { -1,
-                -1, -1, -1, -1 };
-        final long[] proxyToServerConnectionStartedNanos = new long[] { -1, -1,
-                -1, -1, -1 };
-        final long[] proxyToServerConnectionSSLHandshakeStartedNanos = new long[] {
-                -1, -1, -1, -1, -1 };
-        final long[] proxyToServerConnectionFailedNanos = new long[] { -1, -1,
-                -1, -1, -1 };
-        final long[] proxyToServerConnectionSucceededNanos = new long[] { -1,
-                -1, -1, -1, -1 };
+        final AtomicLongArray proxyToServerRequestSendingNanos = new AtomicLongArray(new long[] { -1, -1, -1, -1, -1 });
+        final AtomicLongArray proxyToServerRequestSentNanos = new AtomicLongArray(new long[] { -1, -1, -1,-1, -1 });
+        final AtomicLongArray serverToProxyResponseReceivingNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
+        final AtomicLongArray serverToProxyResponseReceivedNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
+        final AtomicLongArray proxyToServerConnectionQueuedNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
+        final AtomicLongArray proxyToServerResolutionStartedNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
+        final AtomicLongArray proxyToServerResolutionSucceededNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
+        final AtomicLongArray proxyToServerConnectionStartedNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
+        final AtomicLongArray proxyToServerConnectionSSLHandshakeStartedNanos = new AtomicLongArray(new long[] {-1, -1, -1, -1, -1 });
+        final AtomicLongArray proxyToServerConnectionFailedNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
+        final AtomicLongArray proxyToServerConnectionSucceededNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
 
         final String url1 = "http://localhost:" + webServerPort + "/";
         final String url2 = "http://localhost:" + webServerPort + "/testing";
@@ -173,12 +163,12 @@ public class HttpFilterTest {
 
                     @Override
                     public void proxyToServerRequestSending() {
-                        proxyToServerRequestSendingNanos[requestCount.get()] = now();
+                        proxyToServerRequestSendingNanos.set(requestCount.get(), now());
                     }
 
                     @Override
                     public void proxyToServerRequestSent() {
-                        proxyToServerRequestSentNanos[requestCount.get()] = now();
+                        proxyToServerRequestSentNanos.set(requestCount.get(), now());
                     }
 
                     public HttpObject serverToProxyResponse(
@@ -201,12 +191,12 @@ public class HttpFilterTest {
 
                     @Override
                     public void serverToProxyResponseReceiving() {
-                        serverToProxyResponseReceivingNanos[requestCount.get()] = now();
+                        serverToProxyResponseReceivingNanos.set(requestCount.get(), now());
                     }
 
                     @Override
                     public void serverToProxyResponseReceived() {
-                        serverToProxyResponseReceivedNanos[requestCount.get()] = now();
+                        serverToProxyResponseReceivedNanos.set(requestCount.get(), now());
                     }
 
                     public HttpObject proxyToClientResponse(
@@ -225,45 +215,41 @@ public class HttpFilterTest {
 
                     @Override
                     public void proxyToServerConnectionQueued() {
-                        proxyToServerConnectionQueuedNanos[requestCount.get()] = now();
+                        proxyToServerConnectionQueuedNanos.set(requestCount.get(), now());
                     }
 
                     @Override
                     public InetSocketAddress proxyToServerResolutionStarted(
                             String resolvingServerHostAndPort) {
-                        proxyToServerResolutionStartedNanos[requestCount.get()] = now();
-                        return super
-                                .proxyToServerResolutionStarted(resolvingServerHostAndPort);
+                        proxyToServerResolutionStartedNanos.set(requestCount.get(), now());
+                        return super.proxyToServerResolutionStarted(resolvingServerHostAndPort);
                     }
 
                     @Override
                     public void proxyToServerResolutionSucceeded(
                             String serverHostAndPort,
                             InetSocketAddress resolvedRemoteAddress) {
-                        proxyToServerResolutionSucceededNanos[requestCount
-                                .get()] = now();
+                        proxyToServerResolutionSucceededNanos.set(requestCount.get(), now());
                     }
 
                     @Override
                     public void proxyToServerConnectionStarted() {
-                        proxyToServerConnectionStartedNanos[requestCount.get()] = now();
+                        proxyToServerConnectionStartedNanos.set(requestCount.get(), now());
                     }
 
                     @Override
                     public void proxyToServerConnectionSSLHandshakeStarted() {
-                        proxyToServerConnectionSSLHandshakeStartedNanos[requestCount
-                                .get()] = now();
+                        proxyToServerConnectionSSLHandshakeStartedNanos.set(requestCount.get(), now());
                     }
 
                     @Override
                     public void proxyToServerConnectionFailed() {
-                        proxyToServerConnectionFailedNanos[requestCount.get()] = now();
+                        proxyToServerConnectionFailedNanos.set(requestCount.get(), now());
                     }
 
                     @Override
                     public void proxyToServerConnectionSucceeded() {
-                        proxyToServerConnectionSucceededNanos[requestCount
-                                .get()] = now();
+                        proxyToServerConnectionSucceededNanos.set(requestCount.get(), now());
                     }
 
                 };
@@ -281,7 +267,8 @@ public class HttpFilterTest {
         setUpHttpProxyServer(filtersSource);
 
         org.apache.http.HttpResponse response1 = getResponse(url1);
-        requestCount.incrementAndGet();
+        // sleep for a short amount of time, to allow the filter methods to be invoked
+        Thread.sleep(500);
         assertEquals(
                 "Response should have included the custom header from our pre filter",
                 "1", response1.getFirstHeader("Header-Pre").getValue());
@@ -295,22 +282,24 @@ public class HttpFilterTest {
         assertEquals(1, fullHttpResponsesReceived.get());
         assertEquals(1, filterResponseCalls.get());
 
-        int i = 0;
-        assertThat(proxyToServerConnectionQueuedNanos[i], lessThan(proxyToServerResolutionStartedNanos[i]));
-        assertThat(proxyToServerResolutionStartedNanos[i], lessThan(proxyToServerResolutionSucceededNanos[i]));
-        assertThat(proxyToServerResolutionSucceededNanos[i], lessThan(proxyToServerConnectionStartedNanos[i]));
-        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos[i]);
-        assertEquals(-1, proxyToServerConnectionFailedNanos[i]);
-        assertThat(proxyToServerConnectionStartedNanos[i], lessThan(proxyToServerConnectionSucceededNanos[i]));
-        assertThat(proxyToServerConnectionSucceededNanos[i], lessThan(proxyToServerRequestSendingNanos[i]));
-        assertThat(proxyToServerRequestSendingNanos[i], lessThan(proxyToServerRequestSentNanos[i]));
-        assertThat(proxyToServerRequestSentNanos[i], lessThan(serverToProxyResponseReceivingNanos[i]));
-        assertThat(serverToProxyResponseReceivingNanos[i], lessThan(serverToProxyResponseReceivedNanos[i]));
+        int i = requestCount.get();
+        assertThat(proxyToServerConnectionQueuedNanos.get(i), lessThan(proxyToServerResolutionStartedNanos.get(i)));
+        assertThat(proxyToServerResolutionStartedNanos.get(i), lessThan(proxyToServerResolutionSucceededNanos.get(i)));
+        assertThat(proxyToServerResolutionSucceededNanos.get(i), lessThan(proxyToServerConnectionStartedNanos.get(i)));
+        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos.get(i));
+        assertEquals(-1, proxyToServerConnectionFailedNanos.get(i));
+        assertThat(proxyToServerConnectionStartedNanos.get(i), lessThan(proxyToServerConnectionSucceededNanos.get(i)));
+        assertThat(proxyToServerConnectionSucceededNanos.get(i), lessThan(proxyToServerRequestSendingNanos.get(i)));
+        assertThat(proxyToServerRequestSendingNanos.get(i), lessThan(proxyToServerRequestSentNanos.get(i)));
+        assertThat(proxyToServerRequestSentNanos.get(i), lessThan(serverToProxyResponseReceivingNanos.get(i)));
+        assertThat(serverToProxyResponseReceivingNanos.get(i), lessThan(serverToProxyResponseReceivedNanos.get(i)));
 
         // We just open a second connection here since reusing the original
         // connection is inconsistent.
-        org.apache.http.HttpResponse response2 = getResponse(url2);
         requestCount.incrementAndGet();
+        org.apache.http.HttpResponse response2 = getResponse(url2);
+        Thread.sleep(500);
+
         assertEquals(403, response2.getStatusLine().getStatusCode());
 
         assertEquals(2, associatedRequests.size());
@@ -319,8 +308,10 @@ public class HttpFilterTest {
         assertEquals(1, fullHttpResponsesReceived.get());
         assertEquals(1, filterResponseCalls.get());
 
-        org.apache.http.HttpResponse response3 = getResponse(url3);
         requestCount.incrementAndGet();
+        org.apache.http.HttpResponse response3 = getResponse(url3);
+        Thread.sleep(500);
+
         assertEquals(403, response3.getStatusLine().getStatusCode());
 
         assertEquals(3, associatedRequests.size());
@@ -329,17 +320,17 @@ public class HttpFilterTest {
         assertEquals(1, fullHttpResponsesReceived.get());
         assertEquals(1, filterResponseCalls.get());
 
-        i = 2;
-        assertThat(proxyToServerConnectionQueuedNanos[i], lessThan(proxyToServerResolutionStartedNanos[i]));
-        assertThat(proxyToServerResolutionStartedNanos[i], lessThan(proxyToServerResolutionSucceededNanos[i]));
-        assertEquals(-1, proxyToServerConnectionStartedNanos[i]);
-        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos[i]);
-        assertEquals(-1, proxyToServerConnectionFailedNanos[i]);
-        assertEquals(-1, proxyToServerConnectionSucceededNanos[i]);
-        assertEquals(-1, proxyToServerRequestSendingNanos[i]);
-        assertEquals(-1, proxyToServerRequestSentNanos[i]);
-        assertEquals(-1, serverToProxyResponseReceivingNanos[i]);
-        assertEquals(-1, serverToProxyResponseReceivedNanos[i]);
+        i = requestCount.get();
+        assertThat(proxyToServerConnectionQueuedNanos.get(i), lessThan(proxyToServerResolutionStartedNanos.get(i)));
+        assertThat(proxyToServerResolutionStartedNanos.get(i), lessThan(proxyToServerResolutionSucceededNanos.get(i)));
+        assertEquals(-1, proxyToServerConnectionStartedNanos.get(i));
+        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos.get(i));
+        assertEquals(-1, proxyToServerConnectionFailedNanos.get(i));
+        assertEquals(-1, proxyToServerConnectionSucceededNanos.get(i));
+        assertEquals(-1, proxyToServerRequestSendingNanos.get(i));
+        assertEquals(-1, proxyToServerRequestSentNanos.get(i));
+        assertEquals(-1, serverToProxyResponseReceivingNanos.get(i));
+        assertEquals(-1, serverToProxyResponseReceivedNanos.get(i));
 
         final HttpRequest first = associatedRequests.remove();
         final HttpRequest second = associatedRequests.remove();
@@ -351,19 +342,23 @@ public class HttpFilterTest {
         assertEquals(url2, second.getUri());
         assertEquals(url3, third.getUri());
 
+        requestCount.incrementAndGet();
         org.apache.http.HttpResponse response4 = getResponse(url4);
-        i = 3;
-        assertThat(proxyToServerConnectionQueuedNanos[i], lessThan(proxyToServerResolutionStartedNanos[i]));
-        assertThat(proxyToServerResolutionStartedNanos[i], lessThan(proxyToServerResolutionSucceededNanos[i]));
-        assertThat(proxyToServerResolutionSucceededNanos[i], lessThan(proxyToServerConnectionStartedNanos[i]));
-        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos[i]);
-        assertEquals(-1, proxyToServerConnectionFailedNanos[i]);
-        assertThat(proxyToServerConnectionStartedNanos[i], lessThan(proxyToServerConnectionSucceededNanos[i]));
-        assertThat(proxyToServerConnectionSucceededNanos[i], lessThan(proxyToServerRequestSendingNanos[i]));
-        assertThat(proxyToServerRequestSendingNanos[i], lessThan(proxyToServerRequestSentNanos[i]));
-        assertThat(proxyToServerRequestSentNanos[i], lessThan(serverToProxyResponseReceivingNanos[i]));
-        assertThat(serverToProxyResponseReceivingNanos[i], lessThan(serverToProxyResponseReceivedNanos[i]));
+        Thread.sleep(500);
 
+        i = requestCount.get();
+        assertThat(proxyToServerConnectionQueuedNanos.get(i), lessThan(proxyToServerResolutionStartedNanos.get(i)));
+        assertThat(proxyToServerResolutionStartedNanos.get(i), lessThan(proxyToServerResolutionSucceededNanos.get(i)));
+        assertThat(proxyToServerResolutionSucceededNanos.get(i), lessThan(proxyToServerConnectionStartedNanos.get(i)));
+        assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos.get(i));
+        assertEquals(-1, proxyToServerConnectionFailedNanos.get(i));
+        assertThat(proxyToServerConnectionStartedNanos.get(i), lessThan(proxyToServerConnectionSucceededNanos.get(i)));
+        assertThat(proxyToServerConnectionSucceededNanos.get(i), lessThan(proxyToServerRequestSendingNanos.get(i)));
+        assertThat(proxyToServerRequestSendingNanos.get(i), lessThan(proxyToServerRequestSentNanos.get(i)));
+        assertThat(proxyToServerRequestSentNanos.get(i), lessThan(serverToProxyResponseReceivingNanos.get(i)));
+        assertThat(serverToProxyResponseReceivingNanos.get(i), lessThan(serverToProxyResponseReceivedNanos.get(i)));
+
+        requestCount.incrementAndGet();
         org.apache.http.HttpResponse response5 = getResponse(url5);
 
         assertEquals(403, response4.getStatusLine().getStatusCode());
@@ -444,6 +439,7 @@ public class HttpFilterTest {
         requestSentCallbackInvoked.set(false);
 
         getResponse("http://localhost:" + webServerPort + "/");
+        Thread.sleep(500);
 
         assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for GET", lastHttpContentProcessed.get());
         assertTrue("proxyToServerRequestSent callback was not invoked for GET", requestSentCallbackInvoked.get());
