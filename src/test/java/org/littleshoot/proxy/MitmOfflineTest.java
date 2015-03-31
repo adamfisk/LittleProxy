@@ -40,7 +40,7 @@ public class MitmOfflineTest extends AbstractProxyTest {
     protected void setUp() {
         httpHost = new HttpHost("unknown", 80, "http");
         secureHost = new HttpHost("unknown", 443, "https");
-        proxyServer = bootstrapProxy().withPort(proxyServerPort)
+        proxyServer = bootstrapProxy().withPort(0)
                 .withManInTheMiddle(new SelfSignedMitmManager())
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
                     @Override
