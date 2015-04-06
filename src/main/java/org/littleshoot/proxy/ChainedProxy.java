@@ -4,6 +4,8 @@ import io.netty.handler.codec.http.HttpObject;
 
 import java.net.InetSocketAddress;
 
+import org.littleshoot.proxy.ntlm.NtlmHandler;
+
 /**
  * <p>
  * Encapsulates information needed to connect to a chained proxy.
@@ -48,6 +50,17 @@ public interface ChainedProxy extends SslEngineSource {
      * @return true of the connection to the chained proxy should be encrypted
      */
     boolean requiresEncryption();
+
+   /**
+     * Tell LittleProxy whether or not to do preemptive NTLM authentication to
+     * the chained proxy. Same instance should be returned to maintain state
+     * during NLTM handshake.
+     *
+     * null indicates that we won't do NTLM handshake.
+     *
+     * @return NtlmHandler
+     */
+    NtlmHandler getNtlmHandler();
 
     /**
      * Filters requests on their way to the chained proxy.

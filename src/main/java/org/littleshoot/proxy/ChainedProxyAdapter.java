@@ -6,6 +6,8 @@ import java.net.InetSocketAddress;
 
 import javax.net.ssl.SSLEngine;
 
+import org.littleshoot.proxy.ntlm.NtlmHandler;
+
 /**
  * Convenience base class for implementations of {@link ChainedProxy}.
  */
@@ -37,6 +39,11 @@ public class ChainedProxyAdapter implements ChainedProxy {
     }
 
     @Override
+    public NtlmHandler getNtlmHandler() {
+        return null;
+    }
+
+    @Override
     public SSLEngine newSslEngine() {
         return null;
     }
@@ -56,4 +63,5 @@ public class ChainedProxyAdapter implements ChainedProxy {
     @Override
     public void disconnected() {
     }
+
 }

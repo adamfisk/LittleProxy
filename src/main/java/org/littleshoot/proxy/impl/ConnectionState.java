@@ -12,6 +12,11 @@ enum ConnectionState {
     HANDSHAKING(true),
 
     /**
+     * In the process of waiting for NTLM Type2 response.
+     */
+    NTLM_HANDSHAKING(true),
+
+    /**
      * In the process of negotiating an HTTP CONNECT from the client.
      */
     NEGOTIATING_CONNECT(true),
