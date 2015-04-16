@@ -1,17 +1,19 @@
 package org.littleshoot.proxy;
 
 import io.netty.handler.codec.http.HttpRequest;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.junit.Assert;
-import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import static org.hamcrest.Matchers.in;
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 
 /**
  * Base class for tests that test a proxy chained to an upstream proxy. In
@@ -114,16 +116,15 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
     }
 
     private void assertThatUpstreamProxyReceivedSentRequests() {
-        Assert.assertEquals(
+        assertEquals(
                 "Upstream proxy should have seen every request sent by downstream proxy",
                 REQUESTS_SENT_BY_DOWNSTREAM.get(),
                 REQUESTS_RECEIVED_BY_UPSTREAM.get());
-        Assert.assertEquals(
+        assertEquals(
                 "1 and only 1 transport protocol should have been used to upstream proxy",
                 1, TRANSPORTS_USED.size());
-        Assert.assertTrue("Correct transport should have been used",
-                TRANSPORTS_USED.contains(newChainedProxy()
-                        .getTransportProtocol()));
+        assertThat("Correct transport should have been used",
+                newChainedProxy().getTransportProtocol(), is(in(TRANSPORTS_USED)));
     }
 
     protected class BaseChainedProxy extends ChainedProxyAdapter {
