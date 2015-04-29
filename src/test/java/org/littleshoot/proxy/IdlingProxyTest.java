@@ -1,8 +1,8 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.*;
-
 import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests just a single basic proxy.
@@ -20,7 +20,7 @@ public class IdlingProxyTest extends AbstractProxyTest {
     public void testTimeout() throws Exception {
         ResponseInfo response = httpGetWithApacheClient(webHost, "/hang", true,
                 false);
-        assertTrue("Received: " + response, response.getStatusCode() == 504);
+        assertEquals("Received: " + response, 504, response.getStatusCode());
     }
 
 }
