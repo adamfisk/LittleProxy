@@ -10,6 +10,11 @@ $ cd LittleProxy
 $ ./run.bash
 ```
 
+A fat jar (with dependencies) can be built through maven as follows:
+```
+mvn assembly:single
+```
+
 You can embed LittleProxy in your own projects through maven with the following:
 
 ```
