@@ -2,6 +2,7 @@ package org.littleshoot.proxy.impl;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpResponse;
@@ -26,6 +27,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.regex.Pattern;
 
@@ -33,6 +35,24 @@ import java.util.regex.Pattern;
  * Utilities for the proxy.
  */
 public class ProxyUtils {
+    /**
+     * Hop-by-hop headers that should be removed when proxying, as defined by the HTTP 1.1 spec, section 13.5.1
+     * (http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1). Transfer-Encoding is NOT included in this list, since LittleProxy
+     * does not typically modify the transfer encoding. See also {@link #shouldRemoveHopByHopHeader(String)}.
+     *
+     * Header names are stored as lowercase to make case-insensitive comparisons easier.
+     */
+    private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = ImmutableSet.of(
+            HttpHeaders.Names.CONNECTION.toLowerCase(Locale.US),
+            HttpHeaders.Names.PROXY_AUTHENTICATE.toLowerCase(Locale.US),
+            HttpHeaders.Names.PROXY_AUTHORIZATION.toLowerCase(Locale.US),
+            HttpHeaders.Names.TE.toLowerCase(Locale.US),
+            HttpHeaders.Names.TRAILER.toLowerCase(Locale.US),
+            /*  Note: Not removing Transfer-Encoding since LittleProxy does not normally re-chunk content.
+                HttpHeaders.Names.TRANSFER_ENCODING.toLowerCase(Locale.US), */
+            HttpHeaders.Names.UPGRADE.toLowerCase(Locale.US),
+            "Keep-Alive".toLowerCase(Locale.US)
+    );
 
     private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
 
@@ -121,15 +141,6 @@ public class ProxyUtils {
                 Locale.US);
         formatter.setTimeZone(GMT);
         return formatter.format(date);
-    }
-
-    /**
-     * Creates a Date formatted for HTTP headers for the current time.
-     * 
-     * @return The formatted HTTP date.
-     */
-    public static String httpDate() {
-        return formatDate(new Date());
     }
 
     /**
@@ -490,5 +501,32 @@ public class ProxyUtils {
             LOG.error("Could not lookup host", e);
             throw new IllegalStateException("Could not determine host!", e);
         }
+    }
+
+    /**
+     * Determines if the specified header should be removed from the proxied response because it is a hop-by-hop header, as defined by the
+     * HTTP 1.1 spec in section 13.5.1. The comparison is case-insensitive, so "Connection" will be treated the same as "connection" or "CONNECTION".
+     * From http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1 :
+     * <pre>
+       The following HTTP/1.1 headers are hop-by-hop headers:
+        - Connection
+        - Keep-Alive
+        - Proxy-Authenticate
+        - Proxy-Authorization
+        - TE
+        - Trailers [LittleProxy note: actual header name is Trailer]
+        - Transfer-Encoding [LittleProxy note: this header is not normally removed when proxying, since the proxy does not re-chunk
+                            responses. The exception is when an HttpObjectAggregator is enabled, which aggregates chunked content and removes
+                            the 'Transfer-Encoding: chunked' header itself.]
+        - Upgrade
+
+       All other headers defined by HTTP/1.1 are end-to-end headers.
+     * </pre>
+     *
+     * @param headerName the header name
+     * @return true if this header is a hop-by-hop header and should be removed when proxying, otherwise false
+     */
+    public static boolean shouldRemoveHopByHopHeader(String headerName) {
+        return SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS.contains(headerName.toLowerCase(Locale.US));
     }
 }
