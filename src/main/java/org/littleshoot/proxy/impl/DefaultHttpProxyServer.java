@@ -335,7 +335,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     @Override
     public void stop() {
-        serverGroup.stop();
+        serverGroup.stop(true);
+    }
+
+    @Override
+    public void abort() {
+        serverGroup.stop(false);
     }
 
     private HttpProxyServer start() {
@@ -503,7 +508,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private final Thread serverGroupShutdownHook = new Thread(new Runnable() {
             @Override
             public void run() {
-                stop();
+                stop(false);
             }
         });
 
@@ -561,8 +566,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     outboundWorkerGroup);
         }
 
-        synchronized private void stop() {
-            LOG.info("Shutting down proxy");
+        synchronized private void stop(boolean graceful) {
+            if (graceful) {
+                LOG.info("Shutting down proxy gracefully");
+            } else {
+                LOG.info("Shutting down proxy immediately (non-graceful)");
+            }
+
             if (stopped) {
                 LOG.info("Already stopped");
                 return;
@@ -571,17 +581,21 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             LOG.info("Closing all channels...");
 
             final ChannelGroupFuture future = allChannels.close();
-            future.awaitUninterruptibly(10 * 1000);
 
-            if (!future.isSuccess()) {
-                final Iterator<ChannelFuture> iter = future.iterator();
-                while (iter.hasNext()) {
-                    final ChannelFuture cf = iter.next();
-                    if (!cf.isSuccess()) {
-                        LOG.info(
-                                "Unable to close channel.  Cause of failure for {} is {}",
-                                cf.channel(),
-                                cf.cause());
+            // if this is a graceful shutdown, log any channel closing failures. if this isn't a graceful shutdown, ignore them.
+            if (graceful) {
+                future.awaitUninterruptibly(10 * 1000);
+
+                if (!future.isSuccess()) {
+                    final Iterator<ChannelFuture> iter = future.iterator();
+                    while (iter.hasNext()) {
+                        final ChannelFuture cf = iter.next();
+                        if (!cf.isSuccess()) {
+                            LOG.info(
+                                    "Unable to close channel.  Cause of failure for {} is {}",
+                                    cf.channel(),
+                                    cf.cause());
+                        }
                     }
                 }
             }
@@ -592,19 +606,29 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             allEventLoopGroups.addAll(clientToProxyWorkerPools.values());
             allEventLoopGroups.addAll(proxyToServerWorkerPools.values());
             for (EventLoopGroup group : allEventLoopGroups) {
-                group.shutdownGracefully();
+                if (graceful) {
+                    group.shutdownGracefully();
+                } else {
+                    group.shutdownGracefully(0, 0, TimeUnit.SECONDS);
+                }
             }
 
-            for (EventLoopGroup group : allEventLoopGroups) {
-                try {
-                    group.awaitTermination(60, TimeUnit.SECONDS);
-                } catch (InterruptedException ie) {
-                    LOG.warn("Interrupted while shutting down event loop");
+            if (graceful) {
+                for (EventLoopGroup group : allEventLoopGroups) {
+                    try {
+                        group.awaitTermination(60, TimeUnit.SECONDS);
+                    } catch (InterruptedException ie) {
+                        LOG.warn("Interrupted while shutting down event loop");
+                    }
                 }
             }
 
             // remove the shutdown hook that was added when the server group was started, since it has now been stopped
-            Runtime.getRuntime().removeShutdownHook(serverGroupShutdownHook);
+            try {
+                Runtime.getRuntime().removeShutdownHook(serverGroupShutdownHook);
+            } catch (IllegalStateException e) {
+                // ignore -- IllegalStateException means the VM is already shutting down
+            }
 
             stopped = true;
 
