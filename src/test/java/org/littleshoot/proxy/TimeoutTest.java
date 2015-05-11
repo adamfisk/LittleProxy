@@ -15,7 +15,6 @@ import org.mockserver.matchers.Times;
 import org.mockserver.model.Delay;
 
 import java.io.IOException;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.lessThan;
@@ -32,9 +31,8 @@ public class TimeoutTest {
 
     @Before
     public void setUp() {
-        // replace this with port 0 when MockServer supports it
-        mockServerPort = new Random().nextInt(55000) + 10000;
-        mockServer = new ClientAndServer(mockServerPort);
+        mockServer = new ClientAndServer(0);
+        mockServerPort = mockServer.getPort();
     }
 
     @After
