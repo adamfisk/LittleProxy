@@ -331,6 +331,24 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         if (httpObject instanceof HttpResponse) {
             HttpResponse httpResponse = (HttpResponse) httpObject;
+
+            // if this HttpResponse does not have any means of signaling the end of the message body other than closing
+            // the connection, convert the message to a "Transfer-Encoding: chunked" HTTP response. This avoids the need
+            // to close the client connection to indicate the end of the message. (Responses to HEAD requests "must be" empty.)
+            if (!ProxyUtils.isHead(currentHttpRequest) && !ProxyUtils.isResponseSelfTerminating(httpResponse)) {
+                // duplicate the HttpResponse (but NOT the content) from the server before sending it to the client. this allows
+                // us to set the Transfer-Encoding to chunked without interfering with netty's handling of the response from the server.
+                // if we modify the original HttpResponse from the server, netty will not generate the appropriate LastHttpContent
+                // when it detects the connection closure from the server (see HttpObjectDecoder#decodeLast).
+                HttpResponse duplicateResponse = ProxyUtils.duplicateHttpResponse(httpResponse);
+
+                HttpHeaders.setTransferEncodingChunked(duplicateResponse);
+
+                // set the httpObject and httpResponse to the duplicated response, to allow all other standard processing
+                // (filtering, header modification for proxying, etc.) to be applied.
+                httpObject = httpResponse = duplicateResponse;
+            }
+
             fixHttpVersionHeaderIfNecessary(httpResponse);
             modifyResponseHeadersToReflectProxying(httpResponse);
         }
@@ -533,7 +551,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     protected void serverDisconnected(ProxyToServerConnection serverConnection) {
         numberOfCurrentlyConnectedServers.decrementAndGet();
-        disconnectClientIfNecessary();
+        // not disconnecting the client from the proxy, even if this was the last server connection. this allows clients
+        // to continue to use the open connection to the proxy to make future requests.
     }
 
     /**
@@ -655,16 +674,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         .getIdleConnectionTimeout()));
 
         pipeline.addLast("handler", this);
-    }
-
-    /**
-     * If all server connections have been disconnected, disconnect the client.
-     */
-    private void disconnectClientIfNecessary() {
-        if (numberOfCurrentlyConnectedServers.get() == 0) {
-            // All servers are disconnected, disconnect from client
-            disconnect();
-        }
     }
 
     /**

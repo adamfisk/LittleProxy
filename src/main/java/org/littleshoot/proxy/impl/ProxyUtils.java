@@ -10,6 +10,10 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -22,11 +26,6 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.regex.Pattern;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Utilities for the proxy.
@@ -327,4 +326,111 @@ public class ProxyUtils {
                 && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
     }
 
+    /**
+     * Returns true if the HTTP message cannot contain an entity body, according to the HTTP spec. This code is taken directly
+     * from {@link io.netty.handler.codec.http.HttpObjectDecoder#isContentAlwaysEmpty(HttpMessage)}.
+     *
+     * @param msg HTTP message
+     * @return true if the HTTP message is always empty, false if the message <i>may</i> have entity content.
+     */
+    public static boolean isContentAlwaysEmpty(HttpMessage msg) {
+        if (msg instanceof HttpResponse) {
+            HttpResponse res = (HttpResponse) msg;
+            int code = res.getStatus().code();
+
+            // Correctly handle return codes of 1xx.
+            //
+            // See:
+            //     - http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html Section 4.4
+            //     - https://github.com/netty/netty/issues/222
+            if (code >= 100 && code < 200) {
+                // One exception: Hixie 76 websocket handshake response
+                return !(code == 101 && !res.headers().contains(HttpHeaders.Names.SEC_WEBSOCKET_ACCEPT));
+            }
+
+            switch (code) {
+                case 204: case 205: case 304:
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the request is an HTTP HEAD request.
+     *
+     * @param request HTTP request
+     * @return true if request is a HEAD, otherwise false
+     */
+    public static boolean isHead(HttpRequest request) {
+        return HttpMethod.HEAD.equals(request.getMethod());
+    }
+
+    /**
+     * Returns true if the HTTP response from the server is expected to indicate its own message length/end-of-message. Returns false
+     * if the server is expected to indicate the end of the HTTP entity by closing the connection.
+     * <p/>
+     * This method is based on the allowed message length indicators in the HTTP specification, section 4.4:
+     * <pre>
+         4.4 Message Length
+         The transfer-length of a message is the length of the message-body as it appears in the message; that is, after any transfer-codings have been applied. When a message-body is included with a message, the transfer-length of that body is determined by one of the following (in order of precedence):
+
+         1.Any response message which "MUST NOT" include a message-body (such as the 1xx, 204, and 304 responses and any response to a HEAD request) is always terminated by the first empty line after the header fields, regardless of the entity-header fields present in the message.
+         2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity", then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6), unless the message is terminated by closing the connection.
+         3.If a Content-Length header field (section 14.13) is present, its decimal value in OCTETs represents both the entity-length and the transfer-length. The Content-Length header field MUST NOT be sent if these two lengths are different (i.e., if a Transfer-Encoding
+         header field is present). If a message is received with both a
+         Transfer-Encoding header field and a Content-Length header field,
+         the latter MUST be ignored.
+         4.If the message uses the media type "multipart/byteranges", and the transfer-length is not otherwise specified, then this self- delimiting media type defines the transfer-length. This media type MUST NOT be used unless the sender knows that the recipient can parse it; the presence in a request of a Range header with multiple byte- range specifiers from a 1.1 client implies that the client can parse multipart/byteranges responses.
+         A range header might be forwarded by a 1.0 proxy that does not
+         understand multipart/byteranges; in this case the server MUST
+         delimit the message using methods defined in items 1,3 or 5 of
+         this section.
+         5.By the server closing the connection. (Closing the connection cannot be used to indicate the end of a request body, since that would leave no possibility for the server to send back a response.)
+     * </pre>
+     *
+     * @param response the HTTP response object
+     * @return true if the message will indicate its own message length, or false if the server is expected to indicate the message length by closing the connection
+     */
+    public static boolean isResponseSelfTerminating(HttpResponse response) {
+        if (isContentAlwaysEmpty(response)) {
+            return true;
+        }
+
+        // any Transfer-Encoding other than "identity" includes a mechanism to indicate the end of the message content
+        String transferEncodingHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.TRANSFER_ENCODING);
+        if (transferEncodingHeader != null && !HttpHeaders.Values.IDENTITY.equals(transferEncodingHeader)) {
+            return true;
+        }
+
+        String contentLengthHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_LENGTH);
+        if (contentLengthHeader != null && !contentLengthHeader.isEmpty()) {
+            return true;
+        }
+
+        // as per the HTTP spec, the multipart/byteranges content type will indicate its own message length
+        String contentTypeHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_TYPE);
+        if (contentTypeHeader != null) {
+            if (contentTypeHeader.startsWith("multipart/byteranges")) {
+                return true;
+            }
+        }
+
+        // none of the other message length indicators are present, so the only way the server can indicate the end
+        // of this message is to close the connection
+        return false;
+    }
+
+    /**
+     * Duplicates the status line and headers of an HttpResponse object. Does not duplicate any content associated with that response.
+     *
+     * @param originalResponse HttpResponse to be duplicated
+     * @return a new HttpResponse with the same status line and headers
+     */
+    public static HttpResponse duplicateHttpResponse(HttpResponse originalResponse) {
+        DefaultHttpResponse newResponse = new DefaultHttpResponse(originalResponse.getProtocolVersion(), originalResponse.getStatus());
+        newResponse.headers().add(originalResponse.headers());
+
+        return newResponse;
+    }
 }
