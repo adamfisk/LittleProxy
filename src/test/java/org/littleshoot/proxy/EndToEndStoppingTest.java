@@ -22,7 +22,6 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.greaterThan;
@@ -44,9 +43,8 @@ public class EndToEndStoppingTest {
 
     @Before
     public void setUp() {
-        // replace this with port 0 when MockServer supports it
-        mockServerPort = new Random().nextInt(55000) + 10000;
-        mockServer = new ClientAndServer(mockServerPort);
+        mockServer = new ClientAndServer(0);
+        mockServerPort = mockServer.getPort();
     }
 
     @After
