@@ -1,5 +1,7 @@
 package org.littleshoot.proxy.impl;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpResponse;
@@ -20,6 +22,7 @@ import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -35,6 +38,11 @@ public class ProxyUtils {
     private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
 
     private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
+
+    /**
+     * Splits comma-separated header values into their individual values.
+     */
+    private static final Splitter COMMA_SEPARATED_HEADER_VALUE_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     /**
      * Date format pattern used to parse HTTP date headers in RFC 1123 format.
@@ -378,16 +386,19 @@ public class ProxyUtils {
          1.Any response message which "MUST NOT" include a message-body (such as the 1xx, 204, and 304 responses and any response to a HEAD request) is always terminated by the first empty line after the header fields, regardless of the entity-header fields present in the message.
          2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity", then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6), unless the message is terminated by closing the connection.
          3.If a Content-Length header field (section 14.13) is present, its decimal value in OCTETs represents both the entity-length and the transfer-length. The Content-Length header field MUST NOT be sent if these two lengths are different (i.e., if a Transfer-Encoding
-         header field is present). If a message is received with both a
-         Transfer-Encoding header field and a Content-Length header field,
-         the latter MUST be ignored.
-         4.If the message uses the media type "multipart/byteranges", and the transfer-length is not otherwise specified, then this self- delimiting media type defines the transfer-length. This media type MUST NOT be used unless the sender knows that the recipient can parse it; the presence in a request of a Range header with multiple byte- range specifiers from a 1.1 client implies that the client can parse multipart/byteranges responses.
-         A range header might be forwarded by a 1.0 proxy that does not
-         understand multipart/byteranges; in this case the server MUST
-         delimit the message using methods defined in items 1,3 or 5 of
-         this section.
+         header field is present). If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored.
+         [LP note: multipart/byteranges support has been removed from the HTTP 1.1 spec by RFC 7230, section A.2. Since it is seldom used, LittleProxy does not check for it.]
          5.By the server closing the connection. (Closing the connection cannot be used to indicate the end of a request body, since that would leave no possibility for the server to send back a response.)
      * </pre>
+     *
+     * The rules for Transfer-Encoding are clarified in RFC 7230, section 3.3.1 and 3.3.3 (3):
+     * <pre>
+         If any transfer coding other than
+         chunked is applied to a response payload body, the sender MUST either
+         apply chunked as the final transfer coding or terminate the message
+         by closing the connection.
+     * </pre>
+     *
      *
      * @param response the HTTP response object
      * @return true if the message will indicate its own message length, or false if the server is expected to indicate the message length by closing the connection
@@ -397,10 +408,14 @@ public class ProxyUtils {
             return true;
         }
 
-        // any Transfer-Encoding other than "identity" includes a mechanism to indicate the end of the message content
-        String transferEncodingHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.TRANSFER_ENCODING);
-        if (transferEncodingHeader != null && !HttpHeaders.Values.IDENTITY.equals(transferEncodingHeader)) {
-            return true;
+        // if there is a Transfer-Encoding value, determine whether the final encoding is "chunked", which makes the message self-terminating
+        List<String> allTransferEncodingHeaders = getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, response);
+        if (!allTransferEncodingHeaders.isEmpty()) {
+            String finalEncoding = allTransferEncodingHeaders.get(allTransferEncodingHeaders.size() - 1);
+
+            // per #3 above: "If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored."
+            // since the Transfer-Encoding field is present, the message is self-terminating if and only if the final Transfer-Encoding value is "chunked"
+            return HttpHeaders.Values.CHUNKED.equals(finalEncoding);
         }
 
         String contentLengthHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_LENGTH);
@@ -408,17 +423,59 @@ public class ProxyUtils {
             return true;
         }
 
-        // as per the HTTP spec, the multipart/byteranges content type will indicate its own message length
-        String contentTypeHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_TYPE);
-        if (contentTypeHeader != null) {
-            if (contentTypeHeader.startsWith("multipart/byteranges")) {
-                return true;
-            }
-        }
+        // not checking for multipart/byteranges, since it is seldom used and its use as a message length indicator was removed in RFC 7230
 
         // none of the other message length indicators are present, so the only way the server can indicate the end
         // of this message is to close the connection
         return false;
+    }
+
+    /**
+     * Retrieves all comma-separated values for headers with the specified name on the HttpMessage. Any whitespace (spaces
+     * or tabs) surrounding the values will be removed. Empty values (e.g. two consecutive commas, or a value followed
+     * by a comma and no other value) will be removed; they will not appear as empty elements in the returned list.
+     * If the message contains repeated headers, their values will be added to the returned list in the order in which
+     * the headers appear. For example, if a message has headers like:
+     * <pre>
+     *     Transfer-Encoding: gzip,deflate
+     *     Transfer-Encoding: chunked
+     * </pre>
+     * This method will return a list of three values: "gzip", "deflate", "chunked".
+     * <p/>
+     * Placing values on multiple header lines is allowed under certain circumstances
+     * in RFC 2616 section 4.2, and in RFC 7230 section 3.2.2 quoted here:
+     * <pre>
+     A sender MUST NOT generate multiple header fields with the same field
+     name in a message unless either the entire field value for that
+     header field is defined as a comma-separated list [i.e., #(values)]
+     or the header field is a well-known exception (as noted below).
+
+     A recipient MAY combine multiple header fields with the same field
+     name into one "field-name: field-value" pair, without changing the
+     semantics of the message, by appending each subsequent field value to
+     the combined field value in order, separated by a comma.  The order
+     in which header fields with the same field name are received is
+     therefore significant to the interpretation of the combined field
+     value; a proxy MUST NOT change the order of these field values when
+     forwarding a message.
+     * </pre>
+     * @param headerName the name of the header for which values will be retrieved
+     * @param httpMessage the HTTP message whose header values will be retrieved
+     * @return a list of single header values, or an empty list if the header was not present in the message or contained no values
+     */
+    public static List<String> getAllCommaSeparatedHeaderValues(String headerName, HttpMessage httpMessage) {
+        List<String> allHeaders = httpMessage.headers().getAll(headerName);
+        if (allHeaders.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        ImmutableList.Builder<String> headerValues = ImmutableList.builder();
+        for (String header : allHeaders) {
+            Iterable<String> commaSeparatedValues = COMMA_SEPARATED_HEADER_VALUE_SPLITTER.split(header);
+            headerValues.addAll(commaSeparatedValues);
+        }
+
+        return headerValues.build();
     }
 
     /**
