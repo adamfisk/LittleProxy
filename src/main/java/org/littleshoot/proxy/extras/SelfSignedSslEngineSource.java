@@ -112,6 +112,11 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             // Set up a trust manager factory to use our key store
             TrustManagerFactory tmf = TrustManagerFactory
                     .getInstance(algorithm);
+            // Given a null key store will use the Java defaults to accept
+            // upstream servers. Otherwise you have to give a key store with
+            // all the trusted certificates. Using our keyStoreFile here will
+            // trust *only* connections to servers with our certificate.
+            //
             tmf.init(ks);
 
             TrustManager[] trustManagers = null;
