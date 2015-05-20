@@ -7,6 +7,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpObject;
@@ -336,17 +337,21 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             // the connection, convert the message to a "Transfer-Encoding: chunked" HTTP response. This avoids the need
             // to close the client connection to indicate the end of the message. (Responses to HEAD requests "must be" empty.)
             if (!ProxyUtils.isHead(currentHttpRequest) && !ProxyUtils.isResponseSelfTerminating(httpResponse)) {
-                // duplicate the HttpResponse (but NOT the content) from the server before sending it to the client. this allows
-                // us to set the Transfer-Encoding to chunked without interfering with netty's handling of the response from the server.
-                // if we modify the original HttpResponse from the server, netty will not generate the appropriate LastHttpContent
-                // when it detects the connection closure from the server (see HttpObjectDecoder#decodeLast).
-                HttpResponse duplicateResponse = ProxyUtils.duplicateHttpResponse(httpResponse);
+                // if this is not a FullHttpResponse,  duplicate the HttpResponse from the server before sending it to
+                // the client. this allows us to set the Transfer-Encoding to chunked without interfering with netty's
+                // handling of the response from the server. if we modify the original HttpResponse from the server,
+                // netty will not generate the appropriate LastHttpContent when it detects the connection closure from
+                // the server (see HttpObjectDecoder#decodeLast). (This does not apply to FullHttpResponses, for which
+                // netty already generates the empty final chunk when Transfer-Encoding is chunked.)
+                if (!(httpResponse instanceof FullHttpResponse)) {
+                    HttpResponse duplicateResponse = ProxyUtils.duplicateHttpResponse(httpResponse);
 
-                HttpHeaders.setTransferEncodingChunked(duplicateResponse);
+                    // set the httpObject and httpResponse to the duplicated response, to allow all other standard processing
+                    // (filtering, header modification for proxying, etc.) to be applied.
+                    httpObject = httpResponse = duplicateResponse;
+                }
 
-                // set the httpObject and httpResponse to the duplicated response, to allow all other standard processing
-                // (filtering, header modification for proxying, etc.) to be applied.
-                httpObject = httpResponse = duplicateResponse;
+                HttpHeaders.setTransferEncodingChunked(httpResponse);
             }
 
             fixHttpVersionHeaderIfNecessary(httpResponse);
