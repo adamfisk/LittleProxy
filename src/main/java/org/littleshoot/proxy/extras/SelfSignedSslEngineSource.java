@@ -71,6 +71,11 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         return sslContext.createSSLEngine();
     }
 
+    @Override
+    public SSLEngine newSslEngine(String peerHost, int peerPort) {
+        return sslContext.createSSLEngine(peerHost, peerPort);
+    }
+
     public SSLContext getSslContext() {
         return sslContext;
     }
