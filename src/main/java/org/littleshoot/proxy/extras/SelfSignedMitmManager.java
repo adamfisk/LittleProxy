@@ -1,5 +1,7 @@
 package org.littleshoot.proxy.extras;
 
+import java.net.InetSocketAddress;
+
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLSession;
 
@@ -13,8 +15,9 @@ public class SelfSignedMitmManager implements MitmManager {
             new SelfSignedSslEngineSource(true);
 
     @Override
-    public SSLEngine serverSslEngine() {
-        return selfSignedSslEngineSource.newSslEngine();
+    public SSLEngine serverSslEngine(InetSocketAddress remoteAddress) {
+        return selfSignedSslEngineSource.newSslEngine(
+                remoteAddress.getHostName(), remoteAddress.getPort());
     }
 
     @Override

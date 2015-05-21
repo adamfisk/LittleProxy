@@ -56,4 +56,9 @@ public class ChainedProxyAdapter implements ChainedProxy {
     @Override
     public void disconnected() {
     }
+
+    @Override
+    public SSLEngine newSslEngine(String peerHost, int peerPort) {
+        return null;
+    }
 }

@@ -544,7 +544,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
             if (isMitmEnabled) {
                 connectionFlow.then(serverConnection.EncryptChannel(
-                        mitmManager.serverSslEngine()))
+                        mitmManager.serverSslEngine(remoteAddress)))
                         .then(clientConnection.RespondCONNECTSuccessful)
                         .then(serverConnection.MitmEncryptClientChannel);
             } else {
