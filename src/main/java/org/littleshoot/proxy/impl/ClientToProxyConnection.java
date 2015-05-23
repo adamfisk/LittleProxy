@@ -1123,7 +1123,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.GATEWAY_TIMEOUT, body);
 
-        if (ProxyUtils.isHEAD(httpRequest)) {
+        if (httpRequest != null && ProxyUtils.isHEAD(httpRequest)) {
             // don't allow any body content in response to a HEAD request
             response.content().clear();
         }
