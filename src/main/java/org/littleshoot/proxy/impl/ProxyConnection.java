@@ -131,7 +131,15 @@ abstract class ProxyConnection<I extends HttpObject> extends
         ConnectionState nextState = getCurrentState();
         switch (getCurrentState()) {
         case AWAITING_INITIAL:
-            nextState = readHTTPInitial((I) httpObject);
+            if (httpObject instanceof HttpMessage) {
+                nextState = readHTTPInitial((I) httpObject);
+            } else {
+                // Similar to the AWAITING_PROXY_AUTHENTICATION case below, we may enter an AWAITING_INITIAL
+                // state if the proxy responded to an earlier request with a 502 or 504 response, or a short-circuit
+                // response from a filter. The client may have sent some chunked HttpContent associated with the request
+                // after the short-circuit response was sent. We can safely drop them.
+                LOG.debug("Dropping message because HTTP object was not an HttpMessage. HTTP object may be orphaned content from a short-circuited response. Message: {}", httpObject);
+            }
             break;
         case AWAITING_CHUNK:
             HttpContent chunk = (HttpContent) httpObject;
