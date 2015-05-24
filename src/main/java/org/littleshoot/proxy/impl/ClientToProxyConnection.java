@@ -545,12 +545,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         super.becameSaturated();
         for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
                 .values()) {
-            if (serverConnection != null) {
             synchronized (serverConnection) {
                 if (this.isSaturated()) {
                     serverConnection.stopReading();
                 }
-            }
             }
         }
     }
