@@ -61,7 +61,9 @@ public class MessageTerminationTest {
                                         .withSuppressContentLengthHeader(true))
                 );
 
-        proxyServer = DefaultHttpProxyServer.bootstrap().start();
+        proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .start();
         int proxyServerPort = proxyServer.getListenAddress().getPort();
 
         HttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServerPort);
@@ -96,7 +98,9 @@ public class MessageTerminationTest {
                                         .withSuppressConnectionHeader(true))
                 );
 
-        proxyServer = DefaultHttpProxyServer.bootstrap().start();
+        proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .start();
         int proxyServerPort = proxyServer.getListenAddress().getPort();
 
         HttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServerPort);
@@ -138,6 +142,7 @@ public class MessageTerminationTest {
                         return 100000;
                     }
                 })
+                .withPort(0)
                 .start();
         int proxyServerPort = proxyServer.getListenAddress().getPort();
 
@@ -175,7 +180,9 @@ public class MessageTerminationTest {
                                         .withSuppressContentLengthHeader(true))
                 );
 
-        proxyServer = DefaultHttpProxyServer.bootstrap().start();
+        proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .start();
         int proxyServerPort = proxyServer.getListenAddress().getPort();
 
         HttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServerPort);
