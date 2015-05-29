@@ -1,5 +1,6 @@
 package org.littleshoot.proxy.impl;
 
+import com.google.common.net.HostAndPort;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
@@ -24,7 +25,6 @@ import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
-import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxy;
 import org.littleshoot.proxy.ChainedProxyAdapter;
@@ -834,27 +834,24 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Build an {@link InetSocketAddress} for the given hostAndPort.
      * 
-     * @param hostAndPort
-     * @param proxyServer
-     *            the current {@link DefaultHttpProxyServer}
-     * @return
-     * @throws UnknownHostException
-     *             if hostAndPort could not be resolved
+     * @param hostAndPort String representation of the host and port
+     * @param proxyServer the current {@link DefaultHttpProxyServer}
+     * @return a resolved InetSocketAddress for the specified hostAndPort
+     * @throws UnknownHostException if hostAndPort could not be resolved, or if the input string could not be parsed into
+     *          a host and port.
      */
-    private static InetSocketAddress addressFor(String hostAndPort,
-            DefaultHttpProxyServer proxyServer)
+    public static InetSocketAddress addressFor(String hostAndPort, DefaultHttpProxyServer proxyServer)
             throws UnknownHostException {
-        String host;
-        int port;
-        if (hostAndPort.contains(":")) {
-            host = StringUtils.substringBefore(hostAndPort, ":");
-            String portString = StringUtils.substringAfter(hostAndPort,
-                    ":");
-            port = Integer.parseInt(portString);
-        } else {
-            host = hostAndPort;
-            port = 80;
+        HostAndPort parsedHostAndPort;
+        try {
+            parsedHostAndPort = HostAndPort.fromString(hostAndPort);
+        } catch (IllegalArgumentException e) {
+            // we couldn't understand the hostAndPort string, so there is no way we can resolve it.
+            throw new UnknownHostException(hostAndPort);
         }
+
+        String host = parsedHostAndPort.getHostText();
+        int port = parsedHostAndPort.getPortOrDefault(80);
 
         return proxyServer.getServerResolver().resolve(host, port);
     }
