@@ -778,13 +778,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 8192 * 2));
         pipeline.addLast("responseReadMonitor", responseReadMonitor);
 
-        if (!ProxyUtils.isCONNECT(httpRequest)) {
-            // Enable aggregation for filtering if necessary
-            int numberOfBytesToBuffer = proxyServer.getFiltersSource()
-                    .getMaximumResponseBufferSizeInBytes();
-            if (numberOfBytesToBuffer > 0) {
-                aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
-            }
+        // Enable aggregation for filtering if necessary
+        int numberOfBytesToBuffer = proxyServer.getFiltersSource()
+                .getMaximumResponseBufferSizeInBytes();
+        if (numberOfBytesToBuffer > 0) {
+            aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
         }
 
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
