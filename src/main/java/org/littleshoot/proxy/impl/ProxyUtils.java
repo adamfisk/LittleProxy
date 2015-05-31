@@ -16,6 +16,7 @@ import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -42,21 +43,7 @@ public class ProxyUtils {
      */
     private static final String PATTERN_RFC1123 = "EEE, dd MMM yyyy HH:mm:ss zzz";
 
-    private static final String hostName;
-
-    static {
-        try {
-            final InetAddress localAddress = NetworkUtils.getLocalHost();
-            hostName = localAddress.getHostName();
-        } catch (final UnknownHostException e) {
-            LOG.error("Could not lookup host", e);
-            throw new IllegalStateException("Could not determine host!", e);
-        }
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Via: 1.1 ");
-        sb.append(hostName);
-        sb.append("\r\n");
-    }
+    private static final String hostName = getHostName();
 
     // Should never be constructed.
     private ProxyUtils() {
@@ -243,16 +230,16 @@ public class ProxyUtils {
     public static void addVia(final HttpMessage msg) {
         final StringBuilder sb = new StringBuilder();
         sb.append(msg.getProtocolVersion().majorVersion());
-        sb.append(".");
+        sb.append('.');
         sb.append(msg.getProtocolVersion().minorVersion());
-        sb.append(".");
+        sb.append(' ');
         sb.append(hostName);
         final List<String> vias;
         if (msg.headers().contains(HttpHeaders.Names.VIA)) {
             vias = msg.headers().getAll(HttpHeaders.Names.VIA);
             vias.add(sb.toString());
         } else {
-            vias = Arrays.asList(sb.toString());
+            vias = Collections.singletonList(sb.toString());
         }
         msg.headers().set(HttpHeaders.Names.VIA, vias);
     }
@@ -327,4 +314,19 @@ public class ProxyUtils {
                 && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
     }
 
+    /**
+     * Attempts to resolve the local machine's hostname.
+     *
+     * @return the local machine's hostname
+     * @throws IllegalStateException if the hostname cannot be resolved
+     */
+    public static String getHostName() throws IllegalStateException {
+        try {
+            final InetAddress localAddress = NetworkUtils.getLocalHost();
+            return localAddress.getHostName();
+        } catch (final UnknownHostException e) {
+            LOG.error("Could not lookup host", e);
+            throw new IllegalStateException("Could not determine host!", e);
+        }
+    }
 }
