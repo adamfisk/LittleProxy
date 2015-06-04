@@ -561,8 +561,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                             clientConnection.RespondCONNECTSuccessful).then(
                             serverConnection.MitmEncryptClientChannel);
                 } else {
-                connectionFlow.then(serverConnection.EncryptChannel(
-                        mitmManager.serverSslEngine(remoteAddress)))
+                connectionFlow
+                        .then(serverConnection.EncryptChannel(mitmManager
+                                .serverSslEngine(remoteAddress.getHostName(),
+                                        remoteAddress.getPort())))
                         .then(clientConnection.RespondCONNECTSuccessful)
                         .then(serverConnection.MitmEncryptClientChannel);
                 }
