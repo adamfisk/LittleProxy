@@ -13,8 +13,8 @@ public class SelfSignedMitmManager implements MitmManager {
             new SelfSignedSslEngineSource(true);
 
     @Override
-    public SSLEngine serverSslEngine() {
-        return selfSignedSslEngineSource.newSslEngine();
+    public SSLEngine serverSslEngine(String peerHost, int peerPort) {
+        return selfSignedSslEngineSource.newSslEngine(peerHost, peerPort);
     }
 
     @Override
