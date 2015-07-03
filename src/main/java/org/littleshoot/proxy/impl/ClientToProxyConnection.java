@@ -523,6 +523,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         serverConnection.getRemoteAddress(),
                         lastStateBeforeFailure,
                         cause);
+                currentFilters.proxyToServerConnectionFailed();
                 connectionFailedUnrecoverably(initialRequest);
                 return false;
             }

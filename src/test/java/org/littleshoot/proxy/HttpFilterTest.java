@@ -435,6 +435,37 @@ public class HttpFilterTest {
     }
 
     @Test
+    public void testConnectionFailedCalledAfterConnectionFailure() throws Exception {
+        final AtomicBoolean connectionFailed = new AtomicBoolean(false);
+        final AtomicBoolean connectionSucceeded = new AtomicBoolean(false);
+
+        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                return new HttpFiltersAdapter(originalRequest) {
+                    @Override
+                    public void proxyToServerConnectionFailed() {
+                        connectionFailed.set(true);
+                    }
+
+                    @Override
+                    public void proxyToServerConnectionSucceeded() {
+                        connectionSucceeded.set(true);
+                    }
+                };
+            }
+        };
+
+        setUpHttpProxyServer(filtersSource);
+
+        // port 0 is not connectable
+        getResponse("http://localhost:0/some-resource");
+
+        assertFalse("proxyToServerConnectionSucceeded method was called but should not have been", connectionSucceeded.get());
+        assertTrue("proxyToServerConnectionFailed method was not called", connectionFailed.get());
+    }
+
+    @Test
     public void testRequestSentInvokedAfterLastHttpContentSent() throws Exception {
         final AtomicBoolean lastHttpContentProcessed = new AtomicBoolean(false);
         final AtomicBoolean requestSentCallbackInvoked = new AtomicBoolean(false);
