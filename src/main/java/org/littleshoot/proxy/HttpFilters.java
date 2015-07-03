@@ -148,6 +148,13 @@ public interface HttpFilters {
             String resolvingServerHostAndPort);
 
     /**
+     * Informs filter that proxy to server DNS resolution failed for the specified host and port.
+     *
+     * @param hostAndPort hostname and port the proxy failed to resolve
+     */
+    void proxyToServerResolutionFailed(String hostAndPort);
+
+    /**
      * Informs filter that proxy to server DNS resolution has happened.
      * 
      * @param serverHostAndPort

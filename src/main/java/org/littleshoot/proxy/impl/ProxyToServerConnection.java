@@ -744,15 +744,25 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.transportProtocol = TransportProtocol.TCP;
 
             // Report DNS resolution to HttpFilters
-            this.remoteAddress = this.currentFilters
-                    .proxyToServerResolutionStarted(serverHostAndPort);
-            if (this.remoteAddress == null) {
-                this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
-            } else if (this.remoteAddress.isUnresolved()) {
-                // filter returned an unresolved address, so resolve it using the proxy server's resolver
-                this.remoteAddress = proxyServer.getServerResolver().resolve(this.remoteAddress.getHostName(),
-                        this.remoteAddress.getPort());
+            this.remoteAddress = this.currentFilters.proxyToServerResolutionStarted(serverHostAndPort);
+
+            // record the hostname and port of the unresolved address, in case name resolution fails
+            String hostAndPort = null;
+            try {
+                if (this.remoteAddress == null) {
+                    hostAndPort = serverHostAndPort;
+                    this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
+                } else if (this.remoteAddress.isUnresolved()) {
+                    // filter returned an unresolved address, so resolve it using the proxy server's resolver
+                    hostAndPort = HostAndPort.fromParts(this.remoteAddress.getHostName(), this.remoteAddress.getPort()).toString();
+                    this.remoteAddress = proxyServer.getServerResolver().resolve(this.remoteAddress.getHostName(),
+                            this.remoteAddress.getPort());
+                }
+            } catch (UnknownHostException e) {
+                this.currentFilters.proxyToServerResolutionFailed(hostAndPort);
+                throw e;
             }
+
             this.currentFilters.proxyToServerResolutionSucceeded(
                     serverHostAndPort, this.remoteAddress);
 

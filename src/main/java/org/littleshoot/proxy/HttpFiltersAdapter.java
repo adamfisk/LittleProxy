@@ -71,6 +71,10 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
+    public void proxyToServerResolutionFailed(String hostAndPort) {
+    }
+
+    @Override
     public void proxyToServerResolutionSucceeded(String serverHostAndPort,
             InetSocketAddress resolvedRemoteAddress) {
     }

@@ -27,6 +27,7 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,6 +39,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class HttpFilterTest {
     private Server webServer;
@@ -392,6 +395,43 @@ public class HttpFilterTest {
         getResponse("http://localhost:" + webServerPort + "/");
 
         assertTrue("proxyToServerResolutionSucceeded method was not called", resolutionSucceeded.get());
+    }
+
+    @Test
+    public void testResolutionFailedCalledAfterDnsFailure() throws Exception {
+        final AtomicBoolean resolutionFailed = new AtomicBoolean(false);
+        final AtomicBoolean resolutionSucceeded = new AtomicBoolean(false);
+
+        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                return new HttpFiltersAdapter(originalRequest) {
+                    @Override
+                    public void proxyToServerResolutionFailed(String hostAndPort) {
+                        resolutionFailed.set(true);
+                    }
+
+                    @Override
+                    public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
+                        resolutionSucceeded.set(true);
+                    }
+                };
+            }
+        };
+
+        HostResolver mockFailingResolver = mock(HostResolver.class);
+        when(mockFailingResolver.resolve("www.doesnotexist", 80)).thenThrow(new UnknownHostException("www.doesnotexist"));
+
+        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .withFiltersSource(filtersSource)
+                .withServerResolver(mockFailingResolver)
+                .start();
+
+        getResponse("http://www.doesnotexist/some-resource");
+
+        assertFalse("proxyToServerResolutionSucceeded method was called but should not have been", resolutionSucceeded.get());
+        assertTrue("proxyToServerResolutionFailed method was not called", resolutionFailed.get());
     }
 
     @Test
