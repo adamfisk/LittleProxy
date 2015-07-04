@@ -23,6 +23,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.mockserver.integration.ClientAndServer;
+import org.mockserver.matchers.Times;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -30,6 +32,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLongArray;
@@ -41,17 +44,26 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockserver.model.HttpRequest.request;
+import static org.mockserver.model.HttpResponse.response;
 
 public class HttpFilterTest {
     private Server webServer;
     private HttpProxyServer proxyServer;
     private int webServerPort;
 
+    private ClientAndServer mockServer;
+    private int mockServerPort;
+
     @Before
     public void setUp() throws Exception {
         webServer = new Server(0);
         webServer.start();
         webServerPort = TestUtils.findLocalHttpPort(webServer);
+
+        mockServer = new ClientAndServer(0);
+        mockServerPort = mockServer.getPort();
+
     }
 
     @After
@@ -61,8 +73,14 @@ public class HttpFilterTest {
                 webServer.stop();
             }
         } finally {
-            if (proxyServer != null) {
-                proxyServer.stop();
+            try {
+                if (proxyServer != null) {
+                    proxyServer.stop();
+                }
+            } finally {
+                if (mockServer != null) {
+                    mockServer.stop();
+                }
             }
         }
     }
@@ -119,10 +137,12 @@ public class HttpFilterTest {
         final AtomicLongArray proxyToServerConnectionQueuedNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
         final AtomicLongArray proxyToServerResolutionStartedNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
         final AtomicLongArray proxyToServerResolutionSucceededNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
+        final AtomicLongArray proxyToServerResolutionFailedNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
         final AtomicLongArray proxyToServerConnectionStartedNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
         final AtomicLongArray proxyToServerConnectionSSLHandshakeStartedNanos = new AtomicLongArray(new long[] {-1, -1, -1, -1, -1 });
         final AtomicLongArray proxyToServerConnectionFailedNanos = new AtomicLongArray(new long[] { -1, -1,-1, -1, -1 });
         final AtomicLongArray proxyToServerConnectionSucceededNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
+        final AtomicLongArray serverToProxyResponseTimedOutNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
 
         final String url1 = "http://localhost:" + webServerPort + "/";
         final String url2 = "http://localhost:" + webServerPort + "/testing";
@@ -193,6 +213,11 @@ public class HttpFilterTest {
                     }
 
                     @Override
+                    public void serverToProxyResponseTimedOut() {
+                        serverToProxyResponseTimedOutNanos.set(requestCount.get(), now());
+                    }
+
+                    @Override
                     public void serverToProxyResponseReceiving() {
                         serverToProxyResponseReceivingNanos.set(requestCount.get(), now());
                     }
@@ -226,6 +251,11 @@ public class HttpFilterTest {
                             String resolvingServerHostAndPort) {
                         proxyToServerResolutionStartedNanos.set(requestCount.get(), now());
                         return super.proxyToServerResolutionStarted(resolvingServerHostAndPort);
+                    }
+
+                    @Override
+                    public void proxyToServerResolutionFailed(String hostAndPort) {
+                        proxyToServerResolutionFailedNanos.set(requestCount.get(), now());
                     }
 
                     @Override
@@ -291,6 +321,8 @@ public class HttpFilterTest {
         assertThat(proxyToServerResolutionSucceededNanos.get(i), lessThan(proxyToServerConnectionStartedNanos.get(i)));
         assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos.get(i));
         assertEquals(-1, proxyToServerConnectionFailedNanos.get(i));
+        assertEquals(-1, proxyToServerResolutionFailedNanos.get(i));
+        assertEquals(-1, serverToProxyResponseTimedOutNanos.get(i));
         assertThat(proxyToServerConnectionStartedNanos.get(i), lessThan(proxyToServerConnectionSucceededNanos.get(i)));
         assertThat(proxyToServerConnectionSucceededNanos.get(i), lessThan(proxyToServerRequestSendingNanos.get(i)));
         assertThat(proxyToServerRequestSendingNanos.get(i), lessThan(proxyToServerRequestSentNanos.get(i)));
@@ -334,6 +366,8 @@ public class HttpFilterTest {
         assertEquals(-1, proxyToServerRequestSentNanos.get(i));
         assertEquals(-1, serverToProxyResponseReceivingNanos.get(i));
         assertEquals(-1, serverToProxyResponseReceivedNanos.get(i));
+        assertEquals(-1, proxyToServerResolutionFailedNanos.get(i));
+        assertEquals(-1, serverToProxyResponseTimedOutNanos.get(i));
 
         final HttpRequest first = associatedRequests.remove();
         final HttpRequest second = associatedRequests.remove();
@@ -355,6 +389,8 @@ public class HttpFilterTest {
         assertThat(proxyToServerResolutionSucceededNanos.get(i), lessThan(proxyToServerConnectionStartedNanos.get(i)));
         assertEquals(-1, proxyToServerConnectionSSLHandshakeStartedNanos.get(i));
         assertEquals(-1, proxyToServerConnectionFailedNanos.get(i));
+        assertEquals(-1, proxyToServerResolutionFailedNanos.get(i));
+        assertEquals(-1, serverToProxyResponseTimedOutNanos.get(i));
         assertThat(proxyToServerConnectionStartedNanos.get(i), lessThan(proxyToServerConnectionSucceededNanos.get(i)));
         assertThat(proxyToServerConnectionSucceededNanos.get(i), lessThan(proxyToServerRequestSendingNanos.get(i)));
         assertThat(proxyToServerRequestSendingNanos.get(i), lessThan(proxyToServerRequestSentNanos.get(i)));
@@ -439,6 +475,7 @@ public class HttpFilterTest {
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToClientResponseInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseTimedOutInvoked());
     }
 
     @Test
@@ -477,6 +514,60 @@ public class HttpFilterTest {
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivingInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToClientResponseInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseTimedOutInvoked());
+    }
+
+    @Test
+    public void testResponseTimedOutInvokedAfterServerTimeout() throws Exception {
+        mockServer.when(request()
+                        .withMethod("GET")
+                        .withPath("/servertimeout"),
+                Times.once())
+                .respond(response()
+                        .withStatusCode(200)
+                        .withDelay(TimeUnit.SECONDS, 10)
+                        .withBody("success"));
+
+        final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
+
+        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                return filter;
+            }
+        };
+
+        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .withFiltersSource(filtersSource)
+                .withIdleConnectionTimeout(3)
+                .start();
+
+        org.apache.http.HttpResponse httpResponse = getResponse("http://localhost:" + mockServerPort + "/servertimeout");
+        assertEquals("Expected to receive an HTTP 504 Gateway Timeout from proxy", 504, httpResponse.getStatusLine().getStatusCode());
+
+        // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
+        // other filters were invoked/not invoked as expected
+        assertTrue("Expected filter method to be called", filter.isServerToProxyResponseTimedOutInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivingInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivedInvoked());
+
+        assertTrue("Expected filter method to be called", filter.isClientToProxyRequestInvoked());
+        // proxyToServerRequest is invoked before the connection is made, so it should be hit
+        assertTrue("Expected filter method to be called", filter.isProxyToServerRequestInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionQueuedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionStartedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerResolutionStartedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerResolutionSucceededInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerRequestSendingInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerRequestSentInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionSucceededInvoked());
+
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionFailedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionFailedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToClientResponseInvoked());
     }
 
@@ -595,6 +686,7 @@ public class HttpFilterTest {
         private final AtomicBoolean proxyToServerResolutionFailed = new AtomicBoolean(false);
         private final AtomicBoolean proxyToServerResolutionSucceeded = new AtomicBoolean(false);
         private final AtomicBoolean proxyToServerConnectionSSLHandshakeStarted = new AtomicBoolean(false);
+        private final AtomicBoolean serverToProxyResponseTimedOut = new AtomicBoolean(false);
 
         public boolean isProxyToServerConnectionFailedInvoked() {
             return proxyToServerConnectionFailed.get();
@@ -660,6 +752,10 @@ public class HttpFilterTest {
             return proxyToServerConnectionSSLHandshakeStarted.get();
         }
 
+        public boolean isServerToProxyResponseTimedOutInvoked() {
+            return serverToProxyResponseTimedOut.get();
+        }
+
         @Override
         public void proxyToServerConnectionFailed() {
             proxyToServerConnectionFailed.set(true);
@@ -696,6 +792,11 @@ public class HttpFilterTest {
         public HttpObject serverToProxyResponse(HttpObject httpObject) {
             serverToProxyResponse.set(true);
             return httpObject;
+        }
+
+        @Override
+        public void serverToProxyResponseTimedOut() {
+            serverToProxyResponseTimedOut.set(true);
         }
 
         @Override

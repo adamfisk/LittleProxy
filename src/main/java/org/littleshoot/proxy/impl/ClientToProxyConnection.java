@@ -435,6 +435,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         || this.lastReadTime > currentServerConnection.lastReadTime;
         if (clientReadMoreRecentlyThanServer) {
             LOG.debug("Server timed out: {}", currentServerConnection);
+            currentFilters.serverToProxyResponseTimedOut();
             writeGatewayTimeout();
         }
         super.timedOut();
