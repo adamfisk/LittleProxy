@@ -399,23 +399,12 @@ public class HttpFilterTest {
 
     @Test
     public void testResolutionFailedCalledAfterDnsFailure() throws Exception {
-        final AtomicBoolean resolutionFailed = new AtomicBoolean(false);
-        final AtomicBoolean resolutionSucceeded = new AtomicBoolean(false);
+        final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
             @Override
             public HttpFilters filterRequest(HttpRequest originalRequest) {
-                return new HttpFiltersAdapter(originalRequest) {
-                    @Override
-                    public void proxyToServerResolutionFailed(String hostAndPort) {
-                        resolutionFailed.set(true);
-                    }
-
-                    @Override
-                    public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
-                        resolutionSucceeded.set(true);
-                    }
-                };
+                return filter;
             }
         };
 
@@ -430,29 +419,36 @@ public class HttpFilterTest {
 
         getResponse("http://www.doesnotexist/some-resource");
 
-        assertFalse("proxyToServerResolutionSucceeded method was called but should not have been", resolutionSucceeded.get());
-        assertTrue("proxyToServerResolutionFailed method was not called", resolutionFailed.get());
+        // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
+        // other filters were invoked/not invoked as expected
+        assertFalse("proxyToServerResolutionSucceeded method was called but should not have been", filter.isProxyToServerResolutionSucceededInvoked());
+        assertTrue("proxyToServerResolutionFailed method was not called", filter.isProxyToServerResolutionFailedInvoked());
+
+        assertTrue("Expected filter method to be called", filter.isClientToProxyRequestInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionQueuedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerResolutionStartedInvoked());
+
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionStartedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionFailedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSucceededInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSendingInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSentInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivingInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToClientResponseInvoked());
     }
 
     @Test
     public void testConnectionFailedCalledAfterConnectionFailure() throws Exception {
-        final AtomicBoolean connectionFailed = new AtomicBoolean(false);
-        final AtomicBoolean connectionSucceeded = new AtomicBoolean(false);
+        final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
             @Override
             public HttpFilters filterRequest(HttpRequest originalRequest) {
-                return new HttpFiltersAdapter(originalRequest) {
-                    @Override
-                    public void proxyToServerConnectionFailed() {
-                        connectionFailed.set(true);
-                    }
-
-                    @Override
-                    public void proxyToServerConnectionSucceeded() {
-                        connectionSucceeded.set(true);
-                    }
-                };
+                return filter;
             }
         };
 
@@ -461,8 +457,27 @@ public class HttpFilterTest {
         // port 0 is not connectable
         getResponse("http://localhost:0/some-resource");
 
-        assertFalse("proxyToServerConnectionSucceeded method was called but should not have been", connectionSucceeded.get());
-        assertTrue("proxyToServerConnectionFailed method was not called", connectionFailed.get());
+        // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
+        // other filters were invoked/not invoked as expected
+        assertFalse("proxyToServerConnectionSucceeded should not be called when connection fails", filter.isProxyToServerConnectionSucceededInvoked());
+        assertTrue("proxyToServerConnectionFailed should be called when connection fails", filter.isProxyToServerConnectionFailedInvoked());
+
+        assertTrue("Expected filter method to be called", filter.isClientToProxyRequestInvoked());
+        // proxyToServerRequest is invoked before the connection is made, so it should be hit
+        assertTrue("Expected filter method to be called", filter.isProxyToServerRequestInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionQueuedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionStartedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerResolutionStartedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerResolutionSucceededInvoked());
+
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSendingInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSentInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionFailedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivingInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToClientResponseInvoked());
     }
 
     @Test
@@ -500,7 +515,6 @@ public class HttpFilterTest {
 
         // test with a POST request with a payload. post a large amount of data, to force chunked content.
         postToServer("http://localhost:" + webServerPort + "/", 50000);
-
 
         assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for chunked POST", lastHttpContentProcessed.get());
         assertTrue("proxyToServerRequestSent callback was not invoked for chunked POST", requestSentCallbackInvoked.get());
@@ -559,5 +573,176 @@ public class HttpFilterTest {
         // using nanoseconds instead of milliseconds, since it is extremely unlikely that any two callbacks would be invoked in the same nanosecond,
         // even on very fast hardware
         return System.nanoTime();
+    }
+
+    /**
+     * HttpFilters instance that monitors HttpFilters methods and tracks which methods have been invoked.
+     */
+    private static class HttpFiltersMethodInvokedAdapter implements HttpFilters {
+        private final AtomicBoolean proxyToServerConnectionFailed = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerConnectionSucceeded = new AtomicBoolean(false);
+        private final AtomicBoolean clientToProxyRequest = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerRequest = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerRequestSending = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerRequestSent = new AtomicBoolean(false);
+        private final AtomicBoolean serverToProxyResponse = new AtomicBoolean(false);
+        private final AtomicBoolean serverToProxyResponseReceiving = new AtomicBoolean(false);
+        private final AtomicBoolean serverToProxyResponseReceived = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToClientResponse = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerConnectionStarted = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerConnectionQueued = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerResolutionStarted = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerResolutionFailed = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerResolutionSucceeded = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerConnectionSSLHandshakeStarted = new AtomicBoolean(false);
+
+        public boolean isProxyToServerConnectionFailedInvoked() {
+            return proxyToServerConnectionFailed.get();
+        }
+
+        public boolean isProxyToServerConnectionSucceededInvoked() {
+            return proxyToServerConnectionSucceeded.get();
+        }
+
+        public boolean isClientToProxyRequestInvoked() {
+            return clientToProxyRequest.get();
+        }
+
+        public boolean isProxyToServerRequestInvoked() {
+            return proxyToServerRequest.get();
+        }
+
+        public boolean isProxyToServerRequestSendingInvoked() {
+            return proxyToServerRequestSending.get();
+        }
+
+        public boolean isProxyToServerRequestSentInvoked() {
+            return proxyToServerRequestSent.get();
+        }
+
+        public boolean isServerToProxyResponseInvoked() {
+            return serverToProxyResponse.get();
+        }
+
+        public boolean isServerToProxyResponseReceivingInvoked() {
+            return serverToProxyResponseReceiving.get();
+        }
+
+        public boolean isServerToProxyResponseReceivedInvoked() {
+            return serverToProxyResponseReceived.get();
+        }
+
+        public boolean isProxyToClientResponseInvoked() {
+            return proxyToClientResponse.get();
+        }
+
+        public boolean isProxyToServerConnectionStartedInvoked() {
+            return proxyToServerConnectionStarted.get();
+        }
+
+        public boolean isProxyToServerConnectionQueuedInvoked() {
+            return proxyToServerConnectionQueued.get();
+        }
+
+        public boolean isProxyToServerResolutionStartedInvoked() {
+            return proxyToServerResolutionStarted.get();
+        }
+
+        public boolean isProxyToServerResolutionFailedInvoked() {
+            return proxyToServerResolutionFailed.get();
+        }
+
+        public boolean isProxyToServerResolutionSucceededInvoked() {
+            return proxyToServerResolutionSucceeded.get();
+        }
+
+        public boolean isProxyToServerConnectionSSLHandshakeStartedInvoked() {
+            return proxyToServerConnectionSSLHandshakeStarted.get();
+        }
+
+        @Override
+        public void proxyToServerConnectionFailed() {
+            proxyToServerConnectionFailed.set(true);
+        }
+
+        @Override
+        public void proxyToServerConnectionSucceeded() {
+            proxyToServerConnectionSucceeded.set(true);
+        }
+
+        @Override
+        public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+            clientToProxyRequest.set(true);
+            return null;
+        }
+
+        @Override
+        public HttpResponse proxyToServerRequest(HttpObject httpObject) {
+            proxyToServerRequest.set(true);
+            return null;
+        }
+
+        @Override
+        public void proxyToServerRequestSending() {
+            proxyToServerRequestSending.set(true);
+        }
+
+        @Override
+        public void proxyToServerRequestSent() {
+            proxyToServerRequestSent.set(true);
+        }
+
+        @Override
+        public HttpObject serverToProxyResponse(HttpObject httpObject) {
+            serverToProxyResponse.set(true);
+            return httpObject;
+        }
+
+        @Override
+        public void serverToProxyResponseReceiving() {
+            serverToProxyResponseReceiving.set(true);
+        }
+
+        @Override
+        public void serverToProxyResponseReceived() {
+            serverToProxyResponseReceived.set(true);
+        }
+
+        @Override
+        public HttpObject proxyToClientResponse(HttpObject httpObject) {
+            proxyToClientResponse.set(true);
+            return httpObject;
+        }
+
+        @Override
+        public void proxyToServerConnectionQueued() {
+            proxyToServerConnectionQueued.set(true);
+        }
+
+        @Override
+        public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
+            proxyToServerResolutionStarted.set(true);
+            return null;
+        }
+
+        @Override
+        public void proxyToServerResolutionFailed(String hostAndPort) {
+            proxyToServerResolutionFailed.set(true);
+        }
+
+        @Override
+        public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
+            proxyToServerResolutionSucceeded.set(true);
+        }
+
+        @Override
+        public void proxyToServerConnectionStarted() {
+            proxyToServerConnectionStarted.set(true);
+        }
+
+        @Override
+        public void proxyToServerConnectionSSLHandshakeStarted() {
+            proxyToServerConnectionSSLHandshakeStarted.set(true);
+        }
     }
 }
