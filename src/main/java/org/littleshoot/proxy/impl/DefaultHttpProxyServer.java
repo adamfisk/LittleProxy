@@ -703,6 +703,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.authenticateSslClients = authenticateSslClients;
             this.proxyAuthenticator = proxyAuthenticator;
             this.chainProxyManager = chainProxyManager;
+            this.mitmManager = mitmManager;
             this.filtersSource = filtersSource;
             this.transparent = transparent;
             this.idleConnectionTimeout = idleConnectionTimeout;

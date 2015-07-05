@@ -11,9 +11,17 @@ public interface MitmManager {
     /**
      * Creates an {@link SSLEngine} for encrypting the server connection.
      * 
+     * Note: Peer information is needed to send the server_name extension in
+     * handshake with Server Name Indication (SNI).
+     * 
+     * @param peerHost
+     *            to start a client connection to the server.
+     * @param peerPort
+     *            to start a client connection to the server. 
+     * 
      * @return
      */
-    SSLEngine serverSslEngine();
+    SSLEngine serverSslEngine(String peerHost, int peerPort);
 
     /**
      * <p>
