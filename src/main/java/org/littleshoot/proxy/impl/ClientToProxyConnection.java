@@ -760,27 +760,24 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     if (req != null) {
                         uri = req.getUri();
                     }
-                    LOG.debug("Not closing on middle chunk for {}", uri);
+                    LOG.debug("Not closing client connection on middle chunk for {}", uri);
                     return false;
                 } else {
-                    LOG.debug("Last chunk... using normal closing rules");
+                    LOG.debug("Handling last chunk. Using normal client connection closing rules.");
                 }
             }
         }
 
         if (!HttpHeaders.isKeepAlive(req)) {
-            LOG.debug("Closing since request is not keep alive:");
+            LOG.debug("Closing client connection since request is not keep alive: {}", req);
             // Here we simply want to close the connection because the
             // client itself has requested it be closed in the request.
             return true;
         }
 
-        if (!HttpHeaders.isKeepAlive(res)) {
-            LOG.debug("Closing since response is not keep alive:");
-            return true;
-        }
+        // ignore the response's keep-alive; we can keep this client connection open as long as the client allows it.
 
-        LOG.debug("Not closing client to proxy connection for request: {}", req);
+        LOG.debug("Not closing client connection for request: {}", req);
         return false;
     }
 
@@ -818,28 +815,30 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             // through to the same close semantics we'd otherwise use.
             if (msg != null) {
                 if (!ProxyUtils.isLastChunk(msg)) {
-                    LOG.debug("Not closing on middle chunk");
+                    String uri = null;
+                    if (req != null) {
+                        uri = req.getUri();
+                    }
+                    LOG.debug("Not closing server connection on middle chunk for {}", uri);
                     return false;
                 } else {
-                    LOG.debug("Last chunk...using normal closing rules");
+                    LOG.debug("Handling last chunk. Using normal server connection closing rules.");
                 }
             }
         }
-        if (!HttpHeaders.isKeepAlive(req)) {
-            LOG.debug("Closing since request is not keep alive:{}, ", req);
-            // Here we simply want to close the connection because the
-            // client itself has requested it be closed in the request.
-            return true;
-        }
+
+        // ignore the request's keep-alive; we can keep this server connection open as long as the server allows it.
+
         if (!HttpHeaders.isKeepAlive(res)) {
-            LOG.debug("Closing since response is not keep alive:{}", res);
+            LOG.debug("Closing server connection since response is not keep alive: {}", res);
             // In this case, we want to honor the Connection: close header
             // from the remote server and close that connection. We don't
             // necessarily want to close the connection to the client, however
             // as it's possible it has other connections open.
             return true;
         }
-        LOG.debug("Not closing -- response probably keep alive for:\n{}", res);
+
+        LOG.debug("Not closing server connection for response: {}", res);
         return false;
     }
 
