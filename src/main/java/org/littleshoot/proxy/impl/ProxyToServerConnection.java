@@ -310,15 +310,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                         } catch (InterruptedException ie) {
                             LOG.warn("Interrupted while waiting for connect monitor");
                         }
-
-                        // only write this message if a connection was established and is not in the process of disconnecting or
-                        // already disconnected
-                        if (isConnecting() || getCurrentState().isDisconnectingOrDisconnected()) {
-                            LOG.debug("Connection failed or timed out while waiting to write message to server. Message will be discarded.");
-                            return;
-                        }
                     }
                 }
+            }
+
+            // only write this message if a connection was established and is not in the process of disconnecting or
+            // already disconnected
+            if (isConnecting() || getCurrentState().isDisconnectingOrDisconnected()) {
+                LOG.debug("Connection failed or timed out while waiting to write message to server. Message will be discarded: {}", msg);
+                return;
             }
 
             LOG.debug("Using existing connection to: {}", remoteAddress);
@@ -729,7 +729,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.connectAndWrite(initialRequest);
             return true; // yes, we fell back
         } else {
-            return false; // nothing to fall back to
+            // nothing to fall back to. connection failed, so transition from "CONNECTING" to "DISCONNECTED".
+            become(DISCONNECTED);
+            return false;
         }
     }
 
