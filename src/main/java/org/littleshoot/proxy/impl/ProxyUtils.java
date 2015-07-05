@@ -1,5 +1,7 @@
 package org.littleshoot.proxy.impl;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpResponse;
@@ -10,11 +12,14 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -24,11 +29,6 @@ import java.util.Properties;
 import java.util.TimeZone;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * Utilities for the proxy.
  */
@@ -37,6 +37,11 @@ public class ProxyUtils {
     private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
 
     private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
+
+    /**
+     * Splits comma-separated header values into their individual values.
+     */
+    private static final Splitter COMMA_SEPARATED_HEADER_VALUE_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     /**
      * Date format pattern used to parse HTTP date headers in RFC 1123 format.
@@ -312,6 +317,163 @@ public class ProxyUtils {
         final String str = val.trim();
         return StringUtils.isNotBlank(str)
                 && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
+    }
+
+    /**
+     * Returns true if the HTTP message cannot contain an entity body, according to the HTTP spec. This code is taken directly
+     * from {@link io.netty.handler.codec.http.HttpObjectDecoder#isContentAlwaysEmpty(HttpMessage)}.
+     *
+     * @param msg HTTP message
+     * @return true if the HTTP message is always empty, false if the message <i>may</i> have entity content.
+     */
+    public static boolean isContentAlwaysEmpty(HttpMessage msg) {
+        if (msg instanceof HttpResponse) {
+            HttpResponse res = (HttpResponse) msg;
+            int code = res.getStatus().code();
+
+            // Correctly handle return codes of 1xx.
+            //
+            // See:
+            //     - http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html Section 4.4
+            //     - https://github.com/netty/netty/issues/222
+            if (code >= 100 && code < 200) {
+                // One exception: Hixie 76 websocket handshake response
+                return !(code == 101 && !res.headers().contains(HttpHeaders.Names.SEC_WEBSOCKET_ACCEPT));
+            }
+
+            switch (code) {
+                case 204: case 205: case 304:
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the request is an HTTP HEAD request.
+     *
+     * @param request HTTP request
+     * @return true if request is a HEAD, otherwise false
+     */
+    public static boolean isHead(HttpRequest request) {
+        return HttpMethod.HEAD.equals(request.getMethod());
+    }
+
+    /**
+     * Returns true if the HTTP response from the server is expected to indicate its own message length/end-of-message. Returns false
+     * if the server is expected to indicate the end of the HTTP entity by closing the connection.
+     * <p/>
+     * This method is based on the allowed message length indicators in the HTTP specification, section 4.4:
+     * <pre>
+         4.4 Message Length
+         The transfer-length of a message is the length of the message-body as it appears in the message; that is, after any transfer-codings have been applied. When a message-body is included with a message, the transfer-length of that body is determined by one of the following (in order of precedence):
+
+         1.Any response message which "MUST NOT" include a message-body (such as the 1xx, 204, and 304 responses and any response to a HEAD request) is always terminated by the first empty line after the header fields, regardless of the entity-header fields present in the message.
+         2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity", then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6), unless the message is terminated by closing the connection.
+         3.If a Content-Length header field (section 14.13) is present, its decimal value in OCTETs represents both the entity-length and the transfer-length. The Content-Length header field MUST NOT be sent if these two lengths are different (i.e., if a Transfer-Encoding
+         header field is present). If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored.
+         [LP note: multipart/byteranges support has been removed from the HTTP 1.1 spec by RFC 7230, section A.2. Since it is seldom used, LittleProxy does not check for it.]
+         5.By the server closing the connection. (Closing the connection cannot be used to indicate the end of a request body, since that would leave no possibility for the server to send back a response.)
+     * </pre>
+     *
+     * The rules for Transfer-Encoding are clarified in RFC 7230, section 3.3.1 and 3.3.3 (3):
+     * <pre>
+         If any transfer coding other than
+         chunked is applied to a response payload body, the sender MUST either
+         apply chunked as the final transfer coding or terminate the message
+         by closing the connection.
+     * </pre>
+     *
+     *
+     * @param response the HTTP response object
+     * @return true if the message will indicate its own message length, or false if the server is expected to indicate the message length by closing the connection
+     */
+    public static boolean isResponseSelfTerminating(HttpResponse response) {
+        if (isContentAlwaysEmpty(response)) {
+            return true;
+        }
+
+        // if there is a Transfer-Encoding value, determine whether the final encoding is "chunked", which makes the message self-terminating
+        List<String> allTransferEncodingHeaders = getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, response);
+        if (!allTransferEncodingHeaders.isEmpty()) {
+            String finalEncoding = allTransferEncodingHeaders.get(allTransferEncodingHeaders.size() - 1);
+
+            // per #3 above: "If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored."
+            // since the Transfer-Encoding field is present, the message is self-terminating if and only if the final Transfer-Encoding value is "chunked"
+            return HttpHeaders.Values.CHUNKED.equals(finalEncoding);
+        }
+
+        String contentLengthHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_LENGTH);
+        if (contentLengthHeader != null && !contentLengthHeader.isEmpty()) {
+            return true;
+        }
+
+        // not checking for multipart/byteranges, since it is seldom used and its use as a message length indicator was removed in RFC 7230
+
+        // none of the other message length indicators are present, so the only way the server can indicate the end
+        // of this message is to close the connection
+        return false;
+    }
+
+    /**
+     * Retrieves all comma-separated values for headers with the specified name on the HttpMessage. Any whitespace (spaces
+     * or tabs) surrounding the values will be removed. Empty values (e.g. two consecutive commas, or a value followed
+     * by a comma and no other value) will be removed; they will not appear as empty elements in the returned list.
+     * If the message contains repeated headers, their values will be added to the returned list in the order in which
+     * the headers appear. For example, if a message has headers like:
+     * <pre>
+     *     Transfer-Encoding: gzip,deflate
+     *     Transfer-Encoding: chunked
+     * </pre>
+     * This method will return a list of three values: "gzip", "deflate", "chunked".
+     * <p/>
+     * Placing values on multiple header lines is allowed under certain circumstances
+     * in RFC 2616 section 4.2, and in RFC 7230 section 3.2.2 quoted here:
+     * <pre>
+     A sender MUST NOT generate multiple header fields with the same field
+     name in a message unless either the entire field value for that
+     header field is defined as a comma-separated list [i.e., #(values)]
+     or the header field is a well-known exception (as noted below).
+
+     A recipient MAY combine multiple header fields with the same field
+     name into one "field-name: field-value" pair, without changing the
+     semantics of the message, by appending each subsequent field value to
+     the combined field value in order, separated by a comma.  The order
+     in which header fields with the same field name are received is
+     therefore significant to the interpretation of the combined field
+     value; a proxy MUST NOT change the order of these field values when
+     forwarding a message.
+     * </pre>
+     * @param headerName the name of the header for which values will be retrieved
+     * @param httpMessage the HTTP message whose header values will be retrieved
+     * @return a list of single header values, or an empty list if the header was not present in the message or contained no values
+     */
+    public static List<String> getAllCommaSeparatedHeaderValues(String headerName, HttpMessage httpMessage) {
+        List<String> allHeaders = httpMessage.headers().getAll(headerName);
+        if (allHeaders.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        ImmutableList.Builder<String> headerValues = ImmutableList.builder();
+        for (String header : allHeaders) {
+            Iterable<String> commaSeparatedValues = COMMA_SEPARATED_HEADER_VALUE_SPLITTER.split(header);
+            headerValues.addAll(commaSeparatedValues);
+        }
+
+        return headerValues.build();
+    }
+
+    /**
+     * Duplicates the status line and headers of an HttpResponse object. Does not duplicate any content associated with that response.
+     *
+     * @param originalResponse HttpResponse to be duplicated
+     * @return a new HttpResponse with the same status line and headers
+     */
+    public static HttpResponse duplicateHttpResponse(HttpResponse originalResponse) {
+        DefaultHttpResponse newResponse = new DefaultHttpResponse(originalResponse.getProtocolVersion(), originalResponse.getStatus());
+        newResponse.headers().add(originalResponse.headers());
+
+        return newResponse;
     }
 
     /**
