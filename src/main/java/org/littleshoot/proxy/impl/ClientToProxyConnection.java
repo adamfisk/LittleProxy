@@ -454,8 +454,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (clientReadMoreRecentlyThanServer) {
             LOG.debug("Server timed out: {}", currentServerConnection);
             writeGatewayTimeout(currentRequest);
+            // DO NOT call super.timedOut() if the server timed out, to avoid closing the connection unnecessarily
+        } else {
+            super.timedOut();
         }
-        super.timedOut();
     }
 
     /**
@@ -1166,11 +1168,18 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return false;
         }
 
-        // if the response is not a Bad Gateway or Gateway Timeout, modify the headers "as if" he short-circuit response were proxied
+        // allow short-circuit messages to close the connection. normally the Connection header would be stripped when modifying
+        // the message for proxying, so save the keep-alive status before the modifications are made.
+        boolean isKeepAlive = HttpHeaders.isKeepAlive(httpResponse);
+
+        // if the response is not a Bad Gateway or Gateway Timeout, modify the headers "as if" the short-circuit response were proxied
         int statusCode = httpResponse.getStatus().code();
         if (statusCode != HttpResponseStatus.BAD_GATEWAY.code() && statusCode != HttpResponseStatus.GATEWAY_TIMEOUT.code()) {
             modifyResponseHeadersToReflectProxying(httpResponse);
         }
+
+        // restore the keep alive status, if it was overwritten when modifying headers for proxying
+        HttpHeaders.setKeepAlive(httpResponse, isKeepAlive);
 
         write(httpResponse);
 
