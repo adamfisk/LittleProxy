@@ -59,7 +59,7 @@ public class ProxyUtils {
     private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
 
     /**
-     * Splits comma-separated header values into their individual values.
+     * Splits comma-separated header values (such as Connection) into their individual tokens.
      */
     private static final Splitter COMMA_SEPARATED_HEADER_VALUE_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
@@ -467,7 +467,7 @@ public class ProxyUtils {
 
         ImmutableList.Builder<String> headerValues = ImmutableList.builder();
         for (String header : allHeaders) {
-            Iterable<String> commaSeparatedValues = COMMA_SEPARATED_HEADER_VALUE_SPLITTER.split(header);
+            List<String> commaSeparatedValues = splitCommaSeparatedHeaderValues(header);
             headerValues.addAll(commaSeparatedValues);
         }
 
@@ -528,5 +528,18 @@ public class ProxyUtils {
      */
     public static boolean shouldRemoveHopByHopHeader(String headerName) {
         return SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS.contains(headerName.toLowerCase(Locale.US));
+    }
+
+    /**
+     * Splits comma-separated header values into tokens. For example, if the value of the Connection header is "Transfer-Encoding, close",
+     * this method will return "Transfer-Encoding" and "close". This method strips trims any optional whitespace from
+     * the tokens. Unlike {@link #getAllCommaSeparatedHeaderValues(String, HttpMessage)}, this method only operates on
+     * a single header value, rather than all instances of the header in a message.
+     *
+     * @param headerValue the un-tokenized header value (must not be null)
+     * @return all tokens within the header value, or an empty list if there are no values
+     */
+    public static List<String> splitCommaSeparatedHeaderValues(String headerValue) {
+        return ImmutableList.copyOf(COMMA_SEPARATED_HEADER_VALUE_SPLITTER.split(headerValue));
     }
 }

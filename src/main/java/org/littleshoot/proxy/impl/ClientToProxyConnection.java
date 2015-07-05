@@ -77,7 +77,6 @@ import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
 public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private static final HttpResponseStatus CONNECTION_ESTABLISHED = new HttpResponseStatus(
             200, "HTTP/1.1 200 Connection established");
-
     /**
      * Used for case-insensitive comparisons when parsing Connection header values.
      */
@@ -1044,7 +1043,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void stripConnectionTokens(HttpHeaders headers) {
         if (headers.contains(HttpHeaders.Names.CONNECTION)) {
             for (String headerValue : headers.getAll(HttpHeaders.Names.CONNECTION)) {
-                for (String connectionToken : headerValue.split(",")) {
+                for (String connectionToken : ProxyUtils.splitCommaSeparatedHeaderValues(headerValue)) {
                     // do not strip out the Transfer-Encoding header if it is specified in the Connection header, since LittleProxy does not
                     // normally modify the Transfer-Encoding of the message.
                     if (!LOWERCASE_TRANSFER_ENCODING_HEADER.equals(connectionToken.toLowerCase(Locale.US))) {
