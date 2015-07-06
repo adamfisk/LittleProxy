@@ -36,9 +36,9 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,11 +77,10 @@ import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
 public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private static final HttpResponseStatus CONNECTION_ESTABLISHED = new HttpResponseStatus(
             200, "HTTP/1.1 200 Connection established");
-
-    private static final Set<String> HOP_BY_HOP_HEADERS = new HashSet<String>(
-            Arrays.asList(new String[] { "connection", "keep-alive",
-                    "proxy-authenticate", "proxy-authorization", "te",
-                    "trailers", "upgrade" }));
+    /**
+     * Used for case-insensitive comparisons when parsing Connection header values.
+     */
+    private static final String LOWERCASE_TRANSFER_ENCODING_HEADER = HttpHeaders.Names.TRANSFER_ENCODING.toLowerCase(Locale.US);
 
     /**
      * Keep track of all ProxyToServerConnections by host+port.
@@ -428,8 +427,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             LOG.debug("Responding with CONNECT successful");
             HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
                     CONNECTION_ESTABLISHED);
-            response.headers().set("Connection", "Keep-Alive");
-            response.headers().set("Proxy-Connection", "Keep-Alive");
+            response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
+            response.headers().set("Proxy-Connection", HttpHeaders.Values.KEEP_ALIVE);
             ProxyUtils.addVia(response);
             return writeToChannel(response);
         };
@@ -926,10 +925,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 + "the credentials required.</p>\n" + "</body></html>\n";
         DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, body);
-        response.headers().set("Date", ProxyUtils.httpDate());
+        HttpHeaders.setDate(response, new Date());
         response.headers().set("Proxy-Authenticate",
                 "Basic realm=\"Restricted Files\"");
-        response.headers().set("Date", ProxyUtils.httpDate());
         write(response);
     }
 
@@ -1014,6 +1012,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpResponse httpResponse) {
         if (!proxyServer.isTransparent()) {
             HttpHeaders headers = httpResponse.headers();
+
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
             ProxyUtils.addVia(httpResponse);
@@ -1025,8 +1024,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
              * assigned one by the recipient if the message will be cached by
              * that recipient or gatewayed via a protocol which requires a Date.
              */
-            if (!headers.contains("Date")) {
-                headers.set("Date", ProxyUtils.httpDate());
+            if (!headers.contains(HttpHeaders.Names.DATE)) {
+                HttpHeaders.setDate(httpResponse, new Date());
             }
         }
     }
@@ -1060,7 +1059,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (headers.contains(proxyConnectionKey)) {
             String header = headers.get(proxyConnectionKey);
             headers.remove(proxyConnectionKey);
-            headers.set("Connection", header);
+            headers.set(HttpHeaders.Names.CONNECTION, header);
         }
     }
 
@@ -1076,10 +1075,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      *            The headers to modify
      */
     private void stripConnectionTokens(HttpHeaders headers) {
-        if (headers.contains("Connection")) {
-            for (String headerValue : headers.getAll("Connection")) {
-                for (String connectionToken : headerValue.split(",")) {
-                    headers.remove(connectionToken);
+        if (headers.contains(HttpHeaders.Names.CONNECTION)) {
+            for (String headerValue : headers.getAll(HttpHeaders.Names.CONNECTION)) {
+                for (String connectionToken : ProxyUtils.splitCommaSeparatedHeaderValues(headerValue)) {
+                    // do not strip out the Transfer-Encoding header if it is specified in the Connection header, since LittleProxy does not
+                    // normally modify the Transfer-Encoding of the message.
+                    if (!LOWERCASE_TRANSFER_ENCODING_HEADER.equals(connectionToken.toLowerCase(Locale.US))) {
+                        headers.remove(connectionToken);
+                    }
                 }
             }
         }
@@ -1094,9 +1097,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private void stripHopByHopHeaders(HttpHeaders headers) {
         Set<String> headerNames = headers.names();
-        for (String name : headerNames) {
-            if (HOP_BY_HOP_HEADERS.contains(name.toLowerCase())) {
-                headers.remove(name);
+        for (String headerName : headerNames) {
+            if (ProxyUtils.shouldRemoveHopByHopHeader(headerName)) {
+                headers.remove(headerName);
             }
         }
     }
