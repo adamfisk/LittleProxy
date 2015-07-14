@@ -1,6 +1,8 @@
 package org.littleshoot.proxy;
 
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
+
 import org.littleshoot.proxy.impl.ProxyUtils;
 
 import java.net.InetSocketAddress;
@@ -175,7 +177,9 @@ public interface HttpFilters {
 
     /**
      * Informs filter that proxy to server connection has succeeded.
+     * 
+     * @param toServerCtx 
      */
-    void proxyToServerConnectionSucceeded();
+    void proxyToServerConnectionSucceeded(ChannelHandlerContext toServerCtx);
 
 }
