@@ -70,24 +70,36 @@ import java.net.InetSocketAddress;
  */
 public interface HttpFilters {
     /**
-     * Filters requests on their way from the client to the proxy.
+     * Filters requests on their way from the client to the proxy. To interrupt processing of this request and return a
+     * response to the client immediately, return an HttpResponse here. Otherwise, return null to continue processing as
+     * usual.
+     * <p/>
+     * <b>Important:</b> When returning a response, you must include a mechanism to allow the client to determine the length
+     * of the message (see RFC 7230, section 3.3.3: https://tools.ietf.org/html/rfc7230#section-3.3.3 ). For messages that
+     * may contain a body, you may do this by setting the Transfer-Encoding to chunked, setting an appropriate
+     * Content-Length, or by adding a "Connection: close" header to the response (which will instruct LittleProxy to close
+     * the connection). If the short-circuit response contains body content, it is recommended that you return a
+     * FullHttpResponse.
      * 
-     * @param httpObject
-     *            Client to Proxy HttpRequest (and HttpContent, if chunked)
-     * @return if you want to interrupted processing and return a response to
-     *         the client, return it here, otherwise return null to continue
-     *         processing as usual
+     * @param httpObject Client to Proxy HttpRequest (and HttpContent, if chunked)
+     * @return a short-circuit response, or null to continue processing as usual
      */
     HttpResponse clientToProxyRequest(HttpObject httpObject);
 
     /**
-     * Filters requests on their way from the proxy to the server.
+     * Filters requests on their way from the proxy to the server. To interrupt processing of this request and return a
+     * response to the client immediately, return an HttpResponse here. Otherwise, return null to continue processing as
+     * usual.
+     * <p/>
+     * <b>Important:</b> When returning a response, you must include a mechanism to allow the client to determine the length
+     * of the message (see RFC 7230, section 3.3.3: https://tools.ietf.org/html/rfc7230#section-3.3.3 ). For messages that
+     * may contain a body, you may do this by setting the Transfer-Encoding to chunked, setting an appropriate
+     * Content-Length, or by adding a "Connection: close" header to the response. (which will instruct LittleProxy to close
+     * the connection). If the short-circuit response contains body content, it is recommended that you return a
+     * FullHttpResponse.
      * 
-     * @param httpObject
-     *            Proxy to Server HttpRequest (and HttpContent, if chunked)
-     * @return if you want to interrupted processing and return a response to
-     *         the client, return it here, otherwise return null to continue
-     *         processing as usual
+     * @param httpObject Proxy to Server HttpRequest (and HttpContent, if chunked)
+     * @return a short-circuit response, or null to continue processing as usual
      */
     HttpResponse proxyToServerRequest(HttpObject httpObject);
 
