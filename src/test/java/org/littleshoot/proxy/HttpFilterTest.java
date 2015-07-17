@@ -463,6 +463,7 @@ public class HttpFilterTest {
         assertTrue("Expected filter method to be called", filter.isClientToProxyRequestInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionQueuedInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToServerResolutionStartedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToClientResponseInvoked());
 
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionStartedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestInvoked());
@@ -474,7 +475,6 @@ public class HttpFilterTest {
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivingInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivedInvoked());
-        assertFalse("Expected filter method to not be called", filter.isProxyToClientResponseInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseTimedOutInvoked());
     }
 
@@ -506,6 +506,7 @@ public class HttpFilterTest {
         assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionStartedInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToServerResolutionStartedInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToServerResolutionSucceededInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToClientResponseInvoked());
 
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSendingInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSentInvoked());
@@ -514,7 +515,6 @@ public class HttpFilterTest {
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivingInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivedInvoked());
-        assertFalse("Expected filter method to not be called", filter.isProxyToClientResponseInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseTimedOutInvoked());
     }
 
@@ -564,11 +564,11 @@ public class HttpFilterTest {
         assertTrue("Expected filter method to be called", filter.isProxyToServerRequestSendingInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToServerRequestSentInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionSucceededInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToClientResponseInvoked());
 
         assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionFailedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionFailedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
-        assertFalse("Expected filter method to not be called", filter.isProxyToClientResponseInvoked());
     }
 
     @Test
