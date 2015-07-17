@@ -29,9 +29,14 @@ public interface HttpProxyServer {
     HttpProxyServerBootstrap clone();
 
     /**
-     * Stops the server and all related clones.
+     * Stops the server and all related clones. Waits for traffic to stop before shutting down.
      */
     void stop();
+
+    /**
+     * Stops the server and all related clones immediately, without waiting for traffic to stop.
+     */
+    void abort();
 
     /**
      * Return the address on which this proxy is listening.

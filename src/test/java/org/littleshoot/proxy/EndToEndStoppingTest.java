@@ -22,11 +22,11 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertThat;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -43,9 +43,8 @@ public class EndToEndStoppingTest {
 
     @Before
     public void setUp() {
-        // replace this with port 0 when MockServer supports it
-        mockServerPort = new Random().nextInt(55000) + 10000;
-        mockServer = new ClientAndServer(mockServerPort);
+        mockServer = new ClientAndServer(0);
+        mockServerPort = mockServer.getPort();
     }
 
     @After
@@ -190,7 +189,7 @@ public class EndToEndStoppingTest {
         final String source = driver.getPageSource();
 
         // Just make sure it got something within reason.
-        assertTrue(source.length() > 100);
+        assertThat(source.length(), greaterThan(100));
         driver.close();
 
         proxyServer.stop();

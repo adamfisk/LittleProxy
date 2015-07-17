@@ -1,5 +1,8 @@
 package org.littleshoot.proxy.impl;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpResponse;
@@ -10,53 +13,62 @@ import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
-
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.TimeZone;
-import java.util.regex.Pattern;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.text.SimpleDateFormat;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.Set;
+import java.util.TimeZone;
+import java.util.regex.Pattern;
+
 /**
  * Utilities for the proxy.
  */
 public class ProxyUtils {
+    /**
+     * Hop-by-hop headers that should be removed when proxying, as defined by the HTTP 1.1 spec, section 13.5.1
+     * (http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1). Transfer-Encoding is NOT included in this list, since LittleProxy
+     * does not typically modify the transfer encoding. See also {@link #shouldRemoveHopByHopHeader(String)}.
+     *
+     * Header names are stored as lowercase to make case-insensitive comparisons easier.
+     */
+    private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = ImmutableSet.of(
+            HttpHeaders.Names.CONNECTION.toLowerCase(Locale.US),
+            HttpHeaders.Names.PROXY_AUTHENTICATE.toLowerCase(Locale.US),
+            HttpHeaders.Names.PROXY_AUTHORIZATION.toLowerCase(Locale.US),
+            HttpHeaders.Names.TE.toLowerCase(Locale.US),
+            HttpHeaders.Names.TRAILER.toLowerCase(Locale.US),
+            /*  Note: Not removing Transfer-Encoding since LittleProxy does not normally re-chunk content.
+                HttpHeaders.Names.TRANSFER_ENCODING.toLowerCase(Locale.US), */
+            HttpHeaders.Names.UPGRADE.toLowerCase(Locale.US),
+            "Keep-Alive".toLowerCase(Locale.US)
+    );
 
     private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
 
     private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
 
     /**
+     * Splits comma-separated header values (such as Connection) into their individual tokens.
+     */
+    private static final Splitter COMMA_SEPARATED_HEADER_VALUE_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    /**
      * Date format pattern used to parse HTTP date headers in RFC 1123 format.
      */
     private static final String PATTERN_RFC1123 = "EEE, dd MMM yyyy HH:mm:ss zzz";
 
-    private static final String hostName;
-
-    static {
-        try {
-            final InetAddress localAddress = NetworkUtils.getLocalHost();
-            hostName = localAddress.getHostName();
-        } catch (final UnknownHostException e) {
-            LOG.error("Could not lookup host", e);
-            throw new IllegalStateException("Could not determine host!", e);
-        }
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Via: 1.1 ");
-        sb.append(hostName);
-        sb.append("\r\n");
-    }
+    private static final String hostName = getHostName();
 
     // Should never be constructed.
     private ProxyUtils() {
@@ -129,15 +141,6 @@ public class ProxyUtils {
                 Locale.US);
         formatter.setTimeZone(GMT);
         return formatter.format(date);
-    }
-
-    /**
-     * Creates a Date formatted for HTTP headers for the current time.
-     * 
-     * @return The formatted HTTP date.
-     */
-    public static String httpDate() {
-        return formatDate(new Date());
     }
 
     /**
@@ -243,16 +246,16 @@ public class ProxyUtils {
     public static void addVia(final HttpMessage msg) {
         final StringBuilder sb = new StringBuilder();
         sb.append(msg.getProtocolVersion().majorVersion());
-        sb.append(".");
+        sb.append('.');
         sb.append(msg.getProtocolVersion().minorVersion());
-        sb.append(".");
+        sb.append(' ');
         sb.append(hostName);
         final List<String> vias;
         if (msg.headers().contains(HttpHeaders.Names.VIA)) {
             vias = msg.headers().getAll(HttpHeaders.Names.VIA);
             vias.add(sb.toString());
         } else {
-            vias = Arrays.asList(sb.toString());
+            vias = Collections.singletonList(sb.toString());
         }
         msg.headers().set(HttpHeaders.Names.VIA, vias);
     }
@@ -320,6 +323,16 @@ public class ProxyUtils {
                         .getMethod());
     }
 
+    /**
+     * Returns true if the specified HttpRequest is a HEAD request.
+     *
+     * @param httpRequest http request
+     * @return true if request is a HEAD, otherwise false
+     */
+    public static boolean isHEAD(HttpRequest httpRequest) {
+        return HttpMethod.HEAD.equals(httpRequest.getMethod());
+    }
+
     private static boolean checkTrueOrFalse(final String val,
             final String str1, final String str2) {
         final String str = val.trim();
@@ -327,4 +340,216 @@ public class ProxyUtils {
                 && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
     }
 
+    /**
+     * Returns true if the HTTP message cannot contain an entity body, according to the HTTP spec. This code is taken directly
+     * from {@link io.netty.handler.codec.http.HttpObjectDecoder#isContentAlwaysEmpty(HttpMessage)}.
+     *
+     * @param msg HTTP message
+     * @return true if the HTTP message is always empty, false if the message <i>may</i> have entity content.
+     */
+    public static boolean isContentAlwaysEmpty(HttpMessage msg) {
+        if (msg instanceof HttpResponse) {
+            HttpResponse res = (HttpResponse) msg;
+            int code = res.getStatus().code();
+
+            // Correctly handle return codes of 1xx.
+            //
+            // See:
+            //     - http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html Section 4.4
+            //     - https://github.com/netty/netty/issues/222
+            if (code >= 100 && code < 200) {
+                // One exception: Hixie 76 websocket handshake response
+                return !(code == 101 && !res.headers().contains(HttpHeaders.Names.SEC_WEBSOCKET_ACCEPT));
+            }
+
+            switch (code) {
+                case 204: case 205: case 304:
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the request is an HTTP HEAD request.
+     *
+     * @param request HTTP request
+     * @return true if request is a HEAD, otherwise false
+     */
+    public static boolean isHead(HttpRequest request) {
+        return HttpMethod.HEAD.equals(request.getMethod());
+    }
+
+    /**
+     * Returns true if the HTTP response from the server is expected to indicate its own message length/end-of-message. Returns false
+     * if the server is expected to indicate the end of the HTTP entity by closing the connection.
+     * <p/>
+     * This method is based on the allowed message length indicators in the HTTP specification, section 4.4:
+     * <pre>
+         4.4 Message Length
+         The transfer-length of a message is the length of the message-body as it appears in the message; that is, after any transfer-codings have been applied. When a message-body is included with a message, the transfer-length of that body is determined by one of the following (in order of precedence):
+
+         1.Any response message which "MUST NOT" include a message-body (such as the 1xx, 204, and 304 responses and any response to a HEAD request) is always terminated by the first empty line after the header fields, regardless of the entity-header fields present in the message.
+         2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity", then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6), unless the message is terminated by closing the connection.
+         3.If a Content-Length header field (section 14.13) is present, its decimal value in OCTETs represents both the entity-length and the transfer-length. The Content-Length header field MUST NOT be sent if these two lengths are different (i.e., if a Transfer-Encoding
+         header field is present). If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored.
+         [LP note: multipart/byteranges support has been removed from the HTTP 1.1 spec by RFC 7230, section A.2. Since it is seldom used, LittleProxy does not check for it.]
+         5.By the server closing the connection. (Closing the connection cannot be used to indicate the end of a request body, since that would leave no possibility for the server to send back a response.)
+     * </pre>
+     *
+     * The rules for Transfer-Encoding are clarified in RFC 7230, section 3.3.1 and 3.3.3 (3):
+     * <pre>
+         If any transfer coding other than
+         chunked is applied to a response payload body, the sender MUST either
+         apply chunked as the final transfer coding or terminate the message
+         by closing the connection.
+     * </pre>
+     *
+     *
+     * @param response the HTTP response object
+     * @return true if the message will indicate its own message length, or false if the server is expected to indicate the message length by closing the connection
+     */
+    public static boolean isResponseSelfTerminating(HttpResponse response) {
+        if (isContentAlwaysEmpty(response)) {
+            return true;
+        }
+
+        // if there is a Transfer-Encoding value, determine whether the final encoding is "chunked", which makes the message self-terminating
+        List<String> allTransferEncodingHeaders = getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, response);
+        if (!allTransferEncodingHeaders.isEmpty()) {
+            String finalEncoding = allTransferEncodingHeaders.get(allTransferEncodingHeaders.size() - 1);
+
+            // per #3 above: "If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored."
+            // since the Transfer-Encoding field is present, the message is self-terminating if and only if the final Transfer-Encoding value is "chunked"
+            return HttpHeaders.Values.CHUNKED.equals(finalEncoding);
+        }
+
+        String contentLengthHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_LENGTH);
+        if (contentLengthHeader != null && !contentLengthHeader.isEmpty()) {
+            return true;
+        }
+
+        // not checking for multipart/byteranges, since it is seldom used and its use as a message length indicator was removed in RFC 7230
+
+        // none of the other message length indicators are present, so the only way the server can indicate the end
+        // of this message is to close the connection
+        return false;
+    }
+
+    /**
+     * Retrieves all comma-separated values for headers with the specified name on the HttpMessage. Any whitespace (spaces
+     * or tabs) surrounding the values will be removed. Empty values (e.g. two consecutive commas, or a value followed
+     * by a comma and no other value) will be removed; they will not appear as empty elements in the returned list.
+     * If the message contains repeated headers, their values will be added to the returned list in the order in which
+     * the headers appear. For example, if a message has headers like:
+     * <pre>
+     *     Transfer-Encoding: gzip,deflate
+     *     Transfer-Encoding: chunked
+     * </pre>
+     * This method will return a list of three values: "gzip", "deflate", "chunked".
+     * <p/>
+     * Placing values on multiple header lines is allowed under certain circumstances
+     * in RFC 2616 section 4.2, and in RFC 7230 section 3.2.2 quoted here:
+     * <pre>
+     A sender MUST NOT generate multiple header fields with the same field
+     name in a message unless either the entire field value for that
+     header field is defined as a comma-separated list [i.e., #(values)]
+     or the header field is a well-known exception (as noted below).
+
+     A recipient MAY combine multiple header fields with the same field
+     name into one "field-name: field-value" pair, without changing the
+     semantics of the message, by appending each subsequent field value to
+     the combined field value in order, separated by a comma.  The order
+     in which header fields with the same field name are received is
+     therefore significant to the interpretation of the combined field
+     value; a proxy MUST NOT change the order of these field values when
+     forwarding a message.
+     * </pre>
+     * @param headerName the name of the header for which values will be retrieved
+     * @param httpMessage the HTTP message whose header values will be retrieved
+     * @return a list of single header values, or an empty list if the header was not present in the message or contained no values
+     */
+    public static List<String> getAllCommaSeparatedHeaderValues(String headerName, HttpMessage httpMessage) {
+        List<String> allHeaders = httpMessage.headers().getAll(headerName);
+        if (allHeaders.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        ImmutableList.Builder<String> headerValues = ImmutableList.builder();
+        for (String header : allHeaders) {
+            List<String> commaSeparatedValues = splitCommaSeparatedHeaderValues(header);
+            headerValues.addAll(commaSeparatedValues);
+        }
+
+        return headerValues.build();
+    }
+
+    /**
+     * Duplicates the status line and headers of an HttpResponse object. Does not duplicate any content associated with that response.
+     *
+     * @param originalResponse HttpResponse to be duplicated
+     * @return a new HttpResponse with the same status line and headers
+     */
+    public static HttpResponse duplicateHttpResponse(HttpResponse originalResponse) {
+        DefaultHttpResponse newResponse = new DefaultHttpResponse(originalResponse.getProtocolVersion(), originalResponse.getStatus());
+        newResponse.headers().add(originalResponse.headers());
+
+        return newResponse;
+    }
+
+    /**
+     * Attempts to resolve the local machine's hostname.
+     *
+     * @return the local machine's hostname
+     * @throws IllegalStateException if the hostname cannot be resolved
+     */
+    public static String getHostName() throws IllegalStateException {
+        try {
+            final InetAddress localAddress = NetworkUtils.getLocalHost();
+            return localAddress.getHostName();
+        } catch (final UnknownHostException e) {
+            LOG.error("Could not lookup host", e);
+            throw new IllegalStateException("Could not determine host!", e);
+        }
+    }
+
+    /**
+     * Determines if the specified header should be removed from the proxied response because it is a hop-by-hop header, as defined by the
+     * HTTP 1.1 spec in section 13.5.1. The comparison is case-insensitive, so "Connection" will be treated the same as "connection" or "CONNECTION".
+     * From http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1 :
+     * <pre>
+       The following HTTP/1.1 headers are hop-by-hop headers:
+        - Connection
+        - Keep-Alive
+        - Proxy-Authenticate
+        - Proxy-Authorization
+        - TE
+        - Trailers [LittleProxy note: actual header name is Trailer]
+        - Transfer-Encoding [LittleProxy note: this header is not normally removed when proxying, since the proxy does not re-chunk
+                            responses. The exception is when an HttpObjectAggregator is enabled, which aggregates chunked content and removes
+                            the 'Transfer-Encoding: chunked' header itself.]
+        - Upgrade
+
+       All other headers defined by HTTP/1.1 are end-to-end headers.
+     * </pre>
+     *
+     * @param headerName the header name
+     * @return true if this header is a hop-by-hop header and should be removed when proxying, otherwise false
+     */
+    public static boolean shouldRemoveHopByHopHeader(String headerName) {
+        return SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS.contains(headerName.toLowerCase(Locale.US));
+    }
+
+    /**
+     * Splits comma-separated header values into tokens. For example, if the value of the Connection header is "Transfer-Encoding, close",
+     * this method will return "Transfer-Encoding" and "close". This method strips trims any optional whitespace from
+     * the tokens. Unlike {@link #getAllCommaSeparatedHeaderValues(String, HttpMessage)}, this method only operates on
+     * a single header value, rather than all instances of the header in a message.
+     *
+     * @param headerValue the un-tokenized header value (must not be null)
+     * @return all tokens within the header value, or an empty list if there are no values
+     */
+    public static List<String> splitCommaSeparatedHeaderValues(String headerValue) {
+        return ImmutableList.copyOf(COMMA_SEPARATED_HEADER_VALUE_SPLITTER.split(headerValue));
+    }
 }

@@ -15,11 +15,11 @@ import org.mockserver.matchers.Times;
 import org.mockserver.model.Delay;
 
 import java.io.IOException;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertThat;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -31,9 +31,8 @@ public class TimeoutTest {
 
     @Before
     public void setUp() {
-        // replace this with port 0 when MockServer supports it
-        mockServerPort = new Random().nextInt(55000) + 10000;
-        mockServer = new ClientAndServer(mockServerPort);
+        mockServer = new ClientAndServer(0);
+        mockServerPort = mockServer.getPort();
     }
 
     @After
@@ -77,8 +76,8 @@ public class TimeoutTest {
         EntityUtils.consumeQuietly(response.getEntity());
 
         assertEquals("Expected to receive an HTTP 504 (Gateway Timeout) response after proxy did not receive a response within 1 second", 504, response.getStatusLine().getStatusCode());
-        assertTrue("Expected idle connection timeout to happen after approximately 1 second. Total time was: " + TimeUnit.MILLISECONDS.convert(stop - start, TimeUnit.NANOSECONDS) + "ms",
-                TimeUnit.SECONDS.convert(stop - start, TimeUnit.NANOSECONDS) < 2);
+        assertThat("Expected idle connection timeout to happen after approximately 1 second",
+                TimeUnit.MILLISECONDS.convert(stop - start, TimeUnit.NANOSECONDS), lessThan(2000L));
     }
 
     @Test
@@ -101,7 +100,7 @@ public class TimeoutTest {
         EntityUtils.consumeQuietly(response.getEntity());
 
         assertEquals("Expected to receive an HTTP 502 (Bad Gateway) response after proxy could not connect within 1 second", 502, response.getStatusLine().getStatusCode());
-        assertTrue("Expected connection timeout to happen after approximately 1 second. Total time was: " + TimeUnit.MILLISECONDS.convert(stop - start, TimeUnit.NANOSECONDS) + "ms",
-                TimeUnit.SECONDS.convert(stop - start, TimeUnit.NANOSECONDS) < 2);
+        assertThat("Expected connection timeout to happen after approximately 1 second",
+                TimeUnit.MILLISECONDS.convert(stop - start, TimeUnit.NANOSECONDS), lessThan(2000L));
     }
 }

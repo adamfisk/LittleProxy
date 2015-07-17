@@ -11,7 +11,6 @@ import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.util.EntityUtils;
 import org.eclipse.jetty.server.Server;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
@@ -19,6 +18,12 @@ import org.junit.runners.MethodSorters;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 import java.io.IOException;
+
+import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.lessThan;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 
 @FixMethodOrder(MethodSorters.JVM)
 public class ThrottlingTest {
@@ -114,12 +119,12 @@ public class ThrottlingTest {
                         writeWebServerPort), request);
         long finish = System.currentTimeMillis();
 
-        Assert.assertEquals("Received " + largeData.length + " bytes\n",
+        assertEquals("Received " + largeData.length + " bytes\n",
                 EntityUtils.toString(response.getEntity()));
 
-        Assert.assertTrue("Expected throttled write to complete in approximately " + msToWriteThrottled + "ms" + " but took " + (finish - start) + "ms",
-                finish - start > msToWriteThrottled * (1 - ALLOWABLE_VARIATION)
-                        && (finish - start < msToWriteThrottled * (1 + ALLOWABLE_VARIATION)));
+        assertThat("Expected throttled write to complete in approximately " + msToWriteThrottled + "ms" + " but took " + (finish - start) + "ms",
+                (double)(finish - start), both(greaterThan(msToWriteThrottled * (1 - ALLOWABLE_VARIATION))).and(
+                        lessThan(msToWriteThrottled * (1 + ALLOWABLE_VARIATION))));
 
         proxyServer.stop();
     }
@@ -142,10 +147,11 @@ public class ThrottlingTest {
                         writeWebServerPort), request);
         long finish = System.currentTimeMillis();
 
-        Assert.assertEquals("Received " + largeData.length + " bytes\n",
+        assertEquals("Received " + largeData.length + " bytes\n",
                 EntityUtils.toString(response.getEntity()));
 
-        Assert.assertTrue("Unthrottled write took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms", finish - start < UNTRHOTTLED_REQUEST_TIME_MS);
+        assertThat("Unthrottled write took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms",
+                finish - start, lessThan((long) UNTRHOTTLED_REQUEST_TIME_MS));
 
         proxyServer.stop();
     }
@@ -177,9 +183,9 @@ public class ThrottlingTest {
 
         long finish = System.currentTimeMillis();
 
-        Assert.assertTrue("Expected throttled read to complete in approximately " + msToReadThrottled + "ms" + " but took " + (finish - start) + "ms",
-                finish - start > msToReadThrottled * (1 - ALLOWABLE_VARIATION)
-                        && (finish - start < msToReadThrottled * (1 + ALLOWABLE_VARIATION)));
+        assertThat("Expected throttled read to complete in approximately " + msToReadThrottled + "ms" + " but took " + (finish - start) + "ms",
+                (double)(finish - start), both(greaterThan(msToReadThrottled * (1 - ALLOWABLE_VARIATION)))
+                        .and(lessThan(msToReadThrottled * (1 + ALLOWABLE_VARIATION))));
 
         proxyServer.stop();
     }
@@ -210,7 +216,8 @@ public class ThrottlingTest {
 
         long finish = System.currentTimeMillis();
 
-        Assert.assertTrue("Unthrottled read took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms", finish - start < UNTRHOTTLED_REQUEST_TIME_MS);
+        assertThat("Unthrottled read took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms",
+                finish - start, lessThan((long)UNTRHOTTLED_REQUEST_TIME_MS));
 
         proxyServer.stop();
     }
@@ -262,9 +269,9 @@ public class ThrottlingTest {
 
         HttpClientUtils.closeQuietly(response);
 
-        Assert.assertTrue("Expected second read to take approximately half as long as first throttled read. First read took " + (firstFinish - firstStart) + "ms" + " but second read took " + (secondFinish - secondStart) + "ms",
-                (firstFinish - firstStart) / 2 > (secondFinish - secondStart) * (1 - ALLOWABLE_VARIATION)
-                        && ((firstFinish - firstStart) / 2 < (secondFinish - secondStart) * (1 + ALLOWABLE_VARIATION)));
+        assertThat("Expected second read to take approximately half as long as first throttled read. First read took " + (firstFinish - firstStart) + "ms" + " but second read took " + (secondFinish - secondStart) + "ms",
+                (double)(firstFinish - firstStart) / 2, both(greaterThan((secondFinish - secondStart) * (1 - ALLOWABLE_VARIATION)))
+                        .and(lessThan((secondFinish - secondStart) * (1 + ALLOWABLE_VARIATION))));
 
         proxyServer.stop();
     }
@@ -316,9 +323,9 @@ public class ThrottlingTest {
 
         HttpClientUtils.closeQuietly(response);
 
-        Assert.assertTrue("Expected second read to complete within " + UNTRHOTTLED_REQUEST_TIME_MS + "ms, without throttling. First read took "
+        assertThat("Expected second read to complete within " + UNTRHOTTLED_REQUEST_TIME_MS + "ms, without throttling. First read took "
                         + (firstFinish - firstStart) + "ms" + ". Second read took " + (secondFinish - secondStart) + "ms",
-                secondFinish - secondStart < UNTRHOTTLED_REQUEST_TIME_MS);
+                secondFinish - secondStart, lessThan((long) UNTRHOTTLED_REQUEST_TIME_MS));
 
         proxyServer.stop();
 

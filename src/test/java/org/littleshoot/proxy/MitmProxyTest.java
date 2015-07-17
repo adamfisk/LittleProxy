@@ -1,6 +1,10 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 
 import java.nio.charset.Charset;
@@ -8,8 +12,9 @@ import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertThat;
 
 /**
  * Tests just a single basic proxy running as a man in the middle.
@@ -134,23 +139,23 @@ public class MitmProxyTest extends BaseProxyTest {
     }
 
     private void assertMethodSeenInRequestFilters(HttpMethod method) {
-        assertTrue(method
-                + " should have been seen in clientToProxyRequest filter",
-                requestPreMethodsSeen.contains(method));
-        assertTrue(method
-                + " should have been seen in proxyToServerRequest filter",
-                requestPostMethodsSeen.contains(method));
+        assertThat(method
+                        + " should have been seen in clientToProxyRequest filter",
+                requestPreMethodsSeen, hasItem(method));
+        assertThat(method
+                        + " should have been seen in proxyToServerRequest filter",
+                requestPostMethodsSeen, hasItem(method));
     }
 
     private void assertMethodSeenInResponseFilters(HttpMethod method) {
-        assertTrue(
+        assertThat(
                 method
                         + " should have been seen as the original requests's method in serverToProxyResponse filter",
-                responsePreOriginalRequestMethodsSeen.contains(method));
-        assertTrue(
+                responsePreOriginalRequestMethodsSeen, hasItem(method));
+        assertThat(
                 method
                         + " should have been seen as the original requests's method in proxyToClientResponse filter",
-                responsePostOriginalRequestMethodsSeen.contains(method));
+                responsePostOriginalRequestMethodsSeen, hasItem(method));
     }
 
     private void assertResponseFromFiltersMatchesActualResponse() {
