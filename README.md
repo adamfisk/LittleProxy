@@ -110,11 +110,6 @@ To subscribe, send an E-Mail to mailto:LittleProxy+subscribe@googlegroups.com.
 Simply answering, don't clicking the button, bypasses Googles registration 
 process. You will become a member. 
 
-Project reports, including the [API Documentation]
-(http://littleproxy.org/apidocs/index.html), can be found here:
-
-http://littleproxy.org
-
 Benchmarking instructions and results can be found [here](performance).
 
 Acknowledgments
