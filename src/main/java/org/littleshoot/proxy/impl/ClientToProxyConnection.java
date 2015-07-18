@@ -10,6 +10,7 @@ import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestDecoder;
@@ -21,6 +22,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.proxy.ActivityTracker;
@@ -31,6 +33,7 @@ import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.SslEngineSource;
 
 import javax.net.ssl.SSLSession;
+
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -44,6 +47,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
@@ -81,6 +85,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Used for case-insensitive comparisons when parsing Connection header values.
      */
     private static final String LOWERCASE_TRANSFER_ENCODING_HEADER = HttpHeaders.Names.TRANSFER_ENCODING.toLowerCase(Locale.US);
+
+    /**
+     * Used for case-insensitive comparisons when checking direct proxy request.
+     */
+    private static final Pattern HTTP_SCHEME = Pattern.compile("^http://.*", Pattern.CASE_INSENSITIVE);
 
     /**
      * Keep track of all ProxyToServerConnections by host+port.
@@ -213,6 +222,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // Send the request through the clientToProxyRequest filter, and respond with the short-circuit response if required
         HttpResponse clientToProxyFilterResponse = currentFilters.clientToProxyRequest(httpRequest);
 
+        // Requesting the proxy directly must be answered elsewhere it causes an
+        // endless loop
+        //
+        if (clientToProxyFilterResponse == null && isProxyRequested()) {
+            clientToProxyFilterResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
+                    HttpResponseStatus.BAD_REQUEST);
+        }
+
         if (clientToProxyFilterResponse != null) {
             LOG.debug("Responding to client with short-circuit response from filter: {}", clientToProxyFilterResponse);
 
@@ -319,6 +336,16 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         } else {
             return AWAITING_INITIAL;
         }
+    }
+
+    private boolean isProxyRequested() {
+        // HTTPS requests have uri without http scheme too
+        if (currentRequest.getMethod() == HttpMethod.CONNECT || sslEngine != null) {
+            return false;
+        }
+        // direct requests to the proxy have the path only without a scheme
+        String uri = currentRequest.getUri();
+        return !HTTP_SCHEME.matcher(uri).matches();
     }
 
     @Override
