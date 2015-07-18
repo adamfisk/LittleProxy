@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpObject;
@@ -8,6 +9,7 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -248,7 +250,7 @@ public class HttpFilterTest {
                     }
 
                     @Override
-                    public void proxyToServerConnectionSucceeded() {
+                    public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
                         proxyToServerConnectionSucceededNanos.set(requestCount.get(), now());
                     }
 

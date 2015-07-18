@@ -12,12 +12,12 @@ import java.net.InetSocketAddress;
  */
 public class HttpFiltersAdapter implements HttpFilters {
     protected final HttpRequest originalRequest;
-    protected final ChannelHandlerContext ctx;
+    protected final ChannelHandlerContext clientCtx;
 
     public HttpFiltersAdapter(HttpRequest originalRequest,
-            ChannelHandlerContext ctx) {
+            ChannelHandlerContext clientCtx) {
         this.originalRequest = originalRequest;
-        this.ctx = ctx;
+        this.clientCtx = clientCtx;
     }
 
     public HttpFiltersAdapter(HttpRequest originalRequest) {
@@ -88,6 +88,6 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public void proxyToServerConnectionSucceeded() {
+    public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
     }
 }

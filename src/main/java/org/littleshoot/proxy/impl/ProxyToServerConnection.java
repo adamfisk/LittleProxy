@@ -347,13 +347,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             if (newState == HANDSHAKING) {
                 currentFilters.proxyToServerConnectionSSLHandshakeStarted();
             } else if (newState == AWAITING_INITIAL) {
-                currentFilters.proxyToServerConnectionSucceeded();
+                currentFilters.proxyToServerConnectionSucceeded(serverConnection.ctx);
             } else if (newState == DISCONNECTED) {
                 currentFilters.proxyToServerConnectionFailed();
             }
         } else if (getCurrentState() == HANDSHAKING
                 && newState == AWAITING_INITIAL) {
-            currentFilters.proxyToServerConnectionSucceeded();
+            currentFilters.proxyToServerConnectionSucceeded(serverConnection.ctx);
         } else if (getCurrentState() == AWAITING_CHUNK
                 && newState != AWAITING_CHUNK) {
             currentFilters.serverToProxyResponseReceived();
@@ -527,6 +527,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * This method initializes our {@link ConnectionFlow} based on however this
      * connection has been configured.
+     * 
+     * TODO clean up this method
      */
     private void initializeConnectionFlow() {
         this.connectionFlow = new ConnectionFlow(clientConnection, this,
@@ -543,12 +545,29 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             boolean isMitmEnabled = mitmManager != null;
 
             if (isMitmEnabled) {
+                // A caching proxy needs to install a HostResolver which returns
+                // unresolved addresses in off line mode. An unresolved address 
+                // here means a cached response is requested and the server 
+                // shouldn't be connected. Don't connect/encrypt a channel to 
+                // the server.
+                //
+                if (remoteAddress.isUnresolved()) {
+                    // A new instance, since we can't use connectionFlow with
+                    // ConnectChannel here
+                    //
+                    connectionFlow = new ConnectionFlow(clientConnection, this,
+                            connectLock);
+                    connectionFlow.then(
+                            clientConnection.RespondCONNECTSuccessful).then(
+                            serverConnection.MitmEncryptClientChannel);
+                } else {
                 connectionFlow
                         .then(serverConnection.EncryptChannel(mitmManager
                                 .serverSslEngine(remoteAddress.getHostName(),
                                         remoteAddress.getPort())))
                         .then(clientConnection.RespondCONNECTSuccessful)
                         .then(serverConnection.MitmEncryptClientChannel);
+                }
             } else {
                 // If we're chaining, forward the CONNECT request
                 if (hasUpstreamChainedProxy()) {
@@ -675,7 +694,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             return clientConnection
                     .encrypt(proxyServer.getMitmManager()
-                            .clientSslEngineFor(sslEngine.getSession()), false)
+                            .clientSslEngineFor(sslEngine == null ? null : sslEngine.getSession(), serverHostAndPort), false)
                     .addListener(
                             new GenericFutureListener<Future<? super Channel>>() {
                                 @Override
