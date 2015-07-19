@@ -584,14 +584,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     protected void serverDisconnected(ProxyToServerConnection serverConnection) {
         numberOfCurrentlyConnectedServers.decrementAndGet();
-        // not disconnecting the client from the proxy, even if this was the last server connection. this allows clients
-        // to continue to use the open connection to the proxy to make future requests.
 
-        // But, in case of a HTTPS connection, it seems to be neccessary to
-        // close the connection, since it can't be reused with MITM.
-        // see: https://github.com/ganskef/LittleProxy-mitm/issues/7
-        //
-        if (sslEngine != null && numberOfCurrentlyConnectedServers.get() == 0) {
+        // for non-SSL connections, do not disconnect the client from the proxy, even if this was the last server connection.
+        // this allows clients to continue to use the open connection to the proxy to make future requests. for SSL
+        // connections, whether we are tunneling or MITMing, we need to disconnect the client because there is always
+        // exactly one ClientToProxyConnection per ProxyToServerConnection, and vice versa.
+        if (isTunneling() || isMitming()) {
             disconnect();
         }
     }
