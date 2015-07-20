@@ -55,7 +55,8 @@ HttpProxyServer server =
         .start();
 ```
 
-Please have a look into this base base class to see the hooks you can use. 
+Please refer to the Javadoc of `org.littleshoot.proxy.HttpFilters` to see the 
+methods you can use. 
 
 To enable aggregator and inflater you have to return a value greater than 0 in 
 your `HttpFiltersSource#get(Request/Response)BufferSizeInBytes()` methods. This 
@@ -90,6 +91,32 @@ return new HttpFiltersAdapter(originalRequest, serverCtx) {
 ```
 This enables huge downloads in an application, which regular handles size 
 limited `FullHttpResponse`s to modify its content, HTML for example. 
+
+A proxy server like LittleProxy contains always a web server, too. If you get an 
+URI without scheme, host and port in `originalRequest` it's a direct request to 
+your proxy. You can return a `HttpFilters` implementation which answers 
+responses with HTML content or redirects in `clientToProxyRequest` like this:
+
+```java
+public class AnswerRequestFilter extends HttpFiltersAdapter {
+	private final String answer;
+
+	public AnswerRequestFilter(HttpRequest originalRequest, String answer) {
+		super(originalRequest, null);
+		this.answer = answer;
+	}
+
+	@Override
+	public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+		ByteBuf buffer = Unpooled.wrappedBuffer(answer.getBytes("UTF-8"));
+		HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buffer);
+		HttpHeaders.setContentLength(response, buffer.readableBytes());
+		HttpHeaders.setHeader(response, HttpHeaders.Names.CONTENT_TYPE, "text/html");
+		return response;
+	}
+}
+```
+With this trick, you can implement an UI to your application very easy.
 
 If you want to create additional proxy servers with similar configuration but
 listening on different ports, you can clone an existing server.  The cloned
