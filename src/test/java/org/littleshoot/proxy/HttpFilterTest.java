@@ -75,7 +75,7 @@ public class HttpFilterTest {
         } finally {
             try {
                 if (proxyServer != null) {
-                    proxyServer.stop();
+                    proxyServer.abort();
                 }
             } finally {
                 if (mockServer != null) {
