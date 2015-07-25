@@ -124,6 +124,15 @@ public interface HttpFilters {
     HttpObject serverToProxyResponse(HttpObject httpObject);
 
     /**
+     * Informs filter that a timeout occurred before the server response was received by the client. The timeout may have
+     * occurred while the client was sending the request, waiting for a response, or after the client started receiving
+     * a response (i.e. if the response from the server "stalls").
+     *
+     * See {@link HttpProxyServerBootstrap#withIdleConnectionTimeout(int)} for information on setting the timeout.
+     */
+    void serverToProxyResponseTimedOut();
+
+    /**
      * Informs filter that server to proxy response is being received.
      */
     void serverToProxyResponseReceiving();
@@ -158,6 +167,13 @@ public interface HttpFilters {
      */
     InetSocketAddress proxyToServerResolutionStarted(
             String resolvingServerHostAndPort);
+
+    /**
+     * Informs filter that proxy to server DNS resolution failed for the specified host and port.
+     *
+     * @param hostAndPort hostname and port the proxy failed to resolve
+     */
+    void proxyToServerResolutionFailed(String hostAndPort);
 
     /**
      * Informs filter that proxy to server DNS resolution has happened.

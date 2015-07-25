@@ -48,6 +48,10 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
+    public void serverToProxyResponseTimedOut() {
+    }
+
+    @Override
     public void serverToProxyResponseReceiving() {
     }
 
@@ -68,6 +72,10 @@ public class HttpFiltersAdapter implements HttpFilters {
     public InetSocketAddress proxyToServerResolutionStarted(
             String resolvingServerHostAndPort) {
         return null;
+    }
+
+    @Override
+    public void proxyToServerResolutionFailed(String hostAndPort) {
     }
 
     @Override
