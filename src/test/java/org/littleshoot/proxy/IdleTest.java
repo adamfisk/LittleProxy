@@ -12,6 +12,7 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 /**
@@ -28,6 +29,8 @@ public class IdleTest {
     @Before
     public void setup() throws Exception {
         assumeTrue("Skipping due to non-Unix OS", TestUtils.isUnixManagementCapable());
+
+        assumeFalse("Skipping for travis-ci build", "true".equals(System.getenv("TRAVIS")));
 
         webServer = new Server(0);
         webServer.start();
