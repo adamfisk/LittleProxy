@@ -48,7 +48,7 @@ public class IdleTest {
             }
         } finally {
             if (proxyServer != null) {
-                proxyServer.stop();
+                proxyServer.abort();
             }
         }
     }

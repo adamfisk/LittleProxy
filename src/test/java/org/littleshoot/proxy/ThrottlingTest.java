@@ -126,7 +126,7 @@ public class ThrottlingTest {
                 (double)(finish - start), both(greaterThan(msToWriteThrottled * (1 - ALLOWABLE_VARIATION))).and(
                         lessThan(msToWriteThrottled * (1 + ALLOWABLE_VARIATION))));
 
-        proxyServer.stop();
+        proxyServer.abort();
     }
 
     @Test
@@ -153,7 +153,7 @@ public class ThrottlingTest {
         assertThat("Unthrottled write took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms",
                 finish - start, lessThan((long) UNTRHOTTLED_REQUEST_TIME_MS));
 
-        proxyServer.stop();
+        proxyServer.abort();
     }
 
     @Test
@@ -187,7 +187,7 @@ public class ThrottlingTest {
                 (double)(finish - start), both(greaterThan(msToReadThrottled * (1 - ALLOWABLE_VARIATION)))
                         .and(lessThan(msToReadThrottled * (1 + ALLOWABLE_VARIATION))));
 
-        proxyServer.stop();
+        proxyServer.abort();
     }
 
     @Test
@@ -219,7 +219,7 @@ public class ThrottlingTest {
         assertThat("Unthrottled read took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms",
                 finish - start, lessThan((long)UNTRHOTTLED_REQUEST_TIME_MS));
 
-        proxyServer.stop();
+        proxyServer.abort();
     }
 
     @Test
@@ -273,7 +273,7 @@ public class ThrottlingTest {
                 (double)(firstFinish - firstStart) / 2, both(greaterThan((secondFinish - secondStart) * (1 - ALLOWABLE_VARIATION)))
                         .and(lessThan((secondFinish - secondStart) * (1 + ALLOWABLE_VARIATION))));
 
-        proxyServer.stop();
+        proxyServer.abort();
     }
 
     @Test
@@ -327,7 +327,7 @@ public class ThrottlingTest {
                         + (firstFinish - firstStart) + "ms" + ". Second read took " + (secondFinish - secondStart) + "ms",
                 secondFinish - secondStart, lessThan((long) UNTRHOTTLED_REQUEST_TIME_MS));
 
-        proxyServer.stop();
+        proxyServer.abort();
 
     }
 

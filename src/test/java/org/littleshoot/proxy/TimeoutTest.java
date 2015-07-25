@@ -43,7 +43,7 @@ public class TimeoutTest {
             }
         } finally {
             if (proxyServer != null) {
-                proxyServer.stop();
+                proxyServer.abort();
             }
         }
     }
