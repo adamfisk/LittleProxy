@@ -300,20 +300,25 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             LOG.debug("Currently disconnected, connect and then write the message");
             connectAndWrite((HttpRequest) msg);
         } else {
-            synchronized (connectLock) {
-                if (isConnecting()) {
-                    LOG.debug("Attempted to write while still in the process of connecting, waiting for connection.");
-                    clientConnection.stopReading();
-                    try {
-                        connectLock.wait(30000);
-                    } catch (InterruptedException ie) {
-                        LOG.warn("Interrupted while waiting for connect monitor");
-                    }
-                    if (is(DISCONNECTED)) {
-                        LOG.debug("Connection failed while we were waiting for it, don't write");
-                        return;
+            if (isConnecting()) {
+                synchronized (connectLock) {
+                    if (isConnecting()) {
+                        LOG.debug("Attempted to write while still in the process of connecting, waiting for connection.");
+                        clientConnection.stopReading();
+                        try {
+                            connectLock.wait(30000);
+                        } catch (InterruptedException ie) {
+                            LOG.warn("Interrupted while waiting for connect monitor");
+                        }
                     }
                 }
+            }
+
+            // only write this message if a connection was established and is not in the process of disconnecting or
+            // already disconnected
+            if (isConnecting() || getCurrentState().isDisconnectingOrDisconnected()) {
+                LOG.debug("Connection failed or timed out while waiting to write message to server. Message will be discarded: {}", msg);
+                return;
             }
 
             LOG.debug("Using existing connection to: {}", remoteAddress);
@@ -724,7 +729,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.connectAndWrite(initialRequest);
             return true; // yes, we fell back
         } else {
-            return false; // nothing to fall back to
+            // nothing to fall back to. connection failed, so transition from "CONNECTING" to "DISCONNECTED".
+            become(DISCONNECTED);
+            return false;
         }
     }
 
@@ -744,15 +751,27 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.transportProtocol = TransportProtocol.TCP;
 
             // Report DNS resolution to HttpFilters
-            this.remoteAddress = this.currentFilters
-                    .proxyToServerResolutionStarted(serverHostAndPort);
-            if (this.remoteAddress == null) {
-                this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
-            } else if (this.remoteAddress.isUnresolved()) {
-                // filter returned an unresolved address, so resolve it using the proxy server's resolver
-                this.remoteAddress = proxyServer.getServerResolver().resolve(this.remoteAddress.getHostName(),
-                        this.remoteAddress.getPort());
+            this.remoteAddress = this.currentFilters.proxyToServerResolutionStarted(serverHostAndPort);
+
+            // save the hostname and port of the unresolved address in hostAndPort, in case name resolution fails
+            String hostAndPort = null;
+            try {
+                if (this.remoteAddress == null) {
+                    hostAndPort = serverHostAndPort;
+                    this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
+                } else if (this.remoteAddress.isUnresolved()) {
+                    // filter returned an unresolved address, so resolve it using the proxy server's resolver
+                    hostAndPort = HostAndPort.fromParts(this.remoteAddress.getHostName(), this.remoteAddress.getPort()).toString();
+                    this.remoteAddress = proxyServer.getServerResolver().resolve(this.remoteAddress.getHostName(),
+                            this.remoteAddress.getPort());
+                }
+            } catch (UnknownHostException e) {
+                // unable to resolve the hostname to an IP address. notify the filters of the failure before allowing the
+                // exception to bubble up.
+                this.currentFilters.proxyToServerResolutionFailed(hostAndPort);
+                throw e;
             }
+
             this.currentFilters.proxyToServerResolutionSucceeded(
                     serverHostAndPort, this.remoteAddress);
 
