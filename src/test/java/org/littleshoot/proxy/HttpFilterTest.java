@@ -1,5 +1,6 @@
 package org.littleshoot.proxy;
 
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpObject;
@@ -36,10 +37,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -144,11 +147,14 @@ public class HttpFilterTest {
         final AtomicLongArray proxyToServerConnectionSucceededNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
         final AtomicLongArray serverToProxyResponseTimedOutNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
 
+        final AtomicReference<ChannelHandlerContext> serverCtxReference = new AtomicReference<ChannelHandlerContext>();
+
         final String url1 = "http://localhost:" + webServerPort + "/";
         final String url2 = "http://localhost:" + webServerPort + "/testing";
         final String url3 = "http://localhost:" + webServerPort + "/testing2";
         final String url4 = "http://localhost:" + webServerPort + "/testing3";
         final String url5 = "http://localhost:" + webServerPort + "/testing4";
+
         final HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest originalRequest) {
                 shouldFilterCalls.incrementAndGet();
@@ -281,8 +287,9 @@ public class HttpFilterTest {
                     }
 
                     @Override
-                    public void proxyToServerConnectionSucceeded() {
+                    public void proxyToServerConnectionSucceeded(ChannelHandlerContext ctx) {
                         proxyToServerConnectionSucceededNanos.set(requestCount.get(), now());
+                        serverCtxReference.set(ctx);
                     }
 
                 };
@@ -402,6 +409,16 @@ public class HttpFilterTest {
 
         assertEquals(403, response4.getStatusLine().getStatusCode());
         assertEquals(403, response5.getStatusLine().getStatusCode());
+
+        assertNotNull("Server channel context from proxyToServerConnectionSucceeded() should not be null", serverCtxReference.get());
+        InetSocketAddress remoteAddress = (InetSocketAddress) serverCtxReference.get().channel().remoteAddress();
+        assertNotNull("Server's remoteAddress from proxyToServerConnectionSucceeded() should not be null", remoteAddress);
+        // make sure we're getting the right remote address (and therefore the right server channel context) in the
+        // proxyToServerConnectionSucceeded() filter method
+        assertEquals("Server's remoteAddress should connect to localhost", "localhost", remoteAddress.getHostName());
+        assertEquals("Server's port should match the web server port", webServerPort, remoteAddress.getPort());
+
+        webServer.stop();
     }
 
     @Test
@@ -762,7 +779,7 @@ public class HttpFilterTest {
         }
 
         @Override
-        public void proxyToServerConnectionSucceeded() {
+        public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
             proxyToServerConnectionSucceeded.set(true);
         }
 

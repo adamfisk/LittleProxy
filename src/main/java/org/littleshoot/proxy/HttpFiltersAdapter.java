@@ -96,6 +96,6 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public void proxyToServerConnectionSucceeded() {
+    public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
     }
 }

@@ -352,13 +352,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             if (newState == HANDSHAKING) {
                 currentFilters.proxyToServerConnectionSSLHandshakeStarted();
             } else if (newState == AWAITING_INITIAL) {
-                currentFilters.proxyToServerConnectionSucceeded();
+                currentFilters.proxyToServerConnectionSucceeded(ctx);
             } else if (newState == DISCONNECTED) {
                 currentFilters.proxyToServerConnectionFailed();
             }
         } else if (getCurrentState() == HANDSHAKING
                 && newState == AWAITING_INITIAL) {
-            currentFilters.proxyToServerConnectionSucceeded();
+            currentFilters.proxyToServerConnectionSucceeded(ctx);
         } else if (getCurrentState() == AWAITING_CHUNK
                 && newState != AWAITING_CHUNK) {
             currentFilters.serverToProxyResponseReceived();
