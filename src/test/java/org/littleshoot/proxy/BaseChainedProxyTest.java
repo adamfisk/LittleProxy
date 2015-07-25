@@ -10,8 +10,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.hamcrest.Matchers.in;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isIn;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
@@ -42,7 +41,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
         public void requestReceivedFromClient(FlowContext flowContext,
                 HttpRequest httpRequest) {
             REQUESTS_RECEIVED_BY_UPSTREAM.incrementAndGet();
-        };
+        }
     };
 
     private HttpProxyServer upstreamProxy;
@@ -124,7 +123,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
                 "1 and only 1 transport protocol should have been used to upstream proxy",
                 1, TRANSPORTS_USED.size());
         assertThat("Correct transport should have been used",
-                newChainedProxy().getTransportProtocol(), is(in(TRANSPORTS_USED)));
+                newChainedProxy().getTransportProtocol(), isIn(TRANSPORTS_USED));
     }
 
     protected class BaseChainedProxy extends ChainedProxyAdapter {
