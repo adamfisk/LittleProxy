@@ -336,7 +336,6 @@
           <skipTests>${skipTests}</skipTests>
           <forkCount>1</forkCount>
           <reuseForks>true</reuseForks>
-            <argLine>-javaagent:pginstrument-0.1.0-shadow.jar -Xbootclasspath/a:pginstrument-0.1.0-shadow.jar -Dpginstrument.outfile=LittleProxy.pro</argLine>
         </configuration>
       </plugin>
 
