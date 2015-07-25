@@ -779,7 +779,7 @@ public class HttpFilterTest {
         }
 
         @Override
-        public void proxyToServerConnectionSucceeded() {
+        public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
             proxyToServerConnectionSucceeded.set(true);
         }
 
