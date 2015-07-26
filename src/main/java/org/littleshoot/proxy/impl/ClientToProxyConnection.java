@@ -585,8 +585,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     protected void serverDisconnected(ProxyToServerConnection serverConnection) {
         numberOfCurrentlyConnectedServers.decrementAndGet();
-        // not disconnecting the client from the proxy, even if this was the last server connection. this allows clients
-        // to continue to use the open connection to the proxy to make future requests.
+
+        // for non-SSL connections, do not disconnect the client from the proxy, even if this was the last server connection.
+        // this allows clients to continue to use the open connection to the proxy to make future requests. for SSL
+        // connections, whether we are tunneling or MITMing, we need to disconnect the client because there is always
+        // exactly one ClientToProxyConnection per ProxyToServerConnection, and vice versa.
+        if (isTunneling() || isMitming()) {
+            disconnect();
+        }
     }
 
     /**
