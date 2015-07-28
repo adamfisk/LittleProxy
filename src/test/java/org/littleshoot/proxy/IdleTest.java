@@ -85,9 +85,9 @@ public class IdleTest {
         double fdDeltaToClosed = fileDescriptorsAfterConnectionsClosed
                 - initialFileDescriptors;
 
-        double fdDeltaRatio = Math.abs(fdDeltaToClosed / fdDeltaToOpen);
+        double fdDeltaRatio = fdDeltaToClosed / fdDeltaToOpen;
         assertThat(
-                "Number of file descriptors after close should be much closer to initial value than number of file descriptors while open (+/- 1%).\n"
+                "Number of file descriptors after close should be much closer to initial value than number of file descriptors while open (+ 1%).\n"
                         + "Initial file descriptors: " + initialFileDescriptors + "; file descriptors while connections open: " + fileDescriptorsWhileConnectionsOpen + "; "
                         + "file descriptors after connections closed: " + fileDescriptorsAfterConnectionsClosed + "\n"
                         + "Ratio of file descriptors after connections are closed to descriptors before connections were closed: " + fdDeltaRatio,
