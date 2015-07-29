@@ -208,26 +208,26 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
         }
         
         // Don't use the cache if the request has cookies -- security violation.
-        if (httpResponse.containsHeader(HttpHeaders.Names.SET_COOKIE)) {
+        if (httpResponse.headers().contains(HttpHeaders.Names.SET_COOKIE)) {
             log.info("Response contains set cookie header");
             return false;
         }
-        if (httpResponse.containsHeader(HttpHeaders.Names.SET_COOKIE2)) {
+        if (httpResponse.headers().contains(HttpHeaders.Names.SET_COOKIE2)) {
             log.info("Response contains set cookie2 header");
             return false;
         }
         
         /*
-        if (httpRequest.containsHeader(HttpHeaders.Names.COOKIE)) {
+        if (httpRequest.headers().contains(HttpHeaders.Names.COOKIE)) {
             log.info("Request contains Cookie header");
             return false;
         }
         */
         
         final List<String> responseControl = 
-            httpResponse.getHeaders(HttpHeaders.Names.CACHE_CONTROL);
+            httpResponse.headers().getAll(HttpHeaders.Names.CACHE_CONTROL);
         final List<String> requestControl =
-            httpRequest.getHeaders(HttpHeaders.Names.CACHE_CONTROL);
+            httpRequest.headers().getAll(HttpHeaders.Names.CACHE_CONTROL);
         final Set<String> cacheControl = new HashSet<String>();
         cacheControl.addAll(requestControl);
         cacheControl.addAll(responseControl);
@@ -261,7 +261,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
         }
         
         final String responsePragma = 
-            httpResponse.getHeader(HttpHeaders.Names.PRAGMA);
+            httpResponse.headers().get(HttpHeaders.Names.PRAGMA);
         if (StringUtils.isNotBlank(responsePragma) &&
             responsePragma.contains(HttpHeaders.Values.NO_CACHE)) {
             log.info("Not caching with response pragma no cache");
@@ -269,7 +269,7 @@ public class DefaultProxyCacheManager implements ProxyCacheManager {
         }
         
         final String requestPragma = 
-            httpRequest.getHeader(HttpHeaders.Names.PRAGMA);
+            httpRequest.headers().get(HttpHeaders.Names.PRAGMA);
         if (StringUtils.isNotBlank(requestPragma) &&
             requestPragma.contains(HttpHeaders.Values.NO_CACHE)) {
             log.info("Not caching with request pragma no cache");

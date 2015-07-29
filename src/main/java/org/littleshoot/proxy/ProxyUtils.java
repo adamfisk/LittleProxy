@@ -165,7 +165,7 @@ public class ProxyUtils {
      * @return The cache URI.
      */
     public static String cacheUri(final HttpRequest httpRequest) {
-        final String host = httpRequest.getHeader(HttpHeaders.Names.HOST);
+        final String host = httpRequest.headers().get(HttpHeaders.Names.HOST);
         final String uri = httpRequest.getUri();
         final String path;
         if (HTTP_PREFIX.matcher(uri).matches()) {
@@ -236,10 +236,10 @@ public class ProxyUtils {
     public static HttpResponse copyMutableResponseFields(
         final HttpResponse original, final HttpResponse copy) {
         
-        final Collection<String> headerNames = original.getHeaderNames();
+        final Collection<String> headerNames = original.headers().names();
         for (final String name : headerNames) {
-            final List<String> values = original.getHeaders(name);
-            copy.setHeader(name, values);
+            final List<String> values = original.headers().getAll(name);
+            copy.headers().set(name, values);
         }
         copy.setContent(original.getContent());
         if (original.isChunked()) {
@@ -295,9 +295,9 @@ public class ProxyUtils {
         final String status = msg.getProtocolVersion().toString();
         LOG.debug(status);
         final StringBuilder sb = new StringBuilder();
-        final Set<String> headerNames = msg.getHeaderNames();
+        final Set<String> headerNames = msg.headers().names();
         for (final String name : headerNames) {
-            final String value = msg.getHeader(name);
+            final String value = msg.headers().get(name);
             sb.append(name);
             sb.append(": ");
             sb.append(value);
@@ -313,7 +313,7 @@ public class ProxyUtils {
      * @param name The name of the header to print.
      */
     public static void printHeader(final HttpMessage msg, final String name) {
-        final String value = msg.getHeader(name);
+        final String value = msg.headers().get(name);
         LOG.debug(name + ": "+value);
     }
     
@@ -387,7 +387,7 @@ public class ProxyUtils {
     }
     
     public static String parseHost(final HttpRequest request) {
-        final String host = request.getHeader(HttpHeaders.Names.HOST);
+        final String host = request.headers().get(HttpHeaders.Names.HOST);
         if (StringUtils.isNotBlank(host)) {
             return host;
         }
@@ -474,11 +474,11 @@ public class ProxyUtils {
         LOG.debug("Request copy method: {}", copy.getMethod());
         copyHeaders(original, copy);
 
-        final String ae = copy.getHeader(HttpHeaders.Names.ACCEPT_ENCODING);
+        final String ae = copy.headers().get(HttpHeaders.Names.ACCEPT_ENCODING);
         if (StringUtils.isNotBlank(ae)) {
             // Remove sdch from encodings we accept since we can't decode it.
             final String noSdch = ae.replace(",sdch", "").replace("sdch", "");
-            copy.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
+            copy.headers().set(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
             LOG.debug("Removed sdch and inserted: {}", noSdch);
         }
         
@@ -487,10 +487,10 @@ public class ProxyUtils {
         // largely undocumented but seems to be what most browsers and servers
         // expect.
         final String proxyConnectionKey = "Proxy-Connection";
-        if (copy.containsHeader(proxyConnectionKey)) {
-            final String header = copy.getHeader(proxyConnectionKey);
-            copy.removeHeader(proxyConnectionKey);
-            copy.setHeader("Connection", header);
+        if (copy.headers().contains(proxyConnectionKey)) {
+            final String header = copy.headers().get(proxyConnectionKey);
+            copy.headers().remove(proxyConnectionKey);
+            copy.headers().set("Connection", header);
         }
         
         ProxyUtils.addVia(copy);
@@ -499,11 +499,11 @@ public class ProxyUtils {
     
     private static void copyHeaders(final HttpMessage original, 
         final HttpMessage copy) {
-        final Set<String> headerNames = original.getHeaderNames();
+        final Set<String> headerNames = original.headers().names();
         for (final String name : headerNames) {
             if (!hopByHopHeaders.contains(name.toLowerCase())) {
-                final List<String> values = original.getHeaders(name);
-                copy.setHeader(name, values);
+                final List<String> values = original.headers().getAll(name);
+                copy.headers().set(name, values);
             }
         }
     }
@@ -515,10 +515,10 @@ public class ProxyUtils {
      * @param msg The message to strip headers from.
      */
     public static void stripHopByHopHeaders(final HttpMessage msg) {
-        final Set<String> headerNames = msg.getHeaderNames();
+        final Set<String> headerNames = msg.headers().names();
         for (final String name : headerNames) {
             if (hopByHopHeaders.contains(name.toLowerCase())) {
-                msg.removeHeader(name);
+                msg.headers().remove(name);
             }
         }
     }
@@ -548,14 +548,14 @@ public class ProxyUtils {
         sb.append(".");
         sb.append(hostName);
         final List<String> vias; 
-        if (msg.containsHeader(HttpHeaders.Names.VIA)) {
-            vias = msg.getHeaders(HttpHeaders.Names.VIA);
+        if (msg.headers().contains(HttpHeaders.Names.VIA)) {
+            vias = msg.headers().getAll(HttpHeaders.Names.VIA);
             vias.add(sb.toString());
         }
         else {
             vias = Arrays.asList(sb.toString());
         }
-        msg.setHeader(HttpHeaders.Names.VIA, vias);
+        msg.headers().set(HttpHeaders.Names.VIA, vias);
     }
     
     /**
@@ -571,12 +571,12 @@ public class ProxyUtils {
 
         Charset headerCharset = CharsetUtil.ISO_8859_1; // Default charset for detection is latin-1
 
-        if (http.getHeader("Content-Type") != null) { // If has Content-Type header, try to detect charset from it
+        if (http.headers().get("Content-Type") != null) { // If has Content-Type header, try to detect charset from it
 
             String header_pattern = "^\\s*?.*?\\s*?charset\\s*?=\\s*?(.*?)$"; // How to find charset in header
 
             Pattern pattern = Pattern.compile(header_pattern, Pattern.CASE_INSENSITIVE); // Set Pattern Matcher to
-            Matcher matcher = pattern.matcher(http.getHeader("Content-Type")); // find charset in header
+            Matcher matcher = pattern.matcher(http.headers().get("Content-Type")); // find charset in header
 
             if (matcher.find()) { // If there is a charset definition
 

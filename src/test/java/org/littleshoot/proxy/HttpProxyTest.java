@@ -424,7 +424,7 @@ public class HttpProxyTest {
             crlf[1] = (byte) lf;
             final ChannelBuffer buf = ChannelBuffers.wrappedBuffer(crlf);
             throw new Error("Did not get expected CRLF!! Instead got hex: "+
-                ChannelBuffers.hexDump(buf)+" and str: "+buf.toString("US-ASCII"));
+                ChannelBuffers.hexDump(buf)+" and str: "+buf.toString(java.nio.charset.Charset.forName("US-ASCII")));
         }
     }
 

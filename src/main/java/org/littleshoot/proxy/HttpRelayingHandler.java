@@ -142,16 +142,16 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
             final HttpResponse response;
             
             // Double check the Transfer-Encoding, since it gets tricky.
-            final String te = hr.getHeader(HttpHeaders.Names.TRANSFER_ENCODING);
+            final String te = hr.headers().get(HttpHeaders.Names.TRANSFER_ENCODING);
             if (StringUtils.isNotBlank(te) && 
                 te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED)) {
                 if (hr.getProtocolVersion() != HttpVersion.HTTP_1_1) {
                     log.warn("Fixing HTTP version.");
                     response = ProxyUtils.copyMutableResponseFields(hr, 
                         new DefaultHttpResponse(HttpVersion.HTTP_1_1, hr.getStatus()));
-                    if (!response.containsHeader(HttpHeaders.Names.TRANSFER_ENCODING)) {
+                    if (!response.headers().contains(HttpHeaders.Names.TRANSFER_ENCODING)) {
                         log.debug("Adding chunked encoding header");
-                        response.addHeader(HttpHeaders.Names.TRANSFER_ENCODING, 
+                        response.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, 
                             HttpHeaders.Values.CHUNKED);
                     }
                 }
@@ -340,11 +340,11 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
     }
     
     private boolean closeEndsResponseBody(final HttpResponse res) {
-        final String cl = res.getHeader(HttpHeaders.Names.CONTENT_LENGTH);
+        final String cl = res.headers().get(HttpHeaders.Names.CONTENT_LENGTH);
         if (StringUtils.isNotBlank(cl)) {
             return false;
         }
-        final String te = res.getHeader(HttpHeaders.Names.TRANSFER_ENCODING);
+        final String te = res.headers().get(HttpHeaders.Names.TRANSFER_ENCODING);
         if (StringUtils.isNotBlank(te) && 
             te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED))  {
             return false;
@@ -386,13 +386,13 @@ public class HttpRelayingHandler extends SimpleChannelUpstreamHandler
         // Switch the de-facto standard "Proxy-Connection" header to 
         // "Connection" when we pass it along to the remote host.
         final String proxyConnectionKey = "Proxy-Connection";
-        if (req.containsHeader(proxyConnectionKey)) {
-            final String header = req.getHeader(proxyConnectionKey);
-            req.removeHeader(proxyConnectionKey);
+        if (req.headers().contains(proxyConnectionKey)) {
+            final String header = req.headers().get(proxyConnectionKey);
+            req.headers().remove(proxyConnectionKey);
             if (req.getProtocolVersion() == HttpVersion.HTTP_1_1) {
                 log.debug("Switching Proxy-Connection to Connection for " +
                     "analyzing request for close");
-                req.setHeader("Connection", header);
+                req.headers().set("Connection", header);
             }
         }
         

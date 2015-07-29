@@ -85,7 +85,7 @@ public class RegexHttpRequestFilter implements HttpRequestFilter {
     
     public void filter(final HttpRequest httpRequest) {
         if (filterHosts) {
-            final List<String> hosts = httpRequest.getHeaders("Host");
+            final List<String> hosts = httpRequest.headers().getAll("Host");
             if (hosts != null) {
                 if (!hosts.isEmpty()) {
                     final String host = hosts.get(0);

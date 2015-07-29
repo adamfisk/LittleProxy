@@ -38,7 +38,7 @@ public class IdleRequestHandler extends IdleAwareHandler {
             for (HttpRequest unansweredRequest : unansweredHttpRequests) {
                 // Go through each unanswered request and concat the info
                 message.append(unansweredRequest.getUri());
-                String referrer = unansweredRequest.getHeader("Referer");
+                String referrer = unansweredRequest.headers().get("Referer");
                 if (!StringUtils.isBlank(referrer)) {
                     // Capture the referrer so that slow resources can be tracked
                     // to a page

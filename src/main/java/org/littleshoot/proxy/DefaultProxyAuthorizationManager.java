@@ -32,7 +32,7 @@ public class DefaultProxyAuthorizationManager implements
 
     public boolean handleProxyAuthorization(final HttpRequest request,
         final ChannelHandlerContext ctx) {
-        if (!request.containsHeader(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
+        if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
             if (!handlers.isEmpty()) {
                 rejectRequest(ctx);
                 return false;
@@ -41,7 +41,7 @@ public class DefaultProxyAuthorizationManager implements
         }
         
         final List<String> values = 
-            request.getHeaders(HttpHeaders.Names.PROXY_AUTHORIZATION);
+            request.headers().getAll(HttpHeaders.Names.PROXY_AUTHORIZATION);
         final String fullValue = values.iterator().next();
         final String value =
             StringUtils.substringAfter(fullValue, "Basic ").trim();
@@ -64,9 +64,9 @@ public class DefaultProxyAuthorizationManager implements
         log.info("Got proxy authorization!");
         // We need to remove the header before sending the request on.
         final String authentication = 
-            request.getHeader(HttpHeaders.Names.PROXY_AUTHORIZATION);
+            request.headers().get(HttpHeaders.Names.PROXY_AUTHORIZATION);
         log.info(authentication);
-        request.removeHeader(HttpHeaders.Names.PROXY_AUTHORIZATION);
+        request.headers().remove(HttpHeaders.Names.PROXY_AUTHORIZATION);
         return true;
     }
 

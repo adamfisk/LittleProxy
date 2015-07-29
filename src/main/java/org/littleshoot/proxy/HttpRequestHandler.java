@@ -388,7 +388,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
             hostAndPort = ProxyUtils.parseHostAndPort(request);
             if (StringUtils.isBlank(hostAndPort)) {
                 final List<String> hosts = 
-                    request.getHeaders(HttpHeaders.Names.HOST);
+                    request.headers().getAll(HttpHeaders.Names.HOST);
                 if (hosts != null && !hosts.isEmpty()) {
                     hostAndPort = hosts.get(0);
                 } else {
@@ -550,11 +550,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler
         final HttpResponse response = 
             new DefaultHttpResponse(HttpVersion.HTTP_1_1, 
                 HttpResponseStatus.BAD_GATEWAY);
-        response.setHeader(HttpHeaders.Names.CONNECTION, "close");
+        response.headers().set(HttpHeaders.Names.CONNECTION, "close");
         final String body = "Bad Gateway: "+request.getUri();
         response.setContent(ChannelBuffers.copiedBuffer(body, 
             Charset.forName("UTF-8")));
-        response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, body.length());
+        response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, body.length());
         inboundChannel.write(response);
     }
 

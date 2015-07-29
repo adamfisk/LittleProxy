@@ -38,7 +38,7 @@ public class DefaultProxyCacheManagerTest {
                 "http://www.littleshoot.org");
         final HttpResponse httpResponse = 
             new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        httpResponse.setHeader(HttpHeaders.Names.CACHE_CONTROL, HttpHeaders.Values.PUBLIC);
+        httpResponse.headers().set(HttpHeaders.Names.CACHE_CONTROL, HttpHeaders.Values.PUBLIC);
         final class PubEncoder extends HttpResponseEncoder {
             public Object pubEncode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
                 return encode(ctx, channel, msg);
