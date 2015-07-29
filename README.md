@@ -116,6 +116,11 @@ public class AnswerRequestFilter extends HttpFiltersAdapter {
 	}
 }
 ```
+On answering a redirect, you should add a Connection: close header, to avoid 
+blocking behavior:
+```java
+		HttpHeaders.setHeader(response, Names.CONNECTION, Values.CLOSE);
+```
 With this trick, you can implement an UI to your application very easy.
 
 If you want to create additional proxy servers with similar configuration but
