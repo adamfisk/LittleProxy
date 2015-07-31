@@ -120,7 +120,7 @@ public abstract class AbstractProxyTest {
         } finally {
             try {
                 if (this.proxyServer != null) {
-                    this.proxyServer.stop();
+                    this.proxyServer.abort();
                 }
             } finally {
                 if (this.webServer != null) {

@@ -84,7 +84,7 @@ public class EndToEndStoppingTest {
         driver.close();
         System.out.println("Driver closed");
 
-        proxyServer.stop();
+        proxyServer.abort();
         System.out.println("Proxy stopped");
     }
 
@@ -159,7 +159,7 @@ public class EndToEndStoppingTest {
             log.info("Stopping proxy");
         } finally {
             if (proxy != null) {
-                proxy.stop();
+                proxy.abort();
             }
         }
     }
@@ -192,7 +192,7 @@ public class EndToEndStoppingTest {
         assertThat(source.length(), greaterThan(100));
         driver.close();
 
-        proxyServer.stop();
+        proxyServer.abort();
     }
 
 }

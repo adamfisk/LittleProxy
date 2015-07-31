@@ -19,11 +19,6 @@
             <param value="%-6r %d{ISO8601} %-5p [%t] %c{2} (%F:%L).%M() - %m%n" name="ConversionPattern"/>
         </layout>
     </appender>
-    <appender name="ASYNC" class="org.apache.log4j.AsyncAppender">
-    	<param name="BufferSize" value="500"/>
-    	<appender-ref ref="TextFile"/>
-        <appender-ref ref="stdout"/>
-    </appender>
     <logger name="org.eclipse.jetty">
         <level value="off"/>
     </logger>
@@ -31,7 +26,8 @@
         <level value="info"/>
     </logger>
     <root>
-        <level value="warn"/>
-        <appender-ref ref="ASYNC"/>
+        <level value="INFO"/>
+        <appender-ref ref="TextFile"/>
+        <appender-ref ref="stdout"/>
     </root>
 </log4j:configuration>

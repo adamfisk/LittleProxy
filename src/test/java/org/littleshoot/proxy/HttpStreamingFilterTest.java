@@ -67,7 +67,7 @@ public class HttpStreamingFilterTest {
     public void tearDown() throws Exception {
         try {
             if (proxyServer != null) {
-                proxyServer.stop();
+                proxyServer.abort();
             }
         } finally {
             if (webServer != null) {
