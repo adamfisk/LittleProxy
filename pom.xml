@@ -172,14 +172,6 @@
             <optional>true</optional>
         </dependency>
 
-        <!--
-            <dependency>
-              <groupId>net.sf.ehcache</groupId>
-              <artifactId>ehcache-core</artifactId>
-              <version>2.2.0</version>
-            </dependency>
-        -->
-
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
@@ -248,15 +240,6 @@
     </prerequisites>
 
     <build>
-        <!--
-            <extensions>
-              <extension>
-                <groupId>org.apache.maven.wagon</groupId>
-                <artifactId>wagon-ssh-external</artifactId>
-                <version>1.0-beta-6</version>
-              </extension>
-            </extensions>
-        -->
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -337,26 +320,6 @@
                 </configuration>
             </plugin>
 
-            <!-- Disabling for now, since this is not being actively used to generate gh-pages -->
-            <!--<plugin>
-              <groupId>com.github.github</groupId>
-              <artifactId>site-maven-plugin</artifactId>
-              <version>0.11</version>
-              <configuration>
-                <message>Building site for ${project.version}</message>
-                <repositoryName>LittleProxy</repositoryName>
-                <repositoryOwner>adamfisk</repositoryOwner>
-              </configuration>
-              <executions>
-                <execution>
-                  <goals>
-                    <goal>site</goal>
-                  </goals>
-                  <phase>site</phase>
-                </execution>
-              </executions>
-            </plugin>-->
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -417,21 +380,6 @@
                     </execution>
                 </executions>
             </plugin>
-
-            <!--
-                  <plugin>
-                    <groupId>org.apache.felix</groupId>
-                    <artifactId>maven-bundle-plugin</artifactId>
-                    <version>2.3.7</version>
-                    <extensions>true</extensions>
-                    <configuration>
-                      <instructions>
-                        <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
-                        <Export-Package>org.littleshoot.proxy</Export-Package>
-                      </instructions>
-                    </configuration>
-                  </plugin>
-            -->
         </plugins>
     </build>
 
@@ -568,27 +516,6 @@
                     </tags>
                 </configuration>
             </plugin>
-
-            <!-- SCM activity report -->
-            <!--
-                  <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>changelog-maven-plugin</artifactId>
-                    <reportSets>
-                      <reportSet>
-                        <id>dual-report</id>
-                        <configuration>
-                          <type>range</type>
-                          <range>30</range>
-                        </configuration>
-                        <reports>
-                          <report>changelog</report>
-                          <report>file-activity</report>
-                        </reports>
-                      </reportSet>
-                    </reportSets>
-                  </plugin>
-            -->
         </plugins>
     </reporting>
 
