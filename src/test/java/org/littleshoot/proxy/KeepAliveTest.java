@@ -9,7 +9,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.littleshoot.proxy.test.SocketClientUtil;
@@ -19,6 +18,7 @@ import org.mockserver.model.ConnectionOptions;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.containsString;
@@ -144,8 +144,9 @@ public class KeepAliveTest {
             String response = SocketClientUtil.readStringFromSocket(socket);
 
             assertThat("Expected to receive an HTTP 200 from the server (iteration: " + i + ")", response, startsWith("HTTP/1.1 200 OK"));
-            // the proxy will set the Transfer-Encoding to chunked since the server is using connection closure to indicate the end of the message
-            assertThat("Expected proxy to set Transfer-Encoding to chunked", response, containsString("Transfer-Encoding: chunked"));
+            // the proxy will set the Transfer-Encoding to chunked since the server is using connection closure to indicate the end of the message.
+            // (matching capitalized or lowercase Transfer-Encoding, since Netty 4.1+ uses lowercase header names)
+            assertThat("Expected proxy to set Transfer-Encoding to chunked", response.toLowerCase(Locale.US), containsString("transfer-encoding: chunked"));
             // the Transfer-Encoding is chunked, so the body text will be followed by a 0 and 2 CRLFs
             assertThat("Unexpected message body (iteration: " + i + ")", response, containsString("success"));
         }
