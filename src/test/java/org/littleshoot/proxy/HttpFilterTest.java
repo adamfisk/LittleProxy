@@ -448,6 +448,7 @@ public class HttpFilterTest {
         setUpHttpProxyServer(filtersSource);
 
         getResponse("http://localhost:" + webServerPort + "/");
+        Thread.sleep(500);
 
         assertTrue("proxyToServerResolutionSucceeded method was not called", resolutionSucceeded.get());
     }
@@ -473,6 +474,7 @@ public class HttpFilterTest {
                 .start();
 
         getResponse("http://www.doesnotexist/some-resource");
+        Thread.sleep(500);
 
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
         // other filters were invoked/not invoked as expected
@@ -512,6 +514,7 @@ public class HttpFilterTest {
 
         // port 0 is not connectable
         getResponse("http://localhost:0/some-resource");
+        Thread.sleep(500);
 
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
         // other filters were invoked/not invoked as expected
@@ -704,6 +707,8 @@ public class HttpFilterTest {
         org.apache.http.HttpResponse httpResponse = getResponse("http://localhost:" + mockServerPort + "/servertimeout");
         assertEquals("Expected to receive an HTTP 504 Gateway Timeout from proxy", 504, httpResponse.getStatusLine().getStatusCode());
 
+        Thread.sleep(500);
+        
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
         // other filters were invoked/not invoked as expected
         assertTrue("Expected filter method to be called", filter.isServerToProxyResponseTimedOutInvoked());
@@ -763,6 +768,7 @@ public class HttpFilterTest {
 
         // test with a POST request with a payload. post a large amount of data, to force chunked content.
         postToServer("http://localhost:" + webServerPort + "/", 50000);
+        Thread.sleep(500);
 
         assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for chunked POST", lastHttpContentProcessed.get());
         assertTrue("proxyToServerRequestSent callback was not invoked for chunked POST", requestSentCallbackInvoked.get());
