@@ -16,8 +16,6 @@ import org.junit.Assert;
  * connection.
  */
 public class ChainedProxyWithFallbackTest extends BaseProxyTest {
-    private static final int DOWNSTREAM_PROXY_PORT = 49999;
-
     private AtomicBoolean unableToConnect = new AtomicBoolean(false);
 
     @Override
@@ -34,9 +32,8 @@ public class ChainedProxyWithFallbackTest extends BaseProxyTest {
                             @Override
                             public InetSocketAddress getChainedProxyAddress() {
                                 try {
-                                    return new InetSocketAddress(InetAddress
-                                            .getByName("127.0.0.1"),
-                                            DOWNSTREAM_PROXY_PORT);
+                                    // using unconnectable port 0
+                                    return new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0);
                                 } catch (UnknownHostException uhe) {
                                     throw new RuntimeException(
                                             "Unable to resolve 127.0.0.1?!");
