@@ -189,9 +189,11 @@ class ConnectionFlow {
                                     serverConnection,
                                     lastStateBeforeFailure,
                                     cause)) {
-                                // We are not retrying our connection, let
-                                // anyone waiting for a
-                                // connection know that we're done
+                                // the connection to the server failed and we are not retrying, so transition to the
+                                // DISCONNECTED state
+                                serverConnection.become(ConnectionState.DISCONNECTED);
+
+                                // We are not retrying our connection, let anyone waiting for a connection know that we're done
                                 notifyThreadsWaitingForConnection();
                             }
                         }

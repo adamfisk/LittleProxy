@@ -356,9 +356,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             } else if (newState == DISCONNECTED) {
                 currentFilters.proxyToServerConnectionFailed();
             }
-        } else if (getCurrentState() == HANDSHAKING
-                && newState == AWAITING_INITIAL) {
-            currentFilters.proxyToServerConnectionSucceeded(ctx);
+        } else if (getCurrentState() == HANDSHAKING) {
+            if (newState == AWAITING_INITIAL) {
+                currentFilters.proxyToServerConnectionSucceeded(ctx);
+            } else if (newState == DISCONNECTED) {
+                currentFilters.proxyToServerConnectionFailed();
+            }
         } else if (getCurrentState() == AWAITING_CHUNK
                 && newState != AWAITING_CHUNK) {
             currentFilters.serverToProxyResponseReceived();
@@ -729,8 +732,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.connectAndWrite(initialRequest);
             return true; // yes, we fell back
         } else {
-            // nothing to fall back to. connection failed, so transition from "CONNECTING" to "DISCONNECTED".
-            become(DISCONNECTED);
+            // nothing to fall back to.
             return false;
         }
     }
@@ -945,4 +947,5 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
     };
+
 }
