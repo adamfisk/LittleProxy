@@ -225,7 +225,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // Requesting the proxy directly must be answered elsewhere it causes an
         // endless loop
         //
-        if (clientToProxyFilterResponse == null && isProxyRequested()) {
+        if (clientToProxyFilterResponse == null && isRequestToOriginServer()) {
             clientToProxyFilterResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
                     HttpResponseStatus.BAD_REQUEST);
         }
@@ -338,7 +338,16 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
-    private boolean isProxyRequested() {
+    /**
+     * RFC 7230 section 5.7 "Message Forwarding" states:
+     * 
+     * An intermediary MUST NOT forward a message to itself unless it is
+     * protected from an infinite request loop. In general, an intermediary
+     * ought to recognize its own server names, including any aliases, local
+     * variations, or literal IP addresses, and respond to such requests
+     * directly.
+     */
+    private boolean isRequestToOriginServer() {
         // HTTPS requests have uri without http scheme too
         if (currentRequest.getMethod() == HttpMethod.CONNECT || sslEngine != null) {
             return false;
