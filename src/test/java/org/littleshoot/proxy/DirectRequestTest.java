@@ -52,17 +52,7 @@ public class DirectRequestTest {
     @Test(timeout = 5000)
     public void testAnswerBadRequestInsteadOfEndlessLoop() throws Exception {
 
-        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
-            @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
-                return new HttpFiltersAdapter(originalRequest);
-            }
-        };
-
-        proxyServer = DefaultHttpProxyServer.bootstrap()//
-                .withPort(0)//
-                .withFiltersSource(filtersSource)//
-                .start();
+        startProxyServer();
 
         int proxyPort = proxyServer.getListenAddress().getPort();
         org.apache.http.HttpResponse response = getResponse("http://127.0.0.1:" + proxyPort + "/directToProxy");
@@ -74,22 +64,7 @@ public class DirectRequestTest {
     @Test(timeout = 5000)
     public void testAnswerFromFilterShouldBeServed() throws Exception {
 
-        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
-            @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
-                return new HttpFiltersAdapter(originalRequest) {
-                    @Override
-                    public HttpResponse clientToProxyRequest(HttpObject httpObject) {
-                        return new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(403));
-                    }
-                };
-            }
-        };
-
-        proxyServer = DefaultHttpProxyServer.bootstrap()//
-                .withPort(0)//
-                .withFiltersSource(filtersSource)//
-                .start();
+        startProxyServerWithFilterAnsweringStatusCode(403);
 
         int proxyPort = proxyServer.getListenAddress().getPort();
         org.apache.http.HttpResponse response = getResponse("http://localhost:" + proxyPort + "/directToProxy");
@@ -98,16 +73,15 @@ public class DirectRequestTest {
         assertEquals("Expected to receive an HTTP 403 from the server", 403, statusCode);
     }
 
-    @Test(timeout = 5000, expected = SSLException.class)
-    public void testHttpsShouldCancelConnection() throws Exception {
-
+    private void startProxyServerWithFilterAnsweringStatusCode(int statusCode) {
+        final HttpResponseStatus status = HttpResponseStatus.valueOf(statusCode);
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
             @Override
             public HttpFilters filterRequest(HttpRequest originalRequest) {
                 return new HttpFiltersAdapter(originalRequest) {
                     @Override
                     public HttpResponse clientToProxyRequest(HttpObject httpObject) {
-                        return new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(403));
+                        return new DefaultHttpResponse(HttpVersion.HTTP_1_1, status);
                     }
                 };
             }
@@ -117,9 +91,21 @@ public class DirectRequestTest {
                 .withPort(0)//
                 .withFiltersSource(filtersSource)//
                 .start();
+    }
+
+    @Test(timeout = 5000, expected = SSLException.class)
+    public void testHttpsShouldCancelConnection() throws Exception {
+
+        startProxyServer();
 
         int proxyPort = proxyServer.getListenAddress().getPort();
         getResponse("https://localhost:" + proxyPort + "/directToProxy");
+    }
+
+    private void startProxyServer() {
+        proxyServer = DefaultHttpProxyServer.bootstrap()//
+                .withPort(0)//
+                .start();
     }
 
     private DefaultHttpClient buildHttpClient() throws Exception {
