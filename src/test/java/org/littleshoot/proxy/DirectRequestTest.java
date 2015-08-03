@@ -9,19 +9,12 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 
 import java.io.IOException;
-import java.security.cert.X509Certificate;
 
 import javax.net.ssl.SSLException;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.conn.ssl.X509HostnameVerifier;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.junit.After;
@@ -108,35 +101,21 @@ public class DirectRequestTest {
                 .start();
     }
 
-    private DefaultHttpClient buildHttpClient() throws Exception {
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        SSLSocketFactory sf = new SSLSocketFactory(new TrustSelfSignedStrategy(), new X509HostnameVerifier() {
-            public boolean verify(String arg0, SSLSession arg1) {
-                return true;
-            }
-
-            public void verify(String host, String[] cns, String[] subjectAlts) throws SSLException {
-            }
-
-            public void verify(String host, X509Certificate cert) throws SSLException {
-            }
-
-            public void verify(String host, SSLSocket ssl) throws IOException {
-            }
-        });
-        Scheme scheme = new Scheme("https", 443, sf);
-        httpClient.getConnectionManager().getSchemeRegistry().register(scheme);
-        return httpClient;
-    }
-
+    // FIXME this was copied from
+    // org.littleshoot.proxy.HttpFilterTest.getResponse(String), but using
+    // another client here
     private org.apache.http.HttpResponse getResponse(final String url) throws Exception {
-        final DefaultHttpClient http = buildHttpClient();
+        final DefaultHttpClient http = TestUtils.buildHttpClient();
 
         final HttpGet get = new HttpGet(url);
 
         return getHttpResponse(http, get);
     }
 
+    // FIXME duplicated code, see:
+    // org.littleshoot.proxy.HttpFilterTest.getHttpResponse(DefaultHttpClient,
+    // HttpUriRequest)
+    //
     private org.apache.http.HttpResponse getHttpResponse(DefaultHttpClient httpClient, HttpUriRequest get)
             throws IOException {
         final org.apache.http.HttpResponse hr = httpClient.execute(get);
