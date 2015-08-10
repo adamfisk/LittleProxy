@@ -23,10 +23,12 @@ import org.eclipse.jetty.server.Server;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 
+import javax.net.ssl.SSLEngine;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -446,6 +448,7 @@ public class HttpFilterTest {
         setUpHttpProxyServer(filtersSource);
 
         getResponse("http://localhost:" + webServerPort + "/");
+        Thread.sleep(500);
 
         assertTrue("proxyToServerResolutionSucceeded method was not called", resolutionSucceeded.get());
     }
@@ -471,6 +474,7 @@ public class HttpFilterTest {
                 .start();
 
         getResponse("http://www.doesnotexist/some-resource");
+        Thread.sleep(500);
 
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
         // other filters were invoked/not invoked as expected
@@ -510,6 +514,7 @@ public class HttpFilterTest {
 
         // port 0 is not connectable
         getResponse("http://localhost:0/some-resource");
+        Thread.sleep(500);
 
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
         // other filters were invoked/not invoked as expected
@@ -528,6 +533,144 @@ public class HttpFilterTest {
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSendingInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSentInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionFailedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivingInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseTimedOutInvoked());
+    }
+
+    /**
+     * Verifies the proper filters are invoked when an attempt to connect to an unencrypted upstream chained proxy fails.
+     */
+    @Test
+    public void testFiltersAfterUnencryptedConnectionToUpstreamProxyFails() throws Exception {
+        final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
+
+        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                return filter;
+            }
+        };
+
+        // set up the proxy that the HTTP client will connect to
+        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .withFiltersSource(filtersSource)
+                .withChainProxyManager(new ChainedProxyManager() {
+                    @Override
+                    public void lookupChainedProxies(HttpRequest httpRequest, Queue<ChainedProxy> chainedProxies) {
+                        chainedProxies.add(new ChainedProxyAdapter() {
+                            @Override
+                            public InetSocketAddress getChainedProxyAddress() {
+                                // port 0 is unconnectable
+                                return new InetSocketAddress("127.0.0.1", 0);
+                            }
+                        });
+                    }
+                })
+                .start();
+
+        // the server doesn't have to exist, since the connection to the chained proxy will fail
+        getResponse("http://localhost:1234/some-resource");
+        Thread.sleep(500);
+
+        // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
+        // other filters were invoked/not invoked as expected
+        assertFalse("proxyToServerConnectionSucceeded should not be called when connection to chained proxy fails", filter.isProxyToServerConnectionSucceededInvoked());
+        assertTrue("proxyToServerConnectionFailed should be called when connection to chained proxy fails", filter.isProxyToServerConnectionFailedInvoked());
+
+        assertTrue("Expected filter method to be called", filter.isClientToProxyRequestInvoked());
+        // proxyToServerRequest is invoked before the connection is made, so it should be hit
+        assertTrue("Expected filter method to be called", filter.isProxyToServerRequestInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionQueuedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionStartedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToClientResponseInvoked());
+
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionStartedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionSucceededInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSendingInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSentInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionFailedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivingInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseTimedOutInvoked());
+    }
+
+    /**
+     * Verifies the proper filters are invoked when an attempt to connect to an upstream chained proxy over SSL fails.
+     * (The proxyToServerConnectionFailed() filter method is particularly important.)
+     */
+    @Test
+    public void testFiltersAfterSSLConnectionToUpstreamProxyFails() throws Exception {
+        // create an upstream chained proxy using the same SSL engine as the chained proxy tests
+        final HttpProxyServer chainedProxy = DefaultHttpProxyServer.bootstrap()
+                .withName("ChainedProxy")
+                .withPort(0)
+                .withSslEngineSource(new SelfSignedSslEngineSource("chain_proxy_keystore_1.jks"))
+                .start();
+
+        final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
+
+        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                return filter;
+            }
+        };
+
+        // set up the proxy that the HTTP client will connect to
+        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+                .withPort(0)
+                .withFiltersSource(filtersSource)
+                .withChainProxyManager(new ChainedProxyManager() {
+                    @Override
+                    public void lookupChainedProxies(HttpRequest httpRequest, Queue<ChainedProxy> chainedProxies) {
+                        chainedProxies.add(new ChainedProxyAdapter() {
+                            @Override
+                            public InetSocketAddress getChainedProxyAddress() {
+                                return chainedProxy.getListenAddress();
+                            }
+
+                            @Override
+                            public boolean requiresEncryption() {
+                                return true;
+                            }
+
+                            @Override
+                            public SSLEngine newSslEngine() {
+                                // use the same "bad" keystore as BadServerAuthenticationTCPChainedProxyTest
+                                return new SelfSignedSslEngineSource("chain_proxy_keystore_2.jks").newSslEngine();
+                            }
+                        });
+                    }
+                })
+                .start();
+
+        // the server doesn't have to exist, since the connection to the chained proxy will fail
+        getResponse("http://localhost:1234/some-resource");
+        Thread.sleep(500);
+
+        // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
+        // other filters were invoked/not invoked as expected
+        assertFalse("proxyToServerConnectionSucceeded should not be called when connection to chained proxy fails", filter.isProxyToServerConnectionSucceededInvoked());
+        assertTrue("proxyToServerConnectionFailed should be called when connection to chained proxy fails", filter.isProxyToServerConnectionFailedInvoked());
+
+        assertTrue("Expected filter method to be called", filter.isClientToProxyRequestInvoked());
+        // proxyToServerRequest is invoked before the connection is made, so it should be hit
+        assertTrue("Expected filter method to be called", filter.isProxyToServerRequestInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionQueuedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionStartedInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToClientResponseInvoked());
+        assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
+
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionStartedInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionSucceededInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSendingInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSentInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionFailedInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseReceivingInvoked());
         assertFalse("Expected filter method to not be called", filter.isServerToProxyResponseInvoked());
@@ -564,6 +707,8 @@ public class HttpFilterTest {
         org.apache.http.HttpResponse httpResponse = getResponse("http://localhost:" + mockServerPort + "/servertimeout");
         assertEquals("Expected to receive an HTTP 504 Gateway Timeout from proxy", 504, httpResponse.getStatusLine().getStatusCode());
 
+        Thread.sleep(500);
+        
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
         // other filters were invoked/not invoked as expected
         assertTrue("Expected filter method to be called", filter.isServerToProxyResponseTimedOutInvoked());
@@ -623,6 +768,7 @@ public class HttpFilterTest {
 
         // test with a POST request with a payload. post a large amount of data, to force chunked content.
         postToServer("http://localhost:" + webServerPort + "/", 50000);
+        Thread.sleep(500);
 
         assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for chunked POST", lastHttpContentProcessed.get());
         assertTrue("proxyToServerRequestSent callback was not invoked for chunked POST", requestSentCallbackInvoked.get());
