@@ -186,7 +186,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         this.currentFilters = initialFilters;
 
         // Report connection status to HttpFilters
-        this.currentFilters.proxyToServerConnectionQueued();
+        if (currentFilters != null) {
+            currentFilters.proxyToServerConnectionQueued();
+        }
 
         setupConnectionParameters();
     }
@@ -211,7 +213,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected ConnectionState readHTTPInitial(HttpResponse httpResponse) {
         LOG.debug("Received raw response: {}", httpResponse);
 
-        currentFilters.serverToProxyResponseReceiving();
+        if (currentFilters != null) {
+            currentFilters.serverToProxyResponseReceiving();
+        }
 
         rememberCurrentResponse(httpResponse);
         respondWith(httpResponse);
@@ -219,7 +223,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         if (ProxyUtils.isChunked(httpResponse)) {
             return AWAITING_CHUNK;
         } else {
-            currentFilters.serverToProxyResponseReceived();
+            if (currentFilters != null) {
+                currentFilters.serverToProxyResponseReceived();
+            }
             return AWAITING_INITIAL;
         }
     }
@@ -346,25 +352,27 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void become(ConnectionState newState) {
         // Report connection status to HttpFilters
-        if (getCurrentState() == DISCONNECTED && newState == CONNECTING) {
-            currentFilters.proxyToServerConnectionStarted();
-        } else if (getCurrentState() == CONNECTING) {
-            if (newState == HANDSHAKING) {
-                currentFilters.proxyToServerConnectionSSLHandshakeStarted();
-            } else if (newState == AWAITING_INITIAL) {
-                currentFilters.proxyToServerConnectionSucceeded(ctx);
-            } else if (newState == DISCONNECTED) {
-                currentFilters.proxyToServerConnectionFailed();
+        if (currentFilters != null) {
+            if (getCurrentState() == DISCONNECTED && newState == CONNECTING) {
+                currentFilters.proxyToServerConnectionStarted();
+            } else if (getCurrentState() == CONNECTING) {
+                if (newState == HANDSHAKING) {
+                    currentFilters.proxyToServerConnectionSSLHandshakeStarted();
+                } else if (newState == AWAITING_INITIAL) {
+                    currentFilters.proxyToServerConnectionSucceeded(ctx);
+                } else if (newState == DISCONNECTED) {
+                    currentFilters.proxyToServerConnectionFailed();
+                }
+            } else if (getCurrentState() == HANDSHAKING) {
+                if (newState == AWAITING_INITIAL) {
+                    currentFilters.proxyToServerConnectionSucceeded(ctx);
+                } else if (newState == DISCONNECTED) {
+                    currentFilters.proxyToServerConnectionFailed();
+                }
+            } else if (getCurrentState() == AWAITING_CHUNK
+                    && newState != AWAITING_CHUNK) {
+                currentFilters.serverToProxyResponseReceived();
             }
-        } else if (getCurrentState() == HANDSHAKING) {
-            if (newState == AWAITING_INITIAL) {
-                currentFilters.proxyToServerConnectionSucceeded(ctx);
-            } else if (newState == DISCONNECTED) {
-                currentFilters.proxyToServerConnectionFailed();
-            }
-        } else if (getCurrentState() == AWAITING_CHUNK
-                && newState != AWAITING_CHUNK) {
-            currentFilters.serverToProxyResponseReceived();
         }
 
         super.become(newState);
@@ -753,7 +761,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.transportProtocol = TransportProtocol.TCP;
 
             // Report DNS resolution to HttpFilters
-            this.remoteAddress = this.currentFilters.proxyToServerResolutionStarted(serverHostAndPort);
+            if (this.currentFilters != null) {
+                this.remoteAddress = this.currentFilters.proxyToServerResolutionStarted(serverHostAndPort);
+            }
 
             // save the hostname and port of the unresolved address in hostAndPort, in case name resolution fails
             String hostAndPort = null;
@@ -770,12 +780,17 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             } catch (UnknownHostException e) {
                 // unable to resolve the hostname to an IP address. notify the filters of the failure before allowing the
                 // exception to bubble up.
-                this.currentFilters.proxyToServerResolutionFailed(hostAndPort);
+                if (this.currentFilters != null) {
+                    this.currentFilters.proxyToServerResolutionFailed(hostAndPort);
+                }
+
                 throw e;
             }
 
-            this.currentFilters.proxyToServerResolutionSucceeded(
-                    serverHostAndPort, this.remoteAddress);
+            if (this.currentFilters != null) {
+                this.currentFilters.proxyToServerResolutionSucceeded(serverHostAndPort, this.remoteAddress);
+            }
+
 
             this.localAddress = proxyServer.getLocalAddress();
         }
@@ -933,7 +948,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 LOG.warn("Error while invoking ActivityTracker on request", t);
             }
 
-            currentFilters.proxyToServerRequestSending();
+            if (currentFilters != null) {
+                currentFilters.proxyToServerRequestSending();
+            }
         }
 
         @Override
@@ -943,7 +960,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         @Override
         protected void contentWritten(HttpContent httpContent) {
             if (httpContent instanceof LastHttpContent) {
-                currentFilters.proxyToServerRequestSent();
+                if (currentFilters != null) {
+                    currentFilters.proxyToServerRequestSent();
+                }
             }
         }
     };

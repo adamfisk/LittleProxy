@@ -784,6 +784,35 @@ public class HttpFilterTest {
         assertTrue("proxyToServerRequestSent callback was not invoked for GET", requestSentCallbackInvoked.get());
     }
 
+    /**
+     * Verifies that the proxy properly handles a null HttpFilters instance, as allowed in the
+     * {@link HttpFiltersSource#filterRequest(HttpRequest, ChannelHandlerContext)} documentation.
+     */
+    @Test
+    public void testNullHttpFilterSource() throws Exception {
+        mockServer.when(request()
+                        .withMethod("GET")
+                        .withPath("/testNullHttpFilterSource"),
+                Times.exactly(1))
+                .respond(response()
+                        .withStatusCode(200)
+                        .withBody("success"));
+
+        HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Override
+            public HttpFilters filterRequest(HttpRequest originalRequest) {
+                return null;
+            }
+        };
+
+        setUpHttpProxyServer(filtersSource);
+
+        org.apache.http.HttpResponse httpResponse = getResponse("http://localhost:" + mockServerPort + "/testNullHttpFilterSource");
+        Thread.sleep(500);
+
+        assertEquals("Expected to receive an HTTP 200 from proxy", 200, httpResponse.getStatusLine().getStatusCode());
+    }
+
     private DefaultHttpClient getDefaultHttpClient() {
         DefaultHttpClient httpClient = new DefaultHttpClient();
         HttpHost proxy = new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort(), "http");
