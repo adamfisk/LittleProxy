@@ -28,6 +28,7 @@ import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.FlowContext;
 import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.HttpFiltersAdapter;
 import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.SslEngineSource;
 
@@ -122,7 +123,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * The current filters to apply to incoming requests/chunks.
      */
-    private volatile HttpFilters currentFilters;
+    private volatile HttpFilters currentFilters = new HttpFiltersAdapter(null);
 
     private volatile SSLSession clientSslSession;
 
@@ -213,22 +214,24 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // Make a copy of the original request
         this.currentRequest = copy(httpRequest);
 
-        // Set up our filters based on the original request
-        currentFilters = proxyServer.getFiltersSource().filterRequest(currentRequest, ctx);
+        // Set up our filters based on the original request. If the HttpFiltersSource returns null (meaning the request/response
+        // should not be filtered), fall back to the default no-op filter source.
+        HttpFilters filterInstance = proxyServer.getFiltersSource().filterRequest(currentRequest, ctx);
+        if (filterInstance != null) {
+            currentFilters = filterInstance;
+        }
 
         // Send the request through the clientToProxyRequest filter, and respond with the short-circuit response if required
-        if (currentFilters != null) {
-            HttpResponse clientToProxyFilterResponse = currentFilters.clientToProxyRequest(httpRequest);
+        HttpResponse clientToProxyFilterResponse = currentFilters.clientToProxyRequest(httpRequest);
 
-            if (clientToProxyFilterResponse != null) {
-                LOG.debug("Responding to client with short-circuit response from filter: {}", clientToProxyFilterResponse);
+        if (clientToProxyFilterResponse != null) {
+            LOG.debug("Responding to client with short-circuit response from filter: {}", clientToProxyFilterResponse);
 
-                boolean keepAlive = respondWithShortCircuitResponse(clientToProxyFilterResponse);
-                if (keepAlive) {
-                    return AWAITING_INITIAL;
-                } else {
-                    return DISCONNECT_REQUESTED;
-                }
+            boolean keepAlive = respondWithShortCircuitResponse(clientToProxyFilterResponse);
+            if (keepAlive) {
+                return AWAITING_INITIAL;
+            } else {
+                return DISCONNECT_REQUESTED;
             }
         }
 
@@ -314,17 +317,15 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         modifyRequestHeadersToReflectProxying(httpRequest);
 
-        if (currentFilters != null) {
-            HttpResponse proxyToServerFilterResponse = currentFilters.proxyToServerRequest(httpRequest);
-            if (proxyToServerFilterResponse != null) {
-                LOG.debug("Responding to client with short-circuit response from filter: {}", proxyToServerFilterResponse);
+        HttpResponse proxyToServerFilterResponse = currentFilters.proxyToServerRequest(httpRequest);
+        if (proxyToServerFilterResponse != null) {
+            LOG.debug("Responding to client with short-circuit response from filter: {}", proxyToServerFilterResponse);
 
-                boolean keepAlive = respondWithShortCircuitResponse(proxyToServerFilterResponse);
-                if (keepAlive) {
-                    return AWAITING_INITIAL;
-                } else {
-                    return DISCONNECT_REQUESTED;
-                }
+            boolean keepAlive = respondWithShortCircuitResponse(proxyToServerFilterResponse);
+            if (keepAlive) {
+                return AWAITING_INITIAL;
+            } else {
+                return DISCONNECT_REQUESTED;
             }
         }
 
@@ -362,10 +363,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     @Override
     protected void readHTTPChunk(HttpContent chunk) {
-        if (currentFilters != null) {
-            currentFilters.clientToProxyRequest(chunk);
-            currentFilters.proxyToServerRequest(chunk);
-        }
+        currentFilters.clientToProxyRequest(chunk);
+        currentFilters.proxyToServerRequest(chunk);
 
         currentServerConnection.write(chunk);
     }
@@ -401,12 +400,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // we are sending a response to the client, so we are done handling this request
         this.currentRequest = null;
 
-        if (filters != null) {
-            httpObject = filters.serverToProxyResponse(httpObject);
-            if (httpObject == null) {
-                forceDisconnect(serverConnection);
-                return;
-            }
+        httpObject = filters.serverToProxyResponse(httpObject);
+        if (httpObject == null) {
+            forceDisconnect(serverConnection);
+            return;
         }
 
         if (httpObject instanceof HttpResponse) {
@@ -437,12 +434,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             modifyResponseHeadersToReflectProxying(httpResponse);
         }
 
-        if (filters != null) {
-            httpObject = filters.proxyToClientResponse(httpObject);
-            if (httpObject == null) {
-                forceDisconnect(serverConnection);
-                return;
-            }
+        httpObject = filters.proxyToClientResponse(httpObject);
+        if (httpObject == null) {
+            forceDisconnect(serverConnection);
+            return;
         }
 
         write(httpObject);
@@ -498,9 +493,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         || this.lastReadTime > currentServerConnection.lastReadTime;
         if (clientReadMoreRecentlyThanServer) {
             LOG.debug("Server timed out: {}", currentServerConnection);
-            if (currentFilters != null) {
-                currentFilters.serverToProxyResponseTimedOut();
-            }
+            currentFilters.serverToProxyResponseTimedOut();
             writeGatewayTimeout(currentRequest);
             // DO NOT call super.timedOut() if the server timed out, to avoid closing the connection unnecessarily
         } else {
@@ -1191,7 +1184,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return true if the connection will be kept open, or false if it will be disconnected
      */
     private boolean writeBadRequest(HttpRequest httpRequest) {
-        String body = "Bad Request URI: " + httpRequest.getUri();
+        String body = "Bad Request to URI: " + httpRequest.getUri();
         DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST, body);
 
         if (ProxyUtils.isHEAD(httpRequest)) {
@@ -1238,12 +1231,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // we are sending a response to the client, so we are done handling this request
         this.currentRequest = null;
 
-        if (currentFilters != null) {
-            HttpResponse filteredResponse = (HttpResponse) currentFilters.proxyToClientResponse(httpResponse);
-            if (filteredResponse == null) {
-                disconnect();
-                return false;
-            }
+        HttpResponse filteredResponse = (HttpResponse) currentFilters.proxyToClientResponse(httpResponse);
+        if (filteredResponse == null) {
+            disconnect();
+            return false;
         }
 
         // allow short-circuit messages to close the connection. normally the Connection header would be stripped when modifying
