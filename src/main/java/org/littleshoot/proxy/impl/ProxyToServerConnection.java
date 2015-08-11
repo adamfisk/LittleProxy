@@ -186,7 +186,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         this.currentFilters = initialFilters;
 
         // Report connection status to HttpFilters
-        this.currentFilters.proxyToServerConnectionQueued();
+        currentFilters.proxyToServerConnectionQueued();
 
         setupConnectionParameters();
     }
@@ -220,6 +220,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             return AWAITING_CHUNK;
         } else {
             currentFilters.serverToProxyResponseReceived();
+
             return AWAITING_INITIAL;
         }
     }
@@ -770,11 +771,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 // unable to resolve the hostname to an IP address. notify the filters of the failure before allowing the
                 // exception to bubble up.
                 this.currentFilters.proxyToServerResolutionFailed(hostAndPort);
+
                 throw e;
             }
 
-            this.currentFilters.proxyToServerResolutionSucceeded(
-                    serverHostAndPort, this.remoteAddress);
+            this.currentFilters.proxyToServerResolutionSucceeded(serverHostAndPort, this.remoteAddress);
+
 
             this.localAddress = proxyServer.getLocalAddress();
         }
