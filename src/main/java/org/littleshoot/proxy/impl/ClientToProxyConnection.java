@@ -236,7 +236,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         // short-circuit requests that treat the proxy as the "origin" server, to avoid infinite loops
-        if (isRequestToOriginServer()) {
+        if (isRequestToOriginServer(httpRequest)) {
             boolean keepAlive = writeBadRequest(httpRequest);
             if (keepAlive) {
                 return AWAITING_INITIAL;
@@ -343,21 +343,34 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /**
-     * RFC 7230 section 5.7 "Message Forwarding" states:
-     * 
-     * An intermediary MUST NOT forward a message to itself unless it is
-     * protected from an infinite request loop. In general, an intermediary
-     * ought to recognize its own server names, including any aliases, local
-     * variations, or literal IP addresses, and respond to such requests
-     * directly.
+     * Returns true if the specified request is a request to an origin server, rather than to a proxy server. If this
+     * request is being MITM'd, this method always returns false. The format of requests to a proxy server are defined
+     * in RFC 7230, section 5.3.2 (all other requests are considered requests to an origin server):
+     <pre>
+         When making a request to a proxy, other than a CONNECT or server-wide
+         OPTIONS request (as detailed below), a client MUST send the target
+         URI in absolute-form as the request-target.
+         [...]
+         An example absolute-form of request-line would be:
+         GET http://www.example.org/pub/WWW/TheProject.html HTTP/1.1
+         To allow for transition to the absolute-form for all requests in some
+         future version of HTTP, a server MUST accept the absolute-form in
+         requests, even though HTTP/1.1 clients will only send them in
+         requests to proxies.
+     </pre>
+     *
+     * @param httpRequest the request to evaluate
+     * @return true if the specified request is a request to an origin server, otherwise false
      */
-    private boolean isRequestToOriginServer() {
-        // HTTPS requests have uri without http scheme too
-        if (currentRequest.getMethod() == HttpMethod.CONNECT || sslEngine != null) {
+    private boolean isRequestToOriginServer(HttpRequest httpRequest) {
+        // while MITMing, all HTTPS requests are requests to the origin server, since the client does not know
+        // the request is being MITM'd by the proxy
+        if (httpRequest.getMethod() == HttpMethod.CONNECT || isMitming()) {
             return false;
         }
+
         // direct requests to the proxy have the path only without a scheme
-        String uri = currentRequest.getUri();
+        String uri = httpRequest.getUri();
         return !HTTP_SCHEME.matcher(uri).matches();
     }
 
