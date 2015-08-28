@@ -418,6 +418,21 @@
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.10.3</version>
+                <configuration>
+                    <show>private</show>
+                    <source>1.6</source>
+                    <links>
+                        <link>http://netty.io/4.0/api/</link>
+                    </links>
+                    <!-- disable doclint, since Java 8 treats warnings as errors -->
+                    <additionalparam>${javadoc.opts}</additionalparam>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>2.4.1</version>
                 <executions>
