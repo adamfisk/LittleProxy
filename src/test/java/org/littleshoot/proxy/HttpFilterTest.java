@@ -10,21 +10,13 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
 import org.eclipse.jetty.server.Server;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.littleshoot.proxy.test.HttpClientUtil;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 
@@ -308,7 +300,7 @@ public class HttpFilterTest {
 
         setUpHttpProxyServer(filtersSource);
 
-        org.apache.http.HttpResponse response1 = getResponse(url1);
+        org.apache.http.HttpResponse response1 = HttpClientUtil.performHttpGet(url1, proxyServer);
         // sleep for a short amount of time, to allow the filter methods to be invoked
         Thread.sleep(500);
         assertEquals(
@@ -341,7 +333,7 @@ public class HttpFilterTest {
         // We just open a second connection here since reusing the original
         // connection is inconsistent.
         requestCount.incrementAndGet();
-        org.apache.http.HttpResponse response2 = getResponse(url2);
+        org.apache.http.HttpResponse response2 = HttpClientUtil.performHttpGet(url2, proxyServer);
         Thread.sleep(500);
 
         assertEquals(403, response2.getStatusLine().getStatusCode());
@@ -353,7 +345,7 @@ public class HttpFilterTest {
         assertEquals(1, filterResponseCalls.get());
 
         requestCount.incrementAndGet();
-        org.apache.http.HttpResponse response3 = getResponse(url3);
+        org.apache.http.HttpResponse response3 = HttpClientUtil.performHttpGet(url3, proxyServer);
         Thread.sleep(500);
 
         assertEquals(403, response3.getStatusLine().getStatusCode());
@@ -389,7 +381,7 @@ public class HttpFilterTest {
         assertEquals(url3, third.getUri());
 
         requestCount.incrementAndGet();
-        org.apache.http.HttpResponse response4 = getResponse(url4);
+        org.apache.http.HttpResponse response4 = HttpClientUtil.performHttpGet(url4, proxyServer);
         Thread.sleep(500);
 
         i = requestCount.get();
@@ -407,7 +399,7 @@ public class HttpFilterTest {
         assertThat(serverToProxyResponseReceivingNanos.get(i), lessThan(serverToProxyResponseReceivedNanos.get(i)));
 
         requestCount.incrementAndGet();
-        org.apache.http.HttpResponse response5 = getResponse(url5);
+        org.apache.http.HttpResponse response5 = HttpClientUtil.performHttpGet(url5, proxyServer);
 
         assertEquals(403, response4.getStatusLine().getStatusCode());
         assertEquals(403, response5.getStatusLine().getStatusCode());
@@ -447,7 +439,7 @@ public class HttpFilterTest {
 
         setUpHttpProxyServer(filtersSource);
 
-        getResponse("http://localhost:" + webServerPort + "/");
+        HttpClientUtil.performHttpGet("http://localhost:" + webServerPort + "/", proxyServer);
         Thread.sleep(500);
 
         assertTrue("proxyToServerResolutionSucceeded method was not called", resolutionSucceeded.get());
@@ -473,7 +465,7 @@ public class HttpFilterTest {
                 .withServerResolver(mockFailingResolver)
                 .start();
 
-        getResponse("http://www.doesnotexist/some-resource");
+        HttpClientUtil.performHttpGet("http://www.doesnotexist/some-resource", proxyServer);
         Thread.sleep(500);
 
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
@@ -513,7 +505,7 @@ public class HttpFilterTest {
         setUpHttpProxyServer(filtersSource);
 
         // port 0 is not connectable
-        getResponse("http://localhost:0/some-resource");
+        HttpClientUtil.performHttpGet("http://localhost:0/some-resource", proxyServer);
         Thread.sleep(500);
 
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
@@ -573,7 +565,7 @@ public class HttpFilterTest {
                 .start();
 
         // the server doesn't have to exist, since the connection to the chained proxy will fail
-        getResponse("http://localhost:1234/some-resource");
+        HttpClientUtil.performHttpGet("http://localhost:1234/some-resource", proxyServer);
         Thread.sleep(500);
 
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
@@ -651,7 +643,7 @@ public class HttpFilterTest {
                 .start();
 
         // the server doesn't have to exist, since the connection to the chained proxy will fail
-        getResponse("http://localhost:1234/some-resource");
+        HttpClientUtil.performHttpGet("http://localhost:1234/some-resource", proxyServer);
         Thread.sleep(500);
 
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
@@ -704,7 +696,7 @@ public class HttpFilterTest {
                 .withIdleConnectionTimeout(3)
                 .start();
 
-        org.apache.http.HttpResponse httpResponse = getResponse("http://localhost:" + mockServerPort + "/servertimeout");
+        org.apache.http.HttpResponse httpResponse = HttpClientUtil.performHttpGet("http://localhost:" + mockServerPort + "/servertimeout", proxyServer);
         assertEquals("Expected to receive an HTTP 504 Gateway Timeout from proxy", 504, httpResponse.getStatusLine().getStatusCode());
 
         Thread.sleep(500);
@@ -767,7 +759,7 @@ public class HttpFilterTest {
         setUpHttpProxyServer(filtersSource);
 
         // test with a POST request with a payload. post a large amount of data, to force chunked content.
-        postToServer("http://localhost:" + webServerPort + "/", 50000);
+        HttpClientUtil.performHttpPost("http://localhost:" + webServerPort + "/", 50000, proxyServer);
         Thread.sleep(500);
 
         assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for chunked POST", lastHttpContentProcessed.get());
@@ -777,7 +769,7 @@ public class HttpFilterTest {
         lastHttpContentProcessed.set(false);
         requestSentCallbackInvoked.set(false);
 
-        getResponse("http://localhost:" + webServerPort + "/");
+        HttpClientUtil.performHttpGet("http://localhost:" + webServerPort + "/", proxyServer);
         Thread.sleep(500);
 
         assertTrue("proxyToServerRequest callback was not invoked for LastHttpContent for GET", lastHttpContentProcessed.get());
@@ -807,49 +799,10 @@ public class HttpFilterTest {
 
         setUpHttpProxyServer(filtersSource);
 
-        org.apache.http.HttpResponse httpResponse = getResponse("http://localhost:" + mockServerPort + "/testNullHttpFilterSource");
+        org.apache.http.HttpResponse httpResponse = HttpClientUtil.performHttpGet("http://localhost:" + mockServerPort + "/testNullHttpFilterSource", proxyServer);
         Thread.sleep(500);
 
         assertEquals("Expected to receive an HTTP 200 from proxy", 200, httpResponse.getStatusLine().getStatusCode());
-    }
-
-    private DefaultHttpClient getDefaultHttpClient() {
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        HttpHost proxy = new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort(), "http");
-        httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
-
-        return httpClient;
-    }
-
-    private org.apache.http.HttpResponse getResponse(final String url)
-            throws Exception {
-        final DefaultHttpClient http = getDefaultHttpClient();
-
-        final HttpGet get = new HttpGet(url);
-
-        return getHttpResponse(http, get);
-    }
-
-    private org.apache.http.HttpResponse postToServer(String url, int postSizeInBytes) throws Exception {
-        DefaultHttpClient httpClient = getDefaultHttpClient();
-
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < postSizeInBytes; i++) {
-            sb.append('q');
-        }
-
-        HttpPost post = new HttpPost(url);
-        post.setEntity(new StringEntity(sb.toString()));
-
-        return getHttpResponse(httpClient, post);
-    }
-
-    private org.apache.http.HttpResponse getHttpResponse(DefaultHttpClient httpClient, HttpUriRequest get) throws IOException {
-        final org.apache.http.HttpResponse hr = httpClient.execute(get);
-        final HttpEntity responseEntity = hr.getEntity();
-        EntityUtils.consume(responseEntity);
-        httpClient.getConnectionManager().shutdown();
-        return hr;
     }
 
     private long now() {
