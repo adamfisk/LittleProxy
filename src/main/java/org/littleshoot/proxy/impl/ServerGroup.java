@@ -79,7 +79,15 @@ public class ServerGroup {
     private static final EnumMap<TransportProtocol, SelectorProvider> TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS = new EnumMap<TransportProtocol, SelectorProvider>(TransportProtocol.class);
     static {
         TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS.put(TransportProtocol.TCP, SelectorProvider.provider());
-        TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS.put(TransportProtocol.UDT, NioUdtProvider.BYTE_PROVIDER);
+
+        // allow the proxy to operate without UDT support. this allows clients that do not use UDT to exclude the barchart
+        // dependency completely.
+        try {
+            SelectorProvider udtSelector = NioUdtProvider.BYTE_PROVIDER;
+            TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS.put(TransportProtocol.UDT, udtSelector);
+        } catch (NoClassDefFoundError e) {
+            log.debug("UDT provider not found on classpath. UDT transport will not be available.");
+        }
     }
 
     /**
