@@ -483,7 +483,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     CONNECTION_ESTABLISHED);
             response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
             response.headers().set("Proxy-Connection", HttpHeaders.Values.KEEP_ALIVE);
-            ProxyUtils.addVia(response);
+            ProxyUtils.addVia(response, proxyServer.getProxyAlias());
             return writeToChannel(response);
         };
     };
@@ -1058,7 +1058,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             switchProxyConnectionHeader(headers);
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
-            ProxyUtils.addVia(httpRequest);
+            ProxyUtils.addVia(httpRequest, proxyServer.getProxyAlias());
         }
     }
 
@@ -1076,7 +1076,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
-            ProxyUtils.addVia(httpResponse);
+            ProxyUtils.addVia(httpResponse, proxyServer.getProxyAlias());
 
             /*
              * RFC2616 Section 14.18

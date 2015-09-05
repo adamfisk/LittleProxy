@@ -37,10 +37,10 @@ public class ProxyUtilsTest {
 
     @Test
     public void testAddNewViaHeader() {
-        String hostname = ProxyUtils.getHostName();
+        String hostname = "hostname";
 
         HttpMessage httpMessage = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/endpoint");
-        ProxyUtils.addVia(httpMessage);
+        ProxyUtils.addVia(httpMessage, hostname);
 
         List<String> viaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
         assertThat(viaHeaders, hasSize(1));
@@ -189,11 +189,11 @@ public class ProxyUtilsTest {
 
     @Test
     public void testAddNewViaHeaderToExistingViaHeader() {
-        String hostname = ProxyUtils.getHostName();
+        String hostname = "hostname";
 
         HttpMessage httpMessage = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/endpoint");
         httpMessage.headers().add(HttpHeaders.Names.VIA, "1.1 otherproxy");
-        ProxyUtils.addVia(httpMessage);
+        ProxyUtils.addVia(httpMessage, hostname);
 
         List<String> viaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
         assertThat(viaHeaders, hasSize(2));

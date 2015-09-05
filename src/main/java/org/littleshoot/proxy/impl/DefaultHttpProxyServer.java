@@ -1,6 +1,5 @@
 package org.littleshoot.proxy.impl;
 
-import static org.littleshoot.proxy.TransportProtocol.*;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -18,28 +17,6 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.Thread.UncaughtExceptionHandler;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
-import java.nio.channels.spi.SelectorProvider;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
-import javax.net.ssl.SSLEngine;
-
 import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
@@ -58,6 +35,27 @@ import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.SSLEngine;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.Thread.UncaughtExceptionHandler;
+import java.net.InetSocketAddress;
+import java.nio.channels.spi.SelectorProvider;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+
+import static org.littleshoot.proxy.TransportProtocol.TCP;
 
 /**
  * <p>
@@ -80,6 +78,7 @@ import org.slf4j.LoggerFactory;
  * 
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultHttpProxyServer.class);
 
     /**
      * The interval in ms at which the GlobalTrafficShapingHandler will run to compute and throttle the
@@ -87,8 +86,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     private static final long TRAFFIC_SHAPING_CHECK_INTERVAL_MS = 250L;
 
-    private static final Logger LOG = LoggerFactory
-            .getLogger(DefaultHttpProxyServer.class);
+    /**
+     * The proxy alias to use in the Via header if no explicit proxy alias is specified and the hostname of the local
+     * machine cannot be resolved.
+     */
+    private static final String FALLBACK_PROXY_ALIAS = "littleproxy";
 
     /**
      * Our {@link ServerGroup}. Multiple proxy servers can share the same
@@ -118,6 +120,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
     private volatile GlobalTrafficShapingHandler globalTrafficShapingHandler;
+
+    /**
+     * The alias or pseudonym for this proxy, used when adding the Via header.
+     */
+    private final String proxyAlias;
 
     /**
      * Track all ActivityTrackers for tracking proxying activity.
@@ -219,7 +226,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HostResolver serverResolver,
             long readThrottleBytesPerSecond,
             long writeThrottleBytesPerSecond,
-            InetSocketAddress localAddress) {
+            InetSocketAddress localAddress,
+            String proxyAlias) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.requestedAddress = requestedAddress;
@@ -243,6 +251,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.globalTrafficShapingHandler = null;
         }
         this.localAddress = localAddress;
+
+        if (proxyAlias == null) {
+            // attempt to resolve the name of the local machine. if it cannot be resolved, use the fallback name.
+            String hostname = ProxyUtils.getHostName();
+            if (hostname == null) {
+                hostname = FALLBACK_PROXY_ALIAS;
+            }
+            this.proxyAlias = hostname;
+        } else {
+            this.proxyAlias = proxyAlias;
+        }
     }
 
     /**
@@ -330,7 +349,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     serverResolver,
                     globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getReadLimit() : 0,
                     globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getWriteLimit() : 0,
-                    localAddress);
+                    localAddress,
+                    proxyAlias);
     }
 
     @Override
@@ -452,6 +472,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             serverGroup.ensureProtocol(transportProtocol);
             return serverGroup.proxyToServerWorkerPools.get(transportProtocol);
         }
+    }
+
+    public String getProxyAlias() {
+        return proxyAlias;
     }
 
     /**
@@ -659,7 +683,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private InetSocketAddress requestedAddress;
         private int port = 8080;
         private boolean allowLocalOnly = true;
-        private boolean listenOnAllAddresses = true;
         private SslEngineSource sslEngineSource = null;
         private boolean authenticateSslClients = true;
         private ProxyAuthenticator proxyAuthenticator = null;
@@ -675,6 +698,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private long readThrottleBytesPerSecond;
         private long writeThrottleBytesPerSecond;
         private InetSocketAddress localAddress;
+        private String proxyAlias;
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -694,7 +718,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 int connectTimeout, HostResolver serverResolver,
                 long readThrottleBytesPerSecond,
                 long  writeThrottleBytesPerSecond,
-                InetSocketAddress localAddress) {
+                InetSocketAddress localAddress,
+                String proxyAlias) {
             this.original = original;
             this.transportProtocol = transportProtocol;
             this.requestedAddress = requestedAddress;
@@ -715,6 +740,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.readThrottleBytesPerSecond = readThrottleBytesPerSecond;
             this.writeThrottleBytesPerSecond = writeThrottleBytesPerSecond;
             this.localAddress = localAddress;
+            this.proxyAlias = proxyAlias;
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
@@ -761,6 +787,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withProxyAlias(String alias) {
+            this.proxyAlias = alias;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap withAllowLocalOnly(
                 boolean allowLocalOnly) {
             this.allowLocalOnly = allowLocalOnly;
@@ -768,9 +800,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
-        public HttpProxyServerBootstrap withListenOnAllAddresses(
-                boolean listenOnAllAddresses) {
-            this.listenOnAllAddresses = listenOnAllAddresses;
+        @Deprecated
+        public HttpProxyServerBootstrap withListenOnAllAddresses(boolean listenOnAllAddresses) {
+            LOG.warn("withListenOnAllAddresses() is deprecated and will be removed in a future release. Use withNetworkInterface().");
             return this;
         }
 
@@ -898,7 +930,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     filtersSource, transparent,
                     idleConnectionTimeout, activityTrackers, connectTimeout,
                     serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond,
-                    localAddress);
+                    localAddress, proxyAlias);
         }
 
         private InetSocketAddress determineListenAddress() {
@@ -909,16 +941,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 // security of the proxy.
                 if (allowLocalOnly) {
                     return new InetSocketAddress("127.0.0.1", port);
-                } else if (listenOnAllAddresses) {
-                    return new InetSocketAddress(port);
                 } else {
-                    try {
-                        return new InetSocketAddress(
-                                NetworkUtils.getLocalHost(), port);
-                    } catch (final UnknownHostException e) {
-                        LOG.error("Could not get local host?", e);
-                        return new InetSocketAddress(port);
-                    }
+                    return new InetSocketAddress(port);
                 }
             }
         }
