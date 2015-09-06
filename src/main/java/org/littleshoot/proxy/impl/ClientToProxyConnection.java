@@ -720,15 +720,19 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     @Override
     protected void exceptionCaught(Throwable cause) {
-        String message = "Caught an exception on ClientToProxyConnection";
-        boolean shouldWarn = cause instanceof ClosedChannelException ||
-                cause.getMessage().contains("Connection reset by peer");
-        if (shouldWarn) {
-            LOG.warn(message, cause);
-        } else {
-            LOG.error(message, cause);
+        try {
+            if (cause instanceof ClosedChannelException ||
+                    (cause.getMessage() != null && cause.getMessage().contains("Connection reset by peer"))) {
+                LOG.warn("Caught an exception on ClientToProxyConnection", cause);
+            } else {
+                LOG.error("Caught an exception on ClientToProxyConnection", cause);
+            }
+        } finally {
+            // always disconnect the client when an exception occurs on the channel
+            disconnect();
         }
-        disconnect();
+
+
     }
 
     /***************************************************************************
