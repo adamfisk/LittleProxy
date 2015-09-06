@@ -79,6 +79,13 @@
                 <javadoc.opts />
             </properties>
         </profile>
+
+        <profile>
+            <id>netty-4.1</id>
+            <properties>
+                <netty.version>4.1.0.Beta6</netty.version>
+            </properties>
+        </profile>
     </profiles>
 
     <dependencies>
