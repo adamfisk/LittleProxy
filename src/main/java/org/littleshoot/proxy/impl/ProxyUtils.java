@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -247,20 +248,23 @@ public class ProxyUtils {
      * @param alias the alias to provide in the Via header for this proxy
      */
     public static void addVia(HttpMessage httpMessage, String alias) {
-        final StringBuilder sb = new StringBuilder();
-        sb.append(httpMessage.getProtocolVersion().majorVersion());
-        sb.append('.');
-        sb.append(httpMessage.getProtocolVersion().minorVersion());
-        sb.append(' ');
-        sb.append(alias);
+        String newViaHeader =  new StringBuilder()
+                .append(httpMessage.getProtocolVersion().majorVersion())
+                .append('.')
+                .append(httpMessage.getProtocolVersion().minorVersion())
+                .append(' ')
+                .append(alias)
+                .toString();
 
         final List<String> vias;
         if (httpMessage.headers().contains(HttpHeaders.Names.VIA)) {
-            vias = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
-            vias.add(sb.toString());
+            List<String> existingViaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
+            vias = new ArrayList<String>(existingViaHeaders);
+            vias.add(newViaHeader);
         } else {
-            vias = Collections.singletonList(sb.toString());
+            vias = Collections.singletonList(newViaHeader);
         }
+
         httpMessage.headers().set(HttpHeaders.Names.VIA, vias);
     }
 
