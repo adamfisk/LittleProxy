@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
@@ -202,8 +203,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         HttpRequest originalRequest = copy(httpRequest);
 
         // Set up our filters based on the original request
-        currentFilters = proxyServer.getFiltersSource().filterRequest(
-                originalRequest, ctx);
+        currentFilters = proxyServer.getFiltersSource().filterRequest(originalRequest, userName.get(), ctx);
 
         // Do the pre filtering
         if (shortCircuitRespond(currentFilters
@@ -841,15 +841,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         byte[] decodedValue = Base64.decodeBase64(value);
         try {
             String decodedString = new String(decodedValue, "UTF-8");
-            String userName = StringUtils.substringBefore(decodedString,
-                    ":");
-            String password = StringUtils.substringAfter(decodedString,
-                    ":");
+            String userName = StringUtils.substringBefore(decodedString, ":");
+            String password = StringUtils.substringAfter(decodedString, ":");
             if (!authenticator.authenticate(userName,
                     password)) {
                 writeAuthenticationRequired();
                 return true;
             }
+            this.userName.set(userName);
         } catch (UnsupportedEncodingException e) {
             LOG.error("Could not decode?", e);
         }

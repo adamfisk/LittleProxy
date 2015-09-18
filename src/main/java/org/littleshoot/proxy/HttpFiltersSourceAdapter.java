@@ -13,8 +13,7 @@ public class HttpFiltersSourceAdapter implements HttpFiltersSource {
     }
     
     @Override
-    public HttpFilters filterRequest(HttpRequest originalRequest,
-            ChannelHandlerContext ctx) {
+    public HttpFilters filterRequest(HttpRequest originalRequest, String username, ChannelHandlerContext ctx) {
         return filterRequest(originalRequest);
     }
 

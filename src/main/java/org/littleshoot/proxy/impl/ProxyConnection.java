@@ -14,6 +14,8 @@ import org.littleshoot.proxy.HttpFilters;
 
 import javax.net.ssl.SSLEngine;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import static org.littleshoot.proxy.impl.ConnectionState.*;
 
 /**
@@ -60,8 +62,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.*;
  *            the type of "initial" message. This will be either
  *            {@link HttpResponse} or {@link HttpRequest}.
  */
-abstract class ProxyConnection<I extends HttpObject> extends
-        SimpleChannelInboundHandler<Object> {
+abstract class ProxyConnection<I extends HttpObject> extends SimpleChannelInboundHandler<Object> {
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
 
     protected final DefaultHttpProxyServer proxyServer;
@@ -69,6 +70,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     protected volatile ChannelHandlerContext ctx;
     protected volatile Channel channel;
+    protected AtomicReference<String> userName = new AtomicReference<String>();
 
     private volatile ConnectionState currentState;
     private volatile boolean tunneling = false;
@@ -555,7 +557,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * @return
      */
     protected HttpFilters getHttpFiltersFromProxyServer(HttpRequest httpRequest) {
-        return proxyServer.getFiltersSource().filterRequest(httpRequest, ctx);
+        return proxyServer.getFiltersSource().filterRequest(httpRequest, userName.get(), ctx);
     }
 
     ProxyConnectionLogger getLOG() {
