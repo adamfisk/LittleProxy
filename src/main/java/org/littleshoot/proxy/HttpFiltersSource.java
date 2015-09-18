@@ -17,8 +17,7 @@ public interface HttpFiltersSource {
      * @param originalRequest
      * @return
      */
-    HttpFilters filterRequest(HttpRequest originalRequest,
-            ChannelHandlerContext ctx);
+    HttpFilters filterRequest(HttpRequest originalRequest, String username, ChannelHandlerContext ctx);
 
     /**
      * Indicate how many (if any) bytes to buffer for incoming

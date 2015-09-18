@@ -48,7 +48,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
@@ -218,7 +218,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         // Set up our filters based on the original request. If the HttpFiltersSource returns null (meaning the request/response
         // should not be filtered), fall back to the default no-op filter source.
-        HttpFilters filterInstance = proxyServer.getFiltersSource().filterRequest(currentRequest, ctx);
+        HttpFilters filterInstance = proxyServer.getFiltersSource().filterRequest(originalRequest, userName.get(), ctx);
         if (filterInstance != null) {
             currentFilters = filterInstance;
         }
@@ -959,15 +959,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         byte[] decodedValue = Base64.decodeBase64(value);
         try {
             String decodedString = new String(decodedValue, "UTF-8");
-            String userName = StringUtils.substringBefore(decodedString,
-                    ":");
-            String password = StringUtils.substringAfter(decodedString,
-                    ":");
+            String userName = StringUtils.substringBefore(decodedString, ":");
+            String password = StringUtils.substringAfter(decodedString, ":");
             if (!authenticator.authenticate(userName,
                     password)) {
                 writeAuthenticationRequired();
                 return true;
             }
+            this.userName.set(userName);
         } catch (UnsupportedEncodingException e) {
             LOG.error("Could not decode?", e);
         }
