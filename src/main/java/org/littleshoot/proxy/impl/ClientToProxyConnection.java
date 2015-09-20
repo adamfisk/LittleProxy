@@ -1040,6 +1040,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private void modifyRequestHeadersToReflectProxying(HttpRequest httpRequest) {
         if (!currentServerConnection.hasUpstreamChainedProxy()) {
+            /*
+             * We are making the request to the origin server, so must modify
+             * the 'absolute-URI' into the 'origin-form' as per RFC 7230
+             * section 5.3.1.
+             *
+             * This must happen even for 'transparent' mode, otherwise the origin
+             * server could infer that the request came via a proxy server.
+             */
             LOG.debug("Modifying request for proxy chaining");
             // Strip host from uri
             String uri = httpRequest.getUri();

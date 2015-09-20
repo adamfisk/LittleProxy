@@ -187,8 +187,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param filtersSource
      *            Source for {@link HttpFilters}
      * @param transparent
-     *            If true, this proxy will run as a transparent proxy (not
-     *            touching requests and responses).
+     *            If true, this proxy will run as a transparent proxy. This will
+     *            not modify the response, and will only modify the request to
+     *            amend the URI if the target is the origin server (to comply
+     *            with RFC 7230 section 5.3.1).
      * @param idleConnectionTimeout
      *            The timeout (in seconds) for auto-closing idle connections.
      * @param activityTrackers
