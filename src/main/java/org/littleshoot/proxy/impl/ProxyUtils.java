@@ -4,6 +4,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -551,5 +552,18 @@ public class ProxyUtils {
      */
     public static List<String> splitCommaSeparatedHeaderValues(String headerValue) {
         return ImmutableList.copyOf(COMMA_SEPARATED_HEADER_VALUE_SPLITTER.split(headerValue));
+    }
+
+    /**
+     * Determines if UDT is available on the classpath.
+     *
+     * @return true if UDT is available
+     */
+    public static boolean isUdtAvailable() {
+        try {
+            return NioUdtProvider.BYTE_PROVIDER != null;
+        } catch (NoClassDefFoundError e) {
+            return false;
+        }
     }
 }

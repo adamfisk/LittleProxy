@@ -33,7 +33,7 @@ import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
-import org.littleshoot.proxy.UnknownTransportProtocolError;
+import org.littleshoot.proxy.UnknownTransportProtocolException;
 import org.slf4j.spi.LocationAwareLogger;
 
 import javax.net.ssl.SSLSession;
@@ -586,8 +586,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         @Override
         protected Future<?> execute() {
-            Bootstrap cb = new Bootstrap().group(proxyServer
-                    .getProxyToServerWorkerFor(transportProtocol));
+            Bootstrap cb = new Bootstrap().group(proxyServer.getProxyToServerWorkerFor(transportProtocol));
 
             switch (transportProtocol) {
             case TCP:
@@ -605,7 +604,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                         .option(ChannelOption.SO_REUSEADDR, true);
                 break;
             default:
-                throw new UnknownTransportProtocolError(transportProtocol);
+                throw new UnknownTransportProtocolException(transportProtocol);
             }
 
             cb.handler(new ChannelInitializer<Channel>() {
