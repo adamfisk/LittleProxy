@@ -720,15 +720,19 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     @Override
     protected void exceptionCaught(Throwable cause) {
-        String message = "Caught an exception on ClientToProxyConnection";
-        boolean shouldWarn = cause instanceof ClosedChannelException ||
-                cause.getMessage().contains("Connection reset by peer");
-        if (shouldWarn) {
-            LOG.warn(message, cause);
-        } else {
-            LOG.error(message, cause);
+        try {
+            if (cause instanceof ClosedChannelException ||
+                    (cause.getMessage() != null && cause.getMessage().contains("Connection reset by peer"))) {
+                LOG.warn("Caught an exception on ClientToProxyConnection", cause);
+            } else {
+                LOG.error("Caught an exception on ClientToProxyConnection", cause);
+            }
+        } finally {
+            // always disconnect the client when an exception occurs on the channel
+            disconnect();
         }
-        disconnect();
+
+
     }
 
     /***************************************************************************
@@ -1039,18 +1043,25 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param httpRequest
      */
     private void modifyRequestHeadersToReflectProxying(HttpRequest httpRequest) {
+        if (!currentServerConnection.hasUpstreamChainedProxy()) {
+            /*
+             * We are making the request to the origin server, so must modify
+             * the 'absolute-URI' into the 'origin-form' as per RFC 7230
+             * section 5.3.1.
+             *
+             * This must happen even for 'transparent' mode, otherwise the origin
+             * server could infer that the request came via a proxy server.
+             */
+            LOG.debug("Modifying request for proxy chaining");
+            // Strip host from uri
+            String uri = httpRequest.getUri();
+            String adjustedUri = ProxyUtils.stripHost(uri);
+            LOG.debug("Stripped host from uri: {}    yielding: {}", uri,
+                    adjustedUri);
+            httpRequest.setUri(adjustedUri);
+        }
         if (!proxyServer.isTransparent()) {
             LOG.debug("Modifying request headers for proxying");
-
-            if (!currentServerConnection.hasUpstreamChainedProxy()) {
-                LOG.debug("Modifying request for proxy chaining");
-                // Strip host from uri
-                String uri = httpRequest.getUri();
-                String adjustedUri = ProxyUtils.stripHost(uri);
-                LOG.debug("Stripped host from uri: {}    yielding: {}", uri,
-                        adjustedUri);
-                httpRequest.setUri(adjustedUri);
-            }
 
             HttpHeaders headers = httpRequest.headers();
 

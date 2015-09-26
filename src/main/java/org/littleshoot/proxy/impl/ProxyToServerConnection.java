@@ -33,7 +33,7 @@ import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
-import org.littleshoot.proxy.UnknownTransportProtocolError;
+import org.littleshoot.proxy.UnknownTransportProtocolException;
 import org.slf4j.spi.LocationAwareLogger;
 
 import javax.net.ssl.SSLSession;
@@ -405,25 +405,27 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void exceptionCaught(Throwable cause) {
-        String message = "Caught exception on proxy -> web connection";
         int logLevel = LocationAwareLogger.WARN_INT;
-        if (cause != null) {
-            String causeMessage = cause.getMessage();
-            if (cause instanceof ConnectException) {
-                logLevel = LocationAwareLogger.DEBUG_INT;
-            } else if (causeMessage != null) {
-                if (causeMessage.contains("Connection reset by peer")) {
+        try {
+            if (cause != null) {
+                String causeMessage = cause.getMessage();
+                if (cause instanceof ConnectException) {
                     logLevel = LocationAwareLogger.DEBUG_INT;
-                } else if (causeMessage.contains("event executor terminated")) {
-                    logLevel = LocationAwareLogger.DEBUG_INT;
+                } else if (causeMessage != null) {
+                    if (causeMessage.contains("Connection reset by peer")) {
+                        logLevel = LocationAwareLogger.DEBUG_INT;
+                    } else if (causeMessage.contains("event executor terminated")) {
+                        logLevel = LocationAwareLogger.DEBUG_INT;
+                    }
                 }
             }
-        }
-        LOG.log(logLevel, message, cause);
 
-        if (!is(DISCONNECTED)) {
-            LOG.log(logLevel, "Disconnecting open connection");
-            disconnect();
+            LOG.log(logLevel, "Caught an exception on ProxyToServerConnection", cause);
+        } finally {
+            if (!is(DISCONNECTED)) {
+                LOG.log(logLevel, "Disconnecting open connection");
+                disconnect();
+            }
         }
         // This can happen if we couldn't make the initial connection due
         // to something like an unresolved address, for example, or a timeout.
@@ -584,8 +586,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         @Override
         protected Future<?> execute() {
-            Bootstrap cb = new Bootstrap().group(proxyServer
-                    .getProxyToServerWorkerFor(transportProtocol));
+            Bootstrap cb = new Bootstrap().group(proxyServer.getProxyToServerWorkerFor(transportProtocol));
 
             switch (transportProtocol) {
             case TCP:
@@ -603,7 +604,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                         .option(ChannelOption.SO_REUSEADDR, true);
                 break;
             default:
-                throw new UnknownTransportProtocolError(transportProtocol);
+                throw new UnknownTransportProtocolException(transportProtocol);
             }
 
             cb.handler(new ChannelInitializer<Channel>() {
