@@ -41,7 +41,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -69,6 +68,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  */
 public class DefaultHttpProxyServer implements HttpProxyServer {
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultHttpProxyServer.class);
 
     /**
      * The interval in ms at which the GlobalTrafficShapingHandler will run to compute and throttle the
@@ -76,7 +76,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     private static final long TRAFFIC_SHAPING_CHECK_INTERVAL_MS = 250L;
 
-    private static final Logger LOG = LoggerFactory.getLogger(DefaultHttpProxyServer.class);
+    /**
+     * The proxy alias to use in the Via header if no explicit proxy alias is specified and the hostname of the local
+     * machine cannot be resolved.
+     */
+    private static final String FALLBACK_PROXY_ALIAS = "littleproxy";
 
     /**
      * Our {@link ServerGroup}. Multiple proxy servers can share the same
@@ -106,6 +110,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
     private volatile GlobalTrafficShapingHandler globalTrafficShapingHandler;
+
+    /**
+     * The alias or pseudonym for this proxy, used when adding the Via header.
+     */
+    private final String proxyAlias;
 
     /**
      * True when the proxy has already been stopped by calling {@link #stop()} or {@link #abort()}.
@@ -215,22 +224,23 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            write throttle bandwidth
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
-                                   TransportProtocol transportProtocol,
-                                   InetSocketAddress requestedAddress,
-                                   SslEngineSource sslEngineSource,
-                                   boolean authenticateSslClients,
-                                   ProxyAuthenticator proxyAuthenticator,
-                                   ChainedProxyManager chainProxyManager,
-                                   MitmManager mitmManager,
-                                   HttpFiltersSource filtersSource,
-                                   boolean transparent,
-                                   int idleConnectionTimeout,
-                                   Collection<ActivityTracker> activityTrackers,
-                                   int connectTimeout,
-                                   HostResolver serverResolver,
-                                   long readThrottleBytesPerSecond,
-                                   long writeThrottleBytesPerSecond,
-                                   InetSocketAddress localAddress) {
+            TransportProtocol transportProtocol,
+            InetSocketAddress requestedAddress,
+            SslEngineSource sslEngineSource,
+            boolean authenticateSslClients,
+            ProxyAuthenticator proxyAuthenticator,
+            ChainedProxyManager chainProxyManager,
+            MitmManager mitmManager,
+            HttpFiltersSource filtersSource,
+            boolean transparent,
+            int idleConnectionTimeout,
+            Collection<ActivityTracker> activityTrackers,
+            int connectTimeout,
+            HostResolver serverResolver,
+            long readThrottleBytesPerSecond,
+            long writeThrottleBytesPerSecond,
+            InetSocketAddress localAddress,
+            String proxyAlias) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.requestedAddress = requestedAddress;
@@ -254,6 +264,17 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.globalTrafficShapingHandler = null;
         }
         this.localAddress = localAddress;
+
+        if (proxyAlias == null) {
+            // attempt to resolve the name of the local machine. if it cannot be resolved, use the fallback name.
+            String hostname = ProxyUtils.getHostName();
+            if (hostname == null) {
+                hostname = FALLBACK_PROXY_ALIAS;
+            }
+            this.proxyAlias = hostname;
+        } else {
+            this.proxyAlias = proxyAlias;
+        }
     }
 
     /**
@@ -329,20 +350,21 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 transportProtocol,
                 new InetSocketAddress(requestedAddress.getAddress(),
                         requestedAddress.getPort() == 0 ? 0 : requestedAddress.getPort() + 1),
-                sslEngineSource,
-                authenticateSslClients,
-                proxyAuthenticator,
-                chainProxyManager,
-                mitmManager,
-                filtersSource,
-                transparent,
-                idleConnectionTimeout,
-                activityTrackers,
-                connectTimeout,
-                serverResolver,
-                globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getReadLimit() : 0,
-                globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getWriteLimit() : 0,
-                localAddress);
+                    sslEngineSource,
+                    authenticateSslClients,
+                    proxyAuthenticator,
+                    chainProxyManager,
+                    mitmManager,
+                    filtersSource,
+                    transparent,
+                    idleConnectionTimeout,
+                    activityTrackers,
+                    connectTimeout,
+                    serverResolver,
+                    globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getReadLimit() : 0,
+                    globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getWriteLimit() : 0,
+                    localAddress,
+                    proxyAlias);
     }
 
     @Override
@@ -519,6 +541,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return activityTrackers;
     }
 
+    public String getProxyAlias() {
+        return proxyAlias;
+    }
+
+
     protected EventLoopGroup getProxyToServerWorkerFor(TransportProtocol transportProtocol) {
         return serverGroup.getProxyToServerWorkerPoolForTransport(transportProtocol);
     }
@@ -531,7 +558,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private InetSocketAddress requestedAddress;
         private int port = 8080;
         private boolean allowLocalOnly = true;
-        private boolean listenOnAllAddresses = true;
         private SslEngineSource sslEngineSource = null;
         private boolean authenticateSslClients = true;
         private ProxyAuthenticator proxyAuthenticator = null;
@@ -546,6 +572,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private long readThrottleBytesPerSecond;
         private long writeThrottleBytesPerSecond;
         private InetSocketAddress localAddress;
+        private String proxyAlias;
         private int clientToProxyAcceptorThreads = ServerGroup.DEFAULT_INCOMING_ACCEPTOR_THREADS;
         private int clientToProxyWorkerThreads = ServerGroup.DEFAULT_INCOMING_WORKER_THREADS;
         private int proxyToServerWorkerThreads = ServerGroup.DEFAULT_OUTGOING_WORKER_THREADS;
@@ -568,7 +595,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 int connectTimeout, HostResolver serverResolver,
                 long readThrottleBytesPerSecond,
                 long  writeThrottleBytesPerSecond,
-                InetSocketAddress localAddress) {
+                InetSocketAddress localAddress,
+                String proxyAlias) {
             this.serverGroup = serverGroup;
             this.transportProtocol = transportProtocol;
             this.requestedAddress = requestedAddress;
@@ -589,6 +617,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.readThrottleBytesPerSecond = readThrottleBytesPerSecond;
             this.writeThrottleBytesPerSecond = writeThrottleBytesPerSecond;
             this.localAddress = localAddress;
+            this.proxyAlias = proxyAlias;
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
@@ -635,6 +664,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withProxyAlias(String alias) {
+            this.proxyAlias = alias;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap withAllowLocalOnly(
                 boolean allowLocalOnly) {
             this.allowLocalOnly = allowLocalOnly;
@@ -642,9 +677,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
-        public HttpProxyServerBootstrap withListenOnAllAddresses(
-                boolean listenOnAllAddresses) {
-            this.listenOnAllAddresses = listenOnAllAddresses;
+        @Deprecated
+        public HttpProxyServerBootstrap withListenOnAllAddresses(boolean listenOnAllAddresses) {
+            LOG.warn("withListenOnAllAddresses() is deprecated and will be removed in a future release. Use withNetworkInterface().");
             return this;
         }
 
@@ -780,7 +815,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     filtersSource, transparent,
                     idleConnectionTimeout, activityTrackers, connectTimeout,
                     serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond,
-                    localAddress);
+                    localAddress, proxyAlias);
         }
 
         private InetSocketAddress determineListenAddress() {
@@ -791,16 +826,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 // security of the proxy.
                 if (allowLocalOnly) {
                     return new InetSocketAddress("127.0.0.1", port);
-                } else if (listenOnAllAddresses) {
-                    return new InetSocketAddress(port);
                 } else {
-                    try {
-                        return new InetSocketAddress(
-                                NetworkUtils.getLocalHost(), port);
-                    } catch (final UnknownHostException e) {
-                        LOG.error("Could not get local host?", e);
-                        return new InetSocketAddress(port);
-                    }
+                    return new InetSocketAddress(port);
                 }
             }
         }

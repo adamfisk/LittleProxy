@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -68,12 +69,6 @@ public class ProxyUtils {
      * Date format pattern used to parse HTTP date headers in RFC 1123 format.
      */
     private static final String PATTERN_RFC1123 = "EEE, dd MMM yyyy HH:mm:ss zzz";
-
-    private static final String hostName = getHostName();
-
-    // Should never be constructed.
-    private ProxyUtils() {
-    }
 
     // Schemes are case-insensitive:
     // http://tools.ietf.org/html/rfc3986#section-3.1
@@ -238,27 +233,40 @@ public class ProxyUtils {
     }
 
     /**
-     * Adds the Via header to specify that the message has passed through the
-     * proxy.
+     * Adds the Via header to specify that the message has passed through the proxy. The specified alias will be
+     * appended to the Via header line. The alias may be the hostname of the machine proxying the request, or a
+     * pseudonym. From RFC 7230, section 5.7.1:
+     * <pre>
+         The received-by portion of the field value is normally the host and
+         optional port number of a recipient server or client that
+         subsequently forwarded the message.  However, if the real host is
+         considered to be sensitive information, a sender MAY replace it with
+         a pseudonym.
+     * </pre>
+     *
      * 
-     * @param msg
-     *            The HTTP message.
+     * @param httpMessage HTTP message to add the Via header to
+     * @param alias the alias to provide in the Via header for this proxy
      */
-    public static void addVia(final HttpMessage msg) {
-        final StringBuilder sb = new StringBuilder();
-        sb.append(msg.getProtocolVersion().majorVersion());
-        sb.append('.');
-        sb.append(msg.getProtocolVersion().minorVersion());
-        sb.append(' ');
-        sb.append(hostName);
+    public static void addVia(HttpMessage httpMessage, String alias) {
+        String newViaHeader =  new StringBuilder()
+                .append(httpMessage.getProtocolVersion().majorVersion())
+                .append('.')
+                .append(httpMessage.getProtocolVersion().minorVersion())
+                .append(' ')
+                .append(alias)
+                .toString();
+
         final List<String> vias;
-        if (msg.headers().contains(HttpHeaders.Names.VIA)) {
-            vias = msg.headers().getAll(HttpHeaders.Names.VIA);
-            vias.add(sb.toString());
+        if (httpMessage.headers().contains(HttpHeaders.Names.VIA)) {
+            List<String> existingViaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
+            vias = new ArrayList<String>(existingViaHeaders);
+            vias.add(newViaHeader);
         } else {
-            vias = Collections.singletonList(sb.toString());
+            vias = Collections.singletonList(newViaHeader);
         }
-        msg.headers().set(HttpHeaders.Names.VIA, vias);
+
+        httpMessage.headers().set(HttpHeaders.Names.VIA, vias);
     }
 
     /**
@@ -501,16 +509,14 @@ public class ProxyUtils {
     /**
      * Attempts to resolve the local machine's hostname.
      *
-     * @return the local machine's hostname
-     * @throws IllegalStateException if the hostname cannot be resolved
+     * @return the local machine's hostname, or null if a hostname cannot be determined
      */
-    public static String getHostName() throws IllegalStateException {
+    public static String getHostName() {
         try {
-            final InetAddress localAddress = NetworkUtils.getLocalHost();
-            return localAddress.getHostName();
-        } catch (final UnknownHostException e) {
-            LOG.error("Could not lookup host", e);
-            throw new IllegalStateException("Could not determine host!", e);
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            LOG.warn("Could not lookup localhost", e);
+            return null;
         }
     }
 
