@@ -37,12 +37,14 @@ import org.littleshoot.proxy.UnknownTransportProtocolException;
 import org.slf4j.spi.LocationAwareLogger;
 
 import javax.net.ssl.SSLSession;
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.RejectedExecutionException;
 
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
@@ -405,25 +407,22 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void exceptionCaught(Throwable cause) {
-        int logLevel = LocationAwareLogger.WARN_INT;
         try {
-            if (cause != null) {
-                String causeMessage = cause.getMessage();
-                if (cause instanceof ConnectException) {
-                    logLevel = LocationAwareLogger.DEBUG_INT;
-                } else if (causeMessage != null) {
-                    if (causeMessage.contains("Connection reset by peer")) {
-                        logLevel = LocationAwareLogger.DEBUG_INT;
-                    } else if (causeMessage.contains("event executor terminated")) {
-                        logLevel = LocationAwareLogger.DEBUG_INT;
-                    }
-                }
+            if (cause instanceof IOException) {
+                // IOExceptions are expected errors, for example when a server drops the connection. rather than flood
+                // the logs with stack traces for these expected exceptions, log the message at the INFO level and the
+                // stack trace at the DEBUG level.
+                LOG.info("An IOException occurred on ProxyToServerConnection: " + cause.getMessage());
+                LOG.debug("An IOException occurred on ProxyToServerConnection", cause);
+            } else if (cause instanceof RejectedExecutionException) {
+                LOG.info("An executor rejected a read or write operation on the ProxyToServerConnection (this is normal if the proxy is shutting down). Message: " + cause.getMessage());
+                LOG.debug("A RejectedExecutionException occurred on ProxyToServerConnection", cause);
+            } else {
+                LOG.error("Caught an exception on ProxyToServerConnection", cause);
             }
-
-            LOG.log(logLevel, "Caught an exception on ProxyToServerConnection", cause);
         } finally {
             if (!is(DISCONNECTED)) {
-                LOG.log(logLevel, "Disconnecting open connection");
+                LOG.info("Disconnecting open connection to server");
                 disconnect();
             }
         }
