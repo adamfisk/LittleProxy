@@ -229,6 +229,21 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * <p>
+     * Specify whether or not to run this proxy as a transparent proxy.
+     * </p>
+     *
+     * <p>
+     * Default = false
+     * </p>
+     *
+     * @param transparent
+     * @return
+     */
+    HttpProxyServerBootstrap withReverse(
+            boolean reverse);
+
+    /**
+     * <p>
      * Specify the timeout after which to disconnect idle connections, in
      * seconds.
      * </p>

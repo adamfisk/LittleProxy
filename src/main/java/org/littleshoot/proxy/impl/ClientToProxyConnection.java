@@ -169,6 +169,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                                 }
                             });
         }
+        if (proxyServer.isReverse()) {
+            setMitming(true);
+        }
         this.globalTrafficShapingHandler = globalTrafficShapingHandler;
 
         LOG.debug("Created ClientToProxyConnection");
@@ -237,6 +240,16 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         // short-circuit requests that treat the proxy as the "origin" server, to avoid infinite loops
         if (isRequestToOriginServer(httpRequest)) {
+            boolean keepAlive = writeBadRequest(httpRequest);
+            if (keepAlive) {
+                return AWAITING_INITIAL;
+            } else {
+                return DISCONNECT_REQUESTED;
+            }
+        }
+
+        // prevent CONNECT calls when running in reverse mode
+        if (!isRequestValid(httpRequest)) {
             boolean keepAlive = writeBadRequest(httpRequest);
             if (keepAlive) {
                 return AWAITING_INITIAL;
@@ -372,6 +385,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // direct requests to the proxy have the path only without a scheme
         String uri = httpRequest.getUri();
         return !HTTP_SCHEME.matcher(uri).matches();
+    }
+
+    private boolean isRequestValid(HttpRequest httpRequest) {
+        if (httpRequest.getMethod() == HttpMethod.CONNECT && proxyServer.isReverse()) {
+            return false;
+        }
+        return true;
     }
 
     @Override
