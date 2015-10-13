@@ -106,6 +106,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final MitmManager mitmManager;
     private final HttpFiltersSource filtersSource;
     private final boolean transparent;
+    private final boolean reverse;
     private final int connectTimeout;
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
@@ -233,6 +234,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             MitmManager mitmManager,
             HttpFiltersSource filtersSource,
             boolean transparent,
+            boolean reverse,
             int idleConnectionTimeout,
             Collection<ActivityTracker> activityTrackers,
             int connectTimeout,
@@ -251,6 +253,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.mitmManager = mitmManager;
         this.filtersSource = filtersSource;
         this.transparent = transparent;
+        this.reverse = reverse;
         this.idleConnectionTimeout = idleConnectionTimeout;
         if (activityTrackers != null) {
             this.activityTrackers.addAll(activityTrackers);
@@ -297,6 +300,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     boolean isTransparent() {
         return transparent;
+    }
+
+    boolean isReverse() {
+        return reverse;
     }
 
     public int getIdleConnectionTimeout() {
@@ -357,6 +364,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     mitmManager,
                     filtersSource,
                     transparent,
+                    reverse,
                     idleConnectionTimeout,
                     activityTrackers,
                     connectTimeout,
@@ -565,6 +573,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private MitmManager mitmManager = null;
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
         private boolean transparent = false;
+        private boolean reverse = false;
         private int idleConnectionTimeout = 70;
         private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
         private int connectTimeout = 40000;
@@ -590,9 +599,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 ChainedProxyManager chainProxyManager,
                 MitmManager mitmManager,
                 HttpFiltersSource filtersSource,
-                boolean transparent, int idleConnectionTimeout,
+                boolean transparent,
+                boolean reverse,
+                int idleConnectionTimeout,
                 Collection<ActivityTracker> activityTrackers,
-                int connectTimeout, HostResolver serverResolver,
+                int connectTimeout,
+                HostResolver serverResolver,
                 long readThrottleBytesPerSecond,
                 long  writeThrottleBytesPerSecond,
                 InetSocketAddress localAddress,
@@ -608,6 +620,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.mitmManager = mitmManager;
             this.filtersSource = filtersSource;
             this.transparent = transparent;
+            this.reverse = reverse;
             this.idleConnectionTimeout = idleConnectionTimeout;
             if (activityTrackers != null) {
                 this.activityTrackers.addAll(activityTrackers);
@@ -625,6 +638,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     props, "dnssec"));
             this.transparent = ProxyUtils.extractBooleanDefaultFalse(
                     props, "transparent");
+            this.reverse = ProxyUtils.extractBooleanDefaultFalse(
+                props, "reverse");
             this.idleConnectionTimeout = ProxyUtils.extractInt(props,
                     "idle_connection_timeout");
             this.connectTimeout = ProxyUtils.extractInt(props,
@@ -751,6 +766,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withReverse(
+                boolean reverse) {
+            this.reverse = reverse;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap withIdleConnectionTimeout(
                 int idleConnectionTimeout) {
             this.idleConnectionTimeout = idleConnectionTimeout;
@@ -808,14 +830,25 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 serverGroup = new ServerGroup(name, clientToProxyAcceptorThreads, clientToProxyWorkerThreads, proxyToServerWorkerThreads);
             }
 
-            return new DefaultHttpProxyServer(serverGroup,
-                    transportProtocol, determineListenAddress(),
-                    sslEngineSource, authenticateSslClients,
-                    proxyAuthenticator, chainProxyManager, mitmManager,
-                    filtersSource, transparent,
-                    idleConnectionTimeout, activityTrackers, connectTimeout,
-                    serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond,
-                    localAddress, proxyAlias);
+      return new DefaultHttpProxyServer(serverGroup,
+          transportProtocol,
+          determineListenAddress(),
+          sslEngineSource,
+          authenticateSslClients,
+          proxyAuthenticator,
+          chainProxyManager,
+          mitmManager,
+          filtersSource,
+          transparent,
+          reverse,
+          idleConnectionTimeout,
+          activityTrackers,
+          connectTimeout,
+          serverResolver,
+          readThrottleBytesPerSecond,
+          writeThrottleBytesPerSecond,
+          localAddress,
+          proxyAlias);
         }
 
         private InetSocketAddress determineListenAddress() {
