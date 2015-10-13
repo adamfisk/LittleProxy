@@ -229,14 +229,14 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * <p>
-     * Specify whether or not to run this proxy as a transparent proxy.
+     * Specify whether or not to run this proxy as a reverse proxy.
      * </p>
      *
      * <p>
      * Default = false
      * </p>
      *
-     * @param transparent
+     * @param reverse
      * @return
      */
     HttpProxyServerBootstrap withReverse(
