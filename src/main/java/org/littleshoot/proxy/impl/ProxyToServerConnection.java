@@ -1,10 +1,12 @@
 package org.littleshoot.proxy.impl;
 
-import com.google.common.net.HostAndPort;
+import static org.littleshoot.proxy.impl.ConnectionState.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -25,18 +27,7 @@ import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
-import org.littleshoot.proxy.ActivityTracker;
-import org.littleshoot.proxy.ChainedProxy;
-import org.littleshoot.proxy.ChainedProxyAdapter;
-import org.littleshoot.proxy.ChainedProxyManager;
-import org.littleshoot.proxy.FullFlowContext;
-import org.littleshoot.proxy.HttpFilters;
-import org.littleshoot.proxy.MitmManager;
-import org.littleshoot.proxy.TransportProtocol;
-import org.littleshoot.proxy.UnknownTransportProtocolException;
-import org.slf4j.spi.LocationAwareLogger;
 
-import javax.net.ssl.SSLSession;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -44,12 +35,19 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
-import static org.littleshoot.proxy.impl.ConnectionState.CONNECTING;
-import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECTED;
-import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
+import javax.net.ssl.SSLSession;
+
+import org.littleshoot.proxy.ActivityTracker;
+import org.littleshoot.proxy.ChainedProxy;
+import org.littleshoot.proxy.ChainedProxyAdapter;
+import org.littleshoot.proxy.ChainedProxyManager;
+import org.littleshoot.proxy.FullFlowContext;
+import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.TransportProtocol;
+import org.littleshoot.proxy.UnknownTransportProtocolException;
+import org.slf4j.spi.LocationAwareLogger;
+
+import com.google.common.net.HostAndPort;
 
 /**
  * <p>
@@ -125,11 +123,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private volatile GlobalTrafficShapingHandler trafficHandler;
 
-    /**
-     * Minimum size of the adaptive recv buffer when throttling is enabled. 
-     */
-    private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
-    
     /**
      * Create a new ProxyToServerConnection.
      * 
@@ -267,8 +260,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 identifyCurrentRequest();
             }
 
-            return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
-                    true : super.isContentAlwaysEmpty(httpMessage);
+            // The current HTTP Request can be null when this proxy is
+            // negotiating a CONNECT request with a chained proxy 
+            // while it is running as a MITM.
+            if(currentHttpRequest == null) {
+            	return true;
+            } else {
+                return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
+                        true : super.isContentAlwaysEmpty(httpMessage);
+            }
         }
     };
 
@@ -556,30 +556,32 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         } else {
             // Otherwise an upstream connection is required
             connectionFlow.then(ConnectChannel);
-            if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-                connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
-                        .newSslEngine()));
+
+        if (chainedProxy != null && chainedProxy.requiresEncryption()) {
+            connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
+                    .newSslEngine()));
+        }
+
+        if (ProxyUtils.isCONNECT(initialRequest)) {
+            // If we're chaining, forward the CONNECT request
+            if (hasUpstreamChainedProxy()) {
+                connectionFlow.then(
+                        serverConnection.HTTPCONNECTWithChainedProxy);
             }
-            if (ProxyUtils.isCONNECT(initialRequest)) {
-                MitmManager mitmManager = proxyServer.getMitmManager();
-                if (isMitmEnabled()) {
-                    connectionFlow
-                            .then(serverConnection.EncryptChannel(mitmManager
-                                    .serverSslEngine(remoteAddress.getHostName(),
-                                            remoteAddress.getPort())))
-                            .then(clientConnection.RespondCONNECTSuccessful)
-                            .then(serverConnection.MitmEncryptClientChannel);
-                } else {
-                    // If we're chaining, forward the CONNECT request
-                    if (hasUpstreamChainedProxy()) {
-                        connectionFlow.then(
-                                serverConnection.HTTPCONNECTWithChainedProxy);
-                    }
-                    connectionFlow.then(serverConnection.StartTunneling)
-                            .then(clientConnection.RespondCONNECTSuccessful)
-                            .then(clientConnection.StartTunneling);
-                }
+            if (isMitmEnabled()) {
+                connectionFlow
+                        .then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
+                                .serverSslEngine(remoteAddress.getHostName(),
+                                        remoteAddress.getPort())))
+                        .then(clientConnection.RespondCONNECTSuccessful)
+                        .then(serverConnection.MitmEncryptClientChannel);
+            } else {
+                connectionFlow.then(serverConnection.StartTunneling)
+                        .then(clientConnection.RespondCONNECTSuccessful)
+                        .then(clientConnection.StartTunneling);
             }
+        }
+
         }
     }
 
@@ -640,7 +642,30 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
             chainedProxy.filterRequest(initialRequest);
-            return writeToChannel(initialRequest);
+            /*
+             * We ignore the LastHttpContent which we read from the client
+             * connection when we are negotiating connect (see readHttp()
+             * in ProxyConnection). This cannot be ignored while we are
+             * doing MITM + Chained Proxy because the HttpRequestEncoder
+             * of the Proxy to Server connection will be in an invalid state
+             * when the next request is written. Writing the EmptyLastContent
+             * resets its state.
+             */
+            if(isMitmEnabled()){
+            	ChannelFuture future = writeToChannel(initialRequest);
+            	future.addListener(new ChannelFutureListener() {
+					
+					@Override
+					public void operationComplete(ChannelFuture arg0) throws Exception {
+						if(arg0.isSuccess()){
+							writeToChannel(LastHttpContent.EMPTY_LAST_CONTENT);
+						}						
+					}
+				});
+            	return future;
+            } else {
+                return writeToChannel(initialRequest);
+            }
         }
 
         void onSuccess(ConnectionFlow flow) {

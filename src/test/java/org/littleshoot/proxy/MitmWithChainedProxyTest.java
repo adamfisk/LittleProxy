@@ -1,36 +1,44 @@
 package org.littleshoot.proxy;
 
+import static org.hamcrest.Matchers.hasItem;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
+
+import java.nio.charset.Charset;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.littleshoot.proxy.extras.SelfSignedMitmManager;
+
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
-import org.littleshoot.proxy.extras.SelfSignedMitmManager;
-
-import java.nio.charset.Charset;
-import java.util.HashSet;
-import java.util.Queue;
-import java.util.Set;
-
-import static org.hamcrest.Matchers.hasItem;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 
 /**
  * Tests just a single basic proxy running as a man in the middle.
  */
-public class MitmProxyTest extends BaseProxyTest {
+public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
     private Set<HttpMethod> requestPreMethodsSeen = new HashSet<HttpMethod>();
     private Set<HttpMethod> requestPostMethodsSeen = new HashSet<HttpMethod>();
     private StringBuilder responsePreBody = new StringBuilder();
     private StringBuilder responsePostBody = new StringBuilder();
     private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
     private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
-
+    
     @Override
     protected void setUp() {
+   	
+        REQUESTS_SENT_BY_DOWNSTREAM.set(0);
+        REQUESTS_RECEIVED_BY_UPSTREAM.set(0);
+        TRANSPORTS_USED.clear();
+        this.upstreamProxy = upstreamProxy().start();
+    	
         this.proxyServer = bootstrapProxy()
                 .withPort(0)
+                .withChainProxyManager(chainedProxyManager())
+                .plusActivityTracker(DOWNSTREAM_TRACKER)
                 .withManInTheMiddle(new SelfSignedMitmManager())
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
                     @Override
@@ -90,7 +98,7 @@ public class MitmProxyTest extends BaseProxyTest {
                 })
                 .start();
     }
-
+    
     @Override
     protected boolean isMITM() {
         return true;
@@ -120,7 +128,7 @@ public class MitmProxyTest extends BaseProxyTest {
         assertMethodSeenInResponseFilters(HttpMethod.POST);
         assertResponseFromFiltersMatchesActualResponse();
     }
-
+    
     @Override
     public void testSimplePostRequestOverHTTPS() throws Exception {
         super.testSimplePostRequestOverHTTPS();
@@ -129,7 +137,7 @@ public class MitmProxyTest extends BaseProxyTest {
         assertMethodSeenInResponseFilters(HttpMethod.POST);
         assertResponseFromFiltersMatchesActualResponse();
     }
-
+    
     private void assertMethodSeenInRequestFilters(HttpMethod method) {
         assertThat(method
                         + " should have been seen in clientToProxyRequest filter",
@@ -158,5 +166,9 @@ public class MitmProxyTest extends BaseProxyTest {
                 "Data received through HttpFilters.proxyToClientResponse should match response",
                 lastResponse, responsePostBody.toString());
     }
-
+    
+    @Override
+    protected void tearDown() throws Exception {
+        this.upstreamProxy.abort();
+    }
 }
