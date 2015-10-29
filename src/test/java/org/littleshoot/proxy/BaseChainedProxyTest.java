@@ -20,13 +20,13 @@ import static org.junit.Assert.assertThat;
  * by the downstream proxy was received by the upstream proxy.
  */
 public abstract class BaseChainedProxyTest extends BaseProxyTest {
-    private final AtomicLong REQUESTS_SENT_BY_DOWNSTREAM = new AtomicLong(
+    protected final AtomicLong REQUESTS_SENT_BY_DOWNSTREAM = new AtomicLong(
             0l);
-    private final AtomicLong REQUESTS_RECEIVED_BY_UPSTREAM = new AtomicLong(
+    protected final AtomicLong REQUESTS_RECEIVED_BY_UPSTREAM = new AtomicLong(
             0l);
-    private final ConcurrentSkipListSet<TransportProtocol> TRANSPORTS_USED = new ConcurrentSkipListSet<TransportProtocol>();
+    protected final ConcurrentSkipListSet<TransportProtocol> TRANSPORTS_USED = new ConcurrentSkipListSet<TransportProtocol>();
 
-    private final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
+    protected final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
         @Override
         public void requestSentToServer(FullFlowContext flowContext,
                 io.netty.handler.codec.http.HttpRequest httpRequest) {
@@ -36,7 +36,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
         }
     };
 
-    private final ActivityTracker UPSTREAM_TRACKER = new ActivityTrackerAdapter() {
+    protected final ActivityTracker UPSTREAM_TRACKER = new ActivityTrackerAdapter() {
         @Override
         public void requestReceivedFromClient(FlowContext flowContext,
                 HttpRequest httpRequest) {
@@ -44,7 +44,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
         }
     };
 
-    private HttpProxyServer upstreamProxy;
+    protected HttpProxyServer upstreamProxy;
 
     @Override
     protected void setUp() {

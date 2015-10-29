@@ -709,8 +709,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 ChainedProxyManager chainProxyManager) {
             this.chainProxyManager = chainProxyManager;
             if (this.mitmManager != null) {
-                LOG.warn("Enabled proxy chaining with man in the middle.  These are mutually exclusive - man in the middle will be disabled.");
-                this.mitmManager = null;
+                LOG.info("Enabled proxy chaining with man in the middle.");
             }
             return this;
         }
@@ -720,8 +719,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 MitmManager mitmManager) {
             this.mitmManager = mitmManager;
             if (this.chainProxyManager != null) {
-                LOG.warn("Enabled man in the middle along with proxy chaining.  These are mutually exclusive - proxy chaining will be disabled.");
-                this.chainProxyManager = null;
+                LOG.info("Enabled man in the middle along with proxy chaining.");
             }
             return this;
         }
