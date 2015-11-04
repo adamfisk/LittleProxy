@@ -271,9 +271,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
             // The current HTTP Request can be null when this proxy is
             // negotiating a CONNECT request with a chained proxy 
-            // while it is running as a MITM.
+            // while it is running as a MITM. Since the response to a
+            // CONNECT request does not have any content, we return true.
             if(currentHttpRequest == null) {
-            	return true;
+                return true;
             } else {
                 return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
                         true : super.isContentAlwaysEmpty(httpMessage);
@@ -569,7 +570,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             MitmManager mitmManager = proxyServer.getMitmManager();
             boolean isMitmEnabled = mitmManager != null;
 
-            if (isMitmEnabled) {            	
+            if (isMitmEnabled) {     	
                 connectionFlow
                         .then(serverConnection.EncryptChannel(mitmManager
                                 .serverSslEngine(remoteAddress.getHostName(),
@@ -648,21 +649,21 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
              * connection when we are negotiating connect (see readHttp()
              * in ProxyConnection). This cannot be ignored while we are
              * doing MITM + Chained Proxy because the HttpRequestEncoder
-             * of the Proxy to Server connection will be in an invalid state
+             * of the ProxyToServerConnection will be in an invalid state
              * when the next request is written. Writing the EmptyLastContent
              * resets its state.
              */
             if(isMitmEnabled){
-            	ChannelFuture future = writeToChannel(initialRequest);
-            	future.addListener(new ChannelFutureListener() {
-					
-					@Override
-					public void operationComplete(ChannelFuture arg0) throws Exception {
-						if(arg0.isSuccess()){
-							writeToChannel(LastHttpContent.EMPTY_LAST_CONTENT);
-						}						
-					}
-				});
+                ChannelFuture future = writeToChannel(initialRequest);
+                future.addListener(new ChannelFutureListener() {
+
+                    @Override
+                    public void operationComplete(ChannelFuture arg0) throws Exception {
+                        if(arg0.isSuccess()){
+                            writeToChannel(LastHttpContent.EMPTY_LAST_CONTENT);
+                        }
+                    }
+                });
             	return future;
             } else {
                 return writeToChannel(initialRequest);
