@@ -17,7 +17,8 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
 /**
- * Tests just a single basic proxy running as a man in the middle.
+  * Tests a proxy that runs as a MITM and which is chained with
+  * another proxy. 
  */
 public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
     private Set<HttpMethod> requestPreMethodsSeen = new HashSet<HttpMethod>();
