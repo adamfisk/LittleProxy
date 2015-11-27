@@ -571,10 +571,22 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             boolean isMitmEnabled = mitmManager != null;
 
             if (isMitmEnabled) {     	
-                connectionFlow
-                        .then(serverConnection.EncryptChannel(mitmManager
-                                .serverSslEngine(remoteAddress.getHostName(),
-                                        remoteAddress.getPort())))
+            	if(hasUpstreamChainedProxy()){
+            		// When MITM is enabled and when chained proxy is set up, remoteAddress
+            		// will be the chained proxy's address. So we use serverHostAndPort
+            		// which is the end server's address.
+                    HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
+            		
+                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
+                            .serverSslEngine(parsedHostAndPort.getHostText(),
+                            		parsedHostAndPort.getPort())));
+            	} else {
+                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
+                            .serverSslEngine(remoteAddress.getHostName(),
+                                    remoteAddress.getPort())));
+            	}
+            	
+            	connectionFlow
                         .then(clientConnection.RespondCONNECTSuccessful)
                         .then(serverConnection.MitmEncryptClientChannel);
             } else {
