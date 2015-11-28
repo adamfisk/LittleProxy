@@ -551,49 +551,47 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // unresolved addresses in off line mode. So, an unresolved address
             // here means a cached response is requested. Don't connect/encrypt
             // a channel to the upstream proxy or server.
-            connectionFlow
-                    .then(clientConnection.RespondCONNECTSuccessful)
-                    .then(serverConnection.MitmEncryptClientChannel);
+            connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+            connectionFlow.then(serverConnection.MitmEncryptClientChannel);
         } else {
             // Otherwise an upstream connection is required
             connectionFlow.then(ConnectChannel);
 
-        if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-            connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
-                    .newSslEngine()));
-        }
+            if (chainedProxy != null && chainedProxy.requiresEncryption()) {
+                connectionFlow.then(serverConnection.EncryptChannel(chainedProxy.newSslEngine()));
+            }
 
-        if (ProxyUtils.isCONNECT(initialRequest)) {
-            // If we're chaining, forward the CONNECT request
-            if (hasUpstreamChainedProxy()) {
-                connectionFlow.then(
-                        serverConnection.HTTPCONNECTWithChainedProxy);
-            }
-            if (isMitmEnabled()) {
-            	if(hasUpstreamChainedProxy()){
-            		// When MITM is enabled and when chained proxy is set up, remoteAddress
-            		// will be the chained proxy's address. So we use serverHostAndPort
-            		// which is the end server's address.
-                    HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
-            		
+            if (ProxyUtils.isCONNECT(initialRequest)) {
+                // If we're chaining, forward the CONNECT request
+                if (hasUpstreamChainedProxy()) {
+                    connectionFlow.then(serverConnection.HTTPCONNECTWithChainedProxy);
+                }
+                if (isMitmEnabled()) {
+                    String host;
+                    int port;
+                    if (hasUpstreamChainedProxy()) {
+                        // When MITM is enabled and when chained proxy is set
+                        // up, remoteAddress will be the chained proxy's
+                        // address. So we use serverHostAndPort which is the end
+                        // server's address.
+                        HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
+                        host = parsedHostAndPort.getHostText();
+                        port = parsedHostAndPort.getPort();
+                    } else {
+                        host = remoteAddress.getHostName();
+                        port = remoteAddress.getPort();
+                    }
                     connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine(parsedHostAndPort.getHostText(),
-                            		parsedHostAndPort.getPort())));
-            	} else {
-                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine(remoteAddress.getHostName(),
-                                    remoteAddress.getPort())));
-            	}
-            	
-            	connectionFlow
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(serverConnection.MitmEncryptClientChannel);
-            } else {
-                connectionFlow.then(serverConnection.StartTunneling)
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(clientConnection.StartTunneling);
+                            .serverSslEngine(host, port)));
+
+                    connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+                    connectionFlow.then(serverConnection.MitmEncryptClientChannel);
+                } else {
+                    connectionFlow.then(serverConnection.StartTunneling);
+                    connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+                    connectionFlow.then(clientConnection.StartTunneling);
+                }
             }
-        }
 
         }
     }
