@@ -535,41 +535,50 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         connectionFlow.start();
     }
 
+    private boolean isMitmEnabled() {
+        return proxyServer.getMitmManager() != null;
+    }
+
     /**
      * This method initializes our {@link ConnectionFlow} based on however this
      * connection has been configured.
      */
     private void initializeConnectionFlow() {
-        this.connectionFlow = new ConnectionFlow(clientConnection, this,
-                connectLock)
-                .then(ConnectChannel);
-
-        if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-            connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
-                    .newSslEngine()));
-        }
-
-        if (ProxyUtils.isCONNECT(initialRequest)) {
-            MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
-
-            if (isMitmEnabled) {
-                connectionFlow
-                        .then(serverConnection.EncryptChannel(mitmManager
-                                .serverSslEngine(remoteAddress.getHostName(),
-                                        remoteAddress.getPort())))
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(serverConnection.MitmEncryptClientChannel);
-            } else {
-                // If we're chaining, forward the CONNECT request
-                if (hasUpstreamChainedProxy()) {
-                    connectionFlow.then(
-                            serverConnection.HTTPCONNECTWithChainedProxy);
+        connectionFlow = new ConnectionFlow(clientConnection, this, connectLock);
+        if (remoteAddress.isUnresolved() && isMitmEnabled() && ProxyUtils.isCONNECT(initialRequest)) {
+            // A caching proxy needs to install a HostResolver which returns
+            // unresolved addresses in off line mode. So, an unresolved address
+            // here means a cached response is requested. Don't connect/encrypt
+            // a channel to the upstream proxy or server.
+            connectionFlow
+                    .then(clientConnection.RespondCONNECTSuccessful)
+                    .then(serverConnection.MitmEncryptClientChannel);
+        } else {
+            // Otherwise an upstream connection is required
+            connectionFlow.then(ConnectChannel);
+            if (chainedProxy != null && chainedProxy.requiresEncryption()) {
+                connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
+                        .newSslEngine()));
+            }
+            if (ProxyUtils.isCONNECT(initialRequest)) {
+                MitmManager mitmManager = proxyServer.getMitmManager();
+                if (isMitmEnabled()) {
+                    connectionFlow
+                            .then(serverConnection.EncryptChannel(mitmManager
+                                    .serverSslEngine(remoteAddress.getHostName(),
+                                            remoteAddress.getPort())))
+                            .then(clientConnection.RespondCONNECTSuccessful)
+                            .then(serverConnection.MitmEncryptClientChannel);
+                } else {
+                    // If we're chaining, forward the CONNECT request
+                    if (hasUpstreamChainedProxy()) {
+                        connectionFlow.then(
+                                serverConnection.HTTPCONNECTWithChainedProxy);
+                    }
+                    connectionFlow.then(serverConnection.StartTunneling)
+                            .then(clientConnection.RespondCONNECTSuccessful)
+                            .then(clientConnection.StartTunneling);
                 }
-
-                connectionFlow.then(serverConnection.StartTunneling)
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(clientConnection.StartTunneling);
             }
         }
     }
@@ -684,7 +693,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             return clientConnection
                     .encrypt(proxyServer.getMitmManager()
-                            .clientSslEngineFor(sslEngine.getSession()), false)
+                            .clientSslEngineFor(sslEngine == null ? null : sslEngine.getSession(), serverHostAndPort), false)
                     .addListener(
                             new GenericFutureListener<Future<? super Channel>>() {
                                 @Override
