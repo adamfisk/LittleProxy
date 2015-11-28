@@ -514,6 +514,10 @@ public class ProxyUtils {
     public static String getHostName() {
         try {
             return InetAddress.getLocalHost().getHostName();
+        } catch (RuntimeException e) {
+            // Android 4.4.4 throws an android.os.NetworkOnMainThreadException
+            LOG.warn("Could not lookup localhost", e);
+            return null;
         } catch (UnknownHostException e) {
             LOG.warn("Could not lookup localhost", e);
             return null;
