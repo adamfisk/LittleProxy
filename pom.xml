@@ -473,8 +473,11 @@
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
                                         <Main-Class>org.littleshoot.proxy.Launcher</Main-Class>
-                                        <Class-Path>. ./bcprov-jdk16-1.46.jar</Class-Path>
                                     </manifestEntries>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
+                                    <resource>log4j.xml</resource>
+                                    <file>src/main/config/log4j.xml</file>
                                 </transformer>
                             </transformers>
                         </configuration>
