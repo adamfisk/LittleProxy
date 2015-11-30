@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+    <appender class="org.apache.log4j.RollingFileAppender" name="RollingTextFile">
+        <param value="log.txt" name="File"/>
+        <param value="5" name="MaxBackupIndex"/>
+        <param value="50MB" name="MaxFileSize"/>
+        <layout class="org.apache.log4j.PatternLayout"/>
+    </appender>
+    <appender class="org.apache.log4j.ConsoleAppender" name="stdout">
+        <layout class="org.apache.log4j.PatternLayout">
+            <param value="%d{ISO8601} %-5p [%t] %c{2} (%F:%L).%M() - %m%n" name="ConversionPattern"/>
+        </layout>
+    </appender>
+    <appender class="org.apache.log4j.FileAppender" name="TextFile">
+        <param value="false" name="Append"/>
+        <param value="log.txt" name="File"/>
+        <layout class="org.apache.log4j.PatternLayout">
+            <param value="%d{ISO8601} %-5p [%t] %c{2} (%F:%L).%M() - %m%n" name="ConversionPattern"/>
+        </layout>
+    </appender>
+    <logger name="org.eclipse.jetty">
+        <level value="off"/>
+    </logger>
+    <logger name="org.littleshoot.proxy">
+        <level value="info"/>
+    </logger>
+    <root>
+        <level value="INFO"/>
+        <appender-ref ref="TextFile"/>
+        <appender-ref ref="stdout"/>
+    </root>
+</log4j:configuration>
