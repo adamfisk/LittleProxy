@@ -5,6 +5,8 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -269,8 +271,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 identifyCurrentRequest();
             }
 
-            return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
-                    true : super.isContentAlwaysEmpty(httpMessage);
+            // The current HTTP Request can be null when this proxy is
+            // negotiating a CONNECT request with a chained proxy 
+            // while it is running as a MITM. Since the response to a
+            // CONNECT request does not have any content, we return true.
+            if(currentHttpRequest == null) {
+                return true;
+            } else {
+                return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
+                        true : super.isContentAlwaysEmpty(httpMessage);
+            }
         }
     };
 
@@ -549,23 +559,36 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
+        	
+            // If we're chaining, forward the CONNECT request
+            if (hasUpstreamChainedProxy()) {
+                connectionFlow.then(
+                        serverConnection.HTTPCONNECTWithChainedProxy);
+            }        	
+        	
             MitmManager mitmManager = proxyServer.getMitmManager();
             boolean isMitmEnabled = mitmManager != null;
 
-            if (isMitmEnabled) {
-                connectionFlow
-                        .then(serverConnection.EncryptChannel(mitmManager
-                                .serverSslEngine(remoteAddress.getHostName(),
-                                        remoteAddress.getPort())))
+            if (isMitmEnabled) {     	
+            	if(hasUpstreamChainedProxy()){
+            		// When MITM is enabled and when chained proxy is set up, remoteAddress
+            		// will be the chained proxy's address. So we use serverHostAndPort
+            		// which is the end server's address.
+                    HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
+            		
+                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
+                            .serverSslEngine(parsedHostAndPort.getHostText(),
+                            		parsedHostAndPort.getPort())));
+            	} else {
+                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
+                            .serverSslEngine(remoteAddress.getHostName(),
+                                    remoteAddress.getPort())));
+            	}
+            	
+            	connectionFlow
                         .then(clientConnection.RespondCONNECTSuccessful)
                         .then(serverConnection.MitmEncryptClientChannel);
             } else {
-                // If we're chaining, forward the CONNECT request
-                if (hasUpstreamChainedProxy()) {
-                    connectionFlow.then(
-                            serverConnection.HTTPCONNECTWithChainedProxy);
-                }
-
                 connectionFlow.then(serverConnection.StartTunneling)
                         .then(clientConnection.RespondCONNECTSuccessful)
                         .then(clientConnection.StartTunneling);
@@ -630,7 +653,32 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
             chainedProxy.filterRequest(initialRequest);
-            return writeToChannel(initialRequest);
+            MitmManager mitmManager = proxyServer.getMitmManager();
+            boolean isMitmEnabled = mitmManager != null;
+            /*
+             * We ignore the LastHttpContent which we read from the client
+             * connection when we are negotiating connect (see readHttp()
+             * in ProxyConnection). This cannot be ignored while we are
+             * doing MITM + Chained Proxy because the HttpRequestEncoder
+             * of the ProxyToServerConnection will be in an invalid state
+             * when the next request is written. Writing the EmptyLastContent
+             * resets its state.
+             */
+            if(isMitmEnabled){
+                ChannelFuture future = writeToChannel(initialRequest);
+                future.addListener(new ChannelFutureListener() {
+
+                    @Override
+                    public void operationComplete(ChannelFuture arg0) throws Exception {
+                        if(arg0.isSuccess()){
+                            writeToChannel(LastHttpContent.EMPTY_LAST_CONTENT);
+                        }
+                    }
+                });
+            	return future;
+            } else {
+                return writeToChannel(initialRequest);
+            }
         }
 
         void onSuccess(ConnectionFlow flow) {

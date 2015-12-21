@@ -377,7 +377,15 @@ abstract class ProxyConnection<I extends HttpObject> extends
             channel.config().setAutoRead(true);
         }
         SslHandler handler = new SslHandler(sslEngine);
-        pipeline.addFirst("ssl", handler);
+        if(pipeline.get("ssl") == null) {
+            pipeline.addFirst("ssl", handler);
+        } else {
+            // The second SSL handler is added to handle the case
+            // where the proxy (running as MITM) has to chain with
+            // another SSL enabled proxy. The second SSL handler
+            // is to perform SSL with the server.
+            pipeline.addAfter("ssl", "sslWithServer", handler);
+        }
         return handler.handshakeFuture();
     }
 
