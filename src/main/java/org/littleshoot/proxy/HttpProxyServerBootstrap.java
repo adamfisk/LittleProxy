@@ -100,6 +100,11 @@ public interface HttpProxyServerBootstrap {
      * Default = null
      * </p>
      * 
+     * <p>
+     * Note - This and {@link #withManInTheMiddle(MitmManager)} are
+     * mutually exclusive.
+     * </p>
+     * 
      * @param sslEngineSource
      * @return
      */
@@ -148,11 +153,6 @@ public interface HttpProxyServerBootstrap {
      * Default = null
      * </p>
      * 
-     * <p>
-     * Note - This and {@link #withManInTheMiddle(MitmManager)} are currently
-     * mutually exclusive.
-     * </p>
-     * 
      * @param chainProxyManager
      * @return
      */
@@ -170,8 +170,8 @@ public interface HttpProxyServerBootstrap {
      * </p>
      * 
      * <p>
-     * Note - This and {@link #withChainProxyManager(ChainedProxyManager)} are
-     * currently mutually exclusive.
+     * Note - This and {@link #withSslEngineSource(SslEngineSource)} are
+     * mutually exclusive.
      * </p>
      * 
      * @param mitmManager
