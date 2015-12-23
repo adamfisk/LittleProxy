@@ -690,6 +690,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             if (this.mitmManager != null) {
                 LOG.warn("Enabled encrypted inbound connections with man in the middle. "
                         + "These are mutually exclusive - man in the middle will be disabled.");
+                this.mitmManager = null;
             }
             return this;
         }
@@ -722,6 +723,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             if (this.sslEngineSource != null) {
                 LOG.warn("Enabled man in the middle with encrypted inbound connections. "
                         + "These are mutually exclusive - encrypted inbound connections will be disabled.");
+                this.sslEngineSource = null;
             }
             return this;
         }
