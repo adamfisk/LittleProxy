@@ -687,6 +687,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         public HttpProxyServerBootstrap withSslEngineSource(
                 SslEngineSource sslEngineSource) {
             this.sslEngineSource = sslEngineSource;
+            if (this.mitmManager != null) {
+                LOG.warn("Enabled encrypted inbound connections with man in the middle. "
+                        + "These are mutually exclusive - man in the middle will be disabled.");
+                this.mitmManager = null;
+            }
             return this;
         }
 
@@ -708,9 +713,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         public HttpProxyServerBootstrap withChainProxyManager(
                 ChainedProxyManager chainProxyManager) {
             this.chainProxyManager = chainProxyManager;
-            if (this.mitmManager != null) {
-                LOG.info("Enabled proxy chaining with man in the middle.");
-            }
             return this;
         }
 
@@ -718,8 +720,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         public HttpProxyServerBootstrap withManInTheMiddle(
                 MitmManager mitmManager) {
             this.mitmManager = mitmManager;
-            if (this.chainProxyManager != null) {
-                LOG.info("Enabled man in the middle along with proxy chaining.");
+            if (this.sslEngineSource != null) {
+                LOG.warn("Enabled man in the middle with encrypted inbound connections. "
+                        + "These are mutually exclusive - encrypted inbound connections will be disabled.");
+                this.sslEngineSource = null;
             }
             return this;
         }
