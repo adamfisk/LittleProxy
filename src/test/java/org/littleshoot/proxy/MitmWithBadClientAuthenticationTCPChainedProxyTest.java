@@ -11,7 +11,6 @@ import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
  * Tests that clients are authenticated and that if they're missing certs, we
  * get an error.
  */
-@Ignore
 public class MitmWithBadClientAuthenticationTCPChainedProxyTest extends
         MitmWithChainedProxyTest {
     private final SslEngineSource serverSslEngineSource = new SelfSignedSslEngineSource(

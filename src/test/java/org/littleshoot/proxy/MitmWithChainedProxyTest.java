@@ -17,8 +17,8 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
 /**
-  * Tests a proxy that runs as a MITM and which is chained with
-  * another proxy. 
+ * Tests a proxy that runs as a MITM and which is chained with
+ * another proxy. 
  */
 public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
     private Set<HttpMethod> requestPreMethodsSeen = new HashSet<HttpMethod>();
@@ -108,35 +108,43 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
     @Override
     public void testSimpleGetRequest() throws Exception {
         super.testSimpleGetRequest();
-        assertMethodSeenInRequestFilters(HttpMethod.GET);
-        assertMethodSeenInResponseFilters(HttpMethod.GET);
-        assertResponseFromFiltersMatchesActualResponse();
+        if (isChained() && !expectBadGatewayForEverything()) {
+            assertMethodSeenInRequestFilters(HttpMethod.GET);
+            assertMethodSeenInResponseFilters(HttpMethod.GET);
+            assertResponseFromFiltersMatchesActualResponse();
+        }
     }
 
     @Override
     public void testSimpleGetRequestOverHTTPS() throws Exception {
         super.testSimpleGetRequestOverHTTPS();
-        assertMethodSeenInRequestFilters(HttpMethod.CONNECT);
-        assertMethodSeenInRequestFilters(HttpMethod.GET);
-        assertMethodSeenInResponseFilters(HttpMethod.GET);
-        assertResponseFromFiltersMatchesActualResponse();
+        if (isChained() && !expectBadGatewayForEverything()) {
+            assertMethodSeenInRequestFilters(HttpMethod.CONNECT);
+            assertMethodSeenInRequestFilters(HttpMethod.GET);
+            assertMethodSeenInResponseFilters(HttpMethod.GET);
+            assertResponseFromFiltersMatchesActualResponse();
+        }
     }
 
     @Override
     public void testSimplePostRequest() throws Exception {
         super.testSimplePostRequest();
-        assertMethodSeenInRequestFilters(HttpMethod.POST);
-        assertMethodSeenInResponseFilters(HttpMethod.POST);
-        assertResponseFromFiltersMatchesActualResponse();
+        if (isChained() && !expectBadGatewayForEverything()) {
+            assertMethodSeenInRequestFilters(HttpMethod.POST);
+            assertMethodSeenInResponseFilters(HttpMethod.POST);
+            assertResponseFromFiltersMatchesActualResponse();
+        }
     }
     
     @Override
     public void testSimplePostRequestOverHTTPS() throws Exception {
         super.testSimplePostRequestOverHTTPS();
-        assertMethodSeenInRequestFilters(HttpMethod.CONNECT);
-        assertMethodSeenInRequestFilters(HttpMethod.POST);
-        assertMethodSeenInResponseFilters(HttpMethod.POST);
-        assertResponseFromFiltersMatchesActualResponse();
+        if (isChained() && !expectBadGatewayForEverything()) {
+            assertMethodSeenInRequestFilters(HttpMethod.CONNECT);
+            assertMethodSeenInRequestFilters(HttpMethod.POST);
+            assertMethodSeenInResponseFilters(HttpMethod.POST);
+            assertResponseFromFiltersMatchesActualResponse();
+        }
     }
     
     private void assertMethodSeenInRequestFilters(HttpMethod method) {
