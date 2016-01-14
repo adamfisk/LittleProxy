@@ -5,6 +5,8 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -31,18 +33,17 @@ import org.littleshoot.proxy.ChainedProxyAdapter;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
-import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
-import org.littleshoot.proxy.UnknownTransportProtocolError;
-import org.slf4j.spi.LocationAwareLogger;
+import org.littleshoot.proxy.UnknownTransportProtocolException;
 
 import javax.net.ssl.SSLSession;
-import java.net.ConnectException;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.RejectedExecutionException;
 
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
@@ -126,11 +127,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private volatile GlobalTrafficShapingHandler trafficHandler;
 
     /**
-     * Minimum size of the adaptive recv buffer when throttling is enabled. 
-     */
-    private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
-    
-    /**
      * Create a new ProxyToServerConnection.
      * 
      * @param proxyServer
@@ -186,7 +182,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         this.currentFilters = initialFilters;
 
         // Report connection status to HttpFilters
-        this.currentFilters.proxyToServerConnectionQueued();
+        currentFilters.proxyToServerConnectionQueued();
 
         setupConnectionParameters();
     }
@@ -220,6 +216,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             return AWAITING_CHUNK;
         } else {
             currentFilters.serverToProxyResponseReceived();
+
             return AWAITING_INITIAL;
         }
     }
@@ -266,8 +263,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 identifyCurrentRequest();
             }
 
-            return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
-                    true : super.isContentAlwaysEmpty(httpMessage);
+            // The current HTTP Request can be null when this proxy is
+            // negotiating a CONNECT request with a chained proxy 
+            // while it is running as a MITM. Since the response to a
+            // CONNECT request does not have any content, we return true.
+            if(currentHttpRequest == null) {
+                return true;
+            } else {
+                return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
+                        true : super.isContentAlwaysEmpty(httpMessage);
+            }
         }
     };
 
@@ -356,9 +361,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             } else if (newState == DISCONNECTED) {
                 currentFilters.proxyToServerConnectionFailed();
             }
-        } else if (getCurrentState() == HANDSHAKING
-                && newState == AWAITING_INITIAL) {
-            currentFilters.proxyToServerConnectionSucceeded(ctx);
+        } else if (getCurrentState() == HANDSHAKING) {
+            if (newState == AWAITING_INITIAL) {
+                currentFilters.proxyToServerConnectionSucceeded(ctx);
+            } else if (newState == DISCONNECTED) {
+                currentFilters.proxyToServerConnectionFailed();
+            }
         } else if (getCurrentState() == AWAITING_CHUNK
                 && newState != AWAITING_CHUNK) {
             currentFilters.serverToProxyResponseReceived();
@@ -401,25 +409,24 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     @Override
     protected void exceptionCaught(Throwable cause) {
-        String message = "Caught exception on proxy -> web connection";
-        int logLevel = LocationAwareLogger.WARN_INT;
-        if (cause != null) {
-            String causeMessage = cause.getMessage();
-            if (cause instanceof ConnectException) {
-                logLevel = LocationAwareLogger.DEBUG_INT;
-            } else if (causeMessage != null) {
-                if (causeMessage.contains("Connection reset by peer")) {
-                    logLevel = LocationAwareLogger.DEBUG_INT;
-                } else if (causeMessage.contains("event executor terminated")) {
-                    logLevel = LocationAwareLogger.DEBUG_INT;
-                }
+        try {
+            if (cause instanceof IOException) {
+                // IOExceptions are expected errors, for example when a server drops the connection. rather than flood
+                // the logs with stack traces for these expected exceptions, log the message at the INFO level and the
+                // stack trace at the DEBUG level.
+                LOG.info("An IOException occurred on ProxyToServerConnection: " + cause.getMessage());
+                LOG.debug("An IOException occurred on ProxyToServerConnection", cause);
+            } else if (cause instanceof RejectedExecutionException) {
+                LOG.info("An executor rejected a read or write operation on the ProxyToServerConnection (this is normal if the proxy is shutting down). Message: " + cause.getMessage());
+                LOG.debug("A RejectedExecutionException occurred on ProxyToServerConnection", cause);
+            } else {
+                LOG.error("Caught an exception on ProxyToServerConnection", cause);
             }
-        }
-        LOG.log(logLevel, message, cause);
-
-        if (!is(DISCONNECTED)) {
-            LOG.log(logLevel, "Disconnecting open connection");
-            disconnect();
+        } finally {
+            if (!is(DISCONNECTED)) {
+                LOG.info("Disconnecting open connection to server");
+                disconnect();
+            }
         }
         // This can happen if we couldn't make the initial connection due
         // to something like an unresolved address, for example, or a timeout.
@@ -529,61 +536,63 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         connectionFlow.start();
     }
 
+    private boolean isMitmEnabled() {
+        return proxyServer.getMitmManager() != null;
+    }
+
     /**
      * This method initializes our {@link ConnectionFlow} based on however this
      * connection has been configured.
-     * 
-     * TODO clean up this method
      */
     private void initializeConnectionFlow() {
-        this.connectionFlow = new ConnectionFlow(clientConnection, this,
-                connectLock)
-                .then(ConnectChannel);
+        connectionFlow = new ConnectionFlow(clientConnection, this, connectLock);
+        if (remoteAddress.isUnresolved() && isMitmEnabled() && ProxyUtils.isCONNECT(initialRequest)) {
+            // A caching proxy needs to install a HostResolver which returns
+            // unresolved addresses in off line mode. So, an unresolved address
+            // here means a cached response is requested. Don't connect/encrypt
+            // a channel to the upstream proxy or server.
+            connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+            connectionFlow.then(serverConnection.MitmEncryptClientChannel);
+        } else {
+            // Otherwise an upstream connection is required
+            connectionFlow.then(ConnectChannel);
 
-        if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-            connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
-                    .newSslEngine()));
-        }
+            if (chainedProxy != null && chainedProxy.requiresEncryption()) {
+                connectionFlow.then(serverConnection.EncryptChannel(chainedProxy.newSslEngine()));
+            }
 
-        if (ProxyUtils.isCONNECT(initialRequest)) {
-            MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
-
-            if (isMitmEnabled) {
-                // A caching proxy needs to install a HostResolver which returns
-                // unresolved addresses in off line mode. An unresolved address 
-                // here means a cached response is requested and the server 
-                // shouldn't be connected. Don't connect/encrypt a channel to 
-                // the server.
-                //
-                if (remoteAddress.isUnresolved()) {
-                    // A new instance, since we can't use connectionFlow with
-                    // ConnectChannel here
-                    //
-                    connectionFlow = new ConnectionFlow(clientConnection, this,
-                            connectLock);
-                    connectionFlow.then(
-                            clientConnection.RespondCONNECTSuccessful).then(
-                            serverConnection.MitmEncryptClientChannel);
-                } else {
-                connectionFlow
-                        .then(serverConnection.EncryptChannel(mitmManager
-                                .serverSslEngine(remoteAddress.getHostName(),
-                                        remoteAddress.getPort())))
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(serverConnection.MitmEncryptClientChannel);
-                }
-            } else {
+            if (ProxyUtils.isCONNECT(initialRequest)) {
                 // If we're chaining, forward the CONNECT request
                 if (hasUpstreamChainedProxy()) {
-                    connectionFlow.then(
-                            serverConnection.HTTPCONNECTWithChainedProxy);
+                    connectionFlow.then(serverConnection.HTTPCONNECTWithChainedProxy);
                 }
+                if (isMitmEnabled()) {
+                    String host;
+                    int port;
+                    if (hasUpstreamChainedProxy()) {
+                        // When MITM is enabled and when chained proxy is set
+                        // up, remoteAddress will be the chained proxy's
+                        // address. So we use serverHostAndPort which is the end
+                        // server's address.
+                        HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
+                        host = parsedHostAndPort.getHostText();
+                        port = parsedHostAndPort.getPort();
+                    } else {
+                        host = remoteAddress.getHostName();
+                        port = remoteAddress.getPort();
+                    }
+                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
+                            .serverSslEngine(host, port)));
 
-                connectionFlow.then(serverConnection.StartTunneling)
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(clientConnection.StartTunneling);
+                    connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+                    connectionFlow.then(serverConnection.MitmEncryptClientChannel);
+                } else {
+                    connectionFlow.then(serverConnection.StartTunneling);
+                    connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+                    connectionFlow.then(clientConnection.StartTunneling);
+                }
             }
+
         }
     }
 
@@ -599,8 +608,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         @Override
         protected Future<?> execute() {
-            Bootstrap cb = new Bootstrap().group(proxyServer
-                    .getProxyToServerWorkerFor(transportProtocol));
+            Bootstrap cb = new Bootstrap().group(proxyServer.getProxyToServerWorkerFor(transportProtocol));
 
             switch (transportProtocol) {
             case TCP:
@@ -618,7 +626,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                         .option(ChannelOption.SO_REUSEADDR, true);
                 break;
             default:
-                throw new UnknownTransportProtocolError(transportProtocol);
+                throw new UnknownTransportProtocolException(transportProtocol);
             }
 
             cb.handler(new ChannelInitializer<Channel>() {
@@ -630,7 +638,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     proxyServer.getConnectTimeout());
 
             if (localAddress != null) {
-                cb.bind(localAddress);
                 return cb.connect(remoteAddress, localAddress);
             } else {
                 return cb.connect(remoteAddress);
@@ -646,7 +653,30 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
             chainedProxy.filterRequest(initialRequest);
-            return writeToChannel(initialRequest);
+            /*
+             * We ignore the LastHttpContent which we read from the client
+             * connection when we are negotiating connect (see readHttp()
+             * in ProxyConnection). This cannot be ignored while we are
+             * doing MITM + Chained Proxy because the HttpRequestEncoder
+             * of the ProxyToServerConnection will be in an invalid state
+             * when the next request is written. Writing the EmptyLastContent
+             * resets its state.
+             */
+            if(isMitmEnabled()){
+                ChannelFuture future = writeToChannel(initialRequest);
+                future.addListener(new ChannelFutureListener() {
+
+                    @Override
+                    public void operationComplete(ChannelFuture arg0) throws Exception {
+                        if(arg0.isSuccess()){
+                            writeToChannel(LastHttpContent.EMPTY_LAST_CONTENT);
+                        }
+                    }
+                });
+            	return future;
+            } else {
+                return writeToChannel(initialRequest);
+            }
         }
 
         void onSuccess(ConnectionFlow flow) {
@@ -748,8 +778,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.connectAndWrite(initialRequest);
             return true; // yes, we fell back
         } else {
-            // nothing to fall back to. connection failed, so transition from "CONNECTING" to "DISCONNECTED".
-            become(DISCONNECTED);
+            // nothing to fall back to.
             return false;
         }
     }
@@ -788,11 +817,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 // unable to resolve the hostname to an IP address. notify the filters of the failure before allowing the
                 // exception to bubble up.
                 this.currentFilters.proxyToServerResolutionFailed(hostAndPort);
+
                 throw e;
             }
 
-            this.currentFilters.proxyToServerResolutionSucceeded(
-                    serverHostAndPort, this.remoteAddress);
+            this.currentFilters.proxyToServerResolutionSucceeded(serverHostAndPort, this.remoteAddress);
+
 
             this.localAddress = proxyServer.getLocalAddress();
         }
@@ -964,4 +994,5 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
     };
+
 }

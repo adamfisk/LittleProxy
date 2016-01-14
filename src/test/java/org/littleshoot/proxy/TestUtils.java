@@ -20,6 +20,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.sun.management.UnixOperatingSystemMXBean;
+
 import org.apache.http.HttpHost;
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.params.ConnRoutePNames;
@@ -378,5 +379,36 @@ public class TestUtils {
         OperatingSystemMXBean osMxBean = ManagementFactory.getOperatingSystemMXBean();
 
         return (osMxBean instanceof UnixOperatingSystemMXBean);
+    }
+
+    /**
+     * Creates a DefaultHttpClient instance.
+     * 
+     * @return instance of DefaultHttpClient
+     */
+    public static DefaultHttpClient buildHttpClient() throws Exception {
+        DefaultHttpClient httpClient = new DefaultHttpClient();
+        SSLSocketFactory sf = new SSLSocketFactory(
+                new TrustSelfSignedStrategy(), new X509HostnameVerifier() {
+                    public boolean verify(String arg0, SSLSession arg1) {
+                        return true;
+                    }
+
+                    public void verify(String host, String[] cns,
+                            String[] subjectAlts)
+                            throws SSLException {
+                    }
+
+                    public void verify(String host, X509Certificate cert)
+                            throws SSLException {
+                    }
+
+                    public void verify(String host, SSLSocket ssl)
+                            throws IOException {
+                    }
+                });
+        Scheme scheme = new Scheme("https", 443, sf);
+        httpClient.getConnectionManager().getSchemeRegistry().register(scheme);
+        return httpClient;
     }
 }

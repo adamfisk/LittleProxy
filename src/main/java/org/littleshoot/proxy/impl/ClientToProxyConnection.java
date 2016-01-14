@@ -10,6 +10,7 @@ import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestDecoder;
@@ -27,10 +28,12 @@ import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.FlowContext;
 import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.HttpFiltersAdapter;
 import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.SslEngineSource;
 
 import javax.net.ssl.SSLSession;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -42,8 +45,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
@@ -83,6 +88,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private static final String LOWERCASE_TRANSFER_ENCODING_HEADER = HttpHeaders.Names.TRANSFER_ENCODING.toLowerCase(Locale.US);
 
     /**
+     * Used for case-insensitive comparisons when checking direct proxy request.
+     */
+    private static final Pattern HTTP_SCHEME = Pattern.compile("^http://.*", Pattern.CASE_INSENSITIVE);
+
+    /**
      * Keep track of all ProxyToServerConnections by host+port.
      */
     private final Map<String, ProxyToServerConnection> serverConnectionsByHostAndPort = new ConcurrentHashMap<String, ProxyToServerConnection>();
@@ -115,7 +125,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * The current filters to apply to incoming requests/chunks.
      */
-    private volatile HttpFilters currentFilters;
+    private volatile HttpFilters currentFilters = new HttpFiltersAdapter(null);
 
     private volatile SSLSession clientSslSession;
 
@@ -206,9 +216,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // Make a copy of the original request
         this.currentRequest = copy(httpRequest);
 
-        // Set up our filters based on the original request
-        currentFilters = proxyServer.getFiltersSource().filterRequest(
-                currentRequest, ctx);
+        // Set up our filters based on the original request. If the HttpFiltersSource returns null (meaning the request/response
+        // should not be filtered), fall back to the default no-op filter source.
+        HttpFilters filterInstance = proxyServer.getFiltersSource().filterRequest(currentRequest, ctx);
+        if (filterInstance != null) {
+            currentFilters = filterInstance;
+        }
 
         // Send the request through the clientToProxyRequest filter, and respond with the short-circuit response if required
         HttpResponse clientToProxyFilterResponse = currentFilters.clientToProxyRequest(httpRequest);
@@ -217,6 +230,16 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             LOG.debug("Responding to client with short-circuit response from filter: {}", clientToProxyFilterResponse);
 
             boolean keepAlive = respondWithShortCircuitResponse(clientToProxyFilterResponse);
+            if (keepAlive) {
+                return AWAITING_INITIAL;
+            } else {
+                return DISCONNECT_REQUESTED;
+            }
+        }
+
+        // short-circuit requests that treat the proxy as the "origin" server, to avoid infinite loops
+        if (isRequestToOriginServer(httpRequest)) {
+            boolean keepAlive = writeBadRequest(httpRequest);
             if (keepAlive) {
                 return AWAITING_INITIAL;
             } else {
@@ -321,10 +344,43 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
+    /**
+     * Returns true if the specified request is a request to an origin server, rather than to a proxy server. If this
+     * request is being MITM'd, this method always returns false. The format of requests to a proxy server are defined
+     * in RFC 7230, section 5.3.2 (all other requests are considered requests to an origin server):
+     <pre>
+         When making a request to a proxy, other than a CONNECT or server-wide
+         OPTIONS request (as detailed below), a client MUST send the target
+         URI in absolute-form as the request-target.
+         [...]
+         An example absolute-form of request-line would be:
+         GET http://www.example.org/pub/WWW/TheProject.html HTTP/1.1
+         To allow for transition to the absolute-form for all requests in some
+         future version of HTTP, a server MUST accept the absolute-form in
+         requests, even though HTTP/1.1 clients will only send them in
+         requests to proxies.
+     </pre>
+     *
+     * @param httpRequest the request to evaluate
+     * @return true if the specified request is a request to an origin server, otherwise false
+     */
+    private boolean isRequestToOriginServer(HttpRequest httpRequest) {
+        // while MITMing, all HTTPS requests are requests to the origin server, since the client does not know
+        // the request is being MITM'd by the proxy
+        if (httpRequest.getMethod() == HttpMethod.CONNECT || isMitming()) {
+            return false;
+        }
+
+        // direct requests to the proxy have the path only without a scheme
+        String uri = httpRequest.getUri();
+        return !HTTP_SCHEME.matcher(uri).matches();
+    }
+
     @Override
     protected void readHTTPChunk(HttpContent chunk) {
         currentFilters.clientToProxyRequest(chunk);
         currentFilters.proxyToServerRequest(chunk);
+
         currentServerConnection.write(chunk);
     }
 
@@ -429,7 +485,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     CONNECTION_ESTABLISHED);
             response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
             response.headers().set("Proxy-Connection", HttpHeaders.Values.KEEP_ALIVE);
-            ProxyUtils.addVia(response);
+            ProxyUtils.addVia(response, proxyServer.getProxyAlias());
             return writeToChannel(response);
         };
     };
@@ -666,15 +722,23 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     @Override
     protected void exceptionCaught(Throwable cause) {
-        String message = "Caught an exception on ClientToProxyConnection";
-        boolean shouldWarn = cause instanceof ClosedChannelException ||
-                cause.getMessage().contains("Connection reset by peer");
-        if (shouldWarn) {
-            LOG.warn(message, cause);
-        } else {
-            LOG.error(message, cause);
+        try {
+            if (cause instanceof IOException) {
+                // IOExceptions are expected errors, for example when a browser is killed and aborts a connection.
+                // rather than flood the logs with stack traces for these expected exceptions, we log the message at the
+                // INFO level and the stack trace at the DEBUG level.
+                LOG.info("An IOException occurred on ClientToProxyConnection: " + cause.getMessage());
+                LOG.debug("An IOException occurred on ClientToProxyConnection", cause);
+            } else if (cause instanceof RejectedExecutionException) {
+                LOG.info("An executor rejected a read or write operation on the ClientToProxyConnection (this is normal if the proxy is shutting down). Message: " + cause.getMessage());
+                LOG.debug("A RejectedExecutionException occurred on ClientToProxyConnection", cause);
+            } else {
+                LOG.error("Caught an exception on ClientToProxyConnection", cause);
+            }
+        } finally {
+            // always disconnect the client when an exception occurs on the channel
+            disconnect();
         }
-        disconnect();
     }
 
     /***************************************************************************
@@ -985,18 +1049,25 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param httpRequest
      */
     private void modifyRequestHeadersToReflectProxying(HttpRequest httpRequest) {
+        if (!currentServerConnection.hasUpstreamChainedProxy()) {
+            /*
+             * We are making the request to the origin server, so must modify
+             * the 'absolute-URI' into the 'origin-form' as per RFC 7230
+             * section 5.3.1.
+             *
+             * This must happen even for 'transparent' mode, otherwise the origin
+             * server could infer that the request came via a proxy server.
+             */
+            LOG.debug("Modifying request for proxy chaining");
+            // Strip host from uri
+            String uri = httpRequest.getUri();
+            String adjustedUri = ProxyUtils.stripHost(uri);
+            LOG.debug("Stripped host from uri: {}    yielding: {}", uri,
+                    adjustedUri);
+            httpRequest.setUri(adjustedUri);
+        }
         if (!proxyServer.isTransparent()) {
             LOG.debug("Modifying request headers for proxying");
-
-            if (!currentServerConnection.hasUpstreamChainedProxy()) {
-                LOG.debug("Modifying request for proxy chaining");
-                // Strip host from uri
-                String uri = httpRequest.getUri();
-                String adjustedUri = ProxyUtils.stripHost(uri);
-                LOG.debug("Stripped host from uri: {}    yielding: {}", uri,
-                        adjustedUri);
-                httpRequest.setUri(adjustedUri);
-            }
 
             HttpHeaders headers = httpRequest.headers();
 
@@ -1004,7 +1075,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             switchProxyConnectionHeader(headers);
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
-            ProxyUtils.addVia(httpRequest);
+            ProxyUtils.addVia(httpRequest, proxyServer.getProxyAlias());
         }
     }
 
@@ -1022,7 +1093,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
-            ProxyUtils.addVia(httpResponse);
+            ProxyUtils.addVia(httpResponse, proxyServer.getProxyAlias());
 
             /*
              * RFC2616 Section 14.18
@@ -1126,6 +1197,25 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private boolean writeBadGateway(HttpRequest httpRequest) {
         String body = "Bad Gateway: " + httpRequest.getUri();
         DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY, body);
+
+        if (ProxyUtils.isHEAD(httpRequest)) {
+            // don't allow any body content in response to a HEAD request
+            response.content().clear();
+        }
+
+        return respondWithShortCircuitResponse(response);
+    }
+
+    /**
+     * Tells the client that the request was malformed or erroneous. If the Bad Request is a response to
+     * an HTTP HEAD request, the response will contain no body, but the Content-Length header will be set to the
+     * value it would have been if this Bad Request were in response to a GET.
+     *
+     * @return true if the connection will be kept open, or false if it will be disconnected
+     */
+    private boolean writeBadRequest(HttpRequest httpRequest) {
+        String body = "Bad Request to URI: " + httpRequest.getUri();
+        DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST, body);
 
         if (ProxyUtils.isHEAD(httpRequest)) {
             // don't allow any body content in response to a HEAD request
