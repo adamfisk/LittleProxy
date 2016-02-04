@@ -16,4 +16,13 @@ public interface ProxyAuthenticator {
      *         <code>false</code>.
      */
     boolean authenticate(String userName, String password);
+    
+    /**
+     * The realm value to be used in the request for proxy authentication 
+     * ("Proxy-Authenticate" header). Returning null will cause the string
+     * "Restricted Files" to be used by default.
+     * 
+     * @return
+     */
+    String getRealm();
 }

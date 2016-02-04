@@ -946,7 +946,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return false;
 
         if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
-            writeAuthenticationRequired();
+            writeAuthenticationRequired(authenticator.getRealm());
             return true;
         }
 
@@ -961,7 +961,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         String userName = StringUtils.substringBefore(decodedString, ":");
         String password = StringUtils.substringAfter(decodedString, ":");
         if (!authenticator.authenticate(userName, password)) {
-            writeAuthenticationRequired();
+            writeAuthenticationRequired(authenticator.getRealm());
             return true;
         }
 
@@ -975,7 +975,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         return false;
     }
 
-    private void writeAuthenticationRequired() {
+    private void writeAuthenticationRequired(String realm) {
         String body = "<!DOCTYPE HTML \"-//IETF//DTD HTML 2.0//EN\">\n"
                 + "<html><head>\n"
                 + "<title>407 Proxy Authentication Required</title>\n"
@@ -991,7 +991,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, body);
         HttpHeaders.setDate(response, new Date());
         response.headers().set("Proxy-Authenticate",
-                "Basic realm=\"Restricted Files\"");
+                "Basic realm=\"" + (realm == null ? "Restricted Files" : realm) + "\"");
         write(response);
     }
 
