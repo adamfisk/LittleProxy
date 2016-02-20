@@ -10,9 +10,11 @@ log.txt
 *.orig
 target/
 .idea/
+.gradle/
 jmeter.log
 lib/
 LittleProxy.pro
 /bin
 *.jks
 performance/site/
+/build

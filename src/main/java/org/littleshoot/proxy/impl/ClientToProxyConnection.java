@@ -49,6 +49,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
@@ -218,7 +219,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         // Set up our filters based on the original request. If the HttpFiltersSource returns null (meaning the request/response
         // should not be filtered), fall back to the default no-op filter source.
-        HttpFilters filterInstance = proxyServer.getFiltersSource().filterRequest(originalRequest, userName.get(), ctx);
+        HttpFilters filterInstance = proxyServer.getFiltersSource().filterRequest(httpRequest, userName.get(), ctx);
         if (filterInstance != null) {
             currentFilters = filterInstance;
         }
