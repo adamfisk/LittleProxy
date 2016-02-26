@@ -150,7 +150,7 @@ public class HttpFilterTest {
         final String url5 = "http://localhost:" + webServerPort + "/testing4";
 
         final HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(HttpRequest originalRequest, String username, ChannelHandlerContext ctx) {
                 shouldFilterCalls.incrementAndGet();
                 associatedRequests.add(originalRequest);
 
@@ -376,9 +376,9 @@ public class HttpFilterTest {
 
         // Make sure the requests in the filter calls were the requests they
         // actually should have been.
-        assertEquals(url1, first.getUri());
-        assertEquals(url2, second.getUri());
-        assertEquals(url3, third.getUri());
+        assertTrue(url1.endsWith(first.getUri()));
+        assertTrue(url2.endsWith(second.getUri()));
+        assertTrue(url3.endsWith(third.getUri()));
 
         requestCount.incrementAndGet();
         org.apache.http.HttpResponse response4 = HttpClientUtil.performHttpGet(url4, proxyServer);
