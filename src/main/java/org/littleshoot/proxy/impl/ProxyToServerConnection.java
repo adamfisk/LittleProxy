@@ -33,14 +33,11 @@ import org.littleshoot.proxy.ChainedProxyAdapter;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
-import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
-import org.slf4j.spi.LocationAwareLogger;
 
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
-import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.LinkedList;
@@ -129,11 +126,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private volatile GlobalTrafficShapingHandler trafficHandler;
 
-    /**
-     * Minimum size of the adaptive recv buffer when throttling is enabled. 
-     */
-    private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
-    
     /**
      * Create a new ProxyToServerConnection.
      * 
@@ -544,55 +536,63 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         connectionFlow.start();
     }
 
+    private boolean isMitmEnabled() {
+        return proxyServer.getMitmManager() != null;
+    }
+
     /**
      * This method initializes our {@link ConnectionFlow} based on however this
      * connection has been configured.
      */
     private void initializeConnectionFlow() {
-        this.connectionFlow = new ConnectionFlow(clientConnection, this,
-                connectLock)
-                .then(ConnectChannel);
+        connectionFlow = new ConnectionFlow(clientConnection, this, connectLock);
+        if (remoteAddress.isUnresolved() && isMitmEnabled() && ProxyUtils.isCONNECT(initialRequest)) {
+            // A caching proxy needs to install a HostResolver which returns
+            // unresolved addresses in off line mode. So, an unresolved address
+            // here means a cached response is requested. Don't connect/encrypt
+            // a channel to the upstream proxy or server.
+            connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+            connectionFlow.then(serverConnection.MitmEncryptClientChannel);
+        } else {
+            // Otherwise an upstream connection is required
+            connectionFlow.then(ConnectChannel);
 
-        if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-            connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
-                    .newSslEngine()));
-        }
-
-        if (ProxyUtils.isCONNECT(initialRequest)) {
-        	
-            // If we're chaining, forward the CONNECT request
-            if (hasUpstreamChainedProxy()) {
-                connectionFlow.then(
-                        serverConnection.HTTPCONNECTWithChainedProxy);
-            }        	
-        	
-            MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
-
-            if (isMitmEnabled) {     	
-            	if(hasUpstreamChainedProxy()){
-            		// When MITM is enabled and when chained proxy is set up, remoteAddress
-            		// will be the chained proxy's address. So we use serverHostAndPort
-            		// which is the end server's address.
-                    HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
-            		
-                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine(parsedHostAndPort.getHostText(),
-                            		parsedHostAndPort.getPort())));
-            	} else {
-                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine(remoteAddress.getHostName(),
-                                    remoteAddress.getPort())));
-            	}
-            	
-            	connectionFlow
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(serverConnection.MitmEncryptClientChannel);
-            } else {
-                connectionFlow.then(serverConnection.StartTunneling)
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(clientConnection.StartTunneling);
+            if (chainedProxy != null && chainedProxy.requiresEncryption()) {
+                connectionFlow.then(serverConnection.EncryptChannel(chainedProxy.newSslEngine()));
             }
+
+            if (ProxyUtils.isCONNECT(initialRequest)) {
+                // If we're chaining, forward the CONNECT request
+                if (hasUpstreamChainedProxy()) {
+                    connectionFlow.then(serverConnection.HTTPCONNECTWithChainedProxy);
+                }
+                if (isMitmEnabled()) {
+                    String host;
+                    int port;
+                    if (hasUpstreamChainedProxy()) {
+                        // When MITM is enabled and when chained proxy is set
+                        // up, remoteAddress will be the chained proxy's
+                        // address. So we use serverHostAndPort which is the end
+                        // server's address.
+                        HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
+                        host = parsedHostAndPort.getHostText();
+                        port = parsedHostAndPort.getPort();
+                    } else {
+                        host = remoteAddress.getHostName();
+                        port = remoteAddress.getPort();
+                    }
+                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
+                            .serverSslEngine(host, port)));
+
+                    connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+                    connectionFlow.then(serverConnection.MitmEncryptClientChannel);
+                } else {
+                    connectionFlow.then(serverConnection.StartTunneling);
+                    connectionFlow.then(clientConnection.RespondCONNECTSuccessful);
+                    connectionFlow.then(clientConnection.StartTunneling);
+                }
+            }
+
         }
     }
 
@@ -653,8 +653,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
             chainedProxy.filterRequest(initialRequest);
-            MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
             /*
              * We ignore the LastHttpContent which we read from the client
              * connection when we are negotiating connect (see readHttp()
@@ -664,7 +662,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
              * when the next request is written. Writing the EmptyLastContent
              * resets its state.
              */
-            if(isMitmEnabled){
+            if(isMitmEnabled()){
                 ChannelFuture future = writeToChannel(initialRequest);
                 future.addListener(new ChannelFutureListener() {
 
@@ -675,7 +673,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                         }
                     }
                 });
-            	return future;
+                return future;
             } else {
                 return writeToChannel(initialRequest);
             }
@@ -731,7 +729,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         protected Future<?> execute() {
             return clientConnection
                     .encrypt(proxyServer.getMitmManager()
-                            .clientSslEngineFor(sslEngine.getSession()), false)
+                            .clientSslEngineFor(sslEngine == null ? null : sslEngine.getSession(), serverHostAndPort), false)
                     .addListener(
                             new GenericFutureListener<Future<? super Channel>>() {
                                 @Override
