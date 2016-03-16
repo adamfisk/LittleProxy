@@ -19,8 +19,8 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -514,10 +514,16 @@ public class ProxyUtils {
     public static String getHostName() {
         try {
             return InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            LOG.warn("Could not lookup localhost", e);
-            return null;
+        } catch (IOException e) {
+            LOG.debug("Ignored exception", e);
+        } catch (RuntimeException e) {
+            // An exception here must not stop the proxy. Android could throw a
+            // runtime exception, since it not allows network access in the main
+            // process.
+            LOG.debug("Ignored exception", e);
         }
+        LOG.info("Could not lookup localhost");
+        return null;
     }
 
     /**
