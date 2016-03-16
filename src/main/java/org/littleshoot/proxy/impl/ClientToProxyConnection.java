@@ -4,9 +4,9 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -34,7 +34,6 @@ import org.littleshoot.proxy.SslEngineSource;
 
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
@@ -954,22 +953,16 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         List<String> values = request.headers().getAll(
                 HttpHeaders.Names.PROXY_AUTHORIZATION);
         String fullValue = values.iterator().next();
-        String value = StringUtils.substringAfter(fullValue, "Basic ")
-                .trim();
-        byte[] decodedValue = Base64.decodeBase64(value);
-        try {
-            String decodedString = new String(decodedValue, "UTF-8");
-            String userName = StringUtils.substringBefore(decodedString,
-                    ":");
-            String password = StringUtils.substringAfter(decodedString,
-                    ":");
-            if (!authenticator.authenticate(userName,
-                    password)) {
-                writeAuthenticationRequired();
-                return true;
-            }
-        } catch (UnsupportedEncodingException e) {
-            LOG.error("Could not decode?", e);
+        String value = StringUtils.substringAfter(fullValue, "Basic ").trim();
+        
+        byte[] decodedValue = Base64.decodeBase64(value.getBytes(Charset.forName("UTF-8")));
+        String decodedString = new String(decodedValue, Charset.forName("UTF-8"));
+        
+        String userName = StringUtils.substringBefore(decodedString, ":");
+        String password = StringUtils.substringAfter(decodedString, ":");
+        if (!authenticator.authenticate(userName, password)) {
+            writeAuthenticationRequired();
+            return true;
         }
 
         LOG.info("Got proxy authorization!");
@@ -1013,13 +1006,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private HttpRequest copy(HttpRequest original) {
-        if (original instanceof DefaultFullHttpRequest) {
-            ByteBuf content = ((DefaultFullHttpRequest) original).content();
-            return new DefaultFullHttpRequest(original.getProtocolVersion(),
-                    original.getMethod(), original.getUri(), content);
+        if (original instanceof FullHttpRequest) {
+            return ((FullHttpRequest) original).copy();
         } else {
-            return new DefaultHttpRequest(original.getProtocolVersion(),
+            HttpRequest request = new DefaultHttpRequest(original.getProtocolVersion(),
                     original.getMethod(), original.getUri());
+            request.headers().set(original.headers());
+            return request;
         }
     }
 
