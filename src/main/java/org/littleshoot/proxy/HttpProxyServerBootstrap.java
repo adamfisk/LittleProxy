@@ -93,7 +93,8 @@ public interface HttpProxyServerBootstrap {
     /**
      * <p>
      * Specify an {@link SslEngineSource} to use for encrypting inbound
-     * connections.
+     * connections. Enabling this will enable SSL client authentication
+     * by default (see {@link #withAuthenticateSslClients(boolean)})
      * </p>
      * 
      * <p>

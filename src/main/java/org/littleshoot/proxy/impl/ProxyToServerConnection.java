@@ -673,7 +673,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                         }
                     }
                 });
-            	return future;
+                return future;
             } else {
                 return writeToChannel(initialRequest);
             }
