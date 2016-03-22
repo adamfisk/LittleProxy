@@ -965,11 +965,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return true;
         }
 
-        LOG.info("Got proxy authorization!");
+        LOG.debug("Got proxy authorization!");
         // We need to remove the header before sending the request on.
         String authentication = request.headers().get(
                 HttpHeaders.Names.PROXY_AUTHORIZATION);
-        LOG.info(authentication);
+        LOG.debug(authentication);
         request.headers().remove(HttpHeaders.Names.PROXY_AUTHORIZATION);
         authenticated.set(true);
         return false;
