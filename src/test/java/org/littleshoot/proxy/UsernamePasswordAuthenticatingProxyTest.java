@@ -32,4 +32,9 @@ public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest
     protected boolean isAuthenticating() {
         return true;
     }
+
+    @Override
+    public String getRealm() {
+        return null;
+    }
 }
