@@ -220,6 +220,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         HttpFilters filterInstance = proxyServer.getFiltersSource().filterRequest(currentRequest, ctx);
         if (filterInstance != null) {
             currentFilters = filterInstance;
+        } else {
+            currentFilters = new HttpFiltersAdapter(null);
         }
 
         // Send the request through the clientToProxyRequest filter, and respond with the short-circuit response if required
