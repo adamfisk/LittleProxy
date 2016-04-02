@@ -106,7 +106,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final MitmManager mitmManager;
     private final HttpFiltersSource filtersSource;
     private final boolean transparent;
-    private final int connectTimeout;
+    private volatile int connectTimeout;
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
     private volatile GlobalTrafficShapingHandler globalTrafficShapingHandler;
@@ -299,16 +299,24 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return transparent;
     }
 
+    @Override
     public int getIdleConnectionTimeout() {
         return idleConnectionTimeout;
     }
 
+    @Override
     public void setIdleConnectionTimeout(int idleConnectionTimeout) {
         this.idleConnectionTimeout = idleConnectionTimeout;
     }
 
+    @Override
     public int getConnectTimeout() {
         return connectTimeout;
+    }
+
+    @Override
+    public void setConnectTimeout(int connectTimeoutMs) {
+        this.connectTimeout = connectTimeoutMs;
     }
 
     public HostResolver getServerResolver() {
