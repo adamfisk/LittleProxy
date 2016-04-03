@@ -36,7 +36,6 @@ import javax.net.ssl.SSLSession;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
@@ -587,14 +586,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         resumeReadingIfNecessary();
         HttpRequest initialRequest = serverConnection.getInitialRequest();
         try {
-            if (serverConnection.connectionFailed(cause)) {
-                LOG.info(
-                        "Failed to connect via chained proxy, falling back to next chained proxy. Last state before failure: {}",
+            boolean retrying = serverConnection.connectionFailed(cause);
+            if (retrying) {
+                LOG.debug("Failed to connect to upstream server or chained proxy. Retrying connection. Last state before failure: {}",
                         lastStateBeforeFailure, cause);
                 return true;
             } else {
                 LOG.debug(
-                        "Connection to server failed: {}.  Last state before failure: {}",
+                        "Connection to upstream server or chained proxy failed: {}.  Last state before failure: {}",
                         serverConnection.getRemoteAddress(),
                         lastStateBeforeFailure,
                         cause);
