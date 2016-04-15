@@ -367,8 +367,15 @@ public class ProxyUtils {
             //     - http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html Section 4.4
             //     - https://github.com/netty/netty/issues/222
             if (code >= 100 && code < 200) {
-                // One exception: Hixie 76 websocket handshake response
-                return !(code == 101 && !res.headers().contains(HttpHeaders.Names.SEC_WEBSOCKET_ACCEPT));
+                // According to RFC 7231, section 6.1, 1xx responses have no content (https://tools.ietf.org/html/rfc7231#section-6.2):
+                //   1xx responses are terminated by the first empty line after
+                //   the status-line (the empty line signaling the end of the header
+                //        section).
+
+                // Hixie 76 websocket handshake responses contain a 16-byte body, so their content is not empty; but Hixie 76
+                // was a draft specification that was superceded by RFC 6455. Since it is rarely used and doesn't conform to
+                // RFC 7231, we do not support or make special allowance for Hixie 76 responses.
+                return true;
             }
 
             switch (code) {
