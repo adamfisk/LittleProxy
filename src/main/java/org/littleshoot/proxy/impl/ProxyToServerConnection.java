@@ -36,11 +36,10 @@ import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
-import org.slf4j.spi.LocationAwareLogger;
 
+import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
-import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.LinkedList;
@@ -92,6 +91,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * depending on how things are configured.
      */
     private volatile ConnectionFlow connectionFlow;
+
+    /**
+     * Disables SNI when initializing connection flow in {@link #initializeConnectionFlow()}. This value is set to true
+     * when retrying a connection without SNI to work around Java's SNI handling issue (see
+     * {@link #connectionFailed(Throwable)}).
+     */
+    private volatile boolean disableSni = false;
 
     /**
      * While we're in the process of connecting, it's possible that we'll
@@ -530,12 +536,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     /**
-     * Connects to the server and then writes out the initial request (or
-     * upgrades to an SSL tunnel, depending).
-     * 
-     * @param initialRequest
+     * Configures the connection to the upstream server and begins the {@link ConnectionFlow}.
+     *
+     * @param initialRequest the current HTTP request being handled
      */
-    private void connectAndWrite(final HttpRequest initialRequest) {
+    private void connectAndWrite(HttpRequest initialRequest) {
         LOG.debug("Starting new connection to: {}", remoteAddress);
 
         // Remember our initial request so that we can write it after connecting
@@ -545,8 +550,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     /**
-     * This method initializes our {@link ConnectionFlow} based on however this
-     * connection has been configured.
+     * This method initializes our {@link ConnectionFlow} based on however this connection has been configured. If
+     * the {@link #disableSni} value is true, this method will not pass peer information to the MitmManager when
+     * handling CONNECTs.
      */
     private void initializeConnectionFlow() {
         this.connectionFlow = new ConnectionFlow(clientConnection, this,
@@ -559,7 +565,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
-        	
             // If we're chaining, forward the CONNECT request
             if (hasUpstreamChainedProxy()) {
                 connectionFlow.then(
@@ -569,22 +574,22 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             MitmManager mitmManager = proxyServer.getMitmManager();
             boolean isMitmEnabled = mitmManager != null;
 
-            if (isMitmEnabled) {     	
-            	if(hasUpstreamChainedProxy()){
-            		// When MITM is enabled and when chained proxy is set up, remoteAddress
-            		// will be the chained proxy's address. So we use serverHostAndPort
-            		// which is the end server's address.
-                    HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
-            		
+            if (isMitmEnabled) {
+                // When MITM is enabled and when chained proxy is set up, remoteAddress
+                // will be the chained proxy's address. So we use serverHostAndPort
+                // which is the end server's address.
+                HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
+
+                // SNI may be disabled for this request due to a previous failed attempt to connect to the server
+                // with SNI enabled.
+                if (disableSni) {
                     connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine(parsedHostAndPort.getHostText(),
-                            		parsedHostAndPort.getPort())));
-            	} else {
+                            .serverSslEngine()));
+                } else {
                     connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine(remoteAddress.getHostName(),
-                                    remoteAddress.getPort())));
-            	}
-            	
+                            .serverSslEngine(parsedHostAndPort.getHostText(), parsedHostAndPort.getPort())));
+                }
+
             	connectionFlow
                         .then(clientConnection.RespondCONNECTSuccessful)
                         .then(serverConnection.MitmEncryptClientChannel);
@@ -747,49 +752,80 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     };
 
     /**
-     * <p>
-     * Called to let us know that connection failed.
-     * </p>
-     * 
-     * <p>
-     * Try connecting to a new address, using a new set of connection
-     * parameters.
-     * </p>
-     * 
-     * @param cause
-     *            the reason that our attempt to connect failed (can be null)
+     * Called when the connection to the server or upstream chained proxy fails. This method may return true to indicate
+     * that the connection should be retried. If returning true, this method must set up the connection itself.
+     *
+     * @param cause the reason that our attempt to connect failed (can be null)
      * @return true if we are trying to fall back to another connection
      */
     protected boolean connectionFailed(Throwable cause)
             throws UnknownHostException {
-        if (this.chainedProxy != null) {
-            // Let the ChainedProxy know that we were unable to connect
-            try {
-                this.chainedProxy.connectionFailed(cause);
-            } catch (Exception e) {
-                LOG.error("Unable to record connectionFailed", e);
+        // unlike a browser, java throws an exception when receiving an unrecognized_name TLS warning, even if the server
+        // sends back a valid certificate for the expected host. we can retry the connection without SNI to allow the proxy
+        // to connect to these misconfigured hosts. we should only retry the connection without SNI if the connection
+        // failure happened when SNI was enabled, to prevent never-ending connection attempts due to SNI warnings.
+        if (!disableSni && cause instanceof SSLProtocolException) {
+            // unfortunately java does not expose the specific TLS alert number (112), so we have to look for the
+            // unrecognized_name string in the exception's message
+            if (cause.getMessage() != null && cause.getMessage().contains("unrecognized_name")) {
+                LOG.debug("Failed to connect to server due to an unrecognized_name SSL warning. Retrying connection without SNI.");
+
+                // disable SNI, re-setup the connection, and restart the connection flow
+                disableSni = true;
+                resetConnectionForRetry();
+                connectAndWrite(initialRequest);
+
+                return true;
             }
         }
-        this.chainedProxy = this.availableChainedProxies.poll();
+
+        // the connection issue wasn't due to an unrecognized_name error, or the connection attempt failed even after
+        // disabling SNI. before falling back to a chained proxy, re-enable SNI.
+        disableSni = false;
+
         if (chainedProxy != null) {
-            // Remove ourselves as handler on the old context
-            this.ctx.pipeline().remove(this);
-            this.ctx.close();
-            this.ctx = null;
-            this.setupConnectionParameters();
-            this.connectAndWrite(initialRequest);
-            return true; // yes, we fell back
+            LOG.info("Connection to upstream server via chained proxy failed", cause);
+            // Let the ChainedProxy know that we were unable to connect
+            chainedProxy.connectionFailed(cause);
         } else {
-            // nothing to fall back to.
-            return false;
+            LOG.info("Connection to upstream server failed", cause);
         }
+
+        // attempt to connect using a chained proxy, if available
+        chainedProxy = availableChainedProxies.poll();
+        if (chainedProxy != null) {
+            LOG.info("Retrying connecting using the next available chained proxy");
+
+            resetConnectionForRetry();
+
+            connectAndWrite(initialRequest);
+            return true;
+        }
+
+        // no chained proxy fallback or other retry mechanism available
+        return false;
+    }
+
+    /**
+     * Convenience method to prepare to retry this connection. Closes the connection's channel and sets up
+     * the connection again using {@link #setupConnectionParameters()}.
+     *
+     * @throws UnknownHostException when {@link #setupConnectionParameters()} is unable to resolve the hostname
+     */
+    private void resetConnectionForRetry() throws UnknownHostException {
+        // Remove ourselves as handler on the old context
+        this.ctx.pipeline().remove(this);
+        this.ctx.close();
+        this.ctx = null;
+
+        this.setupConnectionParameters();
     }
 
     /**
      * Set up our connection parameters based on server address and chained
      * proxies.
      * 
-     * @throws UnknownHostException
+     * @throws UnknownHostException when unable to resolve the hostname to an IP address
      */
     private void setupConnectionParameters() throws UnknownHostException {
         if (chainedProxy != null
