@@ -36,7 +36,6 @@ import javax.net.ssl.SSLSession;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
@@ -124,7 +123,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * The current filters to apply to incoming requests/chunks.
      */
-    private volatile HttpFilters currentFilters = new HttpFiltersAdapter(null);
+    private volatile HttpFilters currentFilters = HttpFiltersAdapter.NOOP_FILTER;
 
     private volatile SSLSession clientSslSession;
 
@@ -220,6 +219,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         HttpFilters filterInstance = proxyServer.getFiltersSource().filterRequest(currentRequest, ctx);
         if (filterInstance != null) {
             currentFilters = filterInstance;
+        } else {
+            currentFilters = HttpFiltersAdapter.NOOP_FILTER;
         }
 
         // Send the request through the clientToProxyRequest filter, and respond with the short-circuit response if required

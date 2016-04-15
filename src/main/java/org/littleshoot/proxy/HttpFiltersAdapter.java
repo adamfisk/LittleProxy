@@ -11,6 +11,11 @@ import java.net.InetSocketAddress;
  * Convenience base class for implementations of {@link HttpFilters}.
  */
 public class HttpFiltersAdapter implements HttpFilters {
+    /**
+     * A default, stateless, no-op {@link HttpFilters} instance.
+     */
+    public static final HttpFiltersAdapter NOOP_FILTER = new HttpFiltersAdapter(null);
+
     protected final HttpRequest originalRequest;
     protected final ChannelHandlerContext ctx;
 
