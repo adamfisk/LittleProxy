@@ -38,18 +38,19 @@ HttpProxyServer server =
         .withPort(8080)
         .withFiltersSource(new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext ctx) {
-               return new HttpFiltersAdapter(originalRequest) {
-                  @Override
-                  public HttpResponse clientToProxyRequest(HttpObject httpObject) {
-                      // TODO: implement your filtering here
-                      return null;
-                  }
+                return new HttpFiltersAdapter(originalRequest) {
+                    @Override
+                    public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+                        // TODO: implement your filtering here
+                        return null;
+                    }
 
-                  @Override
-                  public HttpObject serverToProxyResponse(HttpObject httpObject) {
-                      // TODO: implement your filtering here
-                      return httpObject;
-                  }
+                    @Override
+                    public HttpObject serverToProxyResponse(HttpObject httpObject) {
+                        // TODO: implement your filtering here
+                        return httpObject;
+                    }
+                };
             }
         })
         .start();
