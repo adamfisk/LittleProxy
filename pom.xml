@@ -16,6 +16,7 @@
         <github.global.server>github</github.global.server>
         <netty.version>4.0.36.Final</netty.version>
         <slf4j.version>1.7.21</slf4j.version>
+        <java.version>1.7</java.version>
     </properties>
 
     <organization>
@@ -411,8 +412,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.5.1</version>
                 <configuration>
-                    <source>1.6</source>
-                    <target>1.6</target>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
                     <encoding>UTF-8</encoding>
                     <!-- The following force compilation with full warnings. -->
                     <!--
@@ -430,7 +431,7 @@
                 <version>2.10.3</version>
                 <configuration>
                     <show>private</show>
-                    <source>1.6</source>
+                    <source>${java.version}</source>
                     <links>
                         <link>http://netty.io/4.0/api/</link>
                     </links>
@@ -521,7 +522,7 @@
                 <version>2.10.3</version>
                 <configuration>
                     <show>private</show>
-                    <source>1.6</source>
+                    <source>${java.version}</source>
                     <links>
                         <link>http://netty.io/4.0/api/</link>
                     </links>
@@ -580,7 +581,7 @@
                     <linkXRef>true</linkXRef>
                     <sourceEncoding>utf-8</sourceEncoding>
                     <minimumTokens>100</minimumTokens>
-                    <targetJdk>1.6</targetJdk>
+                    <targetJdk>${java.version}</targetJdk>
                 </configuration>
             </plugin>
             <plugin>
