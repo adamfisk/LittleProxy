@@ -79,7 +79,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
  */
 public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private static final HttpResponseStatus CONNECTION_ESTABLISHED = new HttpResponseStatus(
-            200, "HTTP/1.1 200 Connection established");
+            200, "Connection established");
     /**
      * Used for case-insensitive comparisons when parsing Connection header values.
      */
