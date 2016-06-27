@@ -16,7 +16,7 @@ You can embed LittleProxy in your own projects through Maven with the following:
     <dependency>
         <groupId>org.littleshoot</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>1.1.0-beta2</version>
+        <version>1.1.0</version>
     </dependency>
 ```
 
@@ -38,18 +38,19 @@ HttpProxyServer server =
         .withPort(8080)
         .withFiltersSource(new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext ctx) {
-               return new HttpFiltersAdapter(originalRequest) {
-                  @Override
-                  public HttpResponse clientToProxyRequest(HttpObject httpObject) {
-                      // TODO: implement your filtering here
-                      return null;
-                  }
+                return new HttpFiltersAdapter(originalRequest) {
+                    @Override
+                    public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+                        // TODO: implement your filtering here
+                        return null;
+                    }
 
-                  @Override
-                  public HttpObject serverToProxyResponse(HttpObject httpObject) {
-                      // TODO: implement your filtering here
-                      return httpObject;
-                  }
+                    @Override
+                    public HttpObject serverToProxyResponse(HttpObject httpObject) {
+                        // TODO: implement your filtering here
+                        return httpObject;
+                    }
+                };
             }
         })
         .start();

@@ -1,5 +1,7 @@
 package org.littleshoot.proxy;
 
+import io.netty.handler.codec.http.HttpRequest;
+
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLSession;
 
@@ -43,9 +45,10 @@ public interface MitmManager {
      * by issuing replacement certificates signed by the proxy's own
      * certificate.
      * </p>
-     * 
+     *
+     * @param httpRequest the HTTP CONNECT request that is being man-in-the-middled
      * @param serverSslSession the {@link SSLSession} that's been established with the server
      * @return the SSLEngine used to connect to the client
      */
-    SSLEngine clientSslEngineFor(SSLSession serverSslSession);
+    SSLEngine clientSslEngineFor(HttpRequest httpRequest, SSLSession serverSslSession);
 }
