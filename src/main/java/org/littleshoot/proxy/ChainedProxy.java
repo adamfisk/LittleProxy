@@ -7,6 +7,8 @@ import io.netty.handler.codec.http.HttpObject;
 
 import java.net.InetSocketAddress;
 
+import javax.net.ssl.SSLEngine;
+
 /**
  * <p>
  * Encapsulates information needed to connect to a chained proxy.
@@ -52,8 +54,22 @@ public interface ChainedProxy extends SslEngineSource {
      */
     boolean requiresEncryption();
 
+    /**
+     * Implement this method to tell LittleProxy whether or not to use custom ConnectionFlow
+     * to the chained proxy for the given request. If true,
+     * LittleProxy will call {@link ChainedProxy#customConnectionFlow(ProxyConnection)} to obtain a
+     * ConnectionFlow.
+     *
+     * @return true of the connection to the chained proxy should be used a custom ConnectionFlow
+     */
     boolean requiresCustomConnectionFlow();
 
+    /**
+     * Returns an {@link ConnectionFlowStep} to use for a server connection from
+     * LittleProxy to the client.
+     *
+     * @return
+     */
     ConnectionFlowStep customConnectionFlow(ProxyConnection connection);
 
     /**
