@@ -1,6 +1,6 @@
 package org.littleshoot.proxy.impl;
 
-enum ConnectionState {
+public enum ConnectionState {
     /**
      * Connection attempting to connect.
      */

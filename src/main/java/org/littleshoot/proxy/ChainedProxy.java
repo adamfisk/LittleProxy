@@ -1,5 +1,8 @@
 package org.littleshoot.proxy;
 
+import org.littleshoot.proxy.impl.ConnectionFlowStep;
+import org.littleshoot.proxy.impl.ProxyConnection;
+
 import io.netty.handler.codec.http.HttpObject;
 
 import java.net.InetSocketAddress;
@@ -48,6 +51,10 @@ public interface ChainedProxy extends SslEngineSource {
      * @return true of the connection to the chained proxy should be encrypted
      */
     boolean requiresEncryption();
+
+    boolean requiresCustomConnectionFlow();
+
+    ConnectionFlowStep customConnectionFlow(ProxyConnection connection);
 
     /**
      * Filters requests on their way to the chained proxy.

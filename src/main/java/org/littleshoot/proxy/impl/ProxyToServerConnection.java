@@ -559,6 +559,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 connectLock)
                 .then(ConnectChannel);
 
+        if (chainedProxy != null && chainedProxy.requiresCustomConnectionFlow()) {
+            connectionFlow.then(chainedProxy.customConnectionFlow(this));
+        } else {
+            LOG.debug("wtf?");
+        }
+
         if (chainedProxy != null && chainedProxy.requiresEncryption()) {
             connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
                     .newSslEngine()));

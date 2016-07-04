@@ -1,5 +1,8 @@
 package org.littleshoot.proxy;
 
+import org.littleshoot.proxy.impl.ConnectionFlowStep;
+import org.littleshoot.proxy.impl.ProxyConnection;
+
 import io.netty.handler.codec.http.HttpObject;
 
 import java.net.InetSocketAddress;
@@ -34,6 +37,16 @@ public class ChainedProxyAdapter implements ChainedProxy {
     @Override
     public boolean requiresEncryption() {
         return false;
+    }
+
+    @Override
+    public boolean requiresCustomConnectionFlow() {
+        return false;
+    }
+
+    @Override
+    public ConnectionFlowStep customConnectionFlow(ProxyConnection connection) {
+        return null;
     }
 
     @Override
