@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * establishing a socket connection, SSL handshaking, HTTP CONNECT request
  * processing, and so on.
  */
+//Change(expose to public): @AlmogBaku
 public class ConnectionFlow {
     private Queue<ConnectionFlowStep> steps = new ConcurrentLinkedQueue<ConnectionFlowStep>();
 
@@ -77,6 +78,7 @@ public class ConnectionFlow {
     }
 
     /**
+     * //Change(expose to public): @AlmogBaku
      * <p>
      * Advances the flow. {@link #advance()} will be called until we're either
      * out of steps, or a step has failed.
@@ -202,6 +204,7 @@ public class ConnectionFlow {
     }
 
     /**
+     * //Change(expose to public): @AlmogBaku
      * Like {@link #fail(Throwable)} but with no cause.
      */
     public void fail() {

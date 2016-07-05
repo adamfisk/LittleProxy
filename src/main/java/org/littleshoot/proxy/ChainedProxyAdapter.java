@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
-import org.littleshoot.proxy.impl.ConnectionFlowStep;
-import org.littleshoot.proxy.impl.ProxyConnection;
+import org.littleshoot.proxy.impl.ConnectionFlowStep;//Change: @AlmogBaku
+import org.littleshoot.proxy.impl.ProxyConnection;//Change: @AlmogBaku
 
 import io.netty.handler.codec.http.HttpObject;
 
@@ -39,11 +39,13 @@ public class ChainedProxyAdapter implements ChainedProxy {
         return false;
     }
 
+    //Change: @AlmogBaku
     @Override
     public boolean requiresCustomConnectionFlow() {
         return false;
     }
 
+    //Change: @AlmogBaku
     @Override
     public ConnectionFlowStep customConnectionFlow(ProxyConnection connection) {
         return null;

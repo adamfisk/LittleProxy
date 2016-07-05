@@ -3,6 +3,7 @@ package org.littleshoot.proxy.impl;
 import io.netty.util.concurrent.Future;
 
 /**
+ * //Change(expose to public): @AlmogBaku
  * Represents a phase in a {@link ConnectionFlow}.
  */
 public abstract class ConnectionFlowStep {
@@ -11,6 +12,7 @@ public abstract class ConnectionFlowStep {
     private final ConnectionState state;
 
     /**
+     * //Change(expose to protected): @AlmogBaku
      * Construct a new step in a connection flow.
      * 
      * @param connection

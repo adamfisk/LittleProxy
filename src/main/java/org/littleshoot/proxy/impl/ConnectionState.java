@@ -1,5 +1,6 @@
 package org.littleshoot.proxy.impl;
 
+//Change(expose to public): @AlmogBaku
 public enum ConnectionState {
     /**
      * Connection attempting to connect.
