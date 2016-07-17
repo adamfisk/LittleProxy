@@ -12,6 +12,7 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponse;
@@ -746,8 +747,16 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      **************************************************************************/
 
     /**
-     * Initialize the {@ChannelPipeline} for the client to
-     * proxy channel.
+     * Initialize the {@link ChannelPipeline} for the client to proxy channel.
+     * LittleProxy acts like a server here.
+     * 
+     * A {@link ChannelPipeline} invokes the read (Inbound) handlers in
+     * ascending ordering of the list and then the write (Outbound) handlers in
+     * descending ordering.
+     * 
+     * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
+     * the {@link HttpResponseEncoder} or {@link HttpRequestEncoder} before the
+     * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
      * 
      * @param pipeline
      */
@@ -755,11 +764,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         LOG.debug("Configuring ChannelPipeline");
 
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
+        pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
+
+        pipeline.addLast("encoder", new HttpResponseEncoder());
         // We want to allow longer request lines, headers, and chunks
         // respectively.
         pipeline.addLast("decoder", new HttpRequestDecoder(8192, 8192 * 2,
                 8192 * 2));
-        pipeline.addLast("requestReadMonitor", requestReadMonitor);
 
         // Enable aggregation for filtering if necessary
         int numberOfBytesToBuffer = proxyServer.getFiltersSource()
@@ -768,8 +779,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
         }
 
-        pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
-        pipeline.addLast("encoder", new HttpResponseEncoder());
+        pipeline.addLast("requestReadMonitor", requestReadMonitor);
         pipeline.addLast("responseWrittenMonitor", responseWrittenMonitor);
 
         pipeline.addLast(
