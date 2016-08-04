@@ -173,12 +173,13 @@ public class ConnectionFlow {
     }
 
     /**
+     * //Change(expose to public): @AlmogBaku
      * Called when the flow fails at some {@link ConnectionFlowStep}.
      * Disconnects the {@link ProxyToServerConnection} and informs the
      * {@link ClientToProxyConnection} that our connection failed.
      */
     @SuppressWarnings("unchecked")
-    void fail(final Throwable cause) {
+    public void fail(final Throwable cause) {
         final ConnectionState lastStateBeforeFailure = serverConnection
                 .getCurrentState();
         serverConnection.disconnect().addListener(
