@@ -697,6 +697,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
 
         void read(ConnectionFlow flow, Object msg) {
+            //@AlmogBaku: Ignore previous reads
+            if (msg == LastHttpContent.EMPTY_LAST_CONTENT) {
+                return;
+            }
+
             // Here we're handling the response from a chained proxy to our
             // earlier CONNECT request
             boolean connectOk = false;
