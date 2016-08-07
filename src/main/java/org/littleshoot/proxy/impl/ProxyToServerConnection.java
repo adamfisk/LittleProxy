@@ -17,10 +17,12 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpMessage;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
+import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
@@ -867,7 +869,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     /**
-     * Initialize our {@link ChannelPipeline}.
+     * Initialize our {@link ChannelPipeline} to connect the upstream server.
+     * LittleProxy acts as a client here.
+     * 
+     * A {@link ChannelPipeline} invokes the read (Inbound) handlers in
+     * ascending ordering of the list and then the write (Outbound) handlers in
+     * descending ordering.
+     * 
+     * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
+     * the {@link HttpResponseEncoder} or {@link HttpRequestEncoder} before the
+     * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
      * 
      * @param pipeline
      * @param httpRequest
@@ -880,11 +891,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
 
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
+        pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
+
+        pipeline.addLast("encoder", new HttpRequestEncoder());
         pipeline.addLast("decoder", new HeadAwareHttpResponseDecoder(
                 8192,
                 8192 * 2,
                 8192 * 2));
-        pipeline.addLast("responseReadMonitor", responseReadMonitor);
 
         // Enable aggregation for filtering if necessary
         int numberOfBytesToBuffer = proxyServer.getFiltersSource()
@@ -893,8 +906,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
         }
 
-        pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
-        pipeline.addLast("encoder", new HttpRequestEncoder());
+        pipeline.addLast("responseReadMonitor", responseReadMonitor);
         pipeline.addLast("requestWrittenMonitor", requestWrittenMonitor);
 
         // Set idle timeout
