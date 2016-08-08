@@ -691,12 +691,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
 
-        void onSuccess(ConnectionFlow flow) {
+        //Change(expose to protected): @AlmogBaku
+        protected void onSuccess(ConnectionFlow flow) {
             // Do nothing, since we want to wait for the CONNECT response to
             // come back
         }
 
-        void read(ConnectionFlow flow, Object msg) {
+        protected void read(ConnectionFlow flow, Object msg) {
             //@AlmogBaku: Ignore previous reads
             if (msg == LastHttpContent.EMPTY_LAST_CONTENT) {
                 return;
