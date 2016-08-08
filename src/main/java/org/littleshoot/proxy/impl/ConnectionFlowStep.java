@@ -74,6 +74,7 @@ public abstract class ConnectionFlowStep {
     protected abstract Future execute();
 
     /**
+     * //Change(expose to protected): @AlmogBaku
      * When the flow determines that this step was successful, it calls into
      * this method. The default implementation simply continues with the flow.
      * Other implementations may choose to not continue and instead wait for a
@@ -81,11 +82,12 @@ public abstract class ConnectionFlowStep {
      * 
      * @param flow
      */
-    void onSuccess(ConnectionFlow flow) {
+    protected void onSuccess(ConnectionFlow flow) {
         flow.advance();
     }
 
     /**
+     * //Change(expose to protected): @AlmogBaku
      * <p>
      * Any messages that are read from the underlying connection while we're at
      * this step of the connection flow are passed to this method.
@@ -106,7 +108,7 @@ public abstract class ConnectionFlowStep {
      * @param msg
      *            the message read from the underlying connection
      */
-    void read(ConnectionFlow flow, Object msg) {
+    protected void read(ConnectionFlow flow, Object msg) {
         LOG.debug("Received message while in the middle of connecting: {}", msg);
     }
 
