@@ -270,6 +270,17 @@ public interface HttpProxyServerBootstrap {
 
     /**
      * <p>
+     * Specify an {@link AcceptHandler} to manage the bytes read the first
+     * time after a client connection has been accepted.
+     * </p>
+     *
+     * @param acceptHandler
+     * @return
+     */
+    HttpProxyServerBootstrap withAcceptHandler(AcceptHandler acceptHandler);
+
+    /**
+     * <p>
      * Add an {@link ActivityTracker} for tracking activity in this proxy.
      * </p>
      * 

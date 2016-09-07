@@ -17,6 +17,7 @@ import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import org.apache.commons.io.IOUtils;
+import org.littleshoot.proxy.AcceptHandler;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.DefaultHostResolver;
@@ -120,6 +121,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * True when the proxy has already been stopped by calling {@link #stop()} or {@link #abort()}.
      */
     private final AtomicBoolean stopped = new AtomicBoolean(false);
+
+    /**
+     * Track the bytes read after the client connection has been accepted.
+     */
+    private final AcceptHandler acceptHandler;
 
     /**
      * Track all ActivityTrackers for tracking proxying activity.
@@ -234,6 +240,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             HttpFiltersSource filtersSource,
             boolean transparent,
             int idleConnectionTimeout,
+            AcceptHandler acceptHandler,
             Collection<ActivityTracker> activityTrackers,
             int connectTimeout,
             HostResolver serverResolver,
@@ -252,6 +259,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.filtersSource = filtersSource;
         this.transparent = transparent;
         this.idleConnectionTimeout = idleConnectionTimeout;
+        this.acceptHandler = acceptHandler;
         if (activityTrackers != null) {
             this.activityTrackers.addAll(activityTrackers);
         }
@@ -366,6 +374,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     filtersSource,
                     transparent,
                     idleConnectionTimeout,
+                    acceptHandler,
                     activityTrackers,
                     connectTimeout,
                     serverResolver,
@@ -549,6 +558,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return activityTrackers;
     }
 
+    protected AcceptHandler getAcceptHandler() {
+        return acceptHandler;
+    }
+
     public String getProxyAlias() {
         return proxyAlias;
     }
@@ -574,6 +587,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
+        private AcceptHandler acceptHandler;
         private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
         private int connectTimeout = 40000;
         private HostResolver serverResolver = new DefaultHostResolver();
@@ -599,6 +613,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 MitmManager mitmManager,
                 HttpFiltersSource filtersSource,
                 boolean transparent, int idleConnectionTimeout,
+                AcceptHandler acceptHandler,
                 Collection<ActivityTracker> activityTrackers,
                 int connectTimeout, HostResolver serverResolver,
                 long readThrottleBytesPerSecond,
@@ -617,6 +632,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.filtersSource = filtersSource;
             this.transparent = transparent;
             this.idleConnectionTimeout = idleConnectionTimeout;
+            this.acceptHandler = acceptHandler;
             if (activityTrackers != null) {
                 this.activityTrackers.addAll(activityTrackers);
             }
@@ -782,6 +798,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withAcceptHandler(AcceptHandler acceptHandler) {
+            this.acceptHandler = acceptHandler;
+            return this;
+        }
+
+        @Override
         public HttpProxyServerBootstrap plusActivityTracker(
                 ActivityTracker activityTracker) {
             activityTrackers.add(activityTracker);
@@ -823,7 +845,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     sslEngineSource, authenticateSslClients,
                     proxyAuthenticator, chainProxyManager, mitmManager,
                     filtersSource, transparent,
-                    idleConnectionTimeout, activityTrackers, connectTimeout,
+                    idleConnectionTimeout, acceptHandler, activityTrackers, connectTimeout,
                     serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond,
                     localAddress, proxyAlias);
         }

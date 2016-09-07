@@ -3,6 +3,7 @@ package org.littleshoot.proxy.impl;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpRequest;
@@ -25,6 +26,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
+import org.littleshoot.proxy.AcceptHandler;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.FlowContext;
 import org.littleshoot.proxy.FullFlowContext;
@@ -763,6 +765,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void initChannelPipeline(ChannelPipeline pipeline) {
         LOG.debug("Configuring ChannelPipeline");
 
+        pipeline.addLast("acceptMonitor", acceptMonitor);
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
 
@@ -1392,6 +1395,27 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void setMitming(boolean isMitming) {
         this.mitming = isMitming;
     }
+
+    /***************************************************************************
+     * Accept tracker
+     *
+     * Used to have access to the bytes read from the underlying channel after
+     * the client connection has been accepted, it is added as the first
+     * handler of the pipeline and immediately removed after the first read.
+     **************************************************************************/
+    private final ByteStreamMonitor acceptMonitor = new ByteStreamMonitor() {
+        @Override
+        protected ByteBuf processBytes(ChannelHandlerContext ctx, ByteBuf bytes) {
+            AcceptHandler acceptHandler = proxyServer.getAcceptHandler();
+            if (acceptHandler != null) {
+                ByteBuf processedBytes = acceptHandler.process(ctx, bytes);
+                ctx.pipeline().remove("acceptMonitor");
+                return processedBytes;
+            } else {
+                return bytes;
+            }
+        }
+    };
 
     /***************************************************************************
      * Activity Tracking/Statistics
