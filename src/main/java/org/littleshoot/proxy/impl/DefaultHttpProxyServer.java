@@ -76,6 +76,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      */
     private static final long TRAFFIC_SHAPING_CHECK_INTERVAL_MS = 250L;
 
+    private static final int MAX_INITIAL_LINE_LENGTH_DEFAULT = 8192;
+    private static final int MAX_HEADER_SIZE_DEFAULT = 8192*2;
+    private static final int MAX_CHUNK_SIZE_DEFAULT = 8192*2;
+
     /**
      * The proxy alias to use in the Via header if no explicit proxy alias is specified and the hostname of the local
      * machine cannot be resolved.
@@ -110,6 +114,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
     private volatile GlobalTrafficShapingHandler globalTrafficShapingHandler;
+    private int maxInitialLineLength;
+    private int maxHeaderSize;
+    private int maxChunkSize;
 
     /**
      * The alias or pseudonym for this proxy, used when adding the Via header.
@@ -222,6 +229,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            read throttle bandwidth
      * @param writeThrottleBytesPerSecond
      *            write throttle bandwidth
+     * @param maxInitialLineLength
+     * @param maxHeaderSize
+     * @param maxChunkSize
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
@@ -240,7 +250,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             long readThrottleBytesPerSecond,
             long writeThrottleBytesPerSecond,
             InetSocketAddress localAddress,
-            String proxyAlias) {
+            String proxyAlias,
+            int maxInitialLineLength,
+            int maxHeaderSize,
+            int maxChunkSize) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.requestedAddress = requestedAddress;
@@ -275,6 +288,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         } else {
             this.proxyAlias = proxyAlias;
         }
+        this.maxInitialLineLength = maxInitialLineLength;
+    	this.maxHeaderSize = maxHeaderSize;
+    	this.maxChunkSize = maxChunkSize;
     }
 
     /**
@@ -352,6 +368,18 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         return globalTrafficShapingHandler.getWriteLimit();
     }
 
+    public int getMaxInitialLineLength() {
+		return maxInitialLineLength;
+	}
+
+    public int getMaxHeaderSize() {
+		return maxHeaderSize;
+	}
+
+    public int getMaxChunkSize() {
+		return maxChunkSize;
+	}
+
     @Override
     public HttpProxyServerBootstrap clone() {
         return new DefaultHttpProxyServerBootstrap(serverGroup,
@@ -372,7 +400,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getReadLimit() : 0,
                     globalTrafficShapingHandler != null ? globalTrafficShapingHandler.getWriteLimit() : 0,
                     localAddress,
-                    proxyAlias);
+                    proxyAlias,
+                    maxInitialLineLength,
+                    maxHeaderSize,
+                    maxChunkSize);
     }
 
     @Override
@@ -584,6 +615,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private int clientToProxyAcceptorThreads = ServerGroup.DEFAULT_INCOMING_ACCEPTOR_THREADS;
         private int clientToProxyWorkerThreads = ServerGroup.DEFAULT_INCOMING_WORKER_THREADS;
         private int proxyToServerWorkerThreads = ServerGroup.DEFAULT_OUTGOING_WORKER_THREADS;
+        private int maxInitialLineLength = MAX_INITIAL_LINE_LENGTH_DEFAULT;
+        private int maxHeaderSize = MAX_HEADER_SIZE_DEFAULT;
+        private int maxChunkSize = MAX_CHUNK_SIZE_DEFAULT;
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -604,7 +638,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 long readThrottleBytesPerSecond,
                 long  writeThrottleBytesPerSecond,
                 InetSocketAddress localAddress,
-                String proxyAlias) {
+                String proxyAlias,
+                int maxInitialLineLength,
+                int maxHeaderSize,
+                int maxChunkSize) {
             this.serverGroup = serverGroup;
             this.transportProtocol = transportProtocol;
             this.requestedAddress = requestedAddress;
@@ -626,6 +663,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.writeThrottleBytesPerSecond = writeThrottleBytesPerSecond;
             this.localAddress = localAddress;
             this.proxyAlias = proxyAlias;
+            this.maxInitialLineLength = maxInitialLineLength;
+        	this.maxHeaderSize = maxHeaderSize;
+        	this.maxChunkSize = maxChunkSize;
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
@@ -637,6 +677,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     "idle_connection_timeout");
             this.connectTimeout = ProxyUtils.extractInt(props,
                     "connect_timeout", 0);
+            this.maxInitialLineLength = ProxyUtils.extractInt(props,
+                    "max_initial_line_length", MAX_INITIAL_LINE_LENGTH_DEFAULT);
+            this.maxHeaderSize = ProxyUtils.extractInt(props,
+                    "max_header_size", MAX_HEADER_SIZE_DEFAULT);
+            this.maxChunkSize = ProxyUtils.extractInt(props,
+                    "max_chunk_size", MAX_CHUNK_SIZE_DEFAULT);
         }
 
         @Override
@@ -796,6 +842,24 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withMaxInitialLineLength(int maxInitialLineLength){
+        	this.maxInitialLineLength = maxInitialLineLength;
+        	return this;
+        }
+
+        @Override
+        public HttpProxyServerBootstrap withMaxHeaderSize(int maxHeaderSize){
+        	this.maxHeaderSize = maxHeaderSize;
+        	return this;
+        }
+
+        @Override
+        public HttpProxyServerBootstrap withMaxChunkSize(int maxChunkSize){
+        	this.maxChunkSize = maxChunkSize;
+        	return this;
+        }
+
+        @Override
         public HttpProxyServer start() {
             return build().start();
         }
@@ -825,7 +889,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     filtersSource, transparent,
                     idleConnectionTimeout, activityTrackers, connectTimeout,
                     serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond,
-                    localAddress, proxyAlias);
+                    localAddress, proxyAlias, maxInitialLineLength, maxHeaderSize, maxChunkSize);
         }
 
         private InetSocketAddress determineListenAddress() {

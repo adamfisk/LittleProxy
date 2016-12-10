@@ -769,8 +769,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         pipeline.addLast("encoder", new HttpResponseEncoder());
         // We want to allow longer request lines, headers, and chunks
         // respectively.
-        pipeline.addLast("decoder", new HttpRequestDecoder(8192, 8192 * 2,
-                8192 * 2));
+        pipeline.addLast("decoder", new HttpRequestDecoder(
+                proxyServer.getMaxInitialLineLength(),
+                proxyServer.getMaxHeaderSize(),
+                proxyServer.getMaxChunkSize()));
 
         // Enable aggregation for filtering if necessary
         int numberOfBytesToBuffer = proxyServer.getFiltersSource()
