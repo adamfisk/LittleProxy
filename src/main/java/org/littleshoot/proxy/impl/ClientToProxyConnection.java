@@ -485,7 +485,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
                     CONNECTION_ESTABLISHED);
             response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
-            response.headers().set("Proxy-Connection", HttpHeaders.Values.KEEP_ALIVE);
             ProxyUtils.addVia(response, proxyServer.getProxyAlias());
             return writeToChannel(response);
         };
