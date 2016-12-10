@@ -114,9 +114,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private volatile int idleConnectionTimeout;
     private final HostResolver serverResolver;
     private volatile GlobalTrafficShapingHandler globalTrafficShapingHandler;
-    private int maxInitialLineLength;
-    private int maxHeaderSize;
-    private int maxChunkSize;
+    private final int maxInitialLineLength;
+    private final int maxHeaderSize;
+    private final int maxChunkSize;
 
     /**
      * The alias or pseudonym for this proxy, used when adding the Via header.
