@@ -67,14 +67,13 @@ import java.net.InetSocketAddress;
  * <li>serverToProxyResponseReceived</li>
  * <li>proxyToClientResponse</li>
  * </ol>
- * </p>
  */
 public interface HttpFilters {
     /**
      * Filters requests on their way from the client to the proxy. To interrupt processing of this request and return a
      * response to the client immediately, return an HttpResponse here. Otherwise, return null to continue processing as
      * usual.
-     * <p/>
+     * <p>
      * <b>Important:</b> When returning a response, you must include a mechanism to allow the client to determine the length
      * of the message (see RFC 7230, section 3.3.3: https://tools.ietf.org/html/rfc7230#section-3.3.3 ). For messages that
      * may contain a body, you may do this by setting the Transfer-Encoding to chunked, setting an appropriate
@@ -91,7 +90,7 @@ public interface HttpFilters {
      * Filters requests on their way from the proxy to the server. To interrupt processing of this request and return a
      * response to the client immediately, return an HttpResponse here. Otherwise, return null to continue processing as
      * usual.
-     * <p/>
+     * <p>
      * <b>Important:</b> When returning a response, you must include a mechanism to allow the client to determine the length
      * of the message (see RFC 7230, section 3.3.3: https://tools.ietf.org/html/rfc7230#section-3.3.3 ). For messages that
      * may contain a body, you may do this by setting the Transfer-Encoding to chunked, setting an appropriate
