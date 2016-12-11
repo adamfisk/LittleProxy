@@ -263,7 +263,7 @@ public interface HttpProxyServerBootstrap {
     /**
      * Specify a custom {@link HostResolver} for resolving server addresses.
      * 
-     * @param resolver
+     * @param serverResolver
      * @return
      */
     HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);

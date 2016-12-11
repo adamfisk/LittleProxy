@@ -122,7 +122,7 @@ public class ServerGroup {
      * for the transport protocol if they have not yet been initialized. If the protocol has already been initialized,
      * this method returns immediately, without synchronization. If initialization is necessary, the initialization
      * process creates the acceptor and worker threads necessary to service requests to/from the proxy.
-     * <p/>
+     * <p>
      * This method is thread-safe; no external locking is necessary.
      *
      * @param protocol transport protocol to retrieve thread pools for
@@ -245,7 +245,7 @@ public class ServerGroup {
     /**
      * Retrieves the client-to-proxy acceptor thread pool for the specified protocol. Initializes the pool if it has not
      * yet been initialized.
-     * <p/>
+     * <p>
      * This method is thread-safe; no external locking is necessary.
      *
      * @param protocol transport protocol to retrieve the thread pool for
@@ -258,7 +258,7 @@ public class ServerGroup {
     /**
      * Retrieves the client-to-proxy acceptor worker pool for the specified protocol. Initializes the pool if it has not
      * yet been initialized.
-     * <p/>
+     * <p>
      * This method is thread-safe; no external locking is necessary.
      *
      * @param protocol transport protocol to retrieve the thread pool for
@@ -271,7 +271,7 @@ public class ServerGroup {
     /**
      * Retrieves the proxy-to-server worker thread pool for the specified protocol. Initializes the pool if it has not
      * yet been initialized.
-     * <p/>
+     * <p>
      * This method is thread-safe; no external locking is necessary.
      *
      * @param protocol transport protocol to retrieve the thread pool for

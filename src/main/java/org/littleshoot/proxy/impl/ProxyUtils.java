@@ -399,7 +399,7 @@ public class ProxyUtils {
     /**
      * Returns true if the HTTP response from the server is expected to indicate its own message length/end-of-message. Returns false
      * if the server is expected to indicate the end of the HTTP entity by closing the connection.
-     * <p/>
+     * <p>
      * This method is based on the allowed message length indicators in the HTTP specification, section 4.4:
      * <pre>
          4.4 Message Length
@@ -463,7 +463,7 @@ public class ProxyUtils {
      *     Transfer-Encoding: chunked
      * </pre>
      * This method will return a list of three values: "gzip", "deflate", "chunked".
-     * <p/>
+     * <p>
      * Placing values on multiple header lines is allowed under certain circumstances
      * in RFC 2616 section 4.2, and in RFC 7230 section 3.2.2 quoted here:
      * <pre>
