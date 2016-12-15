@@ -9,7 +9,6 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
-import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Server;
 import org.junit.After;
 import org.junit.Before;
@@ -99,14 +98,11 @@ public class HttpFilterTest {
 
         final InetSocketAddress isa = new InetSocketAddress("127.0.0.1", proxyServer.getListenAddress().getPort());
         while (true) {
-            final Socket sock = new Socket();
-            try {
+            try (Socket sock = new Socket()) {
                 sock.connect(isa);
                 break;
             } catch (final IOException e) {
                 // Keep trying.
-            } finally {
-                IOUtils.closeQuietly(sock);
             }
 
             try {

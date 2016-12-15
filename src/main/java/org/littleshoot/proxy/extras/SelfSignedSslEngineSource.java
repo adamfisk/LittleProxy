@@ -1,5 +1,17 @@
 package org.littleshoot.proxy.extras;
 
+import com.google.common.io.ByteStreams;
+import org.littleshoot.proxy.SslEngineSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -9,19 +21,6 @@ import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
-
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
-
-import org.apache.commons.io.IOUtils;
-import org.littleshoot.proxy.SslEngineSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Basic {@link SslEngineSource} for testing. The {@link SSLContext} uses
@@ -166,10 +165,13 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         try {
             final Process process = pb.start();
             final InputStream is = process.getInputStream();
-            final String data = IOUtils.toString(is);
-            LOG.info("Completed native call: '{}'\nResponse: '" + data + "'",
+
+            byte[] data = ByteStreams.toByteArray(is);
+            String dataAsString = new String(data);
+
+            LOG.info("Completed native call: '{}'\nResponse: '" + dataAsString + "'",
                     Arrays.asList(commands));
-            return data;
+            return dataAsString;
         } catch (final IOException e) {
             LOG.error("Error running commands: " + Arrays.asList(commands), e);
             return "";
