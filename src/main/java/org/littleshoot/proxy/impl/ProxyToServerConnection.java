@@ -15,7 +15,6 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpMessage;
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequest;
@@ -44,7 +43,6 @@ import javax.net.ssl.SSLSession;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
@@ -117,12 +115,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Keeps track of HttpRequests that have been issued so that we can
      * associate them with responses that we get back
-     */
-    private final Queue<HttpRequest> issuedRequests = new LinkedList<HttpRequest>();
-
-    /**
-     * While we're doing a chunked transfer, this keeps track of the HttpRequest
-     * to which we're responding.
      */
     private volatile HttpRequest currentHttpRequest;
 
@@ -274,20 +266,14 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         @Override
         protected boolean isContentAlwaysEmpty(HttpMessage httpMessage) {
-            if (httpMessage instanceof HttpResponse) {
-                // Identify our current request
-                identifyCurrentRequest();
-            }
-
             // The current HTTP Request can be null when this proxy is
-            // negotiating a CONNECT request with a chained proxy 
+            // negotiating a CONNECT request with a chained proxy
             // while it is running as a MITM. Since the response to a
             // CONNECT request does not have any content, we return true.
             if(currentHttpRequest == null) {
                 return true;
             } else {
-                return HttpMethod.HEAD.equals(currentHttpRequest.getMethod()) ?
-                        true : super.isContentAlwaysEmpty(httpMessage);
+                return ProxyUtils.isHEAD(currentHttpRequest) || super.isContentAlwaysEmpty(httpMessage);
             }
         }
     };
@@ -355,7 +341,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         if (httpObject instanceof HttpRequest) {
             HttpRequest httpRequest = (HttpRequest) httpObject;
             // Remember that we issued this HttpRequest for later
-            issuedRequests.add(httpRequest);
+            currentHttpRequest = httpRequest;
         }
         super.writeHttp(httpObject);
     }
@@ -490,26 +476,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /***************************************************************************
      * Private Implementation
      **************************************************************************/
-
-    /**
-     * An HTTP response is associated with a single request, so we can pop the
-     * correct request off the queue.
-     */
-    private void identifyCurrentRequest() {
-        LOG.debug("Remembering the current request.");
-        // I'm a little unclear as to when the request queue would
-        // ever actually be empty, but it is from time to time in practice.
-        // We've seen this particularly when behind proxies that govern
-        // access control on local networks, likely related to redirects.
-        if (!this.issuedRequests.isEmpty()) {
-            this.currentHttpRequest = this.issuedRequests.remove();
-            if (this.currentHttpRequest == null) {
-                LOG.warn("Got null HTTP request object.");
-            }
-        } else {
-            LOG.debug("Request queue is empty!");
-        }
-    }
 
     /**
      * Keeps track of the current HttpResponse so that we can associate its
