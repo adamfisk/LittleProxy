@@ -387,16 +387,6 @@ public class ProxyUtils {
     }
 
     /**
-     * Returns true if the request is an HTTP HEAD request.
-     *
-     * @param request HTTP request
-     * @return true if request is a HEAD, otherwise false
-     */
-    public static boolean isHead(HttpRequest request) {
-        return HttpMethod.HEAD.equals(request.getMethod());
-    }
-
-    /**
      * Returns true if the HTTP response from the server is expected to indicate its own message length/end-of-message. Returns false
      * if the server is expected to indicate the end of the HTTP entity by closing the connection.
      * <p>
