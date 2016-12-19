@@ -13,7 +13,9 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
+import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMessage;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpObjectAggregator;
@@ -22,6 +24,8 @@ import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
@@ -214,6 +218,19 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected ConnectionState readHTTPInitial(HttpResponse httpResponse) {
         LOG.debug("Received raw response: {}", httpResponse);
+
+        if (httpResponse.getDecoderResult().isFailure()) {
+            LOG.debug("Could not parse response from server. Decoder result: {}", httpResponse.getDecoderResult().toString());
+
+            // create a "substitute" Bad Gateway response from the server, since we couldn't understand what the actual
+            // response from the server was. set the keep-alive on the substitute response to false so the proxy closes
+            // the connection to the server, since we don't know what state the server thinks the connection is in.
+            FullHttpResponse substituteResponse = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
+                    HttpResponseStatus.BAD_GATEWAY,
+                    "Unable to parse response from server");
+            HttpHeaders.setKeepAlive(substituteResponse, false);
+            httpResponse = substituteResponse;
+        }
 
         currentFilters.serverToProxyResponseReceiving();
 
