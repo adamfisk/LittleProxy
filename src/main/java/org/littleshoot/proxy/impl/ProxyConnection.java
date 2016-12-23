@@ -697,6 +697,31 @@ abstract class ProxyConnection<I extends HttpObject> extends
     }
 
     /**
+     * Utility handler for monitoring byte streams on this connection.
+     */
+    @Sharable
+    protected abstract class ByteStreamMonitor extends
+            ChannelInboundHandlerAdapter {
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg)
+                throws Exception {
+            Object processedMsg = msg;
+
+            try {
+                if (msg instanceof ByteBuf) {
+                    processedMsg = processBytes(ctx, (ByteBuf) msg);
+                }
+            } catch (Throwable t) {
+                LOG.warn("Unable to call processBytes", t);
+            } finally {
+                super.channelRead(ctx, processedMsg);
+            }
+        }
+
+        protected abstract ByteBuf processBytes(ChannelHandlerContext ctx, ByteBuf bytes);
+    }
+
+    /**
      * Utility handler for monitoring requests read on this connection.
      */
     @Sharable
