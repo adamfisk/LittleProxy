@@ -4,7 +4,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
@@ -428,7 +427,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             // if this HttpResponse does not have any means of signaling the end of the message body other than closing
             // the connection, convert the message to a "Transfer-Encoding: chunked" HTTP response. This avoids the need
             // to close the client connection to indicate the end of the message. (Responses to HEAD requests "must be" empty.)
-            if (!ProxyUtils.isHead(currentHttpRequest) && !ProxyUtils.isResponseSelfTerminating(httpResponse)) {
+            if (!ProxyUtils.isHEAD(currentHttpRequest) && !ProxyUtils.isResponseSelfTerminating(httpResponse)) {
                 // if this is not a FullHttpResponse,  duplicate the HttpResponse from the server before sending it to
                 // the client. this allows us to set the Transfer-Encoding to chunked without interfering with netty's
                 // handling of the response from the server. if we modify the original HttpResponse from the server,
@@ -482,7 +481,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         protected Future<?> execute() {
             LOG.debug("Responding with CONNECT successful");
-            HttpResponse response = responseFor(HttpVersion.HTTP_1_1,
+            HttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                     CONNECTION_ESTABLISHED);
             response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
             ProxyUtils.addVia(response, proxyServer.getProxyAlias());
@@ -754,7 +753,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * descending ordering.
      * 
      * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
-     * the {@link HttpResponseEncoder} or {@link HttpRequestEncoder} before the
+     * the {@link HttpResponseEncoder} or {@link io.netty.handler.codec.http.HttpRequestEncoder} before the
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
      * 
      * @param pipeline
@@ -999,7 +998,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 + "credentials (e.g., bad password), or your\n"
                 + "browser doesn't understand how to supply\n"
                 + "the credentials required.</p>\n" + "</body></html>\n";
-        DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
+        FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, body);
         HttpHeaders.setDate(response, new Date());
         response.headers().set("Proxy-Authenticate",
@@ -1201,7 +1200,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean writeBadGateway(HttpRequest httpRequest) {
         String body = "Bad Gateway: " + httpRequest.getUri();
-        DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY, body);
+        FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_GATEWAY, body);
 
         if (ProxyUtils.isHEAD(httpRequest)) {
             // don't allow any body content in response to a HEAD request
@@ -1220,7 +1219,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean writeBadRequest(HttpRequest httpRequest) {
         String body = "Bad Request to URI: " + httpRequest.getUri();
-        DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST, body);
+        FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST, body);
 
         if (ProxyUtils.isHEAD(httpRequest)) {
             // don't allow any body content in response to a HEAD request
@@ -1240,7 +1239,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean writeGatewayTimeout(HttpRequest httpRequest) {
         String body = "Gateway Timeout";
-        DefaultFullHttpResponse response = responseFor(HttpVersion.HTTP_1_1,
+        FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.GATEWAY_TIMEOUT, body);
 
         if (httpRequest != null && ProxyUtils.isHEAD(httpRequest)) {
@@ -1297,55 +1296,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         return true;
-    }
-
-    /**
-     * Factory for {@link DefaultFullHttpResponse}s.
-     * 
-     * @param httpVersion
-     * @param status
-     * @param body
-     * @return
-     */
-    private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
-            HttpResponseStatus status, String body) {
-        byte[] bytes = body.getBytes(Charset.forName("UTF-8"));
-        ByteBuf content = Unpooled.copiedBuffer(bytes);
-        return responseFor(httpVersion, status, content, bytes.length);
-    }
-
-    /**
-     * Factory for {@link DefaultFullHttpResponse}s.
-     * 
-     * @param httpVersion
-     * @param status
-     * @param body
-     * @param contentLength
-     * @return
-     */
-    private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
-            HttpResponseStatus status, ByteBuf body, int contentLength) {
-        DefaultFullHttpResponse response = body != null ? new DefaultFullHttpResponse(
-                HttpVersion.HTTP_1_1, status, body)
-                : new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
-        if (body != null) {
-            response.headers().set(HttpHeaders.Names.CONTENT_LENGTH,
-                    contentLength);
-            response.headers().set("Content-Type", "text/html; charset=UTF-8");
-        }
-        return response;
-    }
-
-    /**
-     * Factory for {@link DefaultFullHttpResponse}s.
-     * 
-     * @param httpVersion
-     * @param status
-     * @return
-     */
-    private DefaultFullHttpResponse responseFor(HttpVersion httpVersion,
-            HttpResponseStatus status) {
-        return responseFor(httpVersion, status, (ByteBuf) null, 0);
     }
 
     /**
