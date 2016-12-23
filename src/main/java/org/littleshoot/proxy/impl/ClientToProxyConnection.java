@@ -1,5 +1,6 @@
 package org.littleshoot.proxy.impl;
 
+import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -22,7 +23,6 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.FlowContext;
@@ -965,8 +965,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 HttpHeaders.Names.PROXY_AUTHORIZATION);
         String fullValue = values.iterator().next();
         String value = StringUtils.substringAfter(fullValue, "Basic ").trim();
-        
-        byte[] decodedValue = Base64.decodeBase64(value.getBytes(Charset.forName("UTF-8")));
+
+        byte[] decodedValue = BaseEncoding.base64().decode(value);
+
         String decodedString = new String(decodedValue, Charset.forName("UTF-8"));
         
         String userName = StringUtils.substringBefore(decodedString, ":");

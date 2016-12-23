@@ -16,7 +16,6 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
-import org.apache.commons.io.IOUtils;
 import org.littleshoot.proxy.ActivityTracker;
 import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.DefaultHostResolver;
@@ -170,14 +169,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         Properties props = new Properties();
 
         if (propsFile.isFile()) {
-            InputStream is = null;
-            try {
-                is = new FileInputStream(propsFile);
+            try (InputStream is = new FileInputStream(propsFile)) {
                 props.load(is);
             } catch (final IOException e) {
                 LOG.warn("Could not load props file?", e);
-            } finally {
-                IOUtils.closeQuietly(is);
             }
         }
 
