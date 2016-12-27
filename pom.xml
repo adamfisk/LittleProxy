@@ -3,7 +3,7 @@
     <groupId>org.littleshoot</groupId>
     <artifactId>littleproxy</artifactId>
     <packaging>jar</packaging>
-    <version>1.1.1-SNAPSHOT</version>
+    <version>1.1.1</version>
     <name>LittleProxy</name>
     <description>
         LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework.
@@ -50,7 +50,7 @@
         <connection>scm:git:https://adamfisk@github.com/adamfisk/LittleProxy.git</connection>
         <developerConnection>scm:git:git@github.com:adamfisk/LittleProxy</developerConnection>
         <url>scm:git:git@github.com:adamfisk/LittleProxy.git</url>
-        <tag>HEAD</tag>
+        <tag>littleproxy-1.1.1</tag>
     </scm>
 
     <distributionManagement>
