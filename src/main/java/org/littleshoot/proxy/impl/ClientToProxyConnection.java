@@ -180,7 +180,22 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     @Override
     protected ConnectionState readHTTPInitial(HttpRequest httpRequest) {
-        LOG.debug("Got request: {}", httpRequest);
+        LOG.debug("Received raw request: {}", httpRequest);
+
+        // if we cannot parse the request, immediately return a 400 and close the connection, since we do not know what state
+        // the client thinks the connection is in
+        if (httpRequest.getDecoderResult().isFailure()) {
+            LOG.debug("Could not parse request from client. Decoder result: {}", httpRequest.getDecoderResult().toString());
+
+            FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
+                    HttpResponseStatus.BAD_REQUEST,
+                    "Unable to parse HTTP request");
+            HttpHeaders.setKeepAlive(response, false);
+
+            respondWithShortCircuitResponse(response);
+
+            return DISCONNECT_REQUESTED;
+        }
 
         boolean authenticationRequired = authenticationRequired(httpRequest);
 
