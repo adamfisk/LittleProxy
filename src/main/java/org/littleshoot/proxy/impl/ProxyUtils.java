@@ -637,4 +637,30 @@ public class ProxyUtils {
 
         return response;
     }
+
+    /**
+     * Given an HttpHeaders instance, removes 'sdch' from the 'Accept-Encoding'
+     * header list (if it exists) and returns the modified instance.
+     *
+     * Removes all occurrences of 'sdch' from the 'Accept-Encoding' header.
+     * @param headers The headers to modify.
+     */
+    public static HttpHeaders removeSdchEncoding(HttpHeaders headers) {
+        if (headers == null) {
+            throw new IllegalArgumentException("Headers is null");
+        }
+
+        String ae = headers.get(HttpHeaders.Names.ACCEPT_ENCODING);
+        if (StringUtils.isNotBlank(ae)) {
+            // The former regex should remove occurrences of 'sdch' while the
+            // latter regex should take care of the dangling comma case when
+            // 'sdch' was the first element in the list and there are other
+            // encodings.
+            String noSdch = ae.replaceAll(",? *(sdch|SDCH)", "").replace("^ *, *", "");
+            headers.set(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
+            LOG.debug("Removed sdch and inserted: {}", noSdch);
+        }
+
+        return headers;
+    }
 }

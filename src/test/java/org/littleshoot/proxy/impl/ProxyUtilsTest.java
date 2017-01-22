@@ -1,6 +1,7 @@
 package org.littleshoot.proxy.impl;
 
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.DefaultHttpMessage;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -234,5 +235,44 @@ public class ProxyUtilsTest {
         assertThat("Expected no header tokens", ProxyUtils.splitCommaSeparatedHeaderValues("\t"), empty());
         assertThat("Expected no header tokens", ProxyUtils.splitCommaSeparatedHeaderValues("  \t  \t  "), empty());
         assertThat("Expected no header tokens", ProxyUtils.splitCommaSeparatedHeaderValues(" ,  ,\t, "), empty());
+    }
+
+    /**
+     * Verifies that 'sdch' is removed from the 'Accept-Encoding' header list.
+     */
+    @Test
+    public void testRemoveSdchEncoding() {
+        // Various cases where 'sdch' is not present within the accepted
+        // encodings list
+        assertRemoveSdchEncoding("", "");
+        assertRemoveSdchEncoding("gzip", "gzip");
+        assertRemoveSdchEncoding("gzip, deflate, br", "gzip, deflate, br");
+
+        // Various cases where 'sdch' is present within the accepted encodings
+        // list
+        assertRemoveSdchEncoding("sdch", "");
+        assertRemoveSdchEncoding("SDCH", "");
+        assertRemoveSdchEncoding("sdch, gzip", "gzip");
+        assertRemoveSdchEncoding("gzip,sdch,delate", "gzip,deflate");
+        assertRemoveSdchEncoding("gzip, sdch, deflate", "gzip, deflate");
+        assertRemoveSdchEncoding("gzip,deflate,sdch", "gzip,deflate");
+        assertRemoveSdchEncoding("gzip, deflate, sdch", "gzip, deflate");
+    }
+
+    /**
+     * Helper method that asserts that 'sdch' is removed from the
+     * 'Accept-Encoding' header.
+     *
+     * @param inputEncodings The input value of the 'Accept-Encoding' header
+     *        that should be used as the basis for the assertion check.
+     * @param expectedEncodings The expected value of the 'Accept-Encoding'
+     *        header after the 'sdch' encoding is removed.
+     */
+    private void assertRemoveSdchEncoding(String inputEncodings, String expectedEncodings) {
+        HttpHeaders headers = new DefaultHttpHeaders();
+
+        headers.add(HttpHeaders.Names.ACCEPT_ENCODING, inputEncodings);
+        assertEquals(expectedEncodings,
+                ProxyUtils.removeSdchEncoding(headers).get(HttpHeaders.Names.ACCEPT_ENCODING));
     }
 }
