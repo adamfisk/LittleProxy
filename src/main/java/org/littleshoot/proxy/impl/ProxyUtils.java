@@ -656,7 +656,7 @@ public class ProxyUtils {
             // latter regex should take care of the dangling comma case when
             // 'sdch' was the first element in the list and there are other
             // encodings.
-            String noSdch = ae.replaceAll(",? *(sdch|SDCH)", "").replace("^ *, *", "");
+            String noSdch = ae.replaceAll(",? *(sdch|SDCH)", "").replaceFirst("^ *, *", "");
             headers.set(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
             LOG.debug("Removed sdch and inserted: {}", noSdch);
         }

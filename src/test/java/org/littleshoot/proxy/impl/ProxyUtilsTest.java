@@ -253,7 +253,7 @@ public class ProxyUtilsTest {
         assertRemoveSdchEncoding("sdch", "");
         assertRemoveSdchEncoding("SDCH", "");
         assertRemoveSdchEncoding("sdch, gzip", "gzip");
-        assertRemoveSdchEncoding("gzip,sdch,delate", "gzip,deflate");
+        assertRemoveSdchEncoding("gzip,sdch,deflate", "gzip,deflate");
         assertRemoveSdchEncoding("gzip, sdch, deflate", "gzip, deflate");
         assertRemoveSdchEncoding("gzip,deflate,sdch", "gzip,deflate");
         assertRemoveSdchEncoding("gzip, deflate, sdch", "gzip, deflate");
