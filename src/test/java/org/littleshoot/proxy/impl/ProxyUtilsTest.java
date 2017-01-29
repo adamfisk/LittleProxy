@@ -1,6 +1,7 @@
 package org.littleshoot.proxy.impl;
 
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.DefaultHttpMessage;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -11,6 +12,8 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.hamcrest.Matchers.contains;
@@ -234,5 +237,58 @@ public class ProxyUtilsTest {
         assertThat("Expected no header tokens", ProxyUtils.splitCommaSeparatedHeaderValues("\t"), empty());
         assertThat("Expected no header tokens", ProxyUtils.splitCommaSeparatedHeaderValues("  \t  \t  "), empty());
         assertThat("Expected no header tokens", ProxyUtils.splitCommaSeparatedHeaderValues(" ,  ,\t, "), empty());
+    }
+
+    /**
+     * Verifies that 'sdch' is removed from the 'Accept-Encoding' header list.
+     */
+    @Test
+    public void testRemoveSdchEncoding() {
+        final List<String> emptyList = new ArrayList<>();
+        // Various cases where 'sdch' is not present within the accepted
+        // encodings list
+        assertRemoveSdchEncoding(Arrays.asList(""), emptyList);
+        assertRemoveSdchEncoding(Arrays.asList("gzip"), Arrays.asList("gzip"));
+
+        assertRemoveSdchEncoding(Arrays.asList("gzip", "deflate", "br"), Arrays.asList("gzip", "deflate", "br"));
+        assertRemoveSdchEncoding(Arrays.asList("gzip, deflate, br"), Arrays.asList("gzip, deflate, br"));
+
+        // Various cases where 'sdch' is present within the accepted encodings
+        // list
+        assertRemoveSdchEncoding(Arrays.asList("sdch"), emptyList);
+        assertRemoveSdchEncoding(Arrays.asList("SDCH"), emptyList);
+
+        assertRemoveSdchEncoding(Arrays.asList("sdch", "gzip"), Arrays.asList("gzip"));
+        assertRemoveSdchEncoding(Arrays.asList("sdch, gzip"), Arrays.asList("gzip"));
+
+        assertRemoveSdchEncoding(Arrays.asList("gzip", "sdch", "deflate"), Arrays.asList("gzip", "deflate"));
+        assertRemoveSdchEncoding(Arrays.asList("gzip, sdch, deflate"), Arrays.asList("gzip, deflate"));
+        assertRemoveSdchEncoding(Arrays.asList("gzip,deflate,sdch"), Arrays.asList("gzip,deflate"));
+
+        assertRemoveSdchEncoding(Arrays.asList("gzip", "deflate, sdch", "br"), Arrays.asList("gzip", "deflate", "br"));
+    }
+
+    /**
+     * Helper method that asserts that 'sdch' is removed from the
+     * 'Accept-Encoding' header.
+     *
+     * @param inputEncodings The input value of the 'Accept-Encoding' header
+     *        that should be used as the basis for the assertion check.
+
+     * @param inputEncodings The input list that maps to the values of the
+     *        'Accept-Encoding' header that should be used as the basis for the
+     *        assertion check.
+     * @param expectedEncodings The list containing the expected values of the
+     *        'Accept-Encoding' header after the 'sdch' encoding is removed.
+     */
+    private void assertRemoveSdchEncoding(List<String> inputEncodings, List<String> expectedEncodings) {
+        HttpHeaders headers = new DefaultHttpHeaders();
+
+        for (String encoding : inputEncodings) {
+            headers.add(HttpHeaders.Names.ACCEPT_ENCODING, encoding);
+        }
+
+        ProxyUtils.removeSdchEncoding(headers);
+        assertEquals(expectedEncodings, headers.getAll(HttpHeaders.Names.ACCEPT_ENCODING));
     }
 }

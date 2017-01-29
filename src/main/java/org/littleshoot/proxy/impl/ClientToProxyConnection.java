@@ -1091,7 +1091,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
             HttpHeaders headers = httpRequest.headers();
 
-            removeSDCHEncoding(headers);
+            // Remove sdch from encodings we accept since we can't decode it.
+            ProxyUtils.removeSdchEncoding(headers);
             switchProxyConnectionHeader(headers);
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
@@ -1125,22 +1126,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             if (!headers.contains(HttpHeaders.Names.DATE)) {
                 HttpHeaders.setDate(httpResponse, new Date());
             }
-        }
-    }
-
-    /**
-     * Remove sdch from encodings we accept since we can't decode it.
-     * 
-     * @param headers
-     *            The headers to modify
-     */
-    private void removeSDCHEncoding(HttpHeaders headers) {
-        String ae = headers.get(HttpHeaders.Names.ACCEPT_ENCODING);
-        if (StringUtils.isNotBlank(ae)) {
-            //
-            String noSdch = ae.replace(",sdch", "").replace("sdch", "");
-            headers.set(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
-            LOG.debug("Removed sdch and inserted: {}", noSdch);
         }
     }
 
