@@ -645,22 +645,22 @@ public class ProxyUtils {
      * Removes all occurrences of 'sdch' from the 'Accept-Encoding' header.
      * @param headers The headers to modify.
      */
-    public static HttpHeaders removeSdchEncoding(HttpHeaders headers) {
-        if (headers == null) {
-            throw new IllegalArgumentException("Headers is null");
-        }
+    public static void removeSdchEncoding(HttpHeaders headers) {
+        List<String> encodings = headers.getAll(HttpHeaders.Names.ACCEPT_ENCODING);
+        headers.remove(HttpHeaders.Names.ACCEPT_ENCODING);
 
-        String ae = headers.get(HttpHeaders.Names.ACCEPT_ENCODING);
-        if (StringUtils.isNotBlank(ae)) {
-            // The former regex should remove occurrences of 'sdch' while the
-            // latter regex should take care of the dangling comma case when
-            // 'sdch' was the first element in the list and there are other
-            // encodings.
-            String noSdch = ae.replaceAll(",? *(sdch|SDCH)", "").replaceFirst("^ *, *", "");
-            headers.set(HttpHeaders.Names.ACCEPT_ENCODING, noSdch);
-            LOG.debug("Removed sdch and inserted: {}", noSdch);
-        }
+        for (String encoding : encodings) {
+            if (encoding != null) {
+                // The former regex should remove occurrences of 'sdch' while the
+                // latter regex should take care of the dangling comma case when
+                // 'sdch' was the first element in the list and there are other
+                // encodings.
+                encoding = encoding.replaceAll(",? *(sdch|SDCH)", "").replaceFirst("^ *, *", "");
 
-        return headers;
+                if (StringUtils.isNotBlank(encoding)) {
+                    headers.add(HttpHeaders.Names.ACCEPT_ENCODING, encoding);
+                }
+            }
+        }
     }
 }

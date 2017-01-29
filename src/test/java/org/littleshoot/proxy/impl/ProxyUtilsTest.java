@@ -12,6 +12,8 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.hamcrest.Matchers.contains;
@@ -242,21 +244,28 @@ public class ProxyUtilsTest {
      */
     @Test
     public void testRemoveSdchEncoding() {
+        final List<String> emptyList = new ArrayList<>();
         // Various cases where 'sdch' is not present within the accepted
         // encodings list
-        assertRemoveSdchEncoding("", "");
-        assertRemoveSdchEncoding("gzip", "gzip");
-        assertRemoveSdchEncoding("gzip, deflate, br", "gzip, deflate, br");
+        assertRemoveSdchEncoding(Arrays.asList(""), emptyList);
+        assertRemoveSdchEncoding(Arrays.asList("gzip"), Arrays.asList("gzip"));
+
+        assertRemoveSdchEncoding(Arrays.asList("gzip", "deflate", "br"), Arrays.asList("gzip", "deflate", "br"));
+        assertRemoveSdchEncoding(Arrays.asList("gzip, deflate, br"), Arrays.asList("gzip, deflate, br"));
 
         // Various cases where 'sdch' is present within the accepted encodings
         // list
-        assertRemoveSdchEncoding("sdch", "");
-        assertRemoveSdchEncoding("SDCH", "");
-        assertRemoveSdchEncoding("sdch, gzip", "gzip");
-        assertRemoveSdchEncoding("gzip,sdch,deflate", "gzip,deflate");
-        assertRemoveSdchEncoding("gzip, sdch, deflate", "gzip, deflate");
-        assertRemoveSdchEncoding("gzip,deflate,sdch", "gzip,deflate");
-        assertRemoveSdchEncoding("gzip, deflate, sdch", "gzip, deflate");
+        assertRemoveSdchEncoding(Arrays.asList("sdch"), emptyList);
+        assertRemoveSdchEncoding(Arrays.asList("SDCH"), emptyList);
+
+        assertRemoveSdchEncoding(Arrays.asList("sdch", "gzip"), Arrays.asList("gzip"));
+        assertRemoveSdchEncoding(Arrays.asList("sdch, gzip"), Arrays.asList("gzip"));
+
+        assertRemoveSdchEncoding(Arrays.asList("gzip", "sdch", "deflate"), Arrays.asList("gzip", "deflate"));
+        assertRemoveSdchEncoding(Arrays.asList("gzip, sdch, deflate"), Arrays.asList("gzip, deflate"));
+        assertRemoveSdchEncoding(Arrays.asList("gzip,deflate,sdch"), Arrays.asList("gzip,deflate"));
+
+        assertRemoveSdchEncoding(Arrays.asList("gzip", "deflate, sdch", "br"), Arrays.asList("gzip", "deflate", "br"));
     }
 
     /**
@@ -265,14 +274,21 @@ public class ProxyUtilsTest {
      *
      * @param inputEncodings The input value of the 'Accept-Encoding' header
      *        that should be used as the basis for the assertion check.
-     * @param expectedEncodings The expected value of the 'Accept-Encoding'
-     *        header after the 'sdch' encoding is removed.
+
+     * @param inputEncodings The input list that maps to the values of the
+     *        'Accept-Encoding' header that should be used as the basis for the
+     *        assertion check.
+     * @param expectedEncodings The list containing the expected values of the
+     *        'Accept-Encoding' header after the 'sdch' encoding is removed.
      */
-    private void assertRemoveSdchEncoding(String inputEncodings, String expectedEncodings) {
+    private void assertRemoveSdchEncoding(List<String> inputEncodings, List<String> expectedEncodings) {
         HttpHeaders headers = new DefaultHttpHeaders();
 
-        headers.add(HttpHeaders.Names.ACCEPT_ENCODING, inputEncodings);
-        assertEquals(expectedEncodings,
-                ProxyUtils.removeSdchEncoding(headers).get(HttpHeaders.Names.ACCEPT_ENCODING));
+        for (String encoding : inputEncodings) {
+            headers.add(HttpHeaders.Names.ACCEPT_ENCODING, encoding);
+        }
+
+        ProxyUtils.removeSdchEncoding(headers);
+        assertEquals(expectedEncodings, headers.getAll(HttpHeaders.Names.ACCEPT_ENCODING));
     }
 }
