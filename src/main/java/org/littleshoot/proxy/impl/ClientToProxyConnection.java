@@ -252,8 +252,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             }
         }
 
-        // short-circuit requests that treat the proxy as the "origin" server, to avoid infinite loops
-        if (isRequestToOriginServer(httpRequest)) {
+        // if origin-form requests are not explicitly enabled, short-circuit requests that treat the proxy as the
+        // origin server, to avoid infinite loops
+        if (!proxyServer.isAllowRequestsToOriginServer() && isRequestToOriginServer(httpRequest)) {
             boolean keepAlive = writeBadRequest(httpRequest);
             if (keepAlive) {
                 return AWAITING_INITIAL;
