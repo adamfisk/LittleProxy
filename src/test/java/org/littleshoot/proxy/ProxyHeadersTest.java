@@ -14,9 +14,7 @@ import org.mockserver.matchers.Times;
 import org.mockserver.model.ConnectionOptions;
 
 import static org.hamcrest.Matchers.emptyArray;
-import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -50,8 +48,7 @@ public class ProxyHeadersTest {
 
     @Test
     public void testProxyRemovesConnectionHeadersFromServer() throws Exception {
-        // the proxy should remove all Connection headers, since it is a hop-by-hop header. however, since the proxy does not
-        // generally modify the Transfer-Encoding of the message, it should not remove the Transfer-Encoding header.
+        // the proxy should remove all Connection headers, since all values in the Connection header are hop-by-hop headers.
         mockServer.when(request()
                         .withMethod("GET")
                         .withPath("/connectionheaders"),
@@ -59,8 +56,7 @@ public class ProxyHeadersTest {
                 .respond(response()
                         .withStatusCode(200)
                         .withBody("success")
-                        .withHeader("Connection", "Transfer-Encoding, Dummy-Header")
-                        .withHeader("Transfer-Encoding", "identity")
+                        .withHeader("Connection", "Dummy-Header")
                         .withHeader("Dummy-Header", "dummy-value")
                         .withConnectionOptions(new ConnectionOptions()
                                 .withSuppressConnectionHeader(true))
@@ -76,19 +72,5 @@ public class ProxyHeadersTest {
 
         Header[] dummyHeaders = response.getHeaders("Dummy-Header");
         assertThat("Expected proxy to remove the Dummy-Header specified in the Connection header", dummyHeaders, emptyArray());
-
-        Header[] transferEncodingHeaders = response.getHeaders("Transfer-Encoding");
-        assertThat("Expected proxy to keep the Transfer-Encoding header, even when specified in the Connection header", transferEncodingHeaders, not(emptyArray()));
-
-        // make sure we find the "identity" header, which should not be removed
-        boolean foundIdentity = false;
-        for (Header transferEncodingHeader : transferEncodingHeaders) {
-            if ("identity".equals(transferEncodingHeader.getValue())) {
-                foundIdentity = true;
-                break;
-            }
-        }
-
-        assertTrue("Expected to find Transfer-Encoding: identity header value specified in response", foundIdentity);
     }
 }
