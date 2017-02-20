@@ -85,7 +85,7 @@ public class KeepAliveTest {
         this.socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
 
         // construct the basic request: METHOD + URI + HTTP version + CRLF (to indicate the end of the request)
-        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\n"
+        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\r\n"
                 + "\r\n";
 
         // send the same request twice over the same connection
@@ -129,7 +129,7 @@ public class KeepAliveTest {
         this.socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
 
         // construct the basic request: METHOD + URI + HTTP version + CRLF (to indicate the end of the request)
-        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\n"
+        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\r\n"
                 + "\r\n";
 
         // send the same request twice over the same connection
@@ -172,7 +172,7 @@ public class KeepAliveTest {
 
         socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
 
-        String badGatewayGet = "GET http://localhost:0/success HTTP/1.1\n"
+        String badGatewayGet = "GET http://localhost:0/success HTTP/1.1\r\n"
                 + "\r\n";
 
         // send the same request twice over the same connection
@@ -206,35 +206,27 @@ public class KeepAliveTest {
                         .withBody("success"));
 
         this.proxyServer = DefaultHttpProxyServer.bootstrap()
-                .withIdleConnectionTimeout(3)
+                .withIdleConnectionTimeout(2)
                 .withPort(0)
                 .start();
 
         socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
 
-        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\n"
+        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\r\n"
                 + "\r\n";
 
         // send the same request twice over the same connection
         for (int i = 1; i <= 2; i++) {
             SocketClientUtil.writeStringToSocket(successfulGet, socket);
 
-            // wait a bit to allow the proxy server to respond
-            Thread.sleep(3500);
-
             String response = SocketClientUtil.readStringFromSocket(socket);
 
+	        // match the whole response to make sure that the it is not repeated
             assertThat("The response is repeated:", response, is("HTTP/1.1 504 Gateway Timeout\r\n" +
                     "Content-Length: 15\r\n" +
                     "Content-Type: text/html; charset=utf-8\r\n" +
                     "\r\n" +
-                    "Gateway TimeoutHTTP/1.1 504 Gateway Timeout\r\n" +
-                    "Content-Length: 15\r\n" +
-                    "Content-Type: text/html; charset=utf-8\r\n" +
-                    "\r\n" +
                     "Gateway Timeout"));
-
-            assertThat("Expected to receive an HTTP 200 from the server (iteration: " + i + ")", response, startsWith("HTTP/1.1 504 Gateway Timeout"));
         }
 
         assertTrue("Expected connection to proxy server to be open and readable", SocketClientUtil.isSocketReadyToRead(socket));
@@ -279,7 +271,7 @@ public class KeepAliveTest {
 
         socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
 
-        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\n"
+        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\r\n"
                 + "\r\n";
 
         // send the same request twice over the same connection
@@ -338,7 +330,7 @@ public class KeepAliveTest {
 
         socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
 
-        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\n"
+        String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\r\n"
                 + "\r\n";
 
         // only send this request once, since we expect the short circuit response to close the connection

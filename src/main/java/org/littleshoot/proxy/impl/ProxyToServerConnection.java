@@ -409,7 +409,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void timedOut() {
         super.timedOut();
-        clientConnection.timedOut();
+        clientConnection.timedOut(this);
     }
 
     @Override

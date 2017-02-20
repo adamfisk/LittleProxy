@@ -516,17 +516,19 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         recordClientConnected();
     }
 
-    @Override
-    protected void timedOut() {
-        boolean clientReadMoreRecentlyThanServer =
-                currentServerConnection == null
-                        || this.lastReadTime > currentServerConnection.lastReadTime;
-        if (clientReadMoreRecentlyThanServer) {
-            LOG.debug("Server timed out: {}", currentServerConnection);
+    void timedOut(ProxyToServerConnection serverConnection) {
+        if (currentServerConnection == serverConnection && this.lastReadTime > currentServerConnection.lastReadTime) {
+            // the idle timeout fired on the active server connection. send a timeout response to the client.
+            LOG.warn("Server timed out: {}", currentServerConnection);
             currentFilters.serverToProxyResponseTimedOut();
             writeGatewayTimeout(currentRequest);
-            // DO NOT call super.timedOut() if the server timed out, to avoid closing the connection unnecessarily
-        } else {
+        }
+    }
+
+    @Override
+    protected void timedOut() {
+        // idle timeout fired on the client channel. if we aren't waiting on a response from a server, hang up
+        if (currentServerConnection == null || this.lastReadTime <= currentServerConnection.lastReadTime) {
             super.timedOut();
         }
     }
