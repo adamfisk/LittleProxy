@@ -21,9 +21,7 @@ import java.net.Socket;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.endsWith;
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -225,6 +223,16 @@ public class KeepAliveTest {
             Thread.sleep(3500);
 
             String response = SocketClientUtil.readStringFromSocket(socket);
+
+            assertThat("The response is repeated:", response, is("HTTP/1.1 504 Gateway Timeout\r\n" +
+                    "Content-Length: 15\r\n" +
+                    "Content-Type: text/html; charset=utf-8\r\n" +
+                    "\r\n" +
+                    "Gateway TimeoutHTTP/1.1 504 Gateway Timeout\r\n" +
+                    "Content-Length: 15\r\n" +
+                    "Content-Type: text/html; charset=utf-8\r\n" +
+                    "\r\n" +
+                    "Gateway Timeout"));
 
             assertThat("Expected to receive an HTTP 200 from the server (iteration: " + i + ")", response, startsWith("HTTP/1.1 504 Gateway Timeout"));
         }
