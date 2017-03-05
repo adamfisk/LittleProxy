@@ -61,10 +61,10 @@ public class SocketClientUtil {
     public static boolean isSocketReadyToWrite(Socket socket) throws IOException {
         OutputStream out = socket.getOutputStream();
         try {
-            out.write(0);
-            out.flush();
-            out.write(0);
-            out.flush();
+            for(int i = 0; i < 500; ++i) {
+                out.write(0);
+                out.flush();
+            }
         } catch (SocketException e) {
             return false;
         }
