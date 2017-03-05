@@ -16,7 +16,7 @@ You can embed LittleProxy in your own projects through Maven with the following:
     <dependency>
         <groupId>org.littleshoot</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>1.1.1</version>
+        <version>1.1.2</version>
     </dependency>
 ```
 
@@ -28,6 +28,12 @@ HttpProxyServer server =
         .withPort(8080)
         .start();
 ```
+
+To intercept and manipulate HTTPS traffic, LittleProxy uses a man-in-the-middle (MITM) manager. LittleProxy's default
+implementation (`SelfSignedMitmManager`) has a fairly limited feature set. For greater control over certificate impersonation,
+browser trust, the TLS handshake, and more, use a the LittleProxy-compatible MITM extension:
+- [LittleProxy-mitm](https://github.com/ganskef/LittleProxy-mitm) - A LittleProxy MITM extension that aims to support every Java platform including Android
+- [mitm](https://github.com/lightbody/browsermob-proxy/tree/master/mitm) - A LittleProxy MITM extension that supports elliptic curve cryptography and custom trust stores
 
 To filter HTTP traffic, you can add request and response filters using a 
 `HttpFiltersSource(Adapter)`, for example:
