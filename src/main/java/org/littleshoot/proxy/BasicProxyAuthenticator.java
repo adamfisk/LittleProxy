@@ -9,14 +9,9 @@ import java.nio.charset.Charset;
 /**
  *
  */
-public class BasicProxyAuthenticator {
+public abstract class BasicProxyAuthenticator implements ProxyAuthenticator {
 
-  private final ProxyAuthenticator proxyAuthenticator;
-
-  public BasicProxyAuthenticator(ProxyAuthenticator proxyAuthenticator) {
-    this.proxyAuthenticator = proxyAuthenticator;
-  }
-
+  @Override
   public boolean authenticate(String proxyAuthorizationHeaderValue) {
     String value = StringUtils.substringAfter(proxyAuthorizationHeaderValue, "Basic ").trim();
 
@@ -27,7 +22,21 @@ public class BasicProxyAuthenticator {
     String userName = StringUtils.substringBefore(decodedString, ":");
     String password = StringUtils.substringAfter(decodedString, ":");
 
-    return proxyAuthenticator.authenticate(userName, password);
+    return authenticate(userName, password);
   }
 
+  /**
+   * Authenticates the user using the specified userName and password.
+   *
+   * @param username
+   *            The user name.
+   * @param password
+   *            The password.
+   * @return <code>true</code> if the credentials are acceptable, otherwise
+   *         <code>false</code>.
+   * requests.
+   */
+  abstract boolean authenticate(String username, String password);
+
+  abstract public String getRealm();
 }
