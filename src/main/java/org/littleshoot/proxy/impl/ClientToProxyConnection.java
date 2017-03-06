@@ -982,15 +982,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         List<String> values = request.headers().getAll(
                 HttpHeaders.Names.PROXY_AUTHORIZATION);
         String fullValue = values.iterator().next();
-        String value = StringUtils.substringAfter(fullValue, "Basic ").trim();
-
-        byte[] decodedValue = BaseEncoding.base64().decode(value);
-
-        String decodedString = new String(decodedValue, Charset.forName("UTF-8"));
-        
-        String userName = StringUtils.substringBefore(decodedString, ":");
-        String password = StringUtils.substringAfter(decodedString, ":");
-        if (!authenticator.authenticate(userName, password)) {
+        if (!authenticator.authenticate(fullValue)) {
             writeAuthenticationRequired(authenticator.getRealm());
             return true;
         }

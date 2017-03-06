@@ -24,6 +24,11 @@ public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest
     }
 
     @Override
+    public boolean authenticate(String proxyAuthorizationHeaderValue) {
+        return new BasicProxyAuthenticator(this).authenticate(proxyAuthorizationHeaderValue);
+    }
+
+    @Override
     public boolean authenticate(String userName, String password) {
         return getUsername().equals(userName) && getPassword().equals(password);
     }

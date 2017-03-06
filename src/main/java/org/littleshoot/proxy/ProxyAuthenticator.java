@@ -5,6 +5,17 @@ package org.littleshoot.proxy;
  * the basis of a username and password.
  */
 public interface ProxyAuthenticator {
+
+    /**
+     * Authenticates the user using the specified proxy authorization header.
+     *
+     * @param proxyAuthorizationHeaderValue
+     *            The proxy authorization header value.
+     * @return <code>true</code> if the credential is acceptable, otherwise
+     *         <code>false</code>.
+     */
+    boolean authenticate(String proxyAuthorizationHeaderValue);
+
     /**
      * Authenticates the user using the specified userName and password.
      * 
@@ -14,7 +25,10 @@ public interface ProxyAuthenticator {
      *            The password.
      * @return <code>true</code> if the credentials are acceptable, otherwise
      *         <code>false</code>.
+     * @deprecated Use BasicProxyAuthenticator.authenticate to authenticate Basic authorization
+     * requests.
      */
+    @Deprecated
     boolean authenticate(String userName, String password);
     
     /**
