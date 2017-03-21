@@ -284,12 +284,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.barchart.udt</groupId>
-            <artifactId>barchart-udt-bundle</artifactId>
-            <version>2.3.0</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.littleshoot</groupId>
             <artifactId>dnssec4j</artifactId>
             <version>0.1.6</version>
