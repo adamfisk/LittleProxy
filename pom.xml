@@ -333,6 +333,12 @@
                  than using netty-all as we do. -->
             <dependency>
                 <groupId>io.netty</groupId>
+                <artifactId>netty-transport-native-epoll</artifactId>
+                <version>${project.version}</version>
+                <classifier>${os.detected.name}-${os.detected.arch}</classifier>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
                 <artifactId>netty-all</artifactId>
                 <version>${netty.version}</version>
             </dependency>
@@ -404,6 +410,13 @@
     </prerequisites>
 
     <build>
+        <extensions>
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.5.0.Final</version>
+            </extension>
+        </extensions>
         <pluginManagement>
             <plugins>
                 <plugin>

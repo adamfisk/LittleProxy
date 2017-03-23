@@ -11,6 +11,7 @@ import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
@@ -605,7 +606,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 cb.channelFactory(new ChannelFactory<Channel>() {
                     @Override
                     public Channel newChannel() {
-                        return new NioSocketChannel();
+                        return new EpollSocketChannel();
                     }
                 });
                 break;

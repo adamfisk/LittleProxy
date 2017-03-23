@@ -8,10 +8,10 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
+import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import org.littleshoot.proxy.ActivityTracker;
@@ -523,7 +523,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 serverBootstrap.channelFactory(new ChannelFactory<ServerChannel>() {
                     @Override
                     public ServerChannel newChannel() {
-                        return new NioServerSocketChannel();
+                        return new EpollServerSocketChannel();
                     }
                 });
                 break;

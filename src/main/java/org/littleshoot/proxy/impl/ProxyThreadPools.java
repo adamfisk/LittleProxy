@@ -2,8 +2,7 @@ package org.littleshoot.proxy.impl;
 
 import com.google.common.collect.ImmutableList;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-
+import io.netty.channel.epoll.EpollEventLoopGroup;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.List;
 
@@ -17,29 +16,29 @@ public class ProxyThreadPools {
      * proxies. A different EventLoopGroup is used for each
      * TransportProtocol, since these have to be configured differently.
      */
-    private final NioEventLoopGroup clientToProxyAcceptorPool;
+    private final EpollEventLoopGroup clientToProxyAcceptorPool;
 
     /**
      * These {@link EventLoopGroup}s process incoming requests to the
      * proxies. A different EventLoopGroup is used for each
      * TransportProtocol, since these have to be configured differently.
      */
-    private final NioEventLoopGroup clientToProxyWorkerPool;
+    private final EpollEventLoopGroup clientToProxyWorkerPool;
 
     /**
      * These {@link EventLoopGroup}s are used for making outgoing
      * connections to servers. A different EventLoopGroup is used for each
      * TransportProtocol, since these have to be configured differently.
      */
-    private final NioEventLoopGroup proxyToServerWorkerPool;
+    private final EpollEventLoopGroup proxyToServerWorkerPool;
 
     public ProxyThreadPools(SelectorProvider selectorProvider, int incomingAcceptorThreads, int incomingWorkerThreads, int outgoingWorkerThreads, String serverGroupName, int serverGroupId) {
-        clientToProxyAcceptorPool = new NioEventLoopGroup(incomingAcceptorThreads, new CategorizedThreadFactory(serverGroupName, "ClientToProxyAcceptor", serverGroupId), selectorProvider);
+        clientToProxyAcceptorPool = new EpollEventLoopGroup(incomingAcceptorThreads, new CategorizedThreadFactory(serverGroupName, "ClientToProxyAcceptor", serverGroupId));
 
-        clientToProxyWorkerPool = new NioEventLoopGroup(incomingWorkerThreads, new CategorizedThreadFactory(serverGroupName, "ClientToProxyWorker", serverGroupId), selectorProvider);
+        clientToProxyWorkerPool = new EpollEventLoopGroup(incomingWorkerThreads, new CategorizedThreadFactory(serverGroupName, "ClientToProxyWorker", serverGroupId));
         clientToProxyWorkerPool.setIoRatio(90);
 
-        proxyToServerWorkerPool = new NioEventLoopGroup(outgoingWorkerThreads, new CategorizedThreadFactory(serverGroupName, "ProxyToServerWorker", serverGroupId), selectorProvider);
+        proxyToServerWorkerPool = new EpollEventLoopGroup(outgoingWorkerThreads, new CategorizedThreadFactory(serverGroupName, "ProxyToServerWorker", serverGroupId));
         proxyToServerWorkerPool.setIoRatio(90);
     }
 
@@ -50,15 +49,15 @@ public class ProxyThreadPools {
         return ImmutableList.<EventLoopGroup>of(clientToProxyAcceptorPool, clientToProxyWorkerPool, proxyToServerWorkerPool);
     }
 
-    public NioEventLoopGroup getClientToProxyAcceptorPool() {
+    public EpollEventLoopGroup getClientToProxyAcceptorPool() {
         return clientToProxyAcceptorPool;
     }
 
-    public NioEventLoopGroup getClientToProxyWorkerPool() {
+    public EpollEventLoopGroup getClientToProxyWorkerPool() {
         return clientToProxyWorkerPool;
     }
 
-    public NioEventLoopGroup getProxyToServerWorkerPool() {
+    public EpollEventLoopGroup getProxyToServerWorkerPool() {
         return proxyToServerWorkerPool;
     }
 }
