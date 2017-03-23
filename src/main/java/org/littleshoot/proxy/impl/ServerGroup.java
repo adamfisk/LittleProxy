@@ -1,7 +1,6 @@
 package org.littleshoot.proxy.impl;
 
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.udt.nio.NioUdtProvider;
 import org.littleshoot.proxy.HttpProxyServer;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
@@ -79,14 +78,6 @@ public class ServerGroup {
     private static final EnumMap<TransportProtocol, SelectorProvider> TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS = new EnumMap<TransportProtocol, SelectorProvider>(TransportProtocol.class);
     static {
         TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS.put(TransportProtocol.TCP, SelectorProvider.provider());
-
-        // allow the proxy to operate without UDT support. this allows clients that do not use UDT to exclude the barchart
-        // dependency completely.
-        if (ProxyUtils.isUdtAvailable()) {
-            TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS.put(TransportProtocol.UDT, NioUdtProvider.BYTE_PROVIDER);
-        } else {
-            log.debug("UDT provider not found on classpath. UDT transport will not be available.");
-        }
     }
 
     /**

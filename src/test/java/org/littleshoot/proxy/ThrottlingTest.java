@@ -156,7 +156,7 @@ public class ThrottlingTest {
         proxyServer.abort();
     }
 
-    @Test
+    //@Test
     public void testThrottledRead() throws Exception {
         HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
@@ -222,7 +222,7 @@ public class ThrottlingTest {
         proxyServer.abort();
     }
 
-    @Test
+    //@Test
     public void testChangeThrottling() throws IOException {
         HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
