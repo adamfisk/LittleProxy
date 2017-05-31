@@ -312,6 +312,16 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withAllowRequestToOriginServer(boolean allowRequestToOriginServer);
 
     /**
+     * When true, the proxy mimics the server handshake during the CONNECT request using the MITM SSLSession.
+     * This is useful when the proxy should not make connection with the remote server during CONNECT and the following
+     * GET or POST request is intercepted and handled accordingly. <b>Note:</b> Use this only when proxy's GET or POST request
+     * is intercepted using HttpFiltersAdapter and MITM is enabled, as it doesn't make sense in other cases
+     *
+     * @param mimicServerHandshake
+     */
+    HttpProxyServerBootstrap withMimicServerHandshake(boolean mimicServerHandshake);
+
+    /**
      * Sets the alias to use when adding Via headers to incoming and outgoing HTTP messages. The alias may be any
      * pseudonym, or if not specified, defaults to the hostname of the local machine. See RFC 7230, section 5.7.1.
      *
