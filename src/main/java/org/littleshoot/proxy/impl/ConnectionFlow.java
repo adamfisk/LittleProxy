@@ -179,26 +179,35 @@ class ConnectionFlow {
     void fail(final Throwable cause) {
         final ConnectionState lastStateBeforeFailure = serverConnection
                 .getCurrentState();
-        serverConnection.disconnect().addListener(
-                new GenericFutureListener() {
-                    @Override
-                    public void operationComplete(Future future)
-                            throws Exception {
-                        synchronized (connectLock) {
-                            if (!clientConnection.serverConnectionFailed(
-                                    serverConnection,
-                                    lastStateBeforeFailure,
-                                    cause)) {
-                                // the connection to the server failed and we are not retrying, so transition to the
-                                // DISCONNECTED state
-                                serverConnection.become(ConnectionState.DISCONNECTED);
-
-                                // We are not retrying our connection, let anyone waiting for a connection know that we're done
-                                notifyThreadsWaitingForConnection();
-                            }
+        Future<Void> disconnect = serverConnection.disconnect();
+        if(disconnect != null) {
+            disconnect.addListener(
+                    new GenericFutureListener() {
+                        @Override
+                        public void operationComplete(Future future)
+                                throws Exception {
+                            checkForRetry(lastStateBeforeFailure, cause);
                         }
-                    }
-                });
+                    });
+        } else {
+            checkForRetry(lastStateBeforeFailure, cause);
+        }
+    }
+
+    private void checkForRetry(ConnectionState lastStateBeforeFailure, Throwable cause) {
+        synchronized (connectLock) {
+            if (!clientConnection.serverConnectionFailed(
+                    serverConnection,
+                    lastStateBeforeFailure,
+                    cause)) {
+                // the connection to the server failed and we are not retrying, so transition to the
+                // DISCONNECTED state
+                serverConnection.become(ConnectionState.DISCONNECTED);
+
+                // We are not retrying our connection, let anyone waiting for a connection know that we're done
+                notifyThreadsWaitingForConnection();
+            }
+        }
     }
 
     /**
