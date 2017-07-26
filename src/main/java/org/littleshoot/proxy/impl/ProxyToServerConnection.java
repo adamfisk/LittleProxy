@@ -436,7 +436,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
         // This can happen if we couldn't make the initial connection due
         // to something like an unresolved address, for example, or a timeout.
-        // There will not have been be any requeaaaaaaasts written on an unopened
+        // There will not have been be any requests written on an unopened
         // connection, so there should not be any further action to take here.
     }
 

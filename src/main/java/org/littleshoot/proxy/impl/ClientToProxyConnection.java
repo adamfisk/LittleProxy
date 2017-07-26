@@ -588,8 +588,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * ultimate endpoint directly.</li>
      * <li>If the server was the ultimate endpoint, we return a 502 Bad Gateway
      * to the client.</li>
-     * <li>If the response status is a 407 (Proxy authentication) and manual
-     * proxy authentication is enabled, continue to normal flow</li>
      * </ol>
      * 
      * @param serverConnection
