@@ -84,6 +84,22 @@ public interface HttpProxyServerBootstrap {
     HttpProxyServerBootstrap withAllowLocalOnly(boolean allowLocalOnly);
 
     /**
+     * <p>
+     * Specify whether or not allow upstream proxy manual authentication (Robot Framework, OpenCV...)
+     * </p>
+     *
+     * <p>
+     * Default = false
+     * </p>
+     */
+    void withManualUpstreamProxyAuth();
+
+    /**
+     * Returns if the upstream proxy authentication is set to manual
+     */
+    Boolean isManualUpstreamProxyAuth();
+
+    /**
      * This method has no effect and will be removed in a future release.
      * @deprecated use {@link #withNetworkInterface(InetSocketAddress)} to avoid listening on all local addresses
      */
@@ -117,7 +133,7 @@ public interface HttpProxyServerBootstrap {
      * Specify whether or not to authenticate inbound SSL clients (only applies
      * if {@link #withSslEngineSource(SslEngineSource)} has been set).
      * </p>
-     * 
+     *
      * <p>
      * Default = true
      * </p>

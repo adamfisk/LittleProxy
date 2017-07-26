@@ -28,6 +28,11 @@ enum ConnectionState {
     AWAITING_PROXY_AUTHENTICATION,
 
     /**
+     * Connected but waiting for proxy manual authentication.
+     */
+    AWAITING_PROXY_MANUAL_AUTH,
+
+    /**
      * Connected and awaiting initial message (e.g. HttpRequest or
      * HttpResponse).
      */
