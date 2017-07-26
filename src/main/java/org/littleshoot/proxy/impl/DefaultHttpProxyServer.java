@@ -119,6 +119,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final boolean allowRequestsToOriginServer;
 
     /**
+     * When setted to true let Proxy authentication popup appears
+     */
+    private final AtomicBoolean manualUpstreamProxyAuth = new AtomicBoolean(false);
+
+    /**
      * The alias or pseudonym for this proxy, used when adding the Via header.
      */
     private final String proxyAlias;
@@ -252,7 +257,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             int maxInitialLineLength,
             int maxHeaderSize,
             int maxChunkSize,
-            boolean allowRequestsToOriginServer) {
+            boolean allowRequestsToOriginServer,
+            boolean manualUpstreamProxyAuth) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.requestedAddress = requestedAddress;
@@ -291,6 +297,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.maxHeaderSize = maxHeaderSize;
         this.maxChunkSize = maxChunkSize;
         this.allowRequestsToOriginServer = allowRequestsToOriginServer;
+        this.manualUpstreamProxyAuth.set(manualUpstreamProxyAuth);
     }
 
     /**
@@ -383,6 +390,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 	public boolean isAllowRequestsToOriginServer() {
         return allowRequestsToOriginServer;
     }
+
+    public Boolean isManualUpstreamProxyAuth() { return this.manualUpstreamProxyAuth.get(); }
 
     @Override
     public HttpProxyServerBootstrap clone() {
@@ -624,6 +633,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private int maxHeaderSize = MAX_HEADER_SIZE_DEFAULT;
         private int maxChunkSize = MAX_CHUNK_SIZE_DEFAULT;
         private boolean allowRequestToOriginServer = false;
+        private final AtomicBoolean manualUpstreamProxyAuth = new AtomicBoolean(false);
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -886,6 +896,20 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             return this;
         }
 
+        @Override
+        /**
+         * TODO : Manage manual Proxy authentication without setting transparent Proxy
+         */
+        public void withManualUpstreamProxyAuth()
+        {
+            this.manualUpstreamProxyAuth.set(true);
+            LOG.warn("Manual proxy authentication activate transparent proxy mode");
+            this.transparent = true;
+        }
+
+        @Override
+        public Boolean isManualUpstreamProxyAuth() { return this.manualUpstreamProxyAuth.get(); }
+
         private DefaultHttpProxyServer build() {
             final ServerGroup serverGroup;
 
@@ -904,7 +928,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     idleConnectionTimeout, activityTrackers, connectTimeout,
                     serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond,
                     localAddress, proxyAlias, maxInitialLineLength, maxHeaderSize, maxChunkSize,
-                    allowRequestToOriginServer);
+                    allowRequestToOriginServer, isManualUpstreamProxyAuth());
         }
 
         private InetSocketAddress determineListenAddress() {

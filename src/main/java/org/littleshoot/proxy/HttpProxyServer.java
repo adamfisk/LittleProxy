@@ -22,6 +22,11 @@ public interface HttpProxyServer {
     void setConnectTimeout(int connectTimeoutMs);
 
     /**
+     * Returns if the upstream proxy authentication is set to manual
+     */
+    Boolean isManualUpstreamProxyAuth();
+
+    /**
      * <p>
      * Clone the existing server, with a port 1 higher and everything else the
      * same. If the proxy was started with port 0 (JVM-assigned port), the cloned proxy will also use a JVM-assigned

@@ -48,11 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_PROXY_AUTHENTICATION;
-import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECT_REQUESTED;
-import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
+import static org.littleshoot.proxy.impl.ConnectionState.*;
 
 /**
  * <p>
@@ -473,10 +469,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         write(httpObject);
 
+        // Do not empty buffer when user want to negociate a proxy connection manually
         if (ProxyUtils.isLastChunk(httpObject)) {
-            writeEmptyBuffer();
+            if ( httpObject instanceof HttpResponse && !(proxyServer.isManualUpstreamProxyAuth()
+                    && ((HttpResponse) httpObject).getStatus().code() == 407 ))
+                writeEmptyBuffer();
         }
-
+        shouldCloseClientConnection(currentHttpRequest, currentHttpResponse, httpObject);
+        shouldCloseServerConnection(currentHttpRequest, currentHttpResponse, httpObject);
         closeConnectionsAfterWriteIfNecessary(serverConnection,
                 currentHttpRequest, currentHttpResponse, httpObject);
     }
@@ -963,7 +963,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @return
      */
     private boolean authenticationRequired(HttpRequest request) {
-
         if (authenticated.get()) {
             return false;
         }
@@ -987,7 +986,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         byte[] decodedValue = BaseEncoding.base64().decode(value);
 
         String decodedString = new String(decodedValue, Charset.forName("UTF-8"));
-        
+
         String userName = StringUtils.substringBefore(decodedString, ":");
         String password = StringUtils.substringAfter(decodedString, ":");
         if (!authenticator.authenticate(userName, password)) {
@@ -1108,7 +1107,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * response headers to reflect that it was proxied.
      * 
      * @param httpResponse
-     * @return
      */
     private void modifyResponseHeadersToReflectProxying(
             HttpResponse httpResponse) {

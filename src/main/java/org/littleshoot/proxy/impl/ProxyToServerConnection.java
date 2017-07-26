@@ -13,20 +13,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpMessage;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpRequestEncoder;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseDecoder;
-import io.netty.handler.codec.http.HttpResponseEncoder;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.ReferenceCounted;
@@ -41,22 +28,20 @@ import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
+import sun.rmi.runtime.Log;
 
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.util.Date;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
 
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
-import static org.littleshoot.proxy.impl.ConnectionState.CONNECTING;
-import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECTED;
-import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
+import static org.littleshoot.proxy.impl.ConnectionState.*;
 
 /**
  * <p>
@@ -157,8 +142,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             GlobalTrafficShapingHandler globalTrafficShapingHandler)
             throws UnknownHostException {
         Queue<ChainedProxy> chainedProxies = new ConcurrentLinkedQueue<ChainedProxy>();
+
         ChainedProxyManager chainedProxyManager = proxyServer
                 .getChainProxyManager();
+
         if (chainedProxyManager != null) {
             chainedProxyManager.lookupChainedProxies(initialHttpRequest,
                     chainedProxies);
@@ -679,12 +666,36 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         void read(ConnectionFlow flow, Object msg) {
             // Here we're handling the response from a chained proxy to our
             // earlier CONNECT request
+            // If explicitly asked let Proxy Authentication made by user (Popup) => 407
             boolean connectOk = false;
             if (msg instanceof HttpResponse) {
                 HttpResponse httpResponse = (HttpResponse) msg;
                 int statusCode = httpResponse.getStatus().code();
-                if (statusCode >= 200 && statusCode <= 299) {
+                if (statusCode >= 200 && statusCode <= 299)
                     connectOk = true;
+                else if (statusCode == 407) {
+                    if (proxyServer.isManualUpstreamProxyAuth()) {
+                        LOG.warn("Manual upstream proxy authentication is enable and we are receiving a 407 response," +
+                                "be prepared to process the authentication popup");
+                        currentHttpRequest = initialRequest;
+                        String body = "<!DOCTYPE HTML \"-//IETF//DTD HTML 2.0//EN\">\n"
+                                + "<html><head>\n"
+                                + "<title>407 Proxy Authentication Required</title>\n"
+                                + "</head><body>\n"
+                                + "<h1>Proxy Authentication Required</h1>\n"
+                                + "<p>This server could not verify that you\n"
+                                + "are authorized to access the document\n"
+                                + "requested.  Either you supplied the wrong\n"
+                                + "credentials (e.g., bad password), or your\n"
+                                + "browser doesn't understand how to supply\n"
+                                + "the credentials required.</p>\n" + "</body></html>\n";
+                        FullHttpResponse fullHttpResponse = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, body);
+                        for ( Map.Entry<String, String> entrie : httpResponse.headers().entries() )
+                            fullHttpResponse.headers().set(entrie.getKey(), entrie.getValue());
+                        rememberCurrentResponse(fullHttpResponse);
+                        respondWith(fullHttpResponse);
+                        // Request failed - Cause of Proxy not yet authenticate
+                    }
                 }
             }
             if (connectOk) {
