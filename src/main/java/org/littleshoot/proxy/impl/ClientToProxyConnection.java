@@ -848,6 +848,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean shouldCloseClientConnection(HttpRequest req,
             HttpResponse res, HttpObject httpObject) {
+        // In case of manual proxy authentication, we need to close the request to let the browser resend a request with
+        // the authentication informations
+        if (res.getStatus().code() == 407 && proxyServer.isManualUpstreamProxyAuth()) {
+            LOG.debug("Closing client connection since response is 407", res);
+            return true;
+        }
         if (ProxyUtils.isChunked(res)) {
             // If the response is chunked, we want to return false unless it's
             // the last chunk. If it is the last chunk, then we want to pass
