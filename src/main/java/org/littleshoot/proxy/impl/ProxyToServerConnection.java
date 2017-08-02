@@ -674,27 +674,38 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 if (statusCode >= 200 && statusCode <= 299)
                     connectOk = true;
                 else if (statusCode == 407) {
-                    if (proxyServer.isManualUpstreamProxyAuth()) {
-                        LOG.warn("Manual upstream proxy authentication is enable and we are receiving a 407 response," +
-                                "be prepared to process the authentication popup");
-                        currentHttpRequest = initialRequest;
-                        String body = "<!DOCTYPE HTML \"-//IETF//DTD HTML 2.0//EN\">\n"
-                                + "<html><head>\n"
-                                + "<title>407 Proxy Authentication Required</title>\n"
-                                + "</head><body>\n"
-                                + "<h1>Proxy Authentication Required</h1>\n"
-                                + "<p>This server could not verify that you\n"
-                                + "are authorized to access the document\n"
-                                + "requested.  Either you supplied the wrong\n"
-                                + "credentials (e.g., bad password), or your\n"
-                                + "browser doesn't understand how to supply\n"
-                                + "the credentials required.</p>\n" + "</body></html>\n";
-                        FullHttpResponse fullHttpResponse = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, body);
-                        for ( Map.Entry<String, String> entrie : httpResponse.headers().entries() )
-                            fullHttpResponse.headers().set(entrie.getKey(), entrie.getValue());
-                        rememberCurrentResponse(fullHttpResponse);
-                        respondWith(fullHttpResponse);
-                        // Request failed - Cause of Proxy not yet authenticate
+                    // Check if staus code match with message
+                    if (httpResponse.getStatus().reasonPhrase().equals(HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED.reasonPhrase())) {
+                        if (proxyServer.isManualUpstreamProxyAuth()) {
+                            LOG.warn("Manual upstream proxy authentication is enable and we are receiving a 407 response," +
+                                    "be prepared to process authentication popup manually");
+                            currentHttpRequest = initialRequest;
+                            String body = "<!DOCTYPE HTML \"-//IETF//DTD HTML 2.0//EN\">\n"
+                                    + "<html><head>\n"
+                                    + "<title>407 Proxy Authentication Required</title>\n"
+                                    + "</head><body>\n"
+                                    + "<h1>Proxy Authentication Required</h1>\n"
+                                    + "<p>This server could not verify that you\n"
+                                    + "are authorized to access the document\n"
+                                    + "requested.  Either you supplied the wrong\n"
+                                    + "credentials (e.g., bad password), or your\n"
+                                    + "browser doesn't understand how to supply\n"
+                                    + "the credentials required.</p>\n" + "</body></html>\n";
+                            FullHttpResponse fullHttpResponse = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, body);
+                            for (Map.Entry<String, String> entrie : httpResponse.headers().entries())
+                                fullHttpResponse.headers().set(entrie.getKey(), entrie.getValue());
+                            rememberCurrentResponse(fullHttpResponse);
+                            respondWith(fullHttpResponse);
+                            // Request failed - Cause of Proxy not yet authenticate
+                        }
+                    } else {
+                        // In Somes specifics cases i saw some 407 status code with 'Unauthorized' message
+                        LOG.warn("Status code '" + statusCode
+                                + "' not matching with response message '" + httpResponse.getStatus().reasonPhrase());
+                        HttpResponse newHttpResponse = fixAndReturnResponse(httpResponse);
+                        statusCode = newHttpResponse.getStatus().code();
+                        if (statusCode >= 200 && statusCode <= 299)
+                            connectOk = true;
                     }
                 }
             }
@@ -705,6 +716,32 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
     };
+
+    /**
+     * <p>
+     * Set corresponding code to reasonPhrase
+     * </p>
+     *
+     * <p>
+     * In somes cases, with proxy chained management, the proxy server returns
+     * a 407 'Unauthorized'
+     * </p>
+     */
+    private HttpResponse fixAndReturnResponse(HttpResponse response)
+    {
+        String resonPhrase = response.getStatus().reasonPhrase();
+
+        if ( resonPhrase.equals(HttpResponseStatus.UNAUTHORIZED.reasonPhrase())) {
+            response.setStatus(HttpResponseStatus.UNAUTHORIZED);
+            LOG.warn("Status changed to '" + response.getStatus().code()
+                    + "' for reson phrase '" + response.getStatus().reasonPhrase() + "'");
+            rememberCurrentResponse(response);
+            return response;
+        } else {
+            LOG.warn("Unamanaged reason phrase '" + resonPhrase + "'");
+            return response;
+        }
+    }
 
     /**
      * <p>
