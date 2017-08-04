@@ -136,6 +136,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
+    private String allowedHosts = System.getenv("PROXY_HOST_WHITE_LIST");
+
     /**
      * The current HTTP request that this connection is currently servicing.
      */
@@ -275,6 +277,27 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 return AWAITING_INITIAL;
             } else {
                 return DISCONNECT_REQUESTED;
+            }
+        }
+
+        {
+            if (allowedHosts != null && allowedHosts.trim().length() > 0) {
+                final String host;
+                if (serverHostAndPort != null && serverHostAndPort.contains(":")) {
+                    host = serverHostAndPort.split(":")[0];
+                } else {
+                    host = serverHostAndPort;
+                }
+
+                if (allowedHosts != null && allowedHosts.length() > 0 && !allowedHosts.contains(host)) {
+                    LOG.warn("Host not whitelisted: " + getClientAddress() + " -> " + serverHostAndPort);
+                    boolean keepAlive = writeBadGateway(httpRequest);
+                    if (keepAlive) {
+                        return AWAITING_INITIAL;
+                    } else {
+                        return DISCONNECT_REQUESTED;
+                    }
+                }
             }
         }
 
