@@ -290,7 +290,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 }
 
                 if (!allowedHosts.contains(host)) {
-                    LOG.warn("Host not whitelisted: " + getClientAddress() + " -> " + serverHostAndPort);
+                    LOG.warn("Blocked: from " + getClientAddress() + " to " + serverHostAndPort);
                     boolean keepAlive = writeBadGateway(httpRequest);
                     if (keepAlive) {
                         return AWAITING_INITIAL;
