@@ -37,11 +37,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -136,7 +132,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
-    private String allowedHosts = System.getenv("PROXY_HOST_WHITE_LIST");
+    private Set<String> allowedHosts =
+            System.getenv("PROXY_HOST_WHITE_LIST") != null &&
+            System.getenv("PROXY_HOST_WHITE_LIST").length() > 0 ?
+            new HashSet(Arrays.asList(System.getenv("PROXY_HOST_WHITE_LIST")
+                    .replace(" ","").split(","))) : null;
 
     /**
      * The current HTTP request that this connection is currently servicing.
@@ -281,7 +281,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         {
-            if (allowedHosts != null && allowedHosts.trim().length() > 0) {
+            if (allowedHosts != null) {
                 final String host;
                 if (serverHostAndPort != null && serverHostAndPort.contains(":")) {
                     host = serverHostAndPort.split(":")[0];
