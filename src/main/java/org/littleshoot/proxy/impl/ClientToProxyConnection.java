@@ -290,13 +290,15 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 }
 
                 if (!allowedHosts.contains(host)) {
-                    LOG.warn("Blocked: from " + getClientAddress() + " to " + serverHostAndPort);
+                    LOG.warn("Rejected from " + getClientAddress() + " to " + serverHostAndPort);
                     boolean keepAlive = writeBadGateway(httpRequest);
                     if (keepAlive) {
                         return AWAITING_INITIAL;
                     } else {
                         return DISCONNECT_REQUESTED;
                     }
+                } else {
+                    LOG.info("Allowed from " + getClientAddress() + " to " + serverHostAndPort);
                 }
             }
         }
