@@ -5,7 +5,7 @@ import java.net.InetSocketAddress;
 /**
  * Interface for the top-level proxy server class.
  */
-public interface HttpProxyServer {
+public interface HttpProxyServer extends AutoCloseable {
 
     int getIdleConnectionTimeout();
 
@@ -27,13 +27,13 @@ public interface HttpProxyServer {
      * same. If the proxy was started with port 0 (JVM-assigned port), the cloned proxy will also use a JVM-assigned
      * port.
      * </p>
-     * 
+     *
      * <p>
      * The new server will share event loops with the original server. The event
      * loops will use whatever name was given to the first server in the clone
      * group. The server group will not terminate until the original server and all clones terminate.
      * </p>
-     * 
+     *
      * @return a bootstrap that allows customizing and starting the cloned
      *         server
      */
@@ -51,7 +51,7 @@ public interface HttpProxyServer {
 
     /**
      * Return the address on which this proxy is listening.
-     * 
+     *
      * @return
      */
     InetSocketAddress getListenAddress();

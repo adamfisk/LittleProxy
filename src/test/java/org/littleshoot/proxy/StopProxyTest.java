@@ -14,6 +14,15 @@ public class StopProxyTest {
     }
 
     @Test
+    public void testClose() throws Exception {
+        HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
+            .withPort(0)
+            .start();
+
+        proxyServer.close();
+    }
+
+    @Test
     public void testAbort() {
         HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)

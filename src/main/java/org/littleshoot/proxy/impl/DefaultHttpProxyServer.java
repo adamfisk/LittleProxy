@@ -124,7 +124,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final String proxyAlias;
 
     /**
-     * True when the proxy has already been stopped by calling {@link #stop()} or {@link #abort()}.
+     * True when the proxy has already been stopped by calling {@link #stop()}, {@link #close()} or {@link #abort()}.
      */
     private final AtomicBoolean stopped = new AtomicBoolean(false);
 
@@ -414,6 +414,11 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     @Override
     public void stop() {
         doStop(true);
+    }
+
+    @Override
+    public void close() throws Exception {
+        stop();
     }
 
     @Override
