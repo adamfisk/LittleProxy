@@ -159,6 +159,9 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 // to require authentication.
             }
             break;
+        case AWAITING_PROXY_MANUAL_AUTH:
+            LOG.warn("Proxy authentication required. You need to manage authentication manually");
+            break;
         case CONNECTING:
             LOG.warn("Attempted to read from connection that's in the process of connecting.  This shouldn't happen.");
             break;
@@ -455,7 +458,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Disconnects. This will wait for pending writes to be flushed before
      * disconnecting.
      * 
-     * @return Future<Void> for when we're done disconnecting. If we weren't
+     * @return for when we're done disconnecting. If we weren't
      *         connected, this returns null.
      */
     Future<Void> disconnect() {
