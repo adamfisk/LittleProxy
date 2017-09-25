@@ -11,7 +11,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * establishing a socket connection, SSL handshaking, HTTP CONNECT request
  * processing, and so on.
  */
-class ConnectionFlow {
+//Change(expose to public): @AlmogBaku
+public class ConnectionFlow {
     private Queue<ConnectionFlowStep> steps = new ConcurrentLinkedQueue<ConnectionFlowStep>();
 
     private final ClientToProxyConnection clientConnection;
@@ -77,12 +78,13 @@ class ConnectionFlow {
     }
 
     /**
+     * //Change(expose to public): @AlmogBaku
      * <p>
      * Advances the flow. {@link #advance()} will be called until we're either
      * out of steps, or a step has failed.
      * </p>
      */
-    void advance() {
+    public void advance() {
         currentStep = steps.poll();
         if (currentStep == null) {
             succeed();
@@ -171,12 +173,13 @@ class ConnectionFlow {
     }
 
     /**
+     * //Change(expose to public): @AlmogBaku
      * Called when the flow fails at some {@link ConnectionFlowStep}.
      * Disconnects the {@link ProxyToServerConnection} and informs the
      * {@link ClientToProxyConnection} that our connection failed.
      */
     @SuppressWarnings("unchecked")
-    void fail(final Throwable cause) {
+    public void fail(final Throwable cause) {
         final ConnectionState lastStateBeforeFailure = serverConnection
                 .getCurrentState();
         serverConnection.disconnect().addListener(
@@ -202,9 +205,10 @@ class ConnectionFlow {
     }
 
     /**
+     * //Change(expose to public): @AlmogBaku
      * Like {@link #fail(Throwable)} but with no cause.
      */
-    void fail() {
+    public void fail() {
         fail(null);
     }
 

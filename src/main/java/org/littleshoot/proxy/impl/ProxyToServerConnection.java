@@ -544,6 +544,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 connectLock)
                 .then(ConnectChannel);
 
+        //Change: @AlmogBaku
+        if (chainedProxy != null && chainedProxy.requiresCustomConnectionFlow()) {
+            connectionFlow.then(chainedProxy.customConnectionFlow(this));
+        }
+
         if (chainedProxy != null && chainedProxy.requiresEncryption()) {
             connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
                     .newSslEngine()));
@@ -671,12 +676,18 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
 
-        void onSuccess(ConnectionFlow flow) {
+        //Change(expose to protected): @AlmogBaku
+        protected void onSuccess(ConnectionFlow flow) {
             // Do nothing, since we want to wait for the CONNECT response to
             // come back
         }
 
-        void read(ConnectionFlow flow, Object msg) {
+        protected void read(ConnectionFlow flow, Object msg) {
+            //@AlmogBaku: Ignore previous reads
+            if (msg == LastHttpContent.EMPTY_LAST_CONTENT) {
+                return;
+            }
+
             // Here we're handling the response from a chained proxy to our
             // earlier CONNECT request
             boolean connectOk = false;

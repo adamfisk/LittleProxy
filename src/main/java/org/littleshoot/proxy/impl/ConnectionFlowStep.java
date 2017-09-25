@@ -3,14 +3,16 @@ package org.littleshoot.proxy.impl;
 import io.netty.util.concurrent.Future;
 
 /**
+ * //Change(expose to public): @AlmogBaku
  * Represents a phase in a {@link ConnectionFlow}.
  */
-abstract class ConnectionFlowStep {
+public abstract class ConnectionFlowStep {
     private final ProxyConnectionLogger LOG;
     private final ProxyConnection connection;
     private final ConnectionState state;
 
     /**
+     * //Change(expose to protected): @AlmogBaku
      * Construct a new step in a connection flow.
      * 
      * @param connection
@@ -19,8 +21,8 @@ abstract class ConnectionFlowStep {
      *            the state that the connection will show while we're processing
      *            this step
      */
-    ConnectionFlowStep(ProxyConnection connection,
-            ConnectionState state) {
+    protected ConnectionFlowStep(ProxyConnection connection,
+                                 ConnectionState state) {
         super();
         this.connection = connection;
         this.state = state;
@@ -72,6 +74,7 @@ abstract class ConnectionFlowStep {
     protected abstract Future execute();
 
     /**
+     * //Change(expose to protected): @AlmogBaku
      * When the flow determines that this step was successful, it calls into
      * this method. The default implementation simply continues with the flow.
      * Other implementations may choose to not continue and instead wait for a
@@ -79,11 +82,12 @@ abstract class ConnectionFlowStep {
      * 
      * @param flow
      */
-    void onSuccess(ConnectionFlow flow) {
+    protected void onSuccess(ConnectionFlow flow) {
         flow.advance();
     }
 
     /**
+     * //Change(expose to protected): @AlmogBaku
      * <p>
      * Any messages that are read from the underlying connection while we're at
      * this step of the connection flow are passed to this method.
@@ -104,7 +108,7 @@ abstract class ConnectionFlowStep {
      * @param msg
      *            the message read from the underlying connection
      */
-    void read(ConnectionFlow flow, Object msg) {
+    protected void read(ConnectionFlow flow, Object msg) {
         LOG.debug("Received message while in the middle of connecting: {}", msg);
     }
 

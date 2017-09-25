@@ -1,5 +1,8 @@
 package org.littleshoot.proxy;
 
+import org.littleshoot.proxy.impl.ConnectionFlowStep; //Change: @AlmogBaku
+import org.littleshoot.proxy.impl.ProxyConnection; //Change: @AlmogBaku
+
 import io.netty.handler.codec.http.HttpObject;
 
 import java.net.InetSocketAddress;
@@ -48,6 +51,26 @@ public interface ChainedProxy extends SslEngineSource {
      * @return true of the connection to the chained proxy should be encrypted
      */
     boolean requiresEncryption();
+
+    /**
+     * //Change: @AlmogBaku
+     * Implement this method to tell LittleProxy whether or not to use custom ConnectionFlow
+     * to the chained proxy for the given request. If true,
+     * LittleProxy will call {@link ChainedProxy#customConnectionFlow(ProxyConnection)} to obtain a
+     * ConnectionFlow.
+     *
+     * @return true of the connection to the chained proxy should be used a custom ConnectionFlow
+     */
+    boolean requiresCustomConnectionFlow();
+
+    /**
+     * //Change: @AlmogBaku
+     * Returns an {@link ConnectionFlowStep} to use for a server connection from
+     * LittleProxy to the client.
+     *
+     * @return
+     */
+    ConnectionFlowStep customConnectionFlow(ProxyConnection connection);
 
     /**
      * Filters requests on their way to the chained proxy.
