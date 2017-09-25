@@ -1,5 +1,9 @@
 package org.littleshoot.proxy;
 
+import java.io.File;
+import java.net.InetSocketAddress;
+import java.util.Arrays;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -12,19 +16,17 @@ import org.apache.log4j.xml.DOMConfigurator;
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.littleshoot.proxy.impl.ProxyUtils;
+import org.littleshoot.proxy.impl.StaticProxyAuthenticator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.net.InetSocketAddress;
-import java.util.Arrays;
 
 /**
  * Launches a new HTTP proxy.
  */
 public class Launcher {
-
     private static final Logger LOG = LoggerFactory.getLogger(Launcher.class);
+
+	private static final String DEFAULT_REALM = "LittleProxy";
 
     private static final String OPTION_DNSSEC = "dnssec";
 
@@ -36,9 +38,15 @@ public class Launcher {
 
     private static final String OPTION_NIC = "nic";
 
+    private static final String OPTION_REALM = "realm";
+
+    private static final String OPTION_USERNAME = "username";
+
+    private static final String OPTION_PASSWORD = "password";
+
     /**
      * Starts the proxy from the command line.
-     * 
+     *
      * @param args
      *            Any command line arguments.
      */
@@ -53,7 +61,13 @@ public class Launcher {
         options.addOption(null, OPTION_HELP, false,
                 "Display command line help.");
         options.addOption(null, OPTION_MITM, false, "Run as man in the middle.");
-        
+        options.addOption(null, OPTION_USERNAME, true,
+                "Use a static authenticator with the speficied username.");
+        options.addOption(null, OPTION_PASSWORD, true,
+        		"If " + OPTION_USERNAME + " is set then use this password, otherwise use a blank password.");
+        options.addOption(null, OPTION_REALM, true,
+        		"If " + OPTION_USERNAME + " is set then use this realm, otherwise use '" + DEFAULT_REALM + "'.");
+
         final CommandLineParser parser = new PosixParser();
         final CommandLine cmd;
         try {
@@ -98,11 +112,19 @@ public class Launcher {
             bootstrap.withNetworkInterface(new InetSocketAddress(val, 0));
         }
 
+        if (cmd.hasOption(OPTION_USERNAME)) {
+            LOG.info("Running with static authenticator");
+            final String userName = cmd.getOptionValue(OPTION_USERNAME);
+            final String password = cmd.hasOption(OPTION_PASSWORD) ? cmd.getOptionValue(OPTION_PASSWORD) : "";
+            final String realm = cmd.hasOption(OPTION_REALM) ? cmd.getOptionValue(OPTION_REALM) : DEFAULT_REALM;
+            bootstrap.withProxyAuthenticator(new StaticProxyAuthenticator(userName, password, realm));
+        }
+
         if (cmd.hasOption(OPTION_MITM)) {
             LOG.info("Running as Man in the Middle");
             bootstrap.withManInTheMiddle(new SelfSignedMitmManager());
         }
-        
+
         if (cmd.hasOption(OPTION_DNSSEC)) {
             final String val = cmd.getOptionValue(OPTION_DNSSEC);
             if (ProxyUtils.isTrue(val)) {
