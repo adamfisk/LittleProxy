@@ -541,9 +541,18 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void initializeConnectionFlow() {
         this.connectionFlow = new ConnectionFlow(clientConnection, this,
-                connectLock)
-                .then(ConnectChannel);
+                connectLock);
 
+        //If it's a CONNECT request and mimic server handshake is enabled, don't make remote
+        //server connection and use MITM server ssl engine to do the handshake
+        if(ProxyUtils.isCONNECT(initialRequest) && proxyServer.isMimicServerHandshake()){
+            connectionFlow
+                    .then(clientConnection.RespondCONNECTSuccessful)
+                    .then(serverConnection.MitmMimicHSEncryptClientChannel);
+            return;
+        }
+
+        connectionFlow.then(ConnectChannel);
         if (chainedProxy != null && chainedProxy.requiresEncryption()) {
             connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
                     .newSslEngine()));
@@ -722,6 +731,47 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             return clientConnection
                     .encrypt(proxyServer.getMitmManager()
                             .clientSslEngineFor(initialRequest, sslEngine.getSession()), false)
+                    .addListener(
+                            new GenericFutureListener<Future<? super Channel>>() {
+                                @Override
+                                public void operationComplete(
+                                        Future<? super Channel> future)
+                                        throws Exception {
+                                    if (future.isSuccess()) {
+                                        clientConnection.setMitming(true);
+                                    }
+                                }
+                            });
+        }
+    };
+
+    /**
+     * <p>
+     * Encrypts the client channel based on MITM SSL Engine {@link SSLSession}.
+     * </p>
+     *
+     * <p>
+     * This does not wait for the handshake to finish so that we can go on and
+     * respond to the CONNECT request.
+     * </p>
+     */
+    private ConnectionFlowStep MitmMimicHSEncryptClientChannel = new ConnectionFlowStep(
+            this, HANDSHAKING) {
+        @Override
+        boolean shouldExecuteOnEventLoop() {
+            return false;
+        }
+
+        @Override
+        boolean shouldSuppressInitialRequest() {
+            return true;
+        }
+
+        @Override
+        protected Future<?> execute() {
+            return clientConnection
+                    .encrypt(proxyServer.getMitmManager()
+                            .clientSslEngineFor(initialRequest, proxyServer.getMitmManager().serverSslEngine().getSession()), false)
                     .addListener(
                             new GenericFutureListener<Future<? super Channel>>() {
                                 @Override
