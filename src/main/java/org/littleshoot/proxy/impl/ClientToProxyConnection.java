@@ -21,6 +21,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
+import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.commons.lang3.StringUtils;
@@ -89,6 +90,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Used for case-insensitive comparisons when checking direct proxy request.
      */
     private static final Pattern HTTP_SCHEME = Pattern.compile("^http://.*", Pattern.CASE_INSENSITIVE);
+    
+    /**
+     * Context attribute key for username
+     */
+    private static final AttributeKey<String> ATTR_USERNAME = AttributeKey.valueOf("username");
 
     /**
      * Keep track of all ProxyToServerConnections by host+port.
@@ -1002,6 +1008,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         LOG.debug(authentication);
         request.headers().remove(HttpHeaders.Names.PROXY_AUTHORIZATION);
         authenticated.set(true);
+        
+        //Save username for filtering based on user
+        ctx.attr(ATTR_USERNAME).set(userName);
+        
         return false;
     }
 
