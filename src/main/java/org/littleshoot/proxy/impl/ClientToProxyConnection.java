@@ -443,7 +443,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             // if this HttpResponse does not have any means of signaling the end of the message body other than closing
             // the connection, convert the message to a "Transfer-Encoding: chunked" HTTP response. This avoids the need
             // to close the client connection to indicate the end of the message. (Responses to HEAD requests "must be" empty.)
-            if (!ProxyUtils.isHEAD(currentHttpRequest) && !ProxyUtils.isResponseSelfTerminating(httpResponse)) {
+            if (currentHttpRequest != null && !ProxyUtils.isHEAD(currentHttpRequest) && !ProxyUtils.isResponseSelfTerminating(httpResponse)) {
                 // if this is not a FullHttpResponse,  duplicate the HttpResponse from the server before sending it to
                 // the client. this allows us to set the Transfer-Encoding to chunked without interfering with netty's
                 // handling of the response from the server. if we modify the original HttpResponse from the server,
