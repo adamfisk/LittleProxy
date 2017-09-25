@@ -690,7 +690,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             if (connectOk) {
                 flow.advance();
             } else {
-                flow.fail();
+                flow.fail(new Error(msg.toString()));
             }
         }
     };
