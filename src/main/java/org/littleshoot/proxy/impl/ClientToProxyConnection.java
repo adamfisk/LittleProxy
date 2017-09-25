@@ -37,11 +37,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -135,6 +131,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private AtomicBoolean authenticated = new AtomicBoolean();
 
     private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
+
+    private Set<String> allowedHosts =
+            System.getenv("PROXY_HOST_WHITE_LIST") != null &&
+            System.getenv("PROXY_HOST_WHITE_LIST").length() > 0 ?
+            new HashSet(Arrays.asList(System.getenv("PROXY_HOST_WHITE_LIST")
+                    .replace(" ","").split(","))) : null;
 
     /**
      * The current HTTP request that this connection is currently servicing.
@@ -275,6 +277,29 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 return AWAITING_INITIAL;
             } else {
                 return DISCONNECT_REQUESTED;
+            }
+        }
+
+        {
+            if (allowedHosts != null) {
+                final String host;
+                if (serverHostAndPort != null && serverHostAndPort.contains(":")) {
+                    host = serverHostAndPort.split(":")[0];
+                } else {
+                    host = serverHostAndPort;
+                }
+
+                if (!allowedHosts.contains(host)) {
+                    LOG.warn("Rejected from " + getClientAddress() + " to " + serverHostAndPort);
+                    boolean keepAlive = writeBadGateway(httpRequest);
+                    if (keepAlive) {
+                        return AWAITING_INITIAL;
+                    } else {
+                        return DISCONNECT_REQUESTED;
+                    }
+                } else {
+                    LOG.info("Allowed from " + getClientAddress() + " to " + serverHostAndPort);
+                }
             }
         }
 
