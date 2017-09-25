@@ -22,4 +22,5 @@ public class MITMUsernamePasswordAuthenticatingProxyTest extends
     protected boolean isMITM() {
         return true;
     }
+
 }

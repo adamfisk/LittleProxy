@@ -24,8 +24,8 @@ public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest
     }
 
     @Override
-    public boolean authenticate(String userName, String password) {
-        return getUsername().equals(userName) && getPassword().equals(password);
+    public boolean authenticate(String proxyAuthorizationHeaderValue) {
+        return new TestBasicProxyAuthenticator(getUsername(), getPassword()).authenticate(proxyAuthorizationHeaderValue);
     }
 
     @Override
@@ -36,5 +36,26 @@ public class UsernamePasswordAuthenticatingProxyTest extends BaseProxyTest
     @Override
     public String getRealm() {
         return null;
+    }
+
+    static class TestBasicProxyAuthenticator extends BasicProxyAuthenticator{
+
+        private final String username;
+        private final String password;
+
+        TestBasicProxyAuthenticator(String username, String password) {
+            this.username = username;
+            this.password = password;
+        }
+
+        @Override
+        boolean authenticate(String username, String password) {
+            return this.username.equals(username) && this.password.equals(password);
+        }
+
+        @Override
+        public String getRealm() {
+            return null;
+        }
     }
 }
