@@ -61,4 +61,14 @@ public class ChainedProxyAdapter implements ChainedProxy {
     public SSLEngine newSslEngine(String peerHost, int peerPort) {
         return null;
     }
+
+    @Override
+    public String getBasicAuthUser() {
+        return null;
+    }
+
+    @Override
+    public String getBasicAuthPassword() {
+        return null;
+    }
 }

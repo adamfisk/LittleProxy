@@ -73,4 +73,23 @@ public interface ChainedProxy extends SslEngineSource {
      * Called to let us know that we were disconnected.
      */
     void disconnected();
+    
+    /**
+     * (Optional) user name which is send to the Chain Proxy using basic authentication. The user name
+     * is only send if the {@link #getBasicAuthPassword()} method provides a non <code>null</code>
+     * string.
+     * 
+     * @return The user name or <code>null</code> if no authentication to the Chain Proxy is
+     *         necessary.
+     */
+    String getBasicAuthUser();
+    
+    /**
+     * (Optional) user password which is send to the Chain Proxy using basic authentication. The
+     * password is only send if the {@link #getBasicAuthUser()} method provides a non
+     * <code>null</code> string.
+     * 
+     * @return The password or <code>null</code> if no authentication to the Chain Proxy is necessary.
+     */
+    String getBasicAuthPassword();
 }

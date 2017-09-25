@@ -1099,6 +1099,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             switchProxyConnectionHeader(headers);
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
+            addRemoteBasicAuthHeaders(headers);
             ProxyUtils.addVia(httpRequest, proxyServer.getProxyAlias());
         }
     }
@@ -1186,6 +1187,25 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         for (String headerName : headerNames) {
             if (ProxyUtils.shouldRemoveHopByHopHeader(headerName)) {
                 headers.remove(headerName);
+            }
+        }
+    }
+    
+    /**
+     * Add basic authentication header for the case that a chained proxy with basic authentication
+     * is available.
+     * 
+     * @param headers
+     *            The headers to modify
+     */
+    private void addRemoteBasicAuthHeaders(HttpHeaders headers) {
+        if (currentServerConnection.getChainedProxy() != null) {
+            String basicAuthUser = currentServerConnection.getChainedProxy().getBasicAuthUser();
+            String basicAuthPassword = currentServerConnection.getChainedProxy().getBasicAuthPassword();
+            if (basicAuthUser != null && basicAuthPassword != null) {
+                String basicAuthString = "Basic "
+                        + new String(Base64.encodeBase64((basicAuthUser + ":" + basicAuthPassword).getBytes()));
+                headers.add(HttpHeaders.Names.PROXY_AUTHORIZATION.toLowerCase(Locale.US), basicAuthString);
             }
         }
     }
