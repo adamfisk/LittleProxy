@@ -42,6 +42,7 @@ import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
 
+import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
@@ -545,8 +546,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 .then(ConnectChannel);
 
         if (chainedProxy != null && chainedProxy.requiresEncryption()) {
-            connectionFlow.then(serverConnection.EncryptChannel(chainedProxy
-                    .newSslEngine()));
+            InetSocketAddress proxyAddress = chainedProxy.getChainedProxyAddress();
+            SSLEngine engine = proxyAddress.isUnresolved() ? chainedProxy.newSslEngine() :
+                    chainedProxy.newSslEngine(proxyAddress.getHostName(), proxyAddress.getPort());
+            connectionFlow.then(serverConnection.EncryptChannel(engine));
         }
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
@@ -554,7 +557,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             if (hasUpstreamChainedProxy()) {
                 connectionFlow.then(
                         serverConnection.HTTPCONNECTWithChainedProxy);
-            }        	
+            }
         	
             MitmManager mitmManager = proxyServer.getMitmManager();
             boolean isMitmEnabled = mitmManager != null;

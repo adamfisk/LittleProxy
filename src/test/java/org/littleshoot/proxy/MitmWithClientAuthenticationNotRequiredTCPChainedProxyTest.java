@@ -43,6 +43,11 @@ public class MitmWithClientAuthenticationNotRequiredTCPChainedProxyTest extends
             public SSLEngine newSslEngine() {
                 return clientSslEngineSource.newSslEngine();
             }
+
+            @Override
+            public SSLEngine newSslEngine(String peerHost, int peerPort) {
+                return clientSslEngineSource.newSslEngine(peerHost, peerPort);
+            }
         };
     }
 }

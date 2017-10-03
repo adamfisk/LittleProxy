@@ -633,6 +633,11 @@ public class HttpFilterTest {
                                 // use the same "bad" keystore as BadServerAuthenticationTCPChainedProxyTest
                                 return new SelfSignedSslEngineSource("chain_proxy_keystore_2.jks").newSslEngine();
                             }
+
+                            @Override
+                            public SSLEngine newSslEngine(String peerHost, int peerPort) {
+                                return new SelfSignedSslEngineSource("chain_proxy_keystore_2.jks").newSslEngine(peerHost, peerPort);
+                            }
                         });
                     }
                 })
