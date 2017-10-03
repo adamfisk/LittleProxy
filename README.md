@@ -31,7 +31,7 @@ HttpProxyServer server =
 
 To intercept and manipulate HTTPS traffic, LittleProxy uses a man-in-the-middle (MITM) manager. LittleProxy's default
 implementation (`SelfSignedMitmManager`) has a fairly limited feature set. For greater control over certificate impersonation,
-browser trust, the TLS handshake, and more, use a the LittleProxy-compatible MITM extension:
+browser trust, the TLS handshake, and more, use the LittleProxy-compatible MITM extension:
 - [LittleProxy-mitm](https://github.com/ganskef/LittleProxy-mitm) - A LittleProxy MITM extension that aims to support every Java platform including Android
 - [mitm](https://github.com/lightbody/browsermob-proxy/tree/master/mitm) - A LittleProxy MITM extension that supports elliptic curve cryptography and custom trust stores
 
