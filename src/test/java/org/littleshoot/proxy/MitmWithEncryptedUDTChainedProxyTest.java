@@ -34,6 +34,11 @@ public class MitmWithEncryptedUDTChainedProxyTest extends MitmWithChainedProxyTe
             public SSLEngine newSslEngine() {
                 return sslEngineSource.newSslEngine();
             }
+
+            @Override
+            public SSLEngine newSslEngine(String peerHost, int peerPort) {
+                return sslEngineSource.newSslEngine(peerHost, peerPort);
+            }
         };
     }
 }

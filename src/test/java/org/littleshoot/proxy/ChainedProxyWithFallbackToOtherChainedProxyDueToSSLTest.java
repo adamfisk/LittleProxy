@@ -41,6 +41,11 @@ public class ChainedProxyWithFallbackToOtherChainedProxyDueToSSLTest extends
                     public SSLEngine newSslEngine() {
                         return serverSslEngineSource.newSslEngine();
                     }
+
+                    @Override
+                    public SSLEngine newSslEngine(String peerHost, int peerPort) {
+                        return serverSslEngineSource.newSslEngine(peerHost, peerPort);
+                    }
                 });
             }
         };
