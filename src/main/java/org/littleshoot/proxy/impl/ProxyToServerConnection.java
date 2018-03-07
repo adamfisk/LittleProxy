@@ -39,6 +39,7 @@ import org.littleshoot.proxy.ChainedProxyManager;
 import org.littleshoot.proxy.FullFlowContext;
 import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.MitmManager;
+import org.littleshoot.proxy.SelectiveMitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
 
@@ -56,15 +57,14 @@ import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
 import static org.littleshoot.proxy.impl.ConnectionState.CONNECTING;
 import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECTED;
-import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
-
+import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;;
 /**
  * <p>
  * Represents a connection from our proxy to a server on the web.
  * ProxyConnections are reused fairly liberally, and can go from disconnected to
  * connected, back to disconnected and so on.
  * </p>
- * 
+ *
  * <p>
  * Connecting a {@link ProxyToServerConnection} can involve more than just
  * connecting the underlying {@link Channel}. In particular, the connection may
@@ -134,13 +134,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private volatile GlobalTrafficShapingHandler trafficHandler;
 
     /**
-     * Minimum size of the adaptive recv buffer when throttling is enabled. 
+     * Minimum size of the adaptive recv buffer when throttling is enabled.
      */
     private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
-    
+
     /**
      * Create a new ProxyToServerConnection.
-     * 
+     *
      * @param proxyServer
      * @param clientConnection
      * @param serverHostAndPort
@@ -262,12 +262,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * doesn't know that any given response is to a HEAD request, so it needs to
      * be told that there's no content so that it doesn't hang waiting for it.
      * </p>
-     * 
+     *
      * <p>
      * See the documentation for {@link HttpResponseDecoder} for information
      * about why HEAD requests need special handling.
      * </p>
-     * 
+     *
      * <p>
      * Thanks to <a href="https://github.com/nataliakoval">nataliakoval</a> for
      * pointing out that with connections being reused as they are, this needs
@@ -302,7 +302,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Like {@link #write(Object)} and also sets the current filters to the
      * given value.
-     * 
+     *
      * @param msg
      * @param filters
      */
@@ -497,7 +497,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Keeps track of the current HttpResponse so that we can associate its
      * headers with future related chunks for this same transfer.
-     * 
+     *
      * @param response
      */
     private void rememberCurrentResponse(HttpResponse response) {
@@ -512,7 +512,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /**
      * Respond to the client with the given {@link HttpObject}.
-     * 
+     *
      * @param httpObject
      */
     private void respondWith(HttpObject httpObject) {
@@ -554,31 +554,39 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             if (hasUpstreamChainedProxy()) {
                 connectionFlow.then(
                         serverConnection.HTTPCONNECTWithChainedProxy);
-            }        	
-        	
-            MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
+            }
 
-            if (isMitmEnabled) {
+            MitmManager mitmManager = proxyServer.getMitmManager();
+            boolean shouldMITM = mitmManager != null;
+
+            if (shouldMITM) {
                 // When MITM is enabled and when chained proxy is set up, remoteAddress
                 // will be the chained proxy's address. So we use serverHostAndPort
                 // which is the end server's address.
                 HostAndPort parsedHostAndPort = HostAndPort.fromString(serverHostAndPort);
 
-                // SNI may be disabled for this request due to a previous failed attempt to connect to the server
-                // with SNI enabled.
-                if (disableSni) {
-                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine()));
-                } else {
-                    connectionFlow.then(serverConnection.EncryptChannel(proxyServer.getMitmManager()
-                            .serverSslEngine(parsedHostAndPort.getHost(), parsedHostAndPort.getPort())));
+                // Potentially skip MITM
+                if (mitmManager instanceof SelectiveMitmManager) {
+                    shouldMITM = ((SelectiveMitmManager)mitmManager).shouldMITMPeer(parsedHostAndPort.getHost(), parsedHostAndPort.getPort());
                 }
 
-            	connectionFlow
-                        .then(clientConnection.RespondCONNECTSuccessful)
-                        .then(serverConnection.MitmEncryptClientChannel);
-            } else {
+                if (shouldMITM) {
+                    // SNI may be disabled for this request due to a previous failed attempt to connect to the server
+                    // with SNI enabled.
+                    if (disableSni) {
+                        connectionFlow.then(serverConnection.EncryptChannel(mitmManager
+                                .serverSslEngine()));
+                    } else {
+                        connectionFlow.then(serverConnection.EncryptChannel(mitmManager
+                                .serverSslEngine(parsedHostAndPort.getHost(), parsedHostAndPort.getPort())));
+                    }
+
+                    connectionFlow
+                            .then(clientConnection.RespondCONNECTSuccessful)
+                            .then(serverConnection.MitmEncryptClientChannel);
+                }
+            }
+            if (!shouldMITM) {
                 connectionFlow.then(serverConnection.StartTunneling)
                         .then(clientConnection.RespondCONNECTSuccessful)
                         .then(clientConnection.StartTunneling);
@@ -699,7 +707,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * <p>
      * Encrypts the client channel based on our server {@link SSLSession}.
      * </p>
-     * 
+     *
      * <p>
      * This does not wait for the handshake to finish so that we can go on and
      * respond to the CONNECT request.
@@ -809,7 +817,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Set up our connection parameters based on server address and chained
      * proxies.
-     * 
+     *
      * @throws UnknownHostException when unable to resolve the hostname to an IP address
      */
     private void setupConnectionParameters() throws UnknownHostException {
@@ -854,15 +862,15 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Initialize our {@link ChannelPipeline} to connect the upstream server.
      * LittleProxy acts as a client here.
-     * 
+     *
      * A {@link ChannelPipeline} invokes the read (Inbound) handlers in
      * ascending ordering of the list and then the write (Outbound) handlers in
      * descending ordering.
-     * 
+     *
      * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
      * the {@link HttpResponseEncoder} or {@link HttpRequestEncoder} before the
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
-     * 
+     *
      * @param pipeline
      * @param httpRequest
      */
@@ -906,7 +914,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Do all the stuff that needs to be done after our {@link ConnectionFlow}
      * has succeeded.
      * </p>
-     * 
+     *
      * @param shouldForwardInitialRequest
      *            whether or not we should forward the initial HttpRequest to
      *            the server after the connection has been established.
@@ -941,7 +949,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /**
      * Build an {@link InetSocketAddress} for the given hostAndPort.
-     * 
+     *
      * @param hostAndPort String representation of the host and port
      * @param proxyServer the current {@link DefaultHttpProxyServer}
      * @return a resolved InetSocketAddress for the specified hostAndPort
@@ -966,7 +974,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /***************************************************************************
      * Activity Tracking/Statistics
-     * 
+     *
      * We track statistics on bytes, requests and responses by adding handlers
      * at the appropriate parts of the pipeline (see initChannelPipeline()).
      **************************************************************************/
