@@ -424,6 +424,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
         clientConnection.serverDisconnected(this);
+		// fix : return BAD_GATEWAY when connect server error and lastReadTime ==0
+        if (serverConnection.lastReadTime == 0) {
+            FullHttpResponse substituteResponse = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
+                HttpResponseStatus.BAD_GATEWAY,
+                "Unable to parse response from server");
+            HttpHeaders.setKeepAlive(substituteResponse, false);
+            HttpResponse httpResponse = substituteResponse;
+            rememberCurrentResponse(httpResponse);
+            respondWith(httpResponse);
+        }
     }
 
     @Override
