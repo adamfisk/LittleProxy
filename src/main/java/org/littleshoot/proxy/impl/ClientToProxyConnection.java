@@ -1146,6 +1146,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpResponse httpResponse) {
         if (!proxyServer.isTransparent()) {
             HttpHeaders headers = httpResponse.headers();
+            boolean isKeepAlive = HttpHeaders.isKeepAlive(httpResponse);
 
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
@@ -1160,6 +1161,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
              */
             if (!headers.contains(HttpHeaders.Names.DATE)) {
                 HttpHeaders.setDate(httpResponse, new Date());
+            }
+            if (isMitming()) {
+                HttpHeaders.setKeepAlive(httpResponse, isKeepAlive);
             }
         }
     }
