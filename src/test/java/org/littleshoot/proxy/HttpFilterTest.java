@@ -190,6 +190,7 @@ public class HttpFilterTest {
                         proxyToServerRequestSentNanos.set(requestCount.get(), now());
                     }
 
+                    @Override
                     public HttpObject serverToProxyResponse(
                             HttpObject httpObject) {
                         if (originalRequest.getUri().contains("testing3")) {
@@ -223,7 +224,8 @@ public class HttpFilterTest {
                         serverToProxyResponseReceivedNanos.set(requestCount.get(), now());
                     }
 
-                    public HttpObject proxyToClientResponse(
+                    @Override
+					public HttpObject proxyToClientResponse(
                             HttpObject httpObject) {
                         if (originalRequest.getUri().contains("testing4")) {
                             return new DefaultFullHttpResponse(
@@ -827,6 +829,7 @@ public class HttpFilterTest {
         private final AtomicBoolean proxyToServerResolutionFailed = new AtomicBoolean(false);
         private final AtomicBoolean proxyToServerResolutionSucceeded = new AtomicBoolean(false);
         private final AtomicBoolean proxyToServerConnectionSSLHandshakeStarted = new AtomicBoolean(false);
+        private final AtomicBoolean proxyToServerDisconnected = new AtomicBoolean(false);
         private final AtomicBoolean serverToProxyResponseTimedOut = new AtomicBoolean(false);
 
         public boolean isProxyToServerConnectionFailedInvoked() {
@@ -905,6 +908,11 @@ public class HttpFilterTest {
         @Override
         public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
             proxyToServerConnectionSucceeded.set(true);
+        }
+
+        @Override
+        public void proxyToServerDisconnected() {
+            proxyToServerDisconnected.set(true);
         }
 
         @Override

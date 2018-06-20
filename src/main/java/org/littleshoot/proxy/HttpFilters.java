@@ -208,4 +208,8 @@ public interface HttpFilters {
      */
     void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx);
 
+    /**
+     * Informs filter that server disconnected while request was still in flight
+     */
+    void proxyToServerDisconnected();
 }
