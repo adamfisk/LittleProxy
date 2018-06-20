@@ -1,11 +1,11 @@
-[![Build Status](https://travis-ci.org/adamfisk/LittleProxy.png?branch=master)](https://travis-ci.org/adamfisk/LittleProxy)
+[![Build Status](https://travis-ci.org/michalsvec/LittleProxy.svg?branch=master)](https://travis-ci.org/michalsvec/LittleProxy)
 
 LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's excellent [Netty](http://netty.io) event-based networking library. It's quite stable, performs well, and is easy to integrate into your projects. 
 
 One option is to clone LittleProxy and run it from the command line. This is as simple as:
 
 ```
-$ git clone git://github.com/adamfisk/LittleProxy.git
+$ git clone git://github.com/michalsvec/LittleProxy.git
 $ cd LittleProxy
 $ ./run.bash
 ```
