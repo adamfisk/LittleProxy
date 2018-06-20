@@ -132,7 +132,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private volatile boolean mitming = false;
 
-    private AtomicBoolean authenticated = new AtomicBoolean();
+    /**
+     * Tracks if client is expecting data from proxy.
+     */
+    private volatile boolean isRequestInFlight = false;
+
+    private final AtomicBoolean authenticated = new AtomicBoolean();
 
     private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
@@ -221,9 +226,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Note - the "server" could be a chained proxy, not the final endpoint for
      * the request.
      * </p>
-     * 
-     * @param httpRequest
-     * @return
      */
     private ConnectionState doReadHTTPInitial(HttpRequest httpRequest) {
         // Make a copy of the original request
@@ -237,6 +239,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         } else {
             currentFilters = HttpFiltersAdapter.NOOP_FILTER;
         }
+        isRequestInFlight = true;
 
         // Send the request through the clientToProxyRequest filter, and respond with the short-circuit response if required
         HttpResponse clientToProxyFilterResponse = currentFilters.clientToProxyRequest(httpRequest);
@@ -285,9 +288,21 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         boolean newConnectionRequired = false;
         if (ProxyUtils.isCONNECT(httpRequest)) {
-            LOG.debug(
-                    "Not reusing existing ProxyToServerConnection because request is a CONNECT for: {}",
-                    serverHostAndPort);
+            // Connect request on a previously used connection may break the connection later
+            // when another HTTP server (which had connected before on this connection before it was upgraded to HTTPS) disconnects.
+            // That may cause disconnection of client2proxy in serverDisconnected()
+            if(isConnectionUsed()) {
+                LOG.error(
+                        "Dropping request to {} as it's a CONNECT request on a previously used connection.",
+                        serverHostAndPort
+                );
+                writeBadGateway(httpRequest);
+                return DISCONNECT_REQUESTED;
+            }
+
+            LOG.debug("Not reusing existing ProxyToServerConnection because request is a CONNECT for: {}",
+                    serverHostAndPort
+            );
             newConnectionRequired = true;
         } else if (currentServerConnection == null) {
             LOG.debug("Didn't find existing ProxyToServerConnection for: {}",
@@ -358,6 +373,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         } else {
             return AWAITING_INITIAL;
         }
+    }
+
+    private boolean isConnectionUsed()
+    {
+        return currentServerConnection != null || !serverConnectionsByHostAndPort.isEmpty();
     }
 
     /**
@@ -659,11 +679,23 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void serverDisconnected(ProxyToServerConnection serverConnection) {
         numberOfCurrentlyConnectedServers.decrementAndGet();
 
+        // if server sends content-length larger than content, then  client hangs because it waits for next chunk,
+        // but the proxy2server connection was already closed. In this case it's necessary
+        // to close client2proxy connection because client would have timed out otherwise
+        if(isRequestInFlight() && currentServerConnection == serverConnection) {
+            LOG.warn(String.format("Server disconnected unexpectedly: %s", serverConnection.getServerHostAndPort()), new Exception("Server disconnected unexpectedly"));
+            writeEmptyBuffer();
+            disconnect();
+
+            currentFilters.proxyToServerDisconnected();
+        }
+
         // for non-SSL connections, do not disconnect the client from the proxy, even if this was the last server connection.
         // this allows clients to continue to use the open connection to the proxy to make future requests. for SSL
         // connections, whether we are tunneling or MITMing, we need to disconnect the client because there is always
         // exactly one ClientToProxyConnection per ProxyToServerConnection, and vice versa.
-        if (isTunneling() || isMitming()) {
+        if (isMitming() || isTunneling()) {
+            LOG.warn(String.format("Server %s disconnected. Closing client connection", serverConnection.getServerHostAndPort()), new Exception("Server disconnected"));
             disconnect();
         }
     }
@@ -673,7 +705,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * associated ProxyToServerConnections.
      */
     @Override
-    synchronized protected void becameSaturated() {
+    protected synchronized void becameSaturated() {
         super.becameSaturated();
         for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
                 .values()) {
@@ -690,7 +722,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * associated ProxyToServerConnections.
      */
     @Override
-    synchronized protected void becameWritable() {
+    protected synchronized void becameWritable() {
         super.becameWritable();
         for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
                 .values()) {
@@ -707,7 +739,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * 
      * @param serverConnection
      */
-    synchronized protected void serverBecameSaturated(
+    protected synchronized void serverBecameSaturated(
             ProxyToServerConnection serverConnection) {
         if (serverConnection.isSaturated()) {
             LOG.info("Connection to server became saturated, stopping reading");
@@ -721,7 +753,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * 
      * @param serverConnection
      */
-    synchronized protected void serverBecameWriteable(
+    protected synchronized void serverBecameWriteable(
             ProxyToServerConnection serverConnection) {
         boolean anyServersSaturated = false;
         for (ProxyToServerConnection otherServerConnection : serverConnectionsByHostAndPort
@@ -1114,6 +1146,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpResponse httpResponse) {
         if (!proxyServer.isTransparent()) {
             HttpHeaders headers = httpResponse.headers();
+            boolean isKeepAlive = HttpHeaders.isKeepAlive(httpResponse);
 
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
@@ -1128,6 +1161,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
              */
             if (!headers.contains(HttpHeaders.Names.DATE)) {
                 HttpHeaders.setDate(httpResponse, new Date());
+            }
+            if (isMitming()) {
+                HttpHeaders.setKeepAlive(httpResponse, isKeepAlive);
             }
         }
     }
@@ -1267,7 +1303,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean respondWithShortCircuitResponse(HttpResponse httpResponse) {
         // we are sending a response to the client, so we are done handling this request
-        this.currentRequest = null;
+        currentRequest = null;
+        isRequestInFlight = false;
 
         HttpResponse filteredResponse = (HttpResponse) currentFilters.proxyToClientResponse(httpResponse);
         if (filteredResponse == null) {
@@ -1338,6 +1375,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private void writeEmptyBuffer() {
         write(Unpooled.EMPTY_BUFFER);
+        isRequestInFlight = false;
     }
 
     public boolean isMitming() {
@@ -1452,4 +1490,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
+    /**
+     * @return true if client is expecting data from proxy
+     */
+    public boolean isRequestInFlight()
+    {
+        return isRequestInFlight;
+    }
 }
