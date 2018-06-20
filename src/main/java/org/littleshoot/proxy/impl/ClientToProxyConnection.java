@@ -694,7 +694,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // this allows clients to continue to use the open connection to the proxy to make future requests. for SSL
         // connections, whether we are tunneling or MITMing, we need to disconnect the client because there is always
         // exactly one ClientToProxyConnection per ProxyToServerConnection, and vice versa.
-        if (isTunneling() || isMitming()) {
+        if (isMitming() || isTunneling()) {
+            LOG.warn(String.format("Server %s disconnected. Closing client connection", serverConnection.getServerHostAndPort()), new Exception("Server disconnected"));
             disconnect();
         }
     }
