@@ -14,7 +14,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <github.global.server>github</github.global.server>
-        <netty.version>4.0.44.Final</netty.version>
+        <netty.version>4.1.8.Final</netty.version>
         <slf4j.version>1.7.24</slf4j.version>
         <java.version>1.7</java.version>
     </properties>
@@ -173,13 +173,6 @@
                 </plugins>
             </build>
         </profile>
-
-        <profile>
-            <id>netty-4.1</id>
-            <properties>
-                <netty.version>4.1.8.Final</netty.version>
-            </properties>
-        </profile>
     </profiles>
 
     <dependencies>
@@ -282,6 +275,10 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-example</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.barchart.udt</groupId>
@@ -374,7 +371,24 @@
             </dependency>
             <dependency>
                 <groupId>io.netty</groupId>
+                <artifactId>netty-example</artifactId>
+                <version>${netty.version}</version>
+                <scope>test</scope>
+                <exclusions>
+                  <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-tcnative</artifactId>
+                  </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
                 <artifactId>netty-handler</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-handler-proxy</artifactId>
                 <version>${netty.version}</version>
             </dependency>
             <dependency>
@@ -395,11 +409,6 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-transport-udp</artifactId>
-                <version>${netty.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-example</artifactId>
                 <version>${netty.version}</version>
             </dependency>
         </dependencies>

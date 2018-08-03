@@ -30,6 +30,21 @@ public class ChainedProxyAdapter implements ChainedProxy {
     public TransportProtocol getTransportProtocol() {
         return TransportProtocol.TCP;
     }
+    
+    @Override
+    public ChainedProxyType getChainedProxyType() {
+        return ChainedProxyType.HTTP;
+    }
+    
+    @Override
+    public String getUsername() {
+        return null;
+    }
+    
+    @Override
+    public String getPassword() {
+        return null;
+    }
 
     @Override
     public boolean requiresEncryption() {

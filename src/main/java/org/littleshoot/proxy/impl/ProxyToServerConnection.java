@@ -2,9 +2,9 @@ package org.littleshoot.proxy.impl;
 
 import com.google.common.net.HostAndPort;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.bootstrap.ChannelFactory;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFactory;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
@@ -15,7 +15,6 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMessage;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpObjectAggregator;
@@ -25,10 +24,17 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.proxy.ProxyConnectException;
+import io.netty.handler.proxy.Socks4ProxyHandler;
+import io.netty.handler.proxy.Socks5ProxyHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
+import io.netty.resolver.AddressResolverGroup;
+import io.netty.resolver.DefaultAddressResolverGroup;
+import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -41,6 +47,8 @@ import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.MitmManager;
 import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
+import org.littleshoot.proxy.UnknownChainedProxyTypeException;
+import org.littleshoot.proxy.ChainedProxyType;
 
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
@@ -79,8 +87,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private final ClientToProxyConnection clientConnection;
     private final ProxyToServerConnection serverConnection = this;
     private volatile TransportProtocol transportProtocol;
+    private volatile ChainedProxyType chainedProxyType;
     private volatile InetSocketAddress remoteAddress;
     private volatile InetSocketAddress localAddress;
+    private volatile AddressResolverGroup<?> remoteAddressResolver;
+    private volatile String username;
+    private volatile String password;
     private final String serverHostAndPort;
     private volatile ChainedProxy chainedProxy;
     private final Queue<ChainedProxy> availableChainedProxies;
@@ -219,8 +231,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     protected ConnectionState readHTTPInitial(HttpResponse httpResponse) {
         LOG.debug("Received raw response: {}", httpResponse);
 
-        if (httpResponse.getDecoderResult().isFailure()) {
-            LOG.debug("Could not parse response from server. Decoder result: {}", httpResponse.getDecoderResult().toString());
+        if (httpResponse.decoderResult().isFailure()) {
+            LOG.debug("Could not parse response from server. Decoder result: {}", httpResponse.decoderResult().toString());
 
             // create a "substitute" Bad Gateway response from the server, since we couldn't understand what the actual
             // response from the server was. set the keep-alive on the substitute response to false so the proxy closes
@@ -228,7 +240,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             FullHttpResponse substituteResponse = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                     HttpResponseStatus.BAD_GATEWAY,
                     "Unable to parse response from server");
-            HttpHeaders.setKeepAlive(substituteResponse, false);
+            HttpUtil.setKeepAlive(substituteResponse, false);
             httpResponse = substituteResponse;
         }
 
@@ -429,7 +441,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void exceptionCaught(Throwable cause) {
         try {
-            if (cause instanceof IOException) {
+            if (cause instanceof ProxyConnectException) {
+                LOG.info("A ProxyConnectException occurred on ProxyToServerConnection: " + cause.getMessage());
+                connectionFlow.fail(cause);
+            } else if (cause instanceof IOException) {
                 // IOExceptions are expected errors, for example when a server drops the connection. rather than flood
                 // the logs with stack traces for these expected exceptions, log the message at the INFO level and the
                 // stack trace at the DEBUG level.
@@ -458,6 +473,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      **************************************************************************/
     public TransportProtocol getTransportProtocol() {
         return transportProtocol;
+    }
+
+    public ChainedProxyType getChainedProxyType() {
+        return chainedProxyType;
     }
 
     public InetSocketAddress getRemoteAddress() {
@@ -550,8 +569,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
 
         if (ProxyUtils.isCONNECT(initialRequest)) {
-            // If we're chaining, forward the CONNECT request
-            if (hasUpstreamChainedProxy()) {
+            // If we're chaining to an upstream HTTP proxy, forward the CONNECT request.
+            // Do not chain the CONNECT request for SOCKS proxies.
+            if (hasUpstreamChainedProxy() && (chainedProxyType == ChainedProxyType.HTTP)) {
                 connectionFlow.then(
                         serverConnection.HTTPCONNECTWithChainedProxy);
             }        	
@@ -559,7 +579,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             MitmManager mitmManager = proxyServer.getMitmManager();
             boolean isMitmEnabled = mitmManager != null;
 
-            if (isMitmEnabled) {
+            // Only encrypt the connection to the upstream server if the upstream server is
+            // an HTTP proxy.  The connection to a SOCKS proxy should not be encrypted as it 
+            // is a plaintext protocol, although after a SOCKS CONNECT request has completed, 
+            // the traffic that flows over that SOCKS connection may be encrypted.
+            if (isMitmEnabled && (chainedProxyType == ChainedProxyType.HTTP)) {
                 // When MITM is enabled and when chained proxy is set up, remoteAddress
                 // will be the chained proxy's address. So we use serverHostAndPort
                 // which is the end server's address.
@@ -598,7 +622,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
         @Override
         protected Future<?> execute() {
-            Bootstrap cb = new Bootstrap().group(proxyServer.getProxyToServerWorkerFor(transportProtocol));
+            Bootstrap cb = new Bootstrap()
+                .group(proxyServer.getProxyToServerWorkerFor(transportProtocol))
+                .resolver(remoteAddressResolver);
 
             switch (transportProtocol) {
             case TCP:
@@ -621,7 +647,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
             cb.handler(new ChannelInitializer<Channel>() {
                 protected void initChannel(Channel ch) throws Exception {
-                    initChannelPipeline(ch.pipeline(), initialRequest);
+                    initChannelPipeline(ch.pipeline());
                 };
             });
             cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS,
@@ -682,7 +708,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             boolean connectOk = false;
             if (msg instanceof HttpResponse) {
                 HttpResponse httpResponse = (HttpResponse) msg;
-                int statusCode = httpResponse.getStatus().code();
+                int statusCode = httpResponse.status().code();
                 if (statusCode >= 200 && statusCode <= 299) {
                     connectOk = true;
                 }
@@ -816,10 +842,32 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         if (chainedProxy != null
                 && chainedProxy != ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
             this.transportProtocol = chainedProxy.getTransportProtocol();
-            this.remoteAddress = chainedProxy.getChainedProxyAddress();
+            this.chainedProxyType = chainedProxy.getChainedProxyType();
             this.localAddress = chainedProxy.getLocalAddress();
+            this.username = chainedProxy.getUsername();
+            this.password = chainedProxy.getPassword();
+            switch (chainedProxyType) {
+                case HTTP:
+                    this.remoteAddress = chainedProxy.getChainedProxyAddress();
+                    this.remoteAddressResolver = DefaultAddressResolverGroup.INSTANCE;
+                    break;
+                case SOCKS4:
+                case SOCKS5:
+                    // With an upstream SOCKS proxy we should defer resolution
+                    // and delegate it to the upstream SOCKS server in case the
+                    // destination host is only resolvable by the SOCKS server
+                    this.remoteAddress = unresolvedAddressFor(serverHostAndPort);
+                    this.remoteAddressResolver = NoopAddressResolverGroup.INSTANCE;
+                    break;
+                default:
+                    throw new UnknownChainedProxyTypeException(chainedProxyType);
+            }
         } else {
             this.transportProtocol = TransportProtocol.TCP;
+            this.remoteAddressResolver = DefaultAddressResolverGroup.INSTANCE;
+            this.chainedProxyType = ChainedProxyType.HTTP;
+            this.username = null;
+            this.password = null;
 
             // Report DNS resolution to HttpFilters
             this.remoteAddress = this.currentFilters.proxyToServerResolutionStarted(serverHostAndPort);
@@ -864,10 +912,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
      * 
      * @param pipeline
-     * @param httpRequest
      */
-    private void initChannelPipeline(ChannelPipeline pipeline,
-            HttpRequest httpRequest) {
+    private void initChannelPipeline(ChannelPipeline pipeline) {
 
         if (trafficHandler != null) {
             pipeline.addLast("global-traffic-shaping", trafficHandler);
@@ -876,9 +922,27 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
 
+        switch (chainedProxyType) {
+            case HTTP:
+                // Chained HTTP proxies do not require any special configuration
+                break;
+            case SOCKS4:
+                final Socks4ProxyHandler socks4Handler = new Socks4ProxyHandler(chainedProxy.getChainedProxyAddress(), username);
+                socks4Handler.setConnectTimeoutMillis(proxyServer.getConnectTimeout());
+                pipeline.addLast(socks4Handler);
+                break;
+            case SOCKS5:
+                final Socks5ProxyHandler socks5Handler = new Socks5ProxyHandler(chainedProxy.getChainedProxyAddress(), username, password);
+                socks5Handler.setConnectTimeoutMillis(proxyServer.getConnectTimeout());
+                pipeline.addLast(socks5Handler);
+                break;
+            default:
+                throw new UnknownChainedProxyTypeException(chainedProxyType);
+        }
+
         pipeline.addLast("encoder", new HttpRequestEncoder());
         pipeline.addLast("decoder", new HeadAwareHttpResponseDecoder(
-        		proxyServer.getMaxInitialLineLength(),
+                proxyServer.getMaxInitialLineLength(),
                 proxyServer.getMaxHeaderSize(),
                 proxyServer.getMaxChunkSize()));
 
@@ -962,6 +1026,19 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         int port = parsedHostAndPort.getPortOrDefault(80);
 
         return proxyServer.getServerResolver().resolve(host, port);
+    }
+
+    /**
+     * Similar to {@link #addressFor(String, DefaultHttpProxyServer)} except that it does
+     * not resolve the address.
+     * @param hostAndPort the host and port to parse.
+     * @return an unresolved {@link InetSocketAddress}.
+     */
+    private static InetSocketAddress unresolvedAddressFor(String hostAndPort) {
+        HostAndPort parsedHostAndPort = HostAndPort.fromString(hostAndPort);
+        String host = parsedHostAndPort.getHost();
+        int port = parsedHostAndPort.getPortOrDefault(80);
+        return InetSocketAddress.createUnresolved(host, port);
     }
 
     /***************************************************************************
