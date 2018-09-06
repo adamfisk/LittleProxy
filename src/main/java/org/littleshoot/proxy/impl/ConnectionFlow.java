@@ -43,6 +43,17 @@ class ConnectionFlow {
     }
 
     /**
+     * Add a {@link ConnectionFlowStep} to the beginning of this flow.
+     * 
+     * @param step
+     * @return
+     */
+    ConnectionFlow first(ConnectionFlowStep step) {
+        steps.addFirst(step);
+        return this;
+    }
+
+    /**
      * Add a {@link ConnectionFlowStep} to the end of this flow.
      * 
      * @param step
@@ -50,17 +61,6 @@ class ConnectionFlow {
      */
     ConnectionFlow then(ConnectionFlowStep step) {
         steps.addLast(step);
-        return this;
-    }
-    
-    /**
-     * Add a {@link ConnectionFlowStep} to the beginning of this flow.
-     * 
-     * @param step
-     * @return
-     */
-    ConnectionFlow next(ConnectionFlowStep step) {
-        steps.addFirst(step);
         return this;
     }
 

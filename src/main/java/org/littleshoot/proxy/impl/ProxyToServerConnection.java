@@ -835,12 +835,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 final boolean authSuccess;
                 if (selectedAuthMethod == Socks5AuthMethod.NO_AUTH) {
                     // Immediately proceed to SOCKS CONNECT
-                    flow.next(SOCKS5CONNECTRequestWithChainedProxy);
+                    flow.first(SOCKS5CONNECTRequestWithChainedProxy);
                     authSuccess = true;
                 }
                 else if (selectedAuthMethod == Socks5AuthMethod.PASSWORD) {
                     // Insert a password negotiation step:
-                    flow.next(SOCKS5SendPasswordCredentials);
+                    flow.first(SOCKS5SendPasswordCredentials);
                     authSuccess = true;
                 }
                 else {
@@ -881,7 +881,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         void read(ConnectionFlow flow, Object msg) {
             if (msg instanceof Socks5PasswordAuthResponse) {
                 if (((Socks5PasswordAuthResponse) msg).status() == Socks5PasswordAuthStatus.SUCCESS) {
-                    flow.next(SOCKS5CONNECTRequestWithChainedProxy);
+                    flow.first(SOCKS5CONNECTRequestWithChainedProxy);
                     flow.advance();
                     return;
                 }
