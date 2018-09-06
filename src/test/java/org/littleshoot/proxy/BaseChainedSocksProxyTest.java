@@ -74,7 +74,7 @@ abstract public class BaseChainedSocksProxyTest extends BaseProxyTest {
                                 return socksProxyType;
                             default:
                                 fail(socksProxyType + " is not a type of SOCKS proxy");
-                                throw new IllegalArgumentException(socksProxyType + " is not a type of SOCKS proxy");
+                                throw new UnknownChainedProxyTypeException(socksProxyType);
                         }
                     }
                 });
