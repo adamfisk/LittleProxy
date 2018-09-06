@@ -3,8 +3,8 @@ package org.littleshoot.proxy.impl;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * Coordinates the various steps involved in establishing a connection, such as
@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * processing, and so on.
  */
 class ConnectionFlow {
-    private Queue<ConnectionFlowStep> steps = new ConcurrentLinkedQueue<ConnectionFlowStep>();
+    private Deque<ConnectionFlowStep> steps = new ConcurrentLinkedDeque<ConnectionFlowStep>();
 
     private final ClientToProxyConnection clientConnection;
     private final ProxyToServerConnection serverConnection;
@@ -43,13 +43,24 @@ class ConnectionFlow {
     }
 
     /**
-     * Add a {@link ConnectionFlowStep} to this flow.
+     * Add a {@link ConnectionFlowStep} to the beginning of this flow.
+     * 
+     * @param step
+     * @return
+     */
+    ConnectionFlow first(ConnectionFlowStep step) {
+        steps.addFirst(step);
+        return this;
+    }
+
+    /**
+     * Add a {@link ConnectionFlowStep} to the end of this flow.
      * 
      * @param step
      * @return
      */
     ConnectionFlow then(ConnectionFlowStep step) {
-        steps.add(step);
+        steps.addLast(step);
         return this;
     }
 
