@@ -1,22 +1,21 @@
-[![Build Status](https://travis-ci.org/adamfisk/LittleProxy.png?branch=master)](https://travis-ci.org/adamfisk/LittleProxy)
+This is an updated fork of adamfisk's LittleProxy with only some of dependencies updated to their most recent versions. It is published with all those tha cannot wait for it's  1.1.3 release, and yet need to have it in Maven central.
 
 LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's excellent [Netty](http://netty.io) event-based networking library. It's quite stable, performs well, and is easy to integrate into your projects. 
 
 One option is to clone LittleProxy and run it from the command line. This is as simple as:
 
 ```
-$ git clone git://github.com/adamfisk/LittleProxy.git
+$ git clone git@github.com:JockX/LittleProxy.git
 $ cd LittleProxy
 $ ./run.bash
 ```
 
 You can embed LittleProxy in your own projects through Maven with the following:
-
 ```
     <dependency>
-        <groupId>org.littleshoot</groupId>
+        <groupId>net.jockx</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>1.1.2</version>
+        <version>1.1.3</version>
     </dependency>
 ```
 
