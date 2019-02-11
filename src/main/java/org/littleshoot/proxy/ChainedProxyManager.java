@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import io.netty.handler.codec.http.HttpRequest;
+import org.littleshoot.proxy.impl.ClientDetails;
 
 import java.util.Queue;
 
@@ -32,7 +33,9 @@ public interface ChainedProxyManager {
      * 
      * @param httpRequest
      * @param chainedProxies
+     * @param clientDetails
      */
     void lookupChainedProxies(HttpRequest httpRequest,
-            Queue<ChainedProxy> chainedProxies);
+                              Queue<ChainedProxy> chainedProxies,
+                              ClientDetails clientDetails);
 }

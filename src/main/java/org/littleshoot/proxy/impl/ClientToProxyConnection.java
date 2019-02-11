@@ -141,6 +141,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private volatile HttpRequest currentRequest;
 
+    private final ClientDetails clientDetails = new ClientDetails();
+
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
             SslEngineSource sslEngineSource,
@@ -994,6 +996,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             writeAuthenticationRequired(authenticator.getRealm());
             return true;
         }
+        clientDetails.setUserName(userName);
 
         LOG.debug("Got proxy authorization!");
         // We need to remove the header before sending the request on.
@@ -1402,6 +1405,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void recordClientConnected() {
         try {
             InetSocketAddress clientAddress = getClientAddress();
+            clientDetails.setClientAddress(clientAddress);
             for (ActivityTracker tracker : proxyServer
                     .getActivityTrackers()) {
                 tracker.clientConnected(clientAddress);
@@ -1450,6 +1454,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         } else {
             return new FlowContext(this);
         }
+    }
+
+    public ClientDetails getClientDetails() {
+        return clientDetails;
     }
 
 }

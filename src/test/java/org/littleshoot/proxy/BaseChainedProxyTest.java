@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import io.netty.handler.codec.http.HttpRequest;
+import org.littleshoot.proxy.impl.ClientDetails;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 import java.net.InetAddress;
@@ -70,7 +71,8 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
         return new ChainedProxyManager() {
             @Override
             public void lookupChainedProxies(HttpRequest httpRequest,
-                    Queue<ChainedProxy> chainedProxies) {
+                                             Queue<ChainedProxy> chainedProxies,
+                                             ClientDetails clientDetails) {
                 chainedProxies.add(newChainedProxy());
             }
         };
