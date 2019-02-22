@@ -106,7 +106,9 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             final KeyStore ks = KeyStore.getInstance("JKS");
             // ks.load(new FileInputStream("keystore.jks"),
             // "changeit".toCharArray());
-            ks.load(new FileInputStream(keyStoreFile), PASSWORD.toCharArray());
+            try (InputStream is = new FileInputStream(keyStoreFile)) {
+                ks.load(is, PASSWORD.toCharArray());
+            }
 
             // Set up key manager factory to use our key store
             final KeyManagerFactory kmf =
@@ -164,9 +166,10 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         final ProcessBuilder pb = new ProcessBuilder(commands);
         try {
             final Process process = pb.start();
-            final InputStream is = process.getInputStream();
-
-            byte[] data = ByteStreams.toByteArray(is);
+            byte[] data;
+            try (InputStream is = process.getInputStream()) {
+                data = ByteStreams.toByteArray(is);
+            }
             String dataAsString = new String(data);
 
             LOG.info("Completed native call: '{}'\nResponse: '" + dataAsString + "'",

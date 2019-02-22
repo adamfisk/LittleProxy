@@ -93,22 +93,19 @@ public class VariableSpeedClientServerTest {
         final long cl = entity.getContentLength();
         assertEquals(CONTENT_LENGTH, cl);
 
-        InputStream content = entity.getContent();
-        if (!slowServer) {
-            content = new ThrottledInputStream(entity.getContent(), 10 * 1000);
-        }
-        final byte[] input = new byte[100000];
-        int read = content.read(input);
-
         int bytesRead = 0;
-        while (read != -1) {
-            bytesRead += read;
-            read = content.read(input);
+        try (InputStream content = slowServer ? new ThrottledInputStream(entity.getContent(), 10 * 1000) : entity.getContent()) {
+            final byte[] input = new byte[100000];
+            int read = content.read(input);
+
+            while (read != -1) {
+                bytesRead += read;
+                read = content.read(input);
+            }
         }
         assertEquals(CONTENT_LENGTH, bytesRead);
         // final String body = IOUtils.toString(entity.getContent());
         EntityUtils.consume(entity);
-        content.close();
         System.out
                 .println("------------------ Memory Usage At Beginning ------------------");
         TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
@@ -138,39 +135,37 @@ public class VariableSpeedClientServerTest {
         try {
             server.setSoTimeout(100000);
             final Socket sock = server.accept();
-            InputStream is = sock.getInputStream();
-            if (slowReader) {
-                is = new ThrottledInputStream(is, 10 * 1000);
+            try (InputStream is = slowReader ? new ThrottledInputStream(sock.getInputStream(), 10 * 1000) : sock.getInputStream();
+                 BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+                while (br.read() != 0) {
+                }
             }
-            BufferedReader br = new BufferedReader(new InputStreamReader(is));
-            while (br.read() != 0) {
+            try (OutputStream os = sock.getOutputStream()) {
+                final String responseHeaders =
+                        "HTTP/1.1 200 OK\r\n" +
+                                "Date: Sun, 20 Jan 2013 00:16:23 GMT\r\n" +
+                                "Expires: -1\r\n" +
+                                "Cache-Control: private, max-age=0\r\n" +
+                                "Content-Type: text/html; charset=ISO-8859-1\r\n" +
+                                "Server: gws\r\n" +
+                                "Content-Length: " + CONTENT_LENGTH + "\r\n\r\n"; // 10
+                // gigs
+                // or
+                // so.
+
+                os.write(responseHeaders.getBytes(Charset.forName("UTF-8")));
+
+                int bufferSize = 100000;
+                final byte[] bytes = new byte[bufferSize];
+                Arrays.fill(bytes, (byte) 77);
+                int remainingBytes = CONTENT_LENGTH;
+
+                while (remainingBytes > 0) {
+                    int numberOfBytesToWrite = Math.min(remainingBytes, bufferSize);
+                    os.write(bytes, 0, numberOfBytesToWrite);
+                    remainingBytes -= numberOfBytesToWrite;
+                }
             }
-            final OutputStream os = sock.getOutputStream();
-            final String responseHeaders =
-                    "HTTP/1.1 200 OK\r\n" +
-                            "Date: Sun, 20 Jan 2013 00:16:23 GMT\r\n" +
-                            "Expires: -1\r\n" +
-                            "Cache-Control: private, max-age=0\r\n" +
-                            "Content-Type: text/html; charset=ISO-8859-1\r\n" +
-                            "Server: gws\r\n" +
-                            "Content-Length: " + CONTENT_LENGTH + "\r\n\r\n"; // 10
-                                                                              // gigs
-                                                                              // or
-                                                                              // so.
-
-            os.write(responseHeaders.getBytes(Charset.forName("UTF-8")));
-
-            int bufferSize = 100000;
-            final byte[] bytes = new byte[bufferSize];
-            Arrays.fill(bytes, (byte) 77);
-            int remainingBytes = CONTENT_LENGTH;
-
-            while (remainingBytes > 0) {
-                int numberOfBytesToWrite = Math.min(remainingBytes, bufferSize);
-                os.write(bytes, 0, numberOfBytesToWrite);
-                remainingBytes -= numberOfBytesToWrite;
-            }
-            os.close();
         } finally {
             server.close();
         }
