@@ -49,7 +49,7 @@ public abstract class BaseProxyTest extends AbstractProxyTest {
     public void testProxyWithBadAddress()
             throws Exception {
         ResponseInfo response =
-                httpPostWithApacheClient(new HttpHost("127.123.213.222"),
+                httpPostWithApacheClient(new HttpHost("test.localhost"),
                         DEFAULT_RESOURCE, true);
         assertReceivedBadGateway(response);
     }
