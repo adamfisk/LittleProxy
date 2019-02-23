@@ -30,7 +30,7 @@ public class IdleTest {
     public void setup() throws Exception {
         assumeTrue("Skipping due to non-Unix OS", TestUtils.isUnixManagementCapable());
 
-        assumeFalse("Skipping for travis-ci build", "true".equals(System.getenv("TRAVIS")));
+        assumeFalse("Skipping for Jenkins build", "true".equals(System.getenv("JENKINS")));
 
         webServer = new Server(0);
         webServer.start();
