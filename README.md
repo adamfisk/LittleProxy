@@ -1,3 +1,5 @@
+[![Build Status](https://ci.codemc.org/buildStatus/icon?job=mrog%2FLittleProxy)](https://ci.codemc.org/job/mrog/job/LittleProxy/)
+
 This is an updated fork of adamfisk's LittleProxy.  The original project appears to have been abondoned.  Because it's so incredibly useful, it's being brought back to life in this repository.
 
 LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's excellent [Netty](http://netty.io) event-based networking library. It's quite stable, performs well, and is easy to integrate into your projects. 
@@ -10,14 +12,7 @@ $ cd LittleProxy
 $ ./run.bash
 ```
 
-You can embed LittleProxy in your own projects through Maven with the following:
-```
-    <dependency>
-        <groupId>xyz.rogfam</groupId>
-        <artifactId>littleproxy</artifactId>
-        <version>2.0.0</version>
-    </dependency>
-```
+This project will soon be in maven central.  That will make it easier to use.
 
 Once you've included LittleProxy, you can start the server with the following:
 
