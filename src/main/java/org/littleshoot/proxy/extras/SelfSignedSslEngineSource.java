@@ -31,22 +31,29 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     private static final Logger LOG = LoggerFactory
             .getLogger(SelfSignedSslEngineSource.class);
 
-    private static final String ALIAS = "littleproxy";
-    private static final String PASSWORD = "Be Your Own Lantern";
     private static final String PROTOCOL = "TLS";
+
+    private final String alias;
+    private final String password;
     private final File keyStoreFile;
     private final boolean trustAllServers;
     private final boolean sendCerts;
 
     private SSLContext sslContext;
 
-    public SelfSignedSslEngineSource(String keyStorePath,
-            boolean trustAllServers, boolean sendCerts) {
+    public SelfSignedSslEngineSource(String keyStorePath, boolean trustAllServers, boolean sendCerts,
+        String alias, String password) {
         this.trustAllServers = trustAllServers;
         this.sendCerts = sendCerts;
         this.keyStoreFile = new File(keyStorePath);
+        this.alias = alias;
+        this.password = password;
         initializeKeyStore();
         initializeSSLContext();
+    }
+
+    public SelfSignedSslEngineSource(String keyStorePath, boolean trustAllServers, boolean sendCerts) {
+        this(keyStorePath, trustAllServers, sendCerts, "littleproxy", "Be Your Own Lantern");
     }
 
     public SelfSignedSslEngineSource(String keyStorePath) {
@@ -85,13 +92,13 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             return;
         }
 
-        nativeCall("keytool", "-genkey", "-alias", ALIAS, "-keysize",
+        nativeCall("keytool", "-genkey", "-alias", alias, "-keysize",
                 "4096", "-validity", "36500", "-keyalg", "RSA", "-dname",
-                "CN=littleproxy", "-keypass", PASSWORD, "-storepass",
-                PASSWORD, "-keystore", keyStoreFile.getName());
+                "CN=littleproxy", "-keypass", password, "-storepass",
+                password, "-keystore", keyStoreFile.getName());
 
-        nativeCall("keytool", "-exportcert", "-alias", ALIAS, "-keystore",
-                keyStoreFile.getName(), "-storepass", PASSWORD, "-file",
+        nativeCall("keytool", "-exportcert", "-alias", alias, "-keystore",
+                keyStoreFile.getName(), "-storepass", password, "-file",
                 "littleproxy_cert");
     }
 
@@ -107,13 +114,13 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             // ks.load(new FileInputStream("keystore.jks"),
             // "changeit".toCharArray());
             try (InputStream is = new FileInputStream(keyStoreFile)) {
-                ks.load(is, PASSWORD.toCharArray());
+                ks.load(is, password.toCharArray());
             }
 
             // Set up key manager factory to use our key store
             final KeyManagerFactory kmf =
                     KeyManagerFactory.getInstance(algorithm);
-            kmf.init(ks, PASSWORD.toCharArray());
+            kmf.init(ks, password.toCharArray());
 
             // Set up a trust manager factory to use our key store
             TrustManagerFactory tmf = TrustManagerFactory
