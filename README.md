@@ -16,7 +16,7 @@ You can embed LittleProxy in your own projects through Maven with the following:
     <dependency>
         <groupId>org.littleshoot</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>1.1.2</version>
+        <version>1.1.3</version>
     </dependency>
 ```
 
