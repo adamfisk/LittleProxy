@@ -111,8 +111,6 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 
         try {
             final KeyStore ks = KeyStore.getInstance("JKS");
-            // ks.load(new FileInputStream("keystore.jks"),
-            // "changeit".toCharArray());
             try (InputStream is = new FileInputStream(keyStoreFile)) {
                 ks.load(is, password.toCharArray());
             }
