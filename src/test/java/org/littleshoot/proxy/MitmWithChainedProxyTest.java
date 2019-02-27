@@ -18,24 +18,24 @@ import io.netty.handler.codec.http.HttpResponse;
 
 /**
  * Tests a proxy that runs as a MITM and which is chained with
- * another proxy. 
+ * another proxy.
  */
 public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
-    private Set<HttpMethod> requestPreMethodsSeen = new HashSet<HttpMethod>();
-    private Set<HttpMethod> requestPostMethodsSeen = new HashSet<HttpMethod>();
+    private Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
+    private Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
     private StringBuilder responsePreBody = new StringBuilder();
     private StringBuilder responsePostBody = new StringBuilder();
-    private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
-    private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
-    
+    private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<>();
+    private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<>();
+
     @Override
     protected void setUp() {
-   	
+
         REQUESTS_SENT_BY_DOWNSTREAM.set(0);
         REQUESTS_RECEIVED_BY_UPSTREAM.set(0);
         TRANSPORTS_USED.clear();
         this.upstreamProxy = upstreamProxy().start();
-    	
+
         this.proxyServer = bootstrapProxy()
                 .withPort(0)
                 .withChainProxyManager(chainedProxyManager())
@@ -99,7 +99,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                 })
                 .start();
     }
-    
+
     @Override
     protected boolean isMITM() {
         return true;
@@ -135,7 +135,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
             assertResponseFromFiltersMatchesActualResponse();
         }
     }
-    
+
     @Override
     public void testSimplePostRequestOverHTTPS() throws Exception {
         super.testSimplePostRequestOverHTTPS();
@@ -146,7 +146,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
             assertResponseFromFiltersMatchesActualResponse();
         }
     }
-    
+
     private void assertMethodSeenInRequestFilters(HttpMethod method) {
         assertThat(method
                         + " should have been seen in clientToProxyRequest filter",
@@ -175,9 +175,9 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                 "Data received through HttpFilters.proxyToClientResponse should match response",
                 lastResponse, responsePostBody.toString());
     }
-    
+
     @Override
-    protected void tearDown() throws Exception {
+    protected void tearDown() {
         this.upstreamProxy.abort();
     }
 }
