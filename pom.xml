@@ -70,16 +70,6 @@
     <!-- disable doclint, since Java 8 treats warnings as errors -->
     <profiles>
         <profile>
-            <id>doclint-java8-disable</id>
-            <activation>
-                <jdk>[1.8,)</jdk>
-            </activation>
-            <properties>
-                <javadoc.opts>-Xdoclint:none</javadoc.opts>
-            </properties>
-        </profile>
-
-        <profile>
             <id>release</id>
             <build>
                 <plugins>
@@ -113,7 +103,7 @@
                         <configuration>
                             <source>${java.version}</source>
                             <!-- disable doclint, since Java 8 treats warnings as errors -->
-                            <additionalparam>${javadoc.opts}</additionalparam>
+                            <doclint>none</doclint>
                         </configuration>
                         <executions>
                             <execution>
@@ -484,7 +474,7 @@
                         <link>http://netty.io/4.0/api/</link>
                     </links>
                     <!-- disable doclint, since Java 8 treats warnings as errors -->
-                    <additionalparam>${javadoc.opts}</additionalparam>
+                    <doclint>none</doclint>
                 </configuration>
             </plugin>
 
@@ -575,7 +565,7 @@
                         <link>http://netty.io/4.0/api/</link>
                     </links>
                     <!-- disable doclint, since Java 8 treats warnings as errors -->
-                    <additionalparam>${javadoc.opts}</additionalparam>
+                    <doclint>none</doclint>
                 </configuration>
             </plugin>
             <plugin>
