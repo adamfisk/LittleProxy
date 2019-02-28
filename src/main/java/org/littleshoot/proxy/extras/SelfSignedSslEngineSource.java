@@ -164,18 +164,18 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         final KeyStore keyStore = KeyStore.getInstance("JKS");
         URL resourceUrl = getClass().getResource(keyStoreFile);
         if(resourceUrl != null) {
-            loadKetStore(keyStore, resourceUrl);
+            loadKeyStore(keyStore, resourceUrl);
         } else {
             File keyStoreLocalFile = new File(keyStoreFile);
             if(!keyStoreLocalFile.isFile()) {
                 initializeKeyStore(keyStoreLocalFile.getName());
             }
-            loadKetStore(keyStore, keyStoreLocalFile.toURI().toURL());
+            loadKeyStore(keyStore, keyStoreLocalFile.toURI().toURL());
         }
         return keyStore;
     }
 
-    private void loadKetStore(KeyStore keyStore, URL url) throws IOException, GeneralSecurityException {
+    private void loadKeyStore(KeyStore keyStore, URL url) throws IOException, GeneralSecurityException {
         try(InputStream is = url.openStream()) {
             keyStore.load(is, password.toCharArray());
         }
