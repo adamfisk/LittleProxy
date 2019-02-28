@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.com/mrog/LittleProxy.svg?branch=master)](https://travis-ci.com/mrog/LittleProxy)
+[![DepShield Badge](https://depshield.sonatype.org/badges/mrog/LittleProxy/depshield.svg)](https://depshield.github.io)
+
 This is an updated fork of adamfisk's LittleProxy.  The original project appears to have been abondoned.  Because it's so incredibly useful, it's being brought back to life in this repository.
 
 LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's excellent [Netty](http://netty.io) event-based networking library. It's quite stable, performs well, and is easy to integrate into your projects. 
