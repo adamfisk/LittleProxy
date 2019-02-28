@@ -8,7 +8,7 @@ import javax.net.ssl.SSLEngine;
 import static org.littleshoot.proxy.TransportProtocol.TCP;
 
 public class SelfSignedSslEngineChainedProxyTest extends BaseChainedProxyTest {
-    private final SslEngineSource sslEngineSource = new SelfSignedSslEngineSource("chain_proxy_keystore_1.jks",
+    private final SslEngineSource sslEngineSource = new SelfSignedSslEngineSource("/certificate/chain_proxy_keystore.jks",
             false, true, "littleproxy", "Be Your Own Lantern");
 
     @Override

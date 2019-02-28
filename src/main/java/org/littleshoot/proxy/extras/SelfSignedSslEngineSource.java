@@ -16,6 +16,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.Security;
 import java.security.cert.CertificateException;
@@ -35,7 +38,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
 
     private final String alias;
     private final String password;
-    private final File keyStoreFile;
+    private final String keyStoreFile;
     private final boolean trustAllServers;
     private final boolean sendCerts;
 
@@ -45,10 +48,9 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         String alias, String password) {
         this.trustAllServers = trustAllServers;
         this.sendCerts = sendCerts;
-        this.keyStoreFile = new File(keyStorePath);
+        this.keyStoreFile = keyStorePath;
         this.alias = alias;
         this.password = password;
-        initializeKeyStore();
         initializeSSLContext();
     }
 
@@ -86,19 +88,14 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         return sslContext;
     }
 
-    private void initializeKeyStore() {
-        if (keyStoreFile.isFile()) {
-            LOG.info("Not deleting keystore");
-            return;
-        }
-
+    private void initializeKeyStore(String filename) {
         nativeCall("keytool", "-genkey", "-alias", alias, "-keysize",
                 "4096", "-validity", "36500", "-keyalg", "RSA", "-dname",
                 "CN=littleproxy", "-keypass", password, "-storepass",
-                password, "-keystore", keyStoreFile.getName());
+                password, "-keystore", filename);
 
         nativeCall("keytool", "-exportcert", "-alias", alias, "-keystore",
-                keyStoreFile.getName(), "-storepass", password, "-file",
+                filename, "-storepass", password, "-file",
                 "littleproxy_cert");
     }
 
@@ -110,12 +107,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         }
 
         try {
-            final KeyStore ks = KeyStore.getInstance("JKS");
-            // ks.load(new FileInputStream("keystore.jks"),
-            // "changeit".toCharArray());
-            try (InputStream is = new FileInputStream(keyStoreFile)) {
-                ks.load(is, password.toCharArray());
-            }
+            final KeyStore ks = loadKeyStore();
 
             // Set up key manager factory to use our key store
             final KeyManagerFactory kmf =
@@ -165,6 +157,27 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         } catch (final Exception e) {
             throw new Error(
                     "Failed to initialize the server-side SSLContext", e);
+        }
+    }
+
+    private KeyStore loadKeyStore() throws IOException, GeneralSecurityException {
+        final KeyStore keyStore = KeyStore.getInstance("JKS");
+        URL resourceUrl = getClass().getResource(keyStoreFile);
+        if(resourceUrl != null) {
+            loadKeyStore(keyStore, resourceUrl);
+        } else {
+            File keyStoreLocalFile = new File(keyStoreFile);
+            if(!keyStoreLocalFile.isFile()) {
+                initializeKeyStore(keyStoreLocalFile.getName());
+            }
+            loadKeyStore(keyStore, keyStoreLocalFile.toURI().toURL());
+        }
+        return keyStore;
+    }
+
+    private void loadKeyStore(KeyStore keyStore, URL url) throws IOException, GeneralSecurityException {
+        try(InputStream is = url.openStream()) {
+            keyStore.load(is, password.toCharArray());
         }
     }
 
