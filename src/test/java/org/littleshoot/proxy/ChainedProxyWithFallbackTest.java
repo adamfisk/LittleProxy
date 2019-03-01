@@ -24,32 +24,28 @@ public class ChainedProxyWithFallbackTest extends BaseProxyTest {
         this.proxyServer = bootstrapProxy()
                 .withName("Downstream")
                 .withPort(0)
-                .withChainProxyManager(new ChainedProxyManager() {
-                    @Override
-                    public void lookupChainedProxies(HttpRequest httpRequest,
-                            Queue<ChainedProxy> chainedProxies) {
-                        chainedProxies.add(new ChainedProxyAdapter() {
-                            @Override
-                            public InetSocketAddress getChainedProxyAddress() {
-                                try {
-                                    // using unconnectable port 0
-                                    return new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0);
-                                } catch (UnknownHostException uhe) {
-                                    throw new RuntimeException(
-                                            "Unable to resolve 127.0.0.1?!");
-                                }
+                .withChainProxyManager((httpRequest, chainedProxies) -> {
+                    chainedProxies.add(new ChainedProxyAdapter() {
+                        @Override
+                        public InetSocketAddress getChainedProxyAddress() {
+                            try {
+                                // using unconnectable port 0
+                                return new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0);
+                            } catch (UnknownHostException uhe) {
+                                throw new RuntimeException(
+                                        "Unable to resolve 127.0.0.1?!");
                             }
+                        }
 
-                            @Override
-                            public void connectionFailed(Throwable cause) {
-                                unableToConnect.set(true);
-                            }
+                        @Override
+                        public void connectionFailed(Throwable cause) {
+                            unableToConnect.set(true);
+                        }
 
-                        });
+                    });
 
-                        chainedProxies
-                                .add(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
-                    }
+                    chainedProxies
+                            .add(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
                 })
                 .start();
     }

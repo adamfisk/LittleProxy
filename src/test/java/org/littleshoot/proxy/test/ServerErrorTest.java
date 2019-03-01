@@ -51,28 +51,25 @@ public class ServerErrorTest {
             throw new RuntimeException(e);
         }
 
-        Runnable server = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Socket socket = serverSocket.accept();
+        Runnable server = () -> {
+            try {
+                Socket socket = serverSocket.accept();
 
-                    try (PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-                        while (!in.readLine().isEmpty()) {
-                            // read the request up to the double-CRLF
-                        }
-
-                        // write a a response with an invalid HTTP version
-                        out.write("HTTP/1.12312312312312411231231231 200 OK\r\n" +
-                                "Connection: close\r\n" +
-                                "Content-Length: 0\r\n" +
-                                "\r\n");
-                        out.flush();
+                try (PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                     BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+                    while (!in.readLine().isEmpty()) {
+                        // read the request up to the double-CRLF
                     }
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+
+                    // write a a response with an invalid HTTP version
+                    out.write("HTTP/1.12312312312312411231231231 200 OK\r\n" +
+                            "Connection: close\r\n" +
+                            "Content-Length: 0\r\n" +
+                            "\r\n");
+                    out.flush();
                 }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         };
 

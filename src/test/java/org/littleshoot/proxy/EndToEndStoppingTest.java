@@ -44,7 +44,7 @@ public class EndToEndStoppingTest {
     @Before
     public void setUp() {
         mockServer = new ClientAndServer(0);
-        mockServerPort = mockServer.getPort();
+        mockServerPort = mockServer.getLocalPort();
     }
 
     @After
@@ -61,7 +61,7 @@ public class EndToEndStoppingTest {
      * explicitly calling System.exit(), which running as an application
      * properly tests.
      */
-    public static void main(final String[] args) throws Exception {
+    public static void main(final String[] args) {
         HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .start();
@@ -165,7 +165,7 @@ public class EndToEndStoppingTest {
     }
 
     // @Test
-    public void testWithWebDriver() throws Exception {
+    public void testWithWebDriver() {
         HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .start();

@@ -118,22 +118,18 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
                     .getInstance(algorithm);
             tmf.init(ks);
 
-            TrustManager[] trustManagers = null;
+            TrustManager[] trustManagers;
             if (!trustAllServers) {
                 trustManagers = tmf.getTrustManagers();
             } else {
                 trustManagers = new TrustManager[] { new X509TrustManager() {
                     // TrustManager that trusts all servers
                     @Override
-                    public void checkClientTrusted(X509Certificate[] arg0,
-                            String arg1)
-                            throws CertificateException {
+                    public void checkClientTrusted(X509Certificate[] arg0, String arg1) {
                     }
 
                     @Override
-                    public void checkServerTrusted(X509Certificate[] arg0,
-                            String arg1)
-                            throws CertificateException {
+                    public void checkServerTrusted(X509Certificate[] arg0, String arg1) {
                     }
 
                     @Override
@@ -143,7 +139,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
                 } };
             }
             
-            KeyManager[] keyManagers = null;
+            KeyManager[] keyManagers;
             if (sendCerts) {
                 keyManagers = kmf.getKeyManagers();
             } else {

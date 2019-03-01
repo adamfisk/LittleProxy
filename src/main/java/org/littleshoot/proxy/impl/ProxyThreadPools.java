@@ -47,7 +47,7 @@ public class ProxyThreadPools {
      * Returns all event loops (acceptor and worker thread pools) in this pool.
      */
     public List<EventLoopGroup> getAllEventLoops() {
-        return ImmutableList.<EventLoopGroup>of(clientToProxyAcceptorPool, clientToProxyWorkerPool, proxyToServerWorkerPool);
+        return ImmutableList.of(clientToProxyAcceptorPool, clientToProxyWorkerPool, proxyToServerWorkerPool);
     }
 
     public NioEventLoopGroup getClientToProxyAcceptorPool() {

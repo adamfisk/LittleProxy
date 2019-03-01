@@ -395,9 +395,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * @param sslEngine
      *            the {@link SSLEngine} for doing the encryption
      */
-    protected ConnectionFlowStep EncryptChannel(
-            final SSLEngine sslEngine) {
-
+    protected ConnectionFlowStep EncryptChannel(final SSLEngine sslEngine) {
         return new ConnectionFlowStep(this, HANDSHAKING) {
             @Override
             boolean shouldExecuteOnEventLoop() {
@@ -409,7 +407,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 return encrypt(sslEngine, !runsAsSslClient);
             }
         };
-    };
+    }
 
     /**
      * Enables decompression and aggregation of content, which is useful for
@@ -464,32 +462,21 @@ abstract class ProxyConnection<I extends HttpObject> extends
         } else {
             final Promise<Void> promise = channel.newPromise();
             writeToChannel(Unpooled.EMPTY_BUFFER).addListener(
-                    new GenericFutureListener<Future<? super Void>>() {
-                        @Override
-                        public void operationComplete(
-                                Future<? super Void> future)
-                                throws Exception {
-                            closeChannel(promise);
-                        }
-                    });
+                    future -> closeChannel(promise));
             return promise;
         }
     }
 
     private void closeChannel(final Promise<Void> promise) {
         channel.close().addListener(
-                new GenericFutureListener<Future<? super Void>>() {
-                    public void operationComplete(
-                            Future<? super Void> future)
-                            throws Exception {
-                        if (future
-                                .isSuccess()) {
-                            promise.setSuccess(null);
-                        } else {
-                            promise.setFailure(future
-                                    .cause());
-                        }
-                    };
+                future -> {
+                    if (future
+                            .isSuccess()) {
+                        promise.setSuccess(null);
+                    } else {
+                        promise.setFailure(future
+                                .cause());
+                    }
                 });
     }
 
@@ -582,8 +569,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Adapting the Netty API
      **************************************************************************/
     @Override
-    protected final void channelRead0(ChannelHandlerContext ctx, Object msg)
-            throws Exception {
+    protected final void channelRead0(ChannelHandlerContext ctx, Object msg) {
         read(msg);
     }
 
@@ -640,8 +626,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     }
 
     @Override
-    public final void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
-            throws Exception {
+    public final void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         exceptionCaught(cause);
     }
 

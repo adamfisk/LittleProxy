@@ -33,7 +33,7 @@ public class HttpStreamingFilterTest {
             0);
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         numberOfInitialRequestsFiltered.set(0);
         numberOfSubsequentChunksFiltered.set(0);
 

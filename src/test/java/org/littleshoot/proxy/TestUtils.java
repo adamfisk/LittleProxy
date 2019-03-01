@@ -13,10 +13,8 @@ import java.security.cert.X509Certificate;
 import java.util.Objects;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -284,38 +282,20 @@ public class TestUtils {
             // Math.abs(Integer.MIN_VALUE) == Integer.MIN_VALUE -- caught
             // by FindBugs.
             final int randomPort = 1024 + (Math.abs(secureRandom.nextInt() + 1) % 60000);
-            ServerSocket sock = null;
-            try {
-                sock = new ServerSocket();
+            try (ServerSocket sock = new ServerSocket()) {
                 sock.bind(new InetSocketAddress("127.0.0.1", randomPort));
                 return sock.getLocalPort();
-            } catch (final IOException e) {
-            } finally {
-                if (sock != null) {
-                    try {
-                        sock.close();
-                    } catch (IOException e) {
-                    }
-                }
+            } catch (final IOException ignored) {
             }
         }
 
         // If we can't grab one of our securely chosen random ports, use
         // whatever port the OS assigns.
-        ServerSocket sock = null;
-        try {
-            sock = new ServerSocket();
+        try (ServerSocket sock = new ServerSocket()) {
             sock.bind(null);
             return sock.getLocalPort();
         } catch (final IOException e) {
             return 1024 + (Math.abs(secureRandom.nextInt() + 1) % 60000);
-        } finally {
-            if (sock != null) {
-                try {
-                    sock.close();
-                } catch (IOException e) {
-                }
-            }
         }
     }
     

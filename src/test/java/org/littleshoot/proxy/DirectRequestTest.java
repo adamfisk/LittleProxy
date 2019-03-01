@@ -30,19 +30,19 @@ public class DirectRequestTest {
     private HttpProxyServer proxyServer;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         proxyServer = null;
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         if (proxyServer != null) {
             proxyServer.abort();
         }
     }
 
     @Test(timeout = 5000)
-    public void testAnswerBadRequestInsteadOfEndlessLoop() throws Exception {
+    public void testAnswerBadRequestInsteadOfEndlessLoop() {
 
         startProxyServer();
 
@@ -54,7 +54,7 @@ public class DirectRequestTest {
     }
 
     @Test(timeout = 5000)
-    public void testAnswerFromFilterShouldBeServed() throws Exception {
+    public void testAnswerFromFilterShouldBeServed() {
 
         startProxyServerWithFilterAnsweringStatusCode(403);
 

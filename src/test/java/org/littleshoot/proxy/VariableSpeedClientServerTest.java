@@ -73,7 +73,7 @@ public class VariableSpeedClientServerTest {
             private int remaining = CONTENT_LENGTH;
 
             @Override
-            public int read() throws IOException {
+            public int read() {
                 if (remaining > 0) {
                     remaining -= 1;
                     return 77;
@@ -83,7 +83,7 @@ public class VariableSpeedClientServerTest {
             }
 
             @Override
-            public int available() throws IOException {
+            public int available() {
                 return remaining;
             }
         }, CONTENT_LENGTH));
@@ -114,19 +114,13 @@ public class VariableSpeedClientServerTest {
         TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
     }
 
-    private void startServer(final int port, final boolean slowReader)
-            throws Exception {
-        final Thread t = new Thread(new Runnable() {
-
-            @Override
-            public void run() {
-                try {
-                    startServerOnThread(port, slowReader);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+    private void startServer(final int port, final boolean slowReader) {
+        final Thread t = new Thread(() -> {
+            try {
+                startServerOnThread(port, slowReader);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-
         }, "Test-Server-Thread");
         t.setDaemon(true);
         t.start();
@@ -134,8 +128,7 @@ public class VariableSpeedClientServerTest {
 
     private void startServerOnThread(int port, boolean slowReader)
             throws Exception {
-        final ServerSocket server = new ServerSocket(port);
-        try {
+        try (ServerSocket server = new ServerSocket(port)) {
             server.setSoTimeout(100000);
             final Socket sock = server.accept();
             InputStream is = sock.getInputStream();
@@ -154,9 +147,9 @@ public class VariableSpeedClientServerTest {
                             "Content-Type: text/html; charset=ISO-8859-1\r\n" +
                             "Server: gws\r\n" +
                             "Content-Length: " + CONTENT_LENGTH + "\r\n\r\n"; // 10
-                                                                              // gigs
-                                                                              // or
-                                                                              // so.
+            // gigs
+            // or
+            // so.
 
             os.write(responseHeaders.getBytes(Charset.forName("UTF-8")));
 
@@ -171,8 +164,6 @@ public class VariableSpeedClientServerTest {
                 remainingBytes -= numberOfBytesToWrite;
             }
             os.close();
-        } finally {
-            server.close();
         }
     }
 }

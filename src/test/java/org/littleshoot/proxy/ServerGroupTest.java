@@ -32,7 +32,7 @@ public class ServerGroupTest {
     @Before
     public void setUp() {
         mockServer = new ClientAndServer(0);
-        mockServerPort = mockServer.getPort();
+        mockServerPort = mockServer.getLocalPort();
     }
 
     @After
@@ -79,11 +79,11 @@ public class ServerGroupTest {
         // save the names of the threads that execute the filter methods. filter methods are executed by the worker thread
         // handling the request/response, so if there is only one worker thread, the filter methods should be executed
         // by the same thread.
-        final AtomicReference<String> firstClientThreadName = new AtomicReference<String>();
-        final AtomicReference<String> secondClientThreadName = new AtomicReference<String>();
+        final AtomicReference<String> firstClientThreadName = new AtomicReference<>();
+        final AtomicReference<String> secondClientThreadName = new AtomicReference<>();
 
-        final AtomicReference<String> firstProxyThreadName = new AtomicReference<String>();
-        final AtomicReference<String> secondProxyThreadName = new AtomicReference<String>();
+        final AtomicReference<String> firstProxyThreadName = new AtomicReference<>();
+        final AtomicReference<String> secondProxyThreadName = new AtomicReference<>();
 
         proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
@@ -93,9 +93,9 @@ public class ServerGroupTest {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
                             public io.netty.handler.codec.http.HttpResponse clientToProxyRequest(HttpObject httpObject) {
-                                if (originalRequest.getUri().endsWith(firstRequestPath)) {
+                                if (originalRequest.uri().endsWith(firstRequestPath)) {
                                     firstClientThreadName.set(Thread.currentThread().getName());
-                                } else if (originalRequest.getUri().endsWith(secondRequestPath)) {
+                                } else if (originalRequest.uri().endsWith(secondRequestPath)) {
                                     secondClientThreadName.set(Thread.currentThread().getName());
                                 }
 
@@ -104,9 +104,9 @@ public class ServerGroupTest {
 
                             @Override
                             public void serverToProxyResponseReceived() {
-                                if (originalRequest.getUri().endsWith(firstRequestPath)) {
+                                if (originalRequest.uri().endsWith(firstRequestPath)) {
                                     firstProxyThreadName.set(Thread.currentThread().getName());
-                                } else if (originalRequest.getUri().endsWith(secondRequestPath)) {
+                                } else if (originalRequest.uri().endsWith(secondRequestPath)) {
                                     secondProxyThreadName.set(Thread.currentThread().getName());
                                 }
                             }
@@ -121,20 +121,14 @@ public class ServerGroupTest {
 
         // execute both requests in parallel, to increase the chance of blocking due to the single-threaded ThreadPoolConfiguration
 
-        Runnable firstRequest = new Runnable() {
-            @Override
-            public void run() {
-                HttpResponse response = HttpClientUtil.performHttpGet("http://localhost:" + mockServerPort + firstRequestPath, proxyServer);
-                assertEquals(200, response.getStatusLine().getStatusCode());
-            }
+        Runnable firstRequest = () -> {
+            HttpResponse response = HttpClientUtil.performHttpGet("http://localhost:" + mockServerPort + firstRequestPath, proxyServer);
+            assertEquals(200, response.getStatusLine().getStatusCode());
         };
 
-        Runnable secondRequest = new Runnable () {
-            @Override
-            public void run() {
-                HttpResponse response = HttpClientUtil.performHttpGet("http://localhost:" + mockServerPort + secondRequestPath, proxyServer);
-                assertEquals(200, response.getStatusLine().getStatusCode());
-            }
+        Runnable secondRequest = () -> {
+            HttpResponse response = HttpClientUtil.performHttpGet("http://localhost:" + mockServerPort + secondRequestPath, proxyServer);
+            assertEquals(200, response.getStatusLine().getStatusCode());
         };
 
         ExecutorService executor = Executors.newFixedThreadPool(2);

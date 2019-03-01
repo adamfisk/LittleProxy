@@ -14,12 +14,8 @@ public class NoChainedProxiesTest extends AbstractProxyTest {
     protected void setUp() {
         this.proxyServer = bootstrapProxy()
                 .withPort(0)
-                .withChainProxyManager(new ChainedProxyManager() {
-                    @Override
-                    public void lookupChainedProxies(HttpRequest httpRequest,
-                            Queue<ChainedProxy> chainedProxies) {
-                        // Leave list empty
-                    }
+                .withChainProxyManager((httpRequest, chainedProxies) -> {
+                    // Leave list empty
                 })
                 .withIdleConnectionTimeout(1)
                 .start();

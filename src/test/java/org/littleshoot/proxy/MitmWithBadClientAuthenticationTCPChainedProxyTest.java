@@ -4,7 +4,6 @@ import static org.littleshoot.proxy.TransportProtocol.*;
 
 import javax.net.ssl.SSLEngine;
 
-import org.junit.Ignore;
 import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 
 /**

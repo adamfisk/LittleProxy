@@ -51,7 +51,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPreMethodsSeen
                                             .add(((HttpRequest) httpObject)
-                                                    .getMethod());
+                                                    .method());
                                 }
                                 return null;
                             }
@@ -62,7 +62,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPostMethodsSeen
                                             .add(((HttpRequest) httpObject)
-                                                    .getMethod());
+                                                    .method());
                                 }
                                 return null;
                             }
@@ -72,7 +72,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                     HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePreOriginalRequestMethodsSeen
-                                            .add(originalRequest.getMethod());
+                                            .add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
                                     responsePreBody.append(((HttpContent) httpObject)
                                             .content().toString(
@@ -86,7 +86,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                     HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePostOriginalRequestMethodsSeen
-                                            .add(originalRequest.getMethod());
+                                            .add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
                                     responsePostBody.append(((HttpContent) httpObject)
                                             .content().toString(

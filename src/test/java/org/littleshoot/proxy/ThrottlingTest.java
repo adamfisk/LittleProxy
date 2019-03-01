@@ -50,7 +50,7 @@ public class ThrottlingTest {
     private int readWebServerPort;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         // Set up some large data
         largeData = new byte[100000];
         for (int i = 0; i < largeData.length; i++) {

@@ -24,15 +24,11 @@ public class ChainedProxyWithFallbackToDirectDueToSSLTest extends
     }
 
     protected ChainedProxyManager chainedProxyManager() {
-        return new ChainedProxyManager() {
-            @Override
-            public void lookupChainedProxies(HttpRequest httpRequest,
-                    Queue<ChainedProxy> chainedProxies) {
-                // This first one has a bad cert
-                chainedProxies.add(newChainedProxy());
-                chainedProxies
-                        .add(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
-            }
+        return (httpRequest, chainedProxies) -> {
+            // This first one has a bad cert
+            chainedProxies.add(newChainedProxy());
+            chainedProxies
+                    .add(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
         };
     }
 }
