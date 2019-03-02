@@ -145,7 +145,9 @@ For examples of configuring logging, see [src/test/resources/log4j.xml](src/test
 
 If you have questions, please visit our Google Group here:
 
-https://groups.google.com/forum/#!forum/littleproxy
+https://groups.google.com/forum/#!forum/littleproxy2
+
+(The original group at https://groups.google.com/forum/#!forum/littleproxy isn't accepting posts from new users.  But it's still a great resource if you're searching for older answers.)
 
 To subscribe, send an E-Mail to mailto:LittleProxy+subscribe@googlegroups.com. 
 Simply answering, don't clicking the button, bypasses Googles registration 
