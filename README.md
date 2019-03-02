@@ -13,7 +13,14 @@ $ cd LittleProxy
 $ ./run.bash
 ```
 
-This project will soon be in maven central.  That will make it easier to use.
+You can embed LittleProxy in your own projects through Maven with the following:
+```
+    <dependency>
+        <groupId>xyz.rogfam</groupId>
+        <artifactId>littleproxy</artifactId>
+        <version>2.0.0-beta-1</version>
+    </dependency>
+```
 
 Once you've included LittleProxy, you can start the server with the following:
 
