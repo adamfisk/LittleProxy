@@ -1,9 +1,13 @@
 [![Build Status](https://travis-ci.com/mrog/LittleProxy.svg?branch=master)](https://travis-ci.com/mrog/LittleProxy)
 [![DepShield Badge](https://depshield.sonatype.org/badges/mrog/LittleProxy/depshield.svg)](https://depshield.github.io)
 
-This is an updated fork of adamfisk's LittleProxy.  The original project appears to have been abondoned.  Because it's so incredibly useful, it's being brought back to life in this repository.
+This is an updated fork of adamfisk's LittleProxy.  The original project appears
+to have been abondoned.  Because it's so incredibly useful, it's being brought
+back to life in this repository.
 
-LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's excellent [Netty](http://netty.io) event-based networking library. It's quite stable, performs well, and is easy to integrate into your projects. 
+LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's
+excellent [Netty](http://netty.io) event-based networking library. It's quite
+stable, performs well, and is easy to integrate into your projects. 
 
 One option is to clone LittleProxy and run it from the command line. This is as simple as:
 
@@ -147,11 +151,11 @@ If you have questions, please visit our Google Group here:
 
 https://groups.google.com/forum/#!forum/littleproxy2
 
-(The original group at https://groups.google.com/forum/#!forum/littleproxy isn't accepting posts from new users.  But it's still a great resource if you're searching for older answers.)
+(The original group at https://groups.google.com/forum/#!forum/littleproxy isn't
+accepting posts from new users.  But it's still a great resource if you're
+searching for older answers.)
 
-To subscribe, send an E-Mail to mailto:LittleProxy+subscribe@googlegroups.com. 
-Simply answering, don't clicking the button, bypasses Googles registration 
-process. You will become a member. 
+To subscribe, send an E-Mail to mailto:LittleProxy2+subscribe@googlegroups.com. 
 
 Benchmarking instructions and results can be found [here](performance).
 
