@@ -155,7 +155,7 @@ https://groups.google.com/forum/#!forum/littleproxy2
 accepting posts from new users.  But it's still a great resource if you're
 searching for older answers.)
 
-To subscribe, send an E-Mail to mailto:LittleProxy2+subscribe@googlegroups.com. 
+To subscribe, send an e-mail to [LittleProxy2+subscribe@googlegroups.com](mailto:LittleProxy2+subscribe@googlegroups.com). 
 
 Benchmarking instructions and results can be found [here](performance).
 
