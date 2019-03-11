@@ -15,7 +15,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <github.global.server>github</github.global.server>
-        <netty.version>4.1.33.Final</netty.version>
+        <netty.version>4.1.34.Final</netty.version>
         <slf4j.version>1.7.26</slf4j.version>
         <java.version>1.8</java.version>
         <maven-javadoc-plugin.version>3.1.0</maven-javadoc-plugin.version>
