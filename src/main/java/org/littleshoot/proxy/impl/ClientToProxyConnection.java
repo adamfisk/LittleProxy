@@ -5,6 +5,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
+import io.netty.handler.codec.haproxy.HAProxyMessageDecoder;
 import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
@@ -103,6 +105,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             0);
 
     /**
+     * Keep track of proxy protocol header
+     */
+    private HAProxyMessage haProxyMessage = null;
+
+    /**
      * Keep track of how many servers are currently connected.
      */
     private final AtomicInteger numberOfCurrentlyConnectedServers = new AtomicInteger(
@@ -172,6 +179,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         this.globalTrafficShapingHandler = globalTrafficShapingHandler;
 
         LOG.debug("Created ClientToProxyConnection");
+    }
+
+    @Override
+    protected void readHAProxyMessage(HAProxyMessage msg) {
+        haProxyMessage = msg;
     }
 
     /***************************************************************************
@@ -783,6 +795,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
 
         pipeline.addLast("encoder", new HttpResponseEncoder());
+        if (isAcceptProxyProtocol()) {
+            pipeline.addLast("proxy-protocol-decoder", new HAProxyMessageDecoder());
+        }
         // We want to allow longer request lines, headers, and chunks
         // respectively.
         pipeline.addLast("decoder", new HttpRequestDecoder(
@@ -806,6 +821,22 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         .getIdleConnectionTimeout()));
 
         pipeline.addLast("handler", this);
+    }
+
+    /**
+     * Is the proxy server set to accept a proxy protocol header
+     * @return True if the proxy server set to accept a proxy protocol header. False otherwise
+     */
+    boolean isAcceptProxyProtocol() {
+        return proxyServer.isAcceptProxyProtocol();
+    }
+
+    /**
+     * Is the proxy server set to send a proxy protocol header
+     * @return True if the proxy server set to send a proxy protocol header. False otherwise
+     */
+    boolean isSendProxyProtocol() {
+        return proxyServer.isSendProxyProtocol();
     }
 
     /**
@@ -1450,6 +1481,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         } else {
             return new FlowContext(this);
         }
+    }
+
+    public HAProxyMessage getHaProxyMessage() {
+        return haProxyMessage;
     }
 
 }

@@ -13,6 +13,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -50,6 +51,7 @@ import java.net.UnknownHostException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
+import org.littleshoot.proxy.extras.HAProxyMessageEncoder;
 
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
@@ -213,6 +215,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         } else {
             super.read(msg);
         }
+    }
+
+    @Override
+    protected void readHAProxyMessage(HAProxyMessage msg) {
+        // NO-OP,
+        // We never expect server to send a proxy protocol message.
     }
 
     @Override
@@ -876,6 +884,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
 
+        if ( proxyServer.isSendProxyProtocol()) {
+            pipeline.addLast("proxy-protocol-encoder", new HAProxyMessageEncoder());
+        }
         pipeline.addLast("encoder", new HttpRequestEncoder());
         pipeline.addLast("decoder", new HeadAwareHttpResponseDecoder(
         		proxyServer.getMaxInitialLineLength(),
