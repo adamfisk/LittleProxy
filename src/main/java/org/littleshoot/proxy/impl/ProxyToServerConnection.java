@@ -163,7 +163,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 .getChainProxyManager();
         if (chainedProxyManager != null) {
             chainedProxyManager.lookupChainedProxies(initialHttpRequest,
-                    chainedProxies);
+                    chainedProxies, clientConnection.getClientDetails());
             if (chainedProxies.size() == 0) {
                 // ChainedProxyManager returned no proxies, can't connect
                 return null;

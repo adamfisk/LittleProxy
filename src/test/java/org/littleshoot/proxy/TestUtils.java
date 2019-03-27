@@ -88,10 +88,10 @@ public class TestUtils {
                 }
                 
                 long numberOfBytesRead = 0;
-                InputStream in = new BufferedInputStream(request
-                        .getInputStream());
-                while (in.read() != -1) {
-                    numberOfBytesRead += 1;
+                try (InputStream in = new BufferedInputStream(request.getInputStream())) {
+                    while (in.read() != -1) {
+                        numberOfBytesRead += 1;
+                    }
                 }
                 System.out.println("Done reading # of bytes: "
                         + numberOfBytesRead);
@@ -163,10 +163,10 @@ public class TestUtils {
                 }
 
                 long numberOfBytesRead = 0;
-                InputStream in = new BufferedInputStream(request
-                        .getInputStream());
-                while (in.read() != -1) {
-                    numberOfBytesRead += 1;
+                try (InputStream in = new BufferedInputStream(request.getInputStream())) {
+                    while (in.read() != -1) {
+                        numberOfBytesRead += 1;
+                    }
                 }
                 System.out.println("Done reading # of bytes: "
                         + numberOfBytesRead);

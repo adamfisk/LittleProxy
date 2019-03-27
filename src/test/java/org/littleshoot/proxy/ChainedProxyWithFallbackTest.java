@@ -9,6 +9,7 @@ import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.Assert;
+import org.littleshoot.proxy.impl.ClientDetails;
 
 /**
  * Tests a proxy chained to a missing downstream proxy. When the downstream
@@ -27,7 +28,8 @@ public class ChainedProxyWithFallbackTest extends BaseProxyTest {
                 .withChainProxyManager(new ChainedProxyManager() {
                     @Override
                     public void lookupChainedProxies(HttpRequest httpRequest,
-                            Queue<ChainedProxy> chainedProxies) {
+                                                     Queue<ChainedProxy> chainedProxies,
+                                                     ClientDetails clientDetails) {
                         chainedProxies.add(new ChainedProxyAdapter() {
                             @Override
                             public InetSocketAddress getChainedProxyAddress() {

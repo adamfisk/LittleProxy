@@ -16,6 +16,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.Security;
 import java.security.cert.CertificateException;
@@ -31,22 +34,28 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     private static final Logger LOG = LoggerFactory
             .getLogger(SelfSignedSslEngineSource.class);
 
-    private static final String ALIAS = "littleproxy";
-    private static final String PASSWORD = "Be Your Own Lantern";
     private static final String PROTOCOL = "TLS";
-    private final File keyStoreFile;
+
+    private final String alias;
+    private final String password;
+    private final String keyStoreFile;
     private final boolean trustAllServers;
     private final boolean sendCerts;
 
     private SSLContext sslContext;
 
-    public SelfSignedSslEngineSource(String keyStorePath,
-            boolean trustAllServers, boolean sendCerts) {
+    public SelfSignedSslEngineSource(String keyStorePath, boolean trustAllServers, boolean sendCerts,
+        String alias, String password) {
         this.trustAllServers = trustAllServers;
         this.sendCerts = sendCerts;
-        this.keyStoreFile = new File(keyStorePath);
-        initializeKeyStore();
+        this.keyStoreFile = keyStorePath;
+        this.alias = alias;
+        this.password = password;
         initializeSSLContext();
+    }
+
+    public SelfSignedSslEngineSource(String keyStorePath, boolean trustAllServers, boolean sendCerts) {
+        this(keyStorePath, trustAllServers, sendCerts, "littleproxy", "Be Your Own Lantern");
     }
 
     public SelfSignedSslEngineSource(String keyStorePath) {
@@ -79,19 +88,14 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         return sslContext;
     }
 
-    private void initializeKeyStore() {
-        if (keyStoreFile.isFile()) {
-            LOG.info("Not deleting keystore");
-            return;
-        }
-
-        nativeCall("keytool", "-genkey", "-alias", ALIAS, "-keysize",
+    private void initializeKeyStore(String filename) {
+        nativeCall("keytool", "-genkey", "-alias", alias, "-keysize",
                 "4096", "-validity", "36500", "-keyalg", "RSA", "-dname",
-                "CN=littleproxy", "-keypass", PASSWORD, "-storepass",
-                PASSWORD, "-keystore", keyStoreFile.getName());
+                "CN=littleproxy", "-keypass", password, "-storepass",
+                password, "-keystore", filename);
 
-        nativeCall("keytool", "-exportcert", "-alias", ALIAS, "-keystore",
-                keyStoreFile.getName(), "-storepass", PASSWORD, "-file",
+        nativeCall("keytool", "-exportcert", "-alias", alias, "-keystore",
+                filename, "-storepass", password, "-file",
                 "littleproxy_cert");
     }
 
@@ -103,15 +107,12 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         }
 
         try {
-            final KeyStore ks = KeyStore.getInstance("JKS");
-            // ks.load(new FileInputStream("keystore.jks"),
-            // "changeit".toCharArray());
-            ks.load(new FileInputStream(keyStoreFile), PASSWORD.toCharArray());
+            final KeyStore ks = loadKeyStore();
 
             // Set up key manager factory to use our key store
             final KeyManagerFactory kmf =
                     KeyManagerFactory.getInstance(algorithm);
-            kmf.init(ks, PASSWORD.toCharArray());
+            kmf.init(ks, password.toCharArray());
 
             // Set up a trust manager factory to use our key store
             TrustManagerFactory tmf = TrustManagerFactory
@@ -159,14 +160,36 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         }
     }
 
+    private KeyStore loadKeyStore() throws IOException, GeneralSecurityException {
+        final KeyStore keyStore = KeyStore.getInstance("JKS");
+        URL resourceUrl = getClass().getResource(keyStoreFile);
+        if(resourceUrl != null) {
+            loadKeyStore(keyStore, resourceUrl);
+        } else {
+            File keyStoreLocalFile = new File(keyStoreFile);
+            if(!keyStoreLocalFile.isFile()) {
+                initializeKeyStore(keyStoreLocalFile.getName());
+            }
+            loadKeyStore(keyStore, keyStoreLocalFile.toURI().toURL());
+        }
+        return keyStore;
+    }
+
+    private void loadKeyStore(KeyStore keyStore, URL url) throws IOException, GeneralSecurityException {
+        try(InputStream is = url.openStream()) {
+            keyStore.load(is, password.toCharArray());
+        }
+    }
+
     private String nativeCall(final String... commands) {
         LOG.info("Running '{}'", Arrays.asList(commands));
         final ProcessBuilder pb = new ProcessBuilder(commands);
         try {
             final Process process = pb.start();
-            final InputStream is = process.getInputStream();
-
-            byte[] data = ByteStreams.toByteArray(is);
+            byte[] data;
+            try (InputStream is = process.getInputStream()) {
+                data = ByteStreams.toByteArray(is);
+            }
             String dataAsString = new String(data);
 
             LOG.info("Completed native call: '{}'\nResponse: '" + dataAsString + "'",
