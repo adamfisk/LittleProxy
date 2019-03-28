@@ -22,7 +22,7 @@ You can embed LittleProxy in your own projects through Maven with the following:
     <dependency>
         <groupId>xyz.rogfam</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>2.0.0-beta-1</version>
+        <version>2.0.0-beta-2</version>
     </dependency>
 ```
 
