@@ -335,4 +335,18 @@ public interface HttpProxyServerBootstrap {
      * @return proxy server bootstrap for chaining
      */
     HttpProxyServerBootstrap withThreadPoolConfiguration(ThreadPoolConfiguration configuration);
+
+    /**
+     * Specifies if the proxy server should accept a proxy protocol header. Once set it works with request that
+     * include a proxy protocol header. The proxy server reads an incoming proxy protocol header from the
+     * client.
+     * @param allowProxyProtocol when true, the proxy will accept a proxy protocol header
+     */
+    HttpProxyServerBootstrap withAcceptProxyProtocol(boolean allowProxyProtocol);
+
+    /**
+     * Specifies if the proxy server should send a proxy protocol header.
+     * @param sendProxyProtocol when true, the proxy will send a proxy protocol header
+     */
+    HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol);
 }

@@ -117,6 +117,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final int maxHeaderSize;
     private final int maxChunkSize;
     private final boolean allowRequestsToOriginServer;
+    private final boolean acceptProxyProtocol;
+    private final boolean sendProxyProtocol;
 
     /**
      * The alias or pseudonym for this proxy, used when adding the Via header.
@@ -230,6 +232,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param maxChunkSize
      * @param allowRequestsToOriginServer
      *            when true, allow the proxy to handle requests that contain an origin-form URI, as defined in RFC 7230 5.3.1
+     * @param acceptProxyProtocol when true, the proxy will accept a proxy protocol header from client
+     * @param sendProxyProtocol when true, the proxy will send a proxy protocol header to the server
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
@@ -252,7 +256,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             int maxInitialLineLength,
             int maxHeaderSize,
             int maxChunkSize,
-            boolean allowRequestsToOriginServer) {
+            boolean allowRequestsToOriginServer,
+            boolean acceptProxyProtocol,
+            boolean sendProxyProtocol) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.requestedAddress = requestedAddress;
@@ -291,6 +297,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.maxHeaderSize = maxHeaderSize;
         this.maxChunkSize = maxChunkSize;
         this.allowRequestsToOriginServer = allowRequestsToOriginServer;
+        this.acceptProxyProtocol = acceptProxyProtocol;
+        this.sendProxyProtocol = sendProxyProtocol;
     }
 
     /**
@@ -382,6 +390,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
 	public boolean isAllowRequestsToOriginServer() {
         return allowRequestsToOriginServer;
+    }
+
+    public boolean isAcceptProxyProtocol() {
+        return acceptProxyProtocol;
+    }
+
+    public boolean isSendProxyProtocol() {
+        return sendProxyProtocol;
     }
 
     @Override
@@ -624,6 +640,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private int maxHeaderSize = MAX_HEADER_SIZE_DEFAULT;
         private int maxChunkSize = MAX_CHUNK_SIZE_DEFAULT;
         private boolean allowRequestToOriginServer = false;
+        private boolean acceptProxyProtocol = false;
+        private boolean sendProxyProtocol = false;
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -874,6 +892,18 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withAcceptProxyProtocol(boolean acceptProxyProtocol) {
+            this.acceptProxyProtocol = acceptProxyProtocol;
+            return this;
+        }
+
+        @Override
+        public HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol) {
+            this.sendProxyProtocol = sendProxyProtocol;
+            return this;
+        }
+
+        @Override
         public HttpProxyServer start() {
             return build().start();
         }
@@ -904,7 +934,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     idleConnectionTimeout, activityTrackers, connectTimeout,
                     serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond,
                     localAddress, proxyAlias, maxInitialLineLength, maxHeaderSize, maxChunkSize,
-                    allowRequestToOriginServer);
+                    allowRequestToOriginServer, acceptProxyProtocol, sendProxyProtocol);
         }
 
         private InetSocketAddress determineListenAddress() {

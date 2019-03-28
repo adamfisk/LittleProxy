@@ -3,6 +3,7 @@ package org.littleshoot.proxy.impl;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateEvent;
@@ -115,11 +116,20 @@ abstract class ProxyConnection<I extends HttpObject> extends
         if (tunneling) {
             // In tunneling mode, this connection is simply shoveling bytes
             readRaw((ByteBuf) msg);
+        } else if ( msg instanceof HAProxyMessage) {
+            readHAProxyMessage((HAProxyMessage)msg);
         } else {
             // If not tunneling, then we are always dealing with HttpObjects.
             readHTTP((HttpObject) msg);
         }
     }
+
+    /**
+     * Read an {@link HAProxyMessage}
+     * @param msg {@link HAProxyMessage}
+     */
+    protected abstract void readHAProxyMessage(HAProxyMessage msg);
+
 
     /**
      * Handles reading {@link HttpObject}s.
