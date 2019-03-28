@@ -5,6 +5,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
+import io.netty.handler.codec.haproxy.HAProxyMessageDecoder;
 import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
@@ -103,6 +105,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             0);
 
     /**
+     * Keep track of proxy protocol header
+     */
+    private HAProxyMessage haProxyMessage = null;
+
+    /**
      * Keep track of how many servers are currently connected.
      */
     private final AtomicInteger numberOfCurrentlyConnectedServers = new AtomicInteger(
@@ -141,6 +148,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private volatile HttpRequest currentRequest;
 
+    private final ClientDetails clientDetails = new ClientDetails();
+
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
             SslEngineSource sslEngineSource,
@@ -172,6 +181,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         this.globalTrafficShapingHandler = globalTrafficShapingHandler;
 
         LOG.debug("Created ClientToProxyConnection");
+    }
+
+    @Override
+    protected void readHAProxyMessage(HAProxyMessage msg) {
+        haProxyMessage = msg;
     }
 
     /***************************************************************************
@@ -783,6 +797,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
 
         pipeline.addLast("encoder", new HttpResponseEncoder());
+        if (isAcceptProxyProtocol()) {
+            pipeline.addLast("proxy-protocol-decoder", new HAProxyMessageDecoder());
+        }
         // We want to allow longer request lines, headers, and chunks
         // respectively.
         pipeline.addLast("decoder", new HttpRequestDecoder(
@@ -806,6 +823,22 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         .getIdleConnectionTimeout()));
 
         pipeline.addLast("handler", this);
+    }
+
+    /**
+     * Is the proxy server set to accept a proxy protocol header
+     * @return True if the proxy server set to accept a proxy protocol header. False otherwise
+     */
+    boolean isAcceptProxyProtocol() {
+        return proxyServer.isAcceptProxyProtocol();
+    }
+
+    /**
+     * Is the proxy server set to send a proxy protocol header
+     * @return True if the proxy server set to send a proxy protocol header. False otherwise
+     */
+    boolean isSendProxyProtocol() {
+        return proxyServer.isSendProxyProtocol();
     }
 
     /**
@@ -994,6 +1027,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             writeAuthenticationRequired(authenticator.getRealm());
             return true;
         }
+        clientDetails.setUserName(userName);
 
         LOG.debug("Got proxy authorization!");
         // We need to remove the header before sending the request on.
@@ -1402,6 +1436,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void recordClientConnected() {
         try {
             InetSocketAddress clientAddress = getClientAddress();
+            clientDetails.setClientAddress(clientAddress);
             for (ActivityTracker tracker : proxyServer
                     .getActivityTrackers()) {
                 tracker.clientConnected(clientAddress);
@@ -1450,6 +1485,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         } else {
             return new FlowContext(this);
         }
+    }
+
+    public HAProxyMessage getHaProxyMessage() {
+        return haProxyMessage;
+    }
+  
+    public ClientDetails getClientDetails() {
+        return clientDetails;
     }
 
 }

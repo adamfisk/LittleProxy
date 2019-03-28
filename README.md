@@ -1,22 +1,28 @@
-[![Build Status](https://travis-ci.org/adamfisk/LittleProxy.png?branch=master)](https://travis-ci.org/adamfisk/LittleProxy)
+[![Build Status](https://travis-ci.com/mrog/LittleProxy.svg?branch=master)](https://travis-ci.com/mrog/LittleProxy)
+[![DepShield Badge](https://depshield.sonatype.org/badges/mrog/LittleProxy/depshield.svg)](https://depshield.github.io)
 
-LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's excellent [Netty](http://netty.io) event-based networking library. It's quite stable, performs well, and is easy to integrate into your projects. 
+This is an updated fork of adamfisk's LittleProxy.  The original project appears
+to have been abondoned.  Because it's so incredibly useful, it's being brought
+back to life in this repository.
+
+LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's
+excellent [Netty](http://netty.io) event-based networking library. It's quite
+stable, performs well, and is easy to integrate into your projects. 
 
 One option is to clone LittleProxy and run it from the command line. This is as simple as:
 
 ```
-$ git clone git://github.com/adamfisk/LittleProxy.git
+$ git clone git@github.com:mrog/LittleProxy.git
 $ cd LittleProxy
 $ ./run.bash
 ```
 
 You can embed LittleProxy in your own projects through Maven with the following:
-
 ```
     <dependency>
-        <groupId>org.littleshoot</groupId>
+        <groupId>xyz.rogfam</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>1.1.2</version>
+        <version>2.0.0-beta-1</version>
     </dependency>
 ```
 
@@ -143,11 +149,13 @@ For examples of configuring logging, see [src/test/resources/log4j.xml](src/test
 
 If you have questions, please visit our Google Group here:
 
-https://groups.google.com/forum/#!forum/littleproxy
+https://groups.google.com/forum/#!forum/littleproxy2
 
-To subscribe, send an E-Mail to mailto:LittleProxy+subscribe@googlegroups.com. 
-Simply answering, don't clicking the button, bypasses Googles registration 
-process. You will become a member. 
+(The original group at https://groups.google.com/forum/#!forum/littleproxy isn't
+accepting posts from new users.  But it's still a great resource if you're
+searching for older answers.)
+
+To subscribe, send an e-mail to [LittleProxy2+subscribe@googlegroups.com](mailto:LittleProxy2+subscribe@googlegroups.com). 
 
 Benchmarking instructions and results can be found [here](performance).
 
