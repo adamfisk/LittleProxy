@@ -8,3 +8,5 @@
   - Refactored MITM manager to accept engine with user-defined parameters
   - Added ability to load keystore from classpath
   
+- 2.0.0-beta-2
+  - Added support for proxy protocol.  See https://www.haproxy.com/blog/haproxy/proxy-protocol/ and https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt for protocol details. 
