@@ -118,7 +118,7 @@ public class AnswerRequestFilter extends HttpFiltersAdapter {
 		ByteBuf buffer = Unpooled.wrappedBuffer(answer.getBytes("UTF-8"));
 		HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buffer);
 		HttpHeaders.setContentLength(response, buffer.readableBytes());
-		HttpHeaders.setHeader(response, HttpHeaders.Names.CONTENT_TYPE, "text/html");
+		HttpHeaders.setHeader(response, HttpHeaderNames.CONTENT_TYPE, "text/html");
 		return response;
 	}
 }

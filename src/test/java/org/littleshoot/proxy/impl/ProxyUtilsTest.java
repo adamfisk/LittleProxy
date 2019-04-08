@@ -1,15 +1,6 @@
 package org.littleshoot.proxy.impl;
 
-import io.netty.handler.codec.http.DefaultFullHttpRequest;
-import io.netty.handler.codec.http.DefaultHttpHeaders;
-import io.netty.handler.codec.http.DefaultHttpMessage;
-import io.netty.handler.codec.http.DefaultHttpResponse;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpMessage;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.*;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -45,7 +36,7 @@ public class ProxyUtilsTest {
         HttpMessage httpMessage = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/endpoint");
         ProxyUtils.addVia(httpMessage, hostname);
 
-        List<String> viaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
+        List<String> viaHeaders = httpMessage.headers().getAll(HttpHeaderNames.VIA);
         assertThat(viaHeaders, hasSize(1));
 
         String expectedViaHeader = "1.1 " + hostname;
@@ -59,62 +50,62 @@ public class ProxyUtilsTest {
 
         // test the empty headers case
         message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, message);
+        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), message);
         assertThat(commaSeparatedHeaders, empty());
 
         // two headers present, but no values
         message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "");
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, message);
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "");
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "");
+        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), message);
         assertThat(commaSeparatedHeaders, empty());
 
         // a single header value
         message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "chunked");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, message);
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
+        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), message);
         assertThat(commaSeparatedHeaders, contains("chunked"));
 
         // a single header value with extra spaces
         message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, " chunked  , ");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, message);
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, " chunked  , ");
+        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), message);
         assertThat(commaSeparatedHeaders, contains("chunked"));
 
         // two comma-separated values in one header line
         message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "compress, gzip");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, message);
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "compress, gzip");
+        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), message);
         assertThat(commaSeparatedHeaders, contains("compress", "gzip"));
 
         // two comma-separated values in one header line with a spurious ',' and space. see RFC 7230 section 7
         // for information on empty list items (not all of which are valid header-values).
         message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "compress, gzip, ,");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, message);
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "compress, gzip, ,");
+        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), message);
         assertThat(commaSeparatedHeaders, contains("compress", "gzip"));
 
         // two values in two separate header lines
         message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip");
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "chunked");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, message);
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "gzip");
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
+        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), message);
         assertThat(commaSeparatedHeaders, contains("gzip", "chunked"));
 
         // multiple comma-separated values in two separate header lines
         message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip, compress");
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "deflate, gzip");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, message);
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "gzip, compress");
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "deflate, gzip");
+        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), message);
         assertThat(commaSeparatedHeaders, contains("gzip", "compress", "deflate", "gzip"));
 
         // multiple comma-separated values in multiple header lines with spurious spaces, commas,
         // and tabs (horizontal tabs are defined as optional whitespace in RFC 7230 section 3.2.3)
         message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, " gzip,compress,");
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "\tdeflate\t,  gzip, ");
-        message.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, ",gzip,,deflate,\t, ,");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, message);
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, " gzip,compress,");
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "\tdeflate\t,  gzip, ");
+        message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, ",gzip,,deflate,\t, ,");
+        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), message);
         assertThat(commaSeparatedHeaders, contains("gzip", "compress", "deflate", "gzip", "gzip", "deflate"));
     }
 
@@ -147,38 +138,38 @@ public class ProxyUtilsTest {
 
         // #2: 2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity", then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6), unless the message is terminated by closing the connection.
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "chunked");
+        httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
         assertEquals(true, isResponseSelfTerminating);
 
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip, chunked");
+        httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "gzip, chunked");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
         assertEquals(true, isResponseSelfTerminating);
 
         // chunked encoding is not last, so not self terminating
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "chunked, gzip");
+        httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "chunked, gzip");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
         assertEquals(false, isResponseSelfTerminating);
 
         // four encodings on two lines, chunked is not last, so not self terminating
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip, chunked");
-        httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "deflate, gzip");
+        httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "gzip, chunked");
+        httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "deflate, gzip");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
         assertEquals(false, isResponseSelfTerminating);
 
         // three encodings on two lines, chunked is last, so self terminating
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip");
-        httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "deflate,chunked");
+        httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "gzip");
+        httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "deflate,chunked");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
         assertEquals(true, isResponseSelfTerminating);
 
         // #3: 3.If a Content-Length header field (section 14.13) is present, its decimal value in OCTETs represents both the entity-length and the transfer-length.
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        httpResponse.headers().add(HttpHeaders.Names.CONTENT_LENGTH, "15");
+        httpResponse.headers().add(HttpHeaderNames.CONTENT_LENGTH, "15");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
         assertEquals(true, isResponseSelfTerminating);
 
@@ -186,15 +177,15 @@ public class ProxyUtilsTest {
 
         // chunked is last Transfer-Encoding, so message is self-terminating
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip, chunked");
-        httpResponse.headers().add(HttpHeaders.Names.CONTENT_LENGTH, "15");
+        httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "gzip, chunked");
+        httpResponse.headers().add(HttpHeaderNames.CONTENT_LENGTH, "15");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
         assertEquals(true, isResponseSelfTerminating);
 
         // chunked is not last Transfer-Encoding, so message is not self-terminating, since Content-Length is ignored
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip");
-        httpResponse.headers().add(HttpHeaders.Names.CONTENT_LENGTH, "15");
+        httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "gzip");
+        httpResponse.headers().add(HttpHeaderNames.CONTENT_LENGTH, "15");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
         assertEquals(false, isResponseSelfTerminating);
 
@@ -211,10 +202,10 @@ public class ProxyUtilsTest {
         String hostname = "hostname";
 
         HttpMessage httpMessage = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/endpoint");
-        httpMessage.headers().add(HttpHeaders.Names.VIA, "1.1 otherproxy");
+        httpMessage.headers().add(HttpHeaderNames.VIA, "1.1 otherproxy");
         ProxyUtils.addVia(httpMessage, hostname);
 
-        List<String> viaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
+        List<String> viaHeaders = httpMessage.headers().getAll(HttpHeaderNames.VIA);
         assertThat(viaHeaders, hasSize(2));
 
         assertEquals("1.1 otherproxy", viaHeaders.get(0));
@@ -285,10 +276,10 @@ public class ProxyUtilsTest {
         HttpHeaders headers = new DefaultHttpHeaders();
 
         for (String encoding : inputEncodings) {
-            headers.add(HttpHeaders.Names.ACCEPT_ENCODING, encoding);
+            headers.add(HttpHeaderNames.ACCEPT_ENCODING, encoding);
         }
 
         ProxyUtils.removeSdchEncoding(headers);
-        assertEquals(expectedEncodings, headers.getAll(HttpHeaders.Names.ACCEPT_ENCODING));
+        assertEquals(expectedEncodings, headers.getAll(HttpHeaderNames.ACCEPT_ENCODING));
     }
 }

@@ -6,18 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.udt.nio.NioUdtProvider;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.DefaultHttpResponse;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpMessage;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
@@ -46,18 +35,18 @@ public class ProxyUtils {
      * Hop-by-hop headers that should be removed when proxying, as defined by the HTTP 1.1 spec, section 13.5.1
      * (http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1). Transfer-Encoding is NOT included in this list, since LittleProxy
      * does not typically modify the transfer encoding. See also {@link #shouldRemoveHopByHopHeader(String)}.
-     *
+     * <p>
      * Header names are stored as lowercase to make case-insensitive comparisons easier.
      */
     private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = ImmutableSet.of(
-            HttpHeaders.Names.CONNECTION.toLowerCase(Locale.US),
-            HttpHeaders.Names.PROXY_AUTHENTICATE.toLowerCase(Locale.US),
-            HttpHeaders.Names.PROXY_AUTHORIZATION.toLowerCase(Locale.US),
-            HttpHeaders.Names.TE.toLowerCase(Locale.US),
-            HttpHeaders.Names.TRAILER.toLowerCase(Locale.US),
+            HttpHeaderNames.CONNECTION.toString().toLowerCase(Locale.US),
+            HttpHeaderNames.PROXY_AUTHENTICATE.toString().toLowerCase(Locale.US),
+            HttpHeaderNames.PROXY_AUTHORIZATION.toString().toLowerCase(Locale.US),
+            HttpHeaderNames.TE.toString().toLowerCase(Locale.US),
+            HttpHeaderNames.TRAILER.toString().toLowerCase(Locale.US),
             /*  Note: Not removing Transfer-Encoding since LittleProxy does not normally re-chunk content.
-                HttpHeaders.Names.TRANSFER_ENCODING.toLowerCase(Locale.US), */
-            HttpHeaders.Names.UPGRADE.toLowerCase(Locale.US),
+                HttpHeaderNames.TRANSFER_ENCODING.toLowerCase(Locale.US), */
+            HttpHeaderNames.UPGRADE.toString().toLowerCase(Locale.US),
             "Keep-Alive".toLowerCase(Locale.US)
     );
 
@@ -83,9 +72,8 @@ public class ProxyUtils {
     /**
      * Strips the host from a URI string. This will turn "http://host.com/path"
      * into "/path".
-     * 
-     * @param uri
-     *            The URI to transform.
+     *
+     * @param uri The URI to transform.
      * @return A string with the URI stripped.
      */
     public static String stripHost(final String uri) {
@@ -105,11 +93,9 @@ public class ProxyUtils {
 
     /**
      * Formats the given date according to the RFC 1123 pattern.
-     * 
-     * @param date
-     *            The date to format.
+     *
+     * @param date The date to format.
      * @return An RFC 1123 formatted date string.
-     * 
      * @see #PATTERN_RFC1123
      */
     public static String formatDate(final Date date) {
@@ -120,16 +106,11 @@ public class ProxyUtils {
      * Formats the given date according to the specified pattern. The pattern
      * must conform to that used by the {@link SimpleDateFormat simple date
      * format} class.
-     * 
-     * @param date
-     *            The date to format.
-     * @param pattern
-     *            The pattern to use for formatting the date.
+     *
+     * @param date    The date to format.
+     * @param pattern The pattern to use for formatting the date.
      * @return A formatted date string.
-     * 
-     * @throws IllegalArgumentException
-     *             If the given date pattern is invalid.
-     * 
+     * @throws IllegalArgumentException If the given date pattern is invalid.
      * @see SimpleDateFormat
      */
     public static String formatDate(final Date date, final String pattern) {
@@ -147,12 +128,10 @@ public class ProxyUtils {
     /**
      * If an HttpObject implements the market interface LastHttpContent, it
      * represents the last chunk of a transfer.
-     * 
-     * @see io.netty.handler.codec.http.LastHttpContent
-     * 
+     *
      * @param httpObject
      * @return
-     * 
+     * @see io.netty.handler.codec.http.LastHttpContent
      */
     public static boolean isLastChunk(final HttpObject httpObject) {
         return httpObject instanceof LastHttpContent;
@@ -161,11 +140,10 @@ public class ProxyUtils {
     /**
      * If an HttpObject is not the last chunk, then that means there are other
      * chunks that will follow.
-     * 
-     * @see io.netty.handler.codec.http.FullHttpMessage
-     * 
+     *
      * @param httpObject
      * @return
+     * @see io.netty.handler.codec.http.FullHttpMessage
      */
     public static boolean isChunked(final HttpObject httpObject) {
         return !isLastChunk(httpObject);
@@ -173,9 +151,8 @@ public class ProxyUtils {
 
     /**
      * Parses the host and port an HTTP request is being sent to.
-     * 
-     * @param httpRequest
-     *            The request.
+     *
+     * @param httpRequest The request.
      * @return The host and port string.
      */
     public static String parseHostAndPort(final HttpRequest httpRequest) {
@@ -185,9 +162,8 @@ public class ProxyUtils {
 
     /**
      * Parses the host and port an HTTP request is being sent to.
-     * 
-     * @param uri
-     *            The URI.
+     *
+     * @param uri The URI.
      * @return The host and port string.
      */
     public static String parseHostAndPort(final String uri) {
@@ -212,9 +188,8 @@ public class ProxyUtils {
 
     /**
      * Make a copy of the response including all mutable fields.
-     * 
-     * @param original
-     *            The original response to copy from.
+     *
+     * @param original The original response to copy from.
      * @return The copy with all mutable fields from the original.
      */
     public static HttpResponse copyMutableResponseFields(
@@ -242,19 +217,18 @@ public class ProxyUtils {
      * appended to the Via header line. The alias may be the hostname of the machine proxying the request, or a
      * pseudonym. From RFC 7230, section 5.7.1:
      * <pre>
-         The received-by portion of the field value is normally the host and
-         optional port number of a recipient server or client that
-         subsequently forwarded the message.  However, if the real host is
-         considered to be sensitive information, a sender MAY replace it with
-         a pseudonym.
+     * The received-by portion of the field value is normally the host and
+     * optional port number of a recipient server or client that
+     * subsequently forwarded the message.  However, if the real host is
+     * considered to be sensitive information, a sender MAY replace it with
+     * a pseudonym.
      * </pre>
      *
-     * 
      * @param httpMessage HTTP message to add the Via header to
-     * @param alias the alias to provide in the Via header for this proxy
+     * @param alias       the alias to provide in the Via header for this proxy
      */
     public static void addVia(HttpMessage httpMessage, String alias) {
-        String newViaHeader =  new StringBuilder()
+        String newViaHeader = new StringBuilder()
                 .append(httpMessage.getProtocolVersion().majorVersion())
                 .append('.')
                 .append(httpMessage.getProtocolVersion().minorVersion())
@@ -263,25 +237,24 @@ public class ProxyUtils {
                 .toString();
 
         final List<String> vias;
-        if (httpMessage.headers().contains(HttpHeaders.Names.VIA)) {
-            List<String> existingViaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
+        if (httpMessage.headers().contains(HttpHeaderNames.VIA)) {
+            List<String> existingViaHeaders = httpMessage.headers().getAll(HttpHeaderNames.VIA);
             vias = new ArrayList<String>(existingViaHeaders);
             vias.add(newViaHeader);
         } else {
             vias = Collections.singletonList(newViaHeader);
         }
 
-        httpMessage.headers().set(HttpHeaders.Names.VIA, vias);
+        httpMessage.headers().set(HttpHeaderNames.VIA, vias);
     }
 
     /**
      * Returns <code>true</code> if the specified string is either "true" or
      * "on" ignoring case.
-     * 
-     * @param val
-     *            The string in question.
+     *
+     * @param val The string in question.
      * @return <code>true</code> if the specified string is either "true" or
-     *         "on" ignoring case, otherwise <code>false</code>.
+     * "on" ignoring case, otherwise <code>false</code>.
      */
     public static boolean isTrue(final String val) {
         return checkTrueOrFalse(val, "true", "on");
@@ -290,18 +263,17 @@ public class ProxyUtils {
     /**
      * Returns <code>true</code> if the specified string is either "false" or
      * "off" ignoring case.
-     * 
-     * @param val
-     *            The string in question.
+     *
+     * @param val The string in question.
      * @return <code>true</code> if the specified string is either "false" or
-     *         "off" ignoring case, otherwise <code>false</code>.
+     * "off" ignoring case, otherwise <code>false</code>.
      */
     public static boolean isFalse(final String val) {
         return checkTrueOrFalse(val, "false", "off");
     }
 
     public static boolean extractBooleanDefaultFalse(final Properties props,
-            final String key) {
+                                                     final String key) {
         final String throttle = props.getProperty(key);
         if (StringUtils.isNotBlank(throttle)) {
             return throttle.trim().equalsIgnoreCase("true");
@@ -310,22 +282,22 @@ public class ProxyUtils {
     }
 
     public static boolean extractBooleanDefaultTrue(final Properties props,
-            final String key) {
+                                                    final String key) {
         final String throttle = props.getProperty(key);
         if (StringUtils.isNotBlank(throttle)) {
             return throttle.trim().equalsIgnoreCase("true");
         }
         return true;
     }
-    
+
     public static int extractInt(final Properties props, final String key) {
         return extractInt(props, key, -1);
     }
-    
+
     public static int extractInt(final Properties props, final String key, int defaultValue) {
         final String readThrottleString = props.getProperty(key);
         if (StringUtils.isNotBlank(readThrottleString) &&
-            NumberUtils.isNumber(readThrottleString)) {
+                NumberUtils.isNumber(readThrottleString)) {
             return Integer.parseInt(readThrottleString);
         }
         return defaultValue;
@@ -334,7 +306,7 @@ public class ProxyUtils {
     public static boolean isCONNECT(HttpObject httpObject) {
         return httpObject instanceof HttpRequest
                 && HttpMethod.CONNECT.equals(((HttpRequest) httpObject)
-                        .getMethod());
+                .method());
     }
 
     /**
@@ -344,11 +316,11 @@ public class ProxyUtils {
      * @return true if request is a HEAD, otherwise false
      */
     public static boolean isHEAD(HttpRequest httpRequest) {
-        return HttpMethod.HEAD.equals(httpRequest.getMethod());
+        return HttpMethod.HEAD.equals(httpRequest.method());
     }
 
     private static boolean checkTrueOrFalse(final String val,
-            final String str1, final String str2) {
+                                            final String str1, final String str2) {
         final String str = val.trim();
         return StringUtils.isNotBlank(str)
                 && (str.equalsIgnoreCase(str1) || str.equalsIgnoreCase(str2));
@@ -364,7 +336,7 @@ public class ProxyUtils {
     public static boolean isContentAlwaysEmpty(HttpMessage msg) {
         if (msg instanceof HttpResponse) {
             HttpResponse res = (HttpResponse) msg;
-            int code = res.getStatus().code();
+            int code = res.status().code();
 
             // Correctly handle return codes of 1xx.
             //
@@ -384,7 +356,9 @@ public class ProxyUtils {
             }
 
             switch (code) {
-                case 204: case 205: case 304:
+                case 204:
+                case 205:
+                case 304:
                     return true;
             }
         }
@@ -397,25 +371,24 @@ public class ProxyUtils {
      * <p>
      * This method is based on the allowed message length indicators in the HTTP specification, section 4.4:
      * <pre>
-         4.4 Message Length
-         The transfer-length of a message is the length of the message-body as it appears in the message; that is, after any transfer-codings have been applied. When a message-body is included with a message, the transfer-length of that body is determined by one of the following (in order of precedence):
-
-         1.Any response message which "MUST NOT" include a message-body (such as the 1xx, 204, and 304 responses and any response to a HEAD request) is always terminated by the first empty line after the header fields, regardless of the entity-header fields present in the message.
-         2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity", then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6), unless the message is terminated by closing the connection.
-         3.If a Content-Length header field (section 14.13) is present, its decimal value in OCTETs represents both the entity-length and the transfer-length. The Content-Length header field MUST NOT be sent if these two lengths are different (i.e., if a Transfer-Encoding
-         header field is present). If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored.
-         [LP note: multipart/byteranges support has been removed from the HTTP 1.1 spec by RFC 7230, section A.2. Since it is seldom used, LittleProxy does not check for it.]
-         5.By the server closing the connection. (Closing the connection cannot be used to indicate the end of a request body, since that would leave no possibility for the server to send back a response.)
-     * </pre>
+     * 4.4 Message Length
+     * The transfer-length of a message is the length of the message-body as it appears in the message; that is, after any transfer-codings have been applied. When a message-body is included with a message, the transfer-length of that body is determined by one of the following (in order of precedence):
      *
+     * 1.Any response message which "MUST NOT" include a message-body (such as the 1xx, 204, and 304 responses and any response to a HEAD request) is always terminated by the first empty line after the header fields, regardless of the entity-header fields present in the message.
+     * 2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity", then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6), unless the message is terminated by closing the connection.
+     * 3.If a Content-Length header field (section 14.13) is present, its decimal value in OCTETs represents both the entity-length and the transfer-length. The Content-Length header field MUST NOT be sent if these two lengths are different (i.e., if a Transfer-Encoding
+     * header field is present). If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored.
+     * [LP note: multipart/byteranges support has been removed from the HTTP 1.1 spec by RFC 7230, section A.2. Since it is seldom used, LittleProxy does not check for it.]
+     * 5.By the server closing the connection. (Closing the connection cannot be used to indicate the end of a request body, since that would leave no possibility for the server to send back a response.)
+     * </pre>
+     * <p>
      * The rules for Transfer-Encoding are clarified in RFC 7230, section 3.3.1 and 3.3.3 (3):
      * <pre>
-         If any transfer coding other than
-         chunked is applied to a response payload body, the sender MUST either
-         apply chunked as the final transfer coding or terminate the message
-         by closing the connection.
+     * If any transfer coding other than
+     * chunked is applied to a response payload body, the sender MUST either
+     * apply chunked as the final transfer coding or terminate the message
+     * by closing the connection.
      * </pre>
-     *
      *
      * @param response the HTTP response object
      * @return true if the message will indicate its own message length, or false if the server is expected to indicate the message length by closing the connection
@@ -426,16 +399,16 @@ public class ProxyUtils {
         }
 
         // if there is a Transfer-Encoding value, determine whether the final encoding is "chunked", which makes the message self-terminating
-        List<String> allTransferEncodingHeaders = getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, response);
+        List<String> allTransferEncodingHeaders = getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING.toString(), response);
         if (!allTransferEncodingHeaders.isEmpty()) {
             String finalEncoding = allTransferEncodingHeaders.get(allTransferEncodingHeaders.size() - 1);
 
             // per #3 above: "If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored."
             // since the Transfer-Encoding field is present, the message is self-terminating if and only if the final Transfer-Encoding value is "chunked"
-            return HttpHeaders.Values.CHUNKED.equals(finalEncoding);
+            return HttpHeaderValues.CHUNKED.equals(finalEncoding);
         }
 
-        String contentLengthHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_LENGTH);
+        String contentLengthHeader = response.headers().get(HttpHeaderNames.CONTENT_LENGTH);
         if (contentLengthHeader != null && !contentLengthHeader.isEmpty()) {
             return true;
         }
@@ -462,21 +435,22 @@ public class ProxyUtils {
      * Placing values on multiple header lines is allowed under certain circumstances
      * in RFC 2616 section 4.2, and in RFC 7230 section 3.2.2 quoted here:
      * <pre>
-     A sender MUST NOT generate multiple header fields with the same field
-     name in a message unless either the entire field value for that
-     header field is defined as a comma-separated list [i.e., #(values)]
-     or the header field is a well-known exception (as noted below).
-
-     A recipient MAY combine multiple header fields with the same field
-     name into one "field-name: field-value" pair, without changing the
-     semantics of the message, by appending each subsequent field value to
-     the combined field value in order, separated by a comma.  The order
-     in which header fields with the same field name are received is
-     therefore significant to the interpretation of the combined field
-     value; a proxy MUST NOT change the order of these field values when
-     forwarding a message.
+     * A sender MUST NOT generate multiple header fields with the same field
+     * name in a message unless either the entire field value for that
+     * header field is defined as a comma-separated list [i.e., #(values)]
+     * or the header field is a well-known exception (as noted below).
+     *
+     * A recipient MAY combine multiple header fields with the same field
+     * name into one "field-name: field-value" pair, without changing the
+     * semantics of the message, by appending each subsequent field value to
+     * the combined field value in order, separated by a comma.  The order
+     * in which header fields with the same field name are received is
+     * therefore significant to the interpretation of the combined field
+     * value; a proxy MUST NOT change the order of these field values when
+     * forwarding a message.
      * </pre>
-     * @param headerName the name of the header for which values will be retrieved
+     *
+     * @param headerName  the name of the header for which values will be retrieved
      * @param httpMessage the HTTP message whose header values will be retrieved
      * @return a list of single header values, or an empty list if the header was not present in the message or contained no values
      */
@@ -533,19 +507,19 @@ public class ProxyUtils {
      * HTTP 1.1 spec in section 13.5.1. The comparison is case-insensitive, so "Connection" will be treated the same as "connection" or "CONNECTION".
      * From http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1 :
      * <pre>
-       The following HTTP/1.1 headers are hop-by-hop headers:
-        - Connection
-        - Keep-Alive
-        - Proxy-Authenticate
-        - Proxy-Authorization
-        - TE
-        - Trailers [LittleProxy note: actual header name is Trailer]
-        - Transfer-Encoding [LittleProxy note: this header is not normally removed when proxying, since the proxy does not re-chunk
-                            responses. The exception is when an HttpObjectAggregator is enabled, which aggregates chunked content and removes
-                            the 'Transfer-Encoding: chunked' header itself.]
-        - Upgrade
-
-       All other headers defined by HTTP/1.1 are end-to-end headers.
+     * The following HTTP/1.1 headers are hop-by-hop headers:
+     * - Connection
+     * - Keep-Alive
+     * - Proxy-Authenticate
+     * - Proxy-Authorization
+     * - TE
+     * - Trailers [LittleProxy note: actual header name is Trailer]
+     * - Transfer-Encoding [LittleProxy note: this header is not normally removed when proxying, since the proxy does not re-chunk
+     * responses. The exception is when an HttpObjectAggregator is enabled, which aggregates chunked content and removes
+     * the 'Transfer-Encoding: chunked' header itself.]
+     * - Upgrade
+     *
+     * All other headers defined by HTTP/1.1 are end-to-end headers.
      * </pre>
      *
      * @param headerName the header name
@@ -585,8 +559,8 @@ public class ProxyUtils {
      * Creates a new {@link FullHttpResponse} with the specified String as the body contents (encoded using UTF-8).
      *
      * @param httpVersion HTTP version of the response
-     * @param status HTTP status code
-     * @param body body to include in the FullHttpResponse; will be UTF-8 encoded
+     * @param status      HTTP status code
+     * @param body        body to include in the FullHttpResponse; will be UTF-8 encoded
      * @return new http response object
      */
     public static FullHttpResponse createFullHttpResponse(HttpVersion httpVersion,
@@ -602,7 +576,7 @@ public class ProxyUtils {
      * Creates a new {@link FullHttpResponse} with no body content
      *
      * @param httpVersion HTTP version of the response
-     * @param status HTTP status code
+     * @param status      HTTP status code
      * @return new http response object
      */
     public static FullHttpResponse createFullHttpResponse(HttpVersion httpVersion,
@@ -613,10 +587,10 @@ public class ProxyUtils {
     /**
      * Creates a new {@link FullHttpResponse} with the specified body.
      *
-     * @param httpVersion HTTP version of the response
-     * @param status HTTP status code
-     * @param contentType the Content-Type of the body
-     * @param body body to include in the FullHttpResponse; if null
+     * @param httpVersion   HTTP version of the response
+     * @param status        HTTP status code
+     * @param contentType   the Content-Type of the body
+     * @param body          body to include in the FullHttpResponse; if null
      * @param contentLength number of bytes to send in the Content-Length header; should equal the number of bytes in the ByteBuf
      * @return new http response object
      */
@@ -629,8 +603,8 @@ public class ProxyUtils {
 
         if (body != null) {
             response = new DefaultFullHttpResponse(httpVersion, status, body);
-            response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, contentLength);
-            response.headers().set(HttpHeaders.Names.CONTENT_TYPE, contentType);
+            response.headers().set(HttpHeaderNames.CONTENT_LENGTH, contentLength);
+            response.headers().set(HttpHeaderNames.CONTENT_TYPE, contentType);
         } else {
             response = new DefaultFullHttpResponse(httpVersion, status);
         }
@@ -641,13 +615,14 @@ public class ProxyUtils {
     /**
      * Given an HttpHeaders instance, removes 'sdch' from the 'Accept-Encoding'
      * header list (if it exists) and returns the modified instance.
-     *
+     * <p>
      * Removes all occurrences of 'sdch' from the 'Accept-Encoding' header.
+     *
      * @param headers The headers to modify.
      */
     public static void removeSdchEncoding(HttpHeaders headers) {
-        List<String> encodings = headers.getAll(HttpHeaders.Names.ACCEPT_ENCODING);
-        headers.remove(HttpHeaders.Names.ACCEPT_ENCODING);
+        List<String> encodings = headers.getAll(HttpHeaderNames.ACCEPT_ENCODING);
+        headers.remove(HttpHeaderNames.ACCEPT_ENCODING);
 
         for (String encoding : encodings) {
             if (encoding != null) {
@@ -658,7 +633,7 @@ public class ProxyUtils {
                 encoding = encoding.replaceAll(",? *(sdch|SDCH)", "").replaceFirst("^ *, *", "");
 
                 if (StringUtils.isNotBlank(encoding)) {
-                    headers.add(HttpHeaders.Names.ACCEPT_ENCODING, encoding);
+                    headers.add(HttpHeaderNames.ACCEPT_ENCODING, encoding);
                 }
             }
         }

@@ -1,12 +1,6 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.DefaultHttpResponse;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -118,7 +112,7 @@ public class DirectRequestTest {
                             public HttpResponse clientToProxyRequest(HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     HttpRequest request = (HttpRequest) httpObject;
-                                    String viaHeader = request.headers().get(HttpHeaders.Names.VIA);
+                                    String viaHeader = request.headers().get(HttpHeaderNames.VIA);
                                     if (viaHeader != null && viaHeader.contains("testAllowRequestToOriginServerWithOverride")) {
                                         return new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
                                     } else {
