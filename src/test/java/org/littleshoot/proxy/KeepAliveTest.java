@@ -1,12 +1,6 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,9 +16,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -221,10 +213,10 @@ public class KeepAliveTest {
 
             String response = SocketClientUtil.readStringFromSocket(socket);
 
-	        // match the whole response to make sure that the it is not repeated
+            // match the whole response to make sure that the it is not repeated
             assertThat("The response is repeated:", response, is("HTTP/1.1 504 Gateway Timeout\r\n" +
-                    "Content-Length: 15\r\n" +
-                    "Content-Type: text/html; charset=utf-8\r\n" +
+                    "content-length: 15\r\n" +
+                    "content-type: text/html; charset=utf-8\r\n" +
                     "\r\n" +
                     "Gateway Timeout"));
         }
