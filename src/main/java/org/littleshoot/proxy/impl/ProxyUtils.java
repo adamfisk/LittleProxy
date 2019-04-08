@@ -405,7 +405,7 @@ public class ProxyUtils {
 
             // per #3 above: "If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored."
             // since the Transfer-Encoding field is present, the message is self-terminating if and only if the final Transfer-Encoding value is "chunked"
-            return HttpHeaderValues.CHUNKED.equals(finalEncoding);
+            return HttpHeaderValues.CHUNKED.toString().equals(finalEncoding);
         }
 
         String contentLengthHeader = response.headers().get(HttpHeaderNames.CONTENT_LENGTH);

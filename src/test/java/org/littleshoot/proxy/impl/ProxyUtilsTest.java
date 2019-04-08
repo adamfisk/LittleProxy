@@ -136,7 +136,9 @@ public class ProxyUtilsTest {
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
         assertEquals(true, isResponseSelfTerminating);
 
-        // #2: 2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity", then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6), unless the message is terminated by closing the connection.
+        // #2: 2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity"
+        // , then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6),
+        // unless the message is terminated by closing the connection.
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         httpResponse.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
