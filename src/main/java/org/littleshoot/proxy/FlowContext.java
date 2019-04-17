@@ -1,11 +1,10 @@
 package org.littleshoot.proxy;
 
-import java.net.InetSocketAddress;
+import org.littleshoot.proxy.impl.ClientToProxyConnection;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLSession;
-
-import org.littleshoot.proxy.impl.ClientToProxyConnection;
+import java.net.InetSocketAddress;
 
 /**
  * <p>

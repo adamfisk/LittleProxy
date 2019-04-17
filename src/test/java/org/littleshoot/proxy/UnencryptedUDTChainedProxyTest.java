@@ -1,6 +1,6 @@
 package org.littleshoot.proxy;
 
-import static org.littleshoot.proxy.TransportProtocol.*;
+import static org.littleshoot.proxy.TransportProtocol.UDT;
 
 public class UnencryptedUDTChainedProxyTest extends BaseChainedProxyTest {
     @Override

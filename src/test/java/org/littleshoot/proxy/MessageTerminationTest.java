@@ -16,9 +16,7 @@ import org.mockserver.model.ConnectionOptions;
 
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
+import static org.junit.Assert.*;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -30,7 +28,7 @@ public class MessageTerminationTest {
     @Before
     public void setUp() {
         mockServer = new ClientAndServer(0);
-        mockServerPort = mockServer.getPort();
+        mockServerPort = mockServer.getLocalPort();
     }
 
     @After

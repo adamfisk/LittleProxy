@@ -2,10 +2,10 @@ package org.littleshoot.proxy;
 
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.DefaultHandler;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.server.handler.ResourceHandler;
-import org.eclipse.jetty.server.nio.SelectChannelConnector;
 
 /**
  * This launches a Jetty-based HTTP server that serves static files from the
@@ -14,7 +14,7 @@ import org.eclipse.jetty.server.nio.SelectChannelConnector;
 public class PerformanceServer {
     public void run(int port) throws Exception {
         Server server = new Server();
-        SelectChannelConnector connector = new SelectChannelConnector();
+        ServerConnector connector = new ServerConnector(server);
         connector.setPort(port);
         server.addConnector(connector);
 

@@ -1,15 +1,11 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.HttpRequest;
+import org.junit.Assert;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.junit.Assert;
-import org.littleshoot.proxy.impl.ClientDetails;
 
 /**
  * Tests a proxy chained to a missing downstream proxy. When the downstream
@@ -25,33 +21,28 @@ public class ChainedProxyWithFallbackTest extends BaseProxyTest {
         this.proxyServer = bootstrapProxy()
                 .withName("Downstream")
                 .withPort(0)
-                .withChainProxyManager(new ChainedProxyManager() {
-                    @Override
-                    public void lookupChainedProxies(HttpRequest httpRequest,
-                                                     Queue<ChainedProxy> chainedProxies,
-                                                     ClientDetails clientDetails) {
-                        chainedProxies.add(new ChainedProxyAdapter() {
-                            @Override
-                            public InetSocketAddress getChainedProxyAddress() {
-                                try {
-                                    // using unconnectable port 0
-                                    return new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0);
-                                } catch (UnknownHostException uhe) {
-                                    throw new RuntimeException(
-                                            "Unable to resolve 127.0.0.1?!");
-                                }
+                .withChainProxyManager((httpRequest, chainedProxies, clientDetails) -> {
+                    chainedProxies.add(new ChainedProxyAdapter() {
+                        @Override
+                        public InetSocketAddress getChainedProxyAddress() {
+                            try {
+                                // using unconnectable port 0
+                                return new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0);
+                            } catch (UnknownHostException uhe) {
+                                throw new RuntimeException(
+                                        "Unable to resolve 127.0.0.1?!");
                             }
+                        }
 
-                            @Override
-                            public void connectionFailed(Throwable cause) {
-                                unableToConnect.set(true);
-                            }
+                        @Override
+                        public void connectionFailed(Throwable cause) {
+                            unableToConnect.set(true);
+                        }
 
-                        });
+                    });
 
-                        chainedProxies
-                                .add(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
-                    }
+                    chainedProxies
+                            .add(ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION);
                 })
                 .start();
     }

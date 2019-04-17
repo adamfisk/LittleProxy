@@ -65,11 +65,9 @@ public class HttpClientUtil {
      * @return new HttpClient
      */
     private static CloseableHttpClient buildHttpClient(HttpProxyServer proxyServer) {
-        CloseableHttpClient httpClient = HttpClients.custom()
+        return HttpClients.custom()
                 .setProxy(new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort()))
                 .build();
-
-        return httpClient;
     }
 
     /**

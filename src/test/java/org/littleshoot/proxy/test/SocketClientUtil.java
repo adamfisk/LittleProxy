@@ -45,9 +45,7 @@ public class SocketClientUtil {
             throw new EOFException("Unable to read from socket. The socket is closed.");
         }
 
-        String read = new String(bytes, 0, bytesRead, Charset.forName("UTF-8"));
-
-        return read;
+        return new String(bytes, 0, bytesRead, Charset.forName("UTF-8"));
     }
 
     /**

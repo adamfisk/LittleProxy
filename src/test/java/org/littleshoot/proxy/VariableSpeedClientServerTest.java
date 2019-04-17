@@ -1,17 +1,5 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.*;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.nio.charset.Charset;
-import java.util.Arrays;
-
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -24,6 +12,17 @@ import org.apache.http.util.EntityUtils;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.Charset;
+import java.util.Arrays;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests cases where either the client or the server is slower than the other.
@@ -73,7 +72,7 @@ public class VariableSpeedClientServerTest {
             private int remaining = CONTENT_LENGTH;
 
             @Override
-            public int read() throws IOException {
+            public int read() {
                 if (remaining > 0) {
                     remaining -= 1;
                     return 77;
@@ -83,7 +82,7 @@ public class VariableSpeedClientServerTest {
             }
 
             @Override
-            public int available() throws IOException {
+            public int available() {
                 return remaining;
             }
         }, CONTENT_LENGTH));
@@ -111,19 +110,13 @@ public class VariableSpeedClientServerTest {
         TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
     }
 
-    private void startServer(final int port, final boolean slowReader)
-            throws Exception {
-        final Thread t = new Thread(new Runnable() {
-
-            @Override
-            public void run() {
-                try {
-                    startServerOnThread(port, slowReader);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+    private void startServer(final int port, final boolean slowReader) {
+        final Thread t = new Thread(() -> {
+            try {
+                startServerOnThread(port, slowReader);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-
         }, "Test-Server-Thread");
         t.setDaemon(true);
         t.start();
@@ -131,43 +124,42 @@ public class VariableSpeedClientServerTest {
 
     private void startServerOnThread(int port, boolean slowReader)
             throws Exception {
-        final ServerSocket server = new ServerSocket(port);
-        try {
+        try (ServerSocket server = new ServerSocket(port)) {
             server.setSoTimeout(100000);
             final Socket sock = server.accept();
-            try (InputStream is = slowReader ? new ThrottledInputStream(sock.getInputStream(), 10 * 1000) : sock.getInputStream();
-                 BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
-                while (br.read() != 0) {
-                }
+            InputStream is = sock.getInputStream();
+            if (slowReader) {
+                is = new ThrottledInputStream(is, 10 * 1000);
             }
-            try (OutputStream os = sock.getOutputStream()) {
-                final String responseHeaders =
-                        "HTTP/1.1 200 OK\r\n" +
-                                "Date: Sun, 20 Jan 2013 00:16:23 GMT\r\n" +
-                                "Expires: -1\r\n" +
-                                "Cache-Control: private, max-age=0\r\n" +
-                                "Content-Type: text/html; charset=ISO-8859-1\r\n" +
-                                "Server: gws\r\n" +
-                                "Content-Length: " + CONTENT_LENGTH + "\r\n\r\n"; // 10
-                // gigs
-                // or
-                // so.
-
-                os.write(responseHeaders.getBytes(Charset.forName("UTF-8")));
-
-                int bufferSize = 100000;
-                final byte[] bytes = new byte[bufferSize];
-                Arrays.fill(bytes, (byte) 77);
-                int remainingBytes = CONTENT_LENGTH;
-
-                while (remainingBytes > 0) {
-                    int numberOfBytesToWrite = Math.min(remainingBytes, bufferSize);
-                    os.write(bytes, 0, numberOfBytesToWrite);
-                    remainingBytes -= numberOfBytesToWrite;
-                }
+            BufferedReader br = new BufferedReader(new InputStreamReader(is));
+            while (br.read() != 0) {
             }
-        } finally {
-            server.close();
+            final OutputStream os = sock.getOutputStream();
+            final String responseHeaders =
+                    "HTTP/1.1 200 OK\r\n" +
+                            "Date: Sun, 20 Jan 2013 00:16:23 GMT\r\n" +
+                            "Expires: -1\r\n" +
+                            "Cache-Control: private, max-age=0\r\n" +
+                            "Content-Type: text/html; charset=ISO-8859-1\r\n" +
+                            "Server: gws\r\n" +
+                            "Content-Length: " + CONTENT_LENGTH + "\r\n\r\n"; // 10
+            // gigs
+            // or
+            // so.
+
+            os.write(responseHeaders.getBytes(Charset.forName("UTF-8")));
+
+            int bufferSize = 100000;
+            final byte[] bytes = new byte[bufferSize];
+            Arrays.fill(bytes, (byte) 77);
+            int remainingBytes = CONTENT_LENGTH;
+
+            while (remainingBytes > 0) {
+                int numberOfBytesToWrite = Math.min(remainingBytes, bufferSize);
+                os.write(bytes, 0, numberOfBytesToWrite);
+                remainingBytes -= numberOfBytesToWrite;
+            }
+            os.close();
         }
     }
 }

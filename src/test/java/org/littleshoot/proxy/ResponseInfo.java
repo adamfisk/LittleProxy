@@ -41,9 +41,7 @@ public class ResponseInfo {
                 return false;
         } else if (!body.equals(other.body))
             return false;
-        if (statusCode != other.statusCode)
-            return false;
-        return true;
+        return statusCode == other.statusCode;
     }
 
     @Override

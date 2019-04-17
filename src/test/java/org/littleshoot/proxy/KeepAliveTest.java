@@ -1,12 +1,6 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,9 +16,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -40,9 +32,9 @@ public class KeepAliveTest {
     private Socket socket;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         mockServer = new ClientAndServer(0);
-        mockServerPort = mockServer.getPort();
+        mockServerPort = mockServer.getLocalPort();
         socket = null;
         proxyServer = null;
     }
@@ -195,7 +187,7 @@ public class KeepAliveTest {
      * Tests that the proxy does not close the connection after a 504 Gateway Timeout response.
      */
     @Test
-    public void testGatewayTimeoutDoesNotCloseConnection() throws IOException, InterruptedException {
+    public void testGatewayTimeoutDoesNotCloseConnection() throws IOException {
         mockServer.when(request()
                         .withMethod("GET")
                         .withPath("/success"),

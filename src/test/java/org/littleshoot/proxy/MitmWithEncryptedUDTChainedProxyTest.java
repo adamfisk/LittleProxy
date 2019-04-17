@@ -1,10 +1,10 @@
 package org.littleshoot.proxy;
 
-import static org.littleshoot.proxy.TransportProtocol.*;
+import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 
 import javax.net.ssl.SSLEngine;
 
-import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
+import static org.littleshoot.proxy.TransportProtocol.UDT;
 
 public class MitmWithEncryptedUDTChainedProxyTest extends MitmWithChainedProxyTest {
     private final SslEngineSource sslEngineSource = new SelfSignedSslEngineSource(

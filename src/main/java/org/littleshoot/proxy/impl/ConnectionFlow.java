@@ -6,10 +6,11 @@ import io.netty.handler.codec.haproxy.HAProxyProtocolVersion;
 import io.netty.handler.codec.haproxy.HAProxyProxiedProtocol;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import org.littleshoot.proxy.extras.ProxyProtocolMessage;
+
 import java.net.InetSocketAddress;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import org.littleshoot.proxy.extras.ProxyProtocolMessage;
 
 /**
  * Coordinates the various steps involved in establishing a connection, such as
@@ -17,7 +18,7 @@ import org.littleshoot.proxy.extras.ProxyProtocolMessage;
  * processing, and so on.
  */
 class ConnectionFlow {
-    private Queue<ConnectionFlowStep> steps = new ConcurrentLinkedQueue<ConnectionFlowStep>();
+    private Queue<ConnectionFlowStep> steps = new ConcurrentLinkedQueue<>();
 
     private final ClientToProxyConnection clientConnection;
     private final ProxyToServerConnection serverConnection;
@@ -123,12 +124,7 @@ class ConnectionFlow {
                 || currentStep.shouldSuppressInitialRequest();
 
         if (currentStep.shouldExecuteOnEventLoop()) {
-            connection.ctx.executor().submit(new Runnable() {
-                @Override
-                public void run() {
-                    doProcessCurrentStep(LOG);
-                }
-            });
+            connection.ctx.executor().submit(() -> doProcessCurrentStep(LOG));
         } else {
             doProcessCurrentStep(LOG);
         }
@@ -143,22 +139,17 @@ class ConnectionFlow {
     @SuppressWarnings("unchecked")
     private void doProcessCurrentStep(final ProxyConnectionLogger LOG) {
         currentStep.execute().addListener(
-                new GenericFutureListener<Future<?>>() {
-                    public void operationComplete(
-                            io.netty.util.concurrent.Future<?> future)
-                            throws Exception {
-                        synchronized (connectLock) {
-                            if (future.isSuccess()) {
-                                LOG.debug("ConnectionFlowStep succeeded");
-                                currentStep
-                                        .onSuccess(ConnectionFlow.this);
-                            } else {
-                                LOG.debug("ConnectionFlowStep failed",
-                                        future.cause());
-                                fail(future.cause());
-                            }
+                future -> {
+                    synchronized (connectLock) {
+                        if (future.isSuccess()) {
+                            LOG.debug("ConnectionFlowStep succeeded");
+                            currentStep.onSuccess(ConnectionFlow.this);
+                        } else {
+                            LOG.debug("ConnectionFlowStep failed",
+                                    future.cause());
+                            fail(future.cause());
                         }
-                    };
+                    }
                 });
     }
 
@@ -203,22 +194,18 @@ class ConnectionFlow {
         final ConnectionState lastStateBeforeFailure = serverConnection
                 .getCurrentState();
         serverConnection.disconnect().addListener(
-                new GenericFutureListener() {
-                    @Override
-                    public void operationComplete(Future future)
-                            throws Exception {
-                        synchronized (connectLock) {
-                            if (!clientConnection.serverConnectionFailed(
-                                    serverConnection,
-                                    lastStateBeforeFailure,
-                                    cause)) {
-                                // the connection to the server failed and we are not retrying, so transition to the
-                                // DISCONNECTED state
-                                serverConnection.become(ConnectionState.DISCONNECTED);
+                (GenericFutureListener) future -> {
+                    synchronized (connectLock) {
+                        if (!clientConnection.serverConnectionFailed(
+                                serverConnection,
+                                lastStateBeforeFailure,
+                                cause)) {
+                            // the connection to the server failed and we are not retrying, so transition to the
+                            // DISCONNECTED state
+                            serverConnection.become(ConnectionState.DISCONNECTED);
 
-                                // We are not retrying our connection, let anyone waiting for a connection know that we're done
-                                notifyThreadsWaitingForConnection();
-                            }
+                            // We are not retrying our connection, let anyone waiting for a connection know that we're done
+                            notifyThreadsWaitingForConnection();
                         }
                     }
                 });

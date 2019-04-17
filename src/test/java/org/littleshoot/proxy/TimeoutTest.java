@@ -20,9 +20,7 @@ import java.net.Socket;
 import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.lessThan;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
+import static org.junit.Assert.*;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -38,7 +36,7 @@ public class TimeoutTest {
     @Before
     public void setUp() {
         mockServer = new ClientAndServer(0);
-        mockServerPort = mockServer.getPort();
+        mockServerPort = mockServer.getLocalPort();
     }
 
     @After
