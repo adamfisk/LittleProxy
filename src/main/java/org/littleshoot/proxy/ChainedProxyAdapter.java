@@ -2,9 +2,8 @@ package org.littleshoot.proxy;
 
 import io.netty.handler.codec.http.HttpObject;
 
-import java.net.InetSocketAddress;
-
 import javax.net.ssl.SSLEngine;
+import java.net.InetSocketAddress;
 
 /**
  * Convenience base class for implementations of {@link ChainedProxy}.

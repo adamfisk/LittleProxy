@@ -1,26 +1,15 @@
 package org.littleshoot.proxy.impl;
 
-import io.netty.handler.codec.http.DefaultFullHttpRequest;
-import io.netty.handler.codec.http.DefaultHttpHeaders;
-import io.netty.handler.codec.http.DefaultHttpMessage;
-import io.netty.handler.codec.http.DefaultHttpResponse;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpMessage;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.*;
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.hasSize;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static java.util.Collections.singletonList;
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
 
 /**
  * Test for proxy utilities.
@@ -28,7 +17,7 @@ import static org.junit.Assert.assertThat;
 public class ProxyUtilsTest {
 
     @Test
-    public void testParseHostAndPort() throws Exception {
+    public void testParseHostAndPort() {
         assertEquals("www.test.com:80", ProxyUtils.parseHostAndPort("http://www.test.com:80/test"));
         assertEquals("www.test.com:80", ProxyUtils.parseHostAndPort("https://www.test.com:80/test"));
         assertEquals("www.test.com:443", ProxyUtils.parseHostAndPort("https://www.test.com:443/test"));
@@ -127,60 +116,60 @@ public class ProxyUtilsTest {
         // #1: 1.Any response message which "MUST NOT" include a message-body (such as the 1xx, 204, and 304 responses and any response to a HEAD request) is always terminated by the first empty line after the header fields, regardless of the entity-header fields present in the message.
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE);
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.SWITCHING_PROTOCOLS);
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.RESET_CONTENT);
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_MODIFIED);
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         // #2: 2.If a Transfer-Encoding header field (section 14.41) is present and has any value other than "identity", then the transfer-length is defined by use of the "chunked" transfer-coding (section 3.6), unless the message is terminated by closing the connection.
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "chunked");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip, chunked");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         // chunked encoding is not last, so not self terminating
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "chunked, gzip");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(false, isResponseSelfTerminating);
+        assertFalse(isResponseSelfTerminating);
 
         // four encodings on two lines, chunked is not last, so not self terminating
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip, chunked");
         httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "deflate, gzip");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(false, isResponseSelfTerminating);
+        assertFalse(isResponseSelfTerminating);
 
         // three encodings on two lines, chunked is last, so self terminating
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip");
         httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "deflate,chunked");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         // #3: 3.If a Content-Length header field (section 14.13) is present, its decimal value in OCTETs represents both the entity-length and the transfer-length.
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         httpResponse.headers().add(HttpHeaders.Names.CONTENT_LENGTH, "15");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         // continuing #3: If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored.
 
@@ -189,20 +178,20 @@ public class ProxyUtilsTest {
         httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip, chunked");
         httpResponse.headers().add(HttpHeaders.Names.CONTENT_LENGTH, "15");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(true, isResponseSelfTerminating);
+        assertTrue(isResponseSelfTerminating);
 
         // chunked is not last Transfer-Encoding, so message is not self-terminating, since Content-Length is ignored
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         httpResponse.headers().add(HttpHeaders.Names.TRANSFER_ENCODING, "gzip");
         httpResponse.headers().add(HttpHeaders.Names.CONTENT_LENGTH, "15");
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(false, isResponseSelfTerminating);
+        assertFalse(isResponseSelfTerminating);
 
         // without any of the above conditions, the message should not be self-terminating
         // (multipart/byteranges is ignored, see note in method javadoc)
         httpResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         isResponseSelfTerminating = ProxyUtils.isResponseSelfTerminating(httpResponse);
-        assertEquals(false, isResponseSelfTerminating);
+        assertFalse(isResponseSelfTerminating);
 
     }
 
@@ -247,23 +236,23 @@ public class ProxyUtilsTest {
         final List<String> emptyList = new ArrayList<>();
         // Various cases where 'sdch' is not present within the accepted
         // encodings list
-        assertRemoveSdchEncoding(Arrays.asList(""), emptyList);
-        assertRemoveSdchEncoding(Arrays.asList("gzip"), Arrays.asList("gzip"));
+        assertRemoveSdchEncoding(singletonList(""), emptyList);
+        assertRemoveSdchEncoding(singletonList("gzip"), singletonList("gzip"));
 
         assertRemoveSdchEncoding(Arrays.asList("gzip", "deflate", "br"), Arrays.asList("gzip", "deflate", "br"));
-        assertRemoveSdchEncoding(Arrays.asList("gzip, deflate, br"), Arrays.asList("gzip, deflate, br"));
+        assertRemoveSdchEncoding(singletonList("gzip, deflate, br"), singletonList("gzip, deflate, br"));
 
         // Various cases where 'sdch' is present within the accepted encodings
         // list
-        assertRemoveSdchEncoding(Arrays.asList("sdch"), emptyList);
-        assertRemoveSdchEncoding(Arrays.asList("SDCH"), emptyList);
+        assertRemoveSdchEncoding(singletonList("sdch"), emptyList);
+        assertRemoveSdchEncoding(singletonList("SDCH"), emptyList);
 
-        assertRemoveSdchEncoding(Arrays.asList("sdch", "gzip"), Arrays.asList("gzip"));
-        assertRemoveSdchEncoding(Arrays.asList("sdch, gzip"), Arrays.asList("gzip"));
+        assertRemoveSdchEncoding(Arrays.asList("sdch", "gzip"), singletonList("gzip"));
+        assertRemoveSdchEncoding(singletonList("sdch, gzip"), singletonList("gzip"));
 
         assertRemoveSdchEncoding(Arrays.asList("gzip", "sdch", "deflate"), Arrays.asList("gzip", "deflate"));
-        assertRemoveSdchEncoding(Arrays.asList("gzip, sdch, deflate"), Arrays.asList("gzip, deflate"));
-        assertRemoveSdchEncoding(Arrays.asList("gzip,deflate,sdch"), Arrays.asList("gzip,deflate"));
+        assertRemoveSdchEncoding(singletonList("gzip, sdch, deflate"), singletonList("gzip, deflate"));
+        assertRemoveSdchEncoding(singletonList("gzip,deflate,sdch"), singletonList("gzip,deflate"));
 
         assertRemoveSdchEncoding(Arrays.asList("gzip", "deflate, sdch", "br"), Arrays.asList("gzip", "deflate", "br"));
     }

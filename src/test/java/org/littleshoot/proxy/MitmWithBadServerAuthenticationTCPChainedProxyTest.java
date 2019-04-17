@@ -1,11 +1,10 @@
 package org.littleshoot.proxy;
 
-import static org.littleshoot.proxy.TransportProtocol.*;
+import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 
 import javax.net.ssl.SSLEngine;
 
-import org.junit.Ignore;
-import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
+import static org.littleshoot.proxy.TransportProtocol.TCP;
 
 /**
  * Tests that servers are authenticated and that if they're missing certs, we

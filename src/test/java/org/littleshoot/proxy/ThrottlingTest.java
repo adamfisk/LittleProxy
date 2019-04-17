@@ -19,9 +19,7 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 import java.io.IOException;
 
-import static org.hamcrest.Matchers.both;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
@@ -50,7 +48,7 @@ public class ThrottlingTest {
     private int readWebServerPort;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         // Set up some large data
         largeData = new byte[100000];
         for (int i = 0; i < largeData.length; i++) {

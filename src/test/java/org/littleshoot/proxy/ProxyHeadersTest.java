@@ -28,13 +28,13 @@ public class ProxyHeadersTest {
     private int mockServerPort;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         mockServer = new ClientAndServer(0);
-        mockServerPort = mockServer.getPort();
+        mockServerPort = mockServer.getLocalPort();
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         try {
             if (proxyServer != null) {
                 proxyServer.abort();

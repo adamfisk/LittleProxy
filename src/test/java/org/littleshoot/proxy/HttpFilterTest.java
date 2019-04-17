@@ -1,20 +1,12 @@
 package org.littleshoot.proxy;
 
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.*;
 import org.eclipse.jetty.server.Server;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
-import org.littleshoot.proxy.impl.ClientDetails;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.littleshoot.proxy.test.HttpClientUtil;
 import org.mockserver.integration.ClientAndServer;
@@ -34,11 +26,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.hamcrest.Matchers.lessThan;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockserver.model.HttpRequest.request;
@@ -59,7 +47,7 @@ public class HttpFilterTest {
         webServerPort = TestUtils.findLocalHttpPort(webServer);
 
         mockServer = new ClientAndServer(0);
-        mockServerPort = mockServer.getPort();
+        mockServerPort = mockServer.getLocalPort();
 
     }
 
@@ -121,7 +109,7 @@ public class HttpFilterTest {
         final AtomicInteger fullHttpRequestsReceived = new AtomicInteger(0);
         final AtomicInteger fullHttpResponsesReceived = new AtomicInteger(0);
         final Queue<HttpRequest> associatedRequests =
-                new LinkedList<HttpRequest>();
+                new LinkedList<>();
 
         final AtomicInteger requestCount = new AtomicInteger(0);
         final AtomicLongArray proxyToServerRequestSendingNanos = new AtomicLongArray(new long[] { -1, -1, -1, -1, -1 });
@@ -138,7 +126,7 @@ public class HttpFilterTest {
         final AtomicLongArray proxyToServerConnectionSucceededNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
         final AtomicLongArray serverToProxyResponseTimedOutNanos = new AtomicLongArray(new long[] { -1,-1, -1, -1, -1 });
 
-        final AtomicReference<ChannelHandlerContext> serverCtxReference = new AtomicReference<ChannelHandlerContext>();
+        final AtomicReference<ChannelHandlerContext> serverCtxReference = new AtomicReference<>();
 
         final String url1 = "http://localhost:" + webServerPort + "/";
         final String url2 = "http://localhost:" + webServerPort + "/testing";
@@ -158,7 +146,7 @@ public class HttpFilterTest {
                         fullHttpRequestsReceived.incrementAndGet();
                         if (httpObject instanceof HttpRequest) {
                             HttpRequest httpRequest = (HttpRequest) httpObject;
-                            if (httpRequest.getUri().equals(url2)) {
+                            if (httpRequest.uri().equals(url2)) {
                                 return new DefaultFullHttpResponse(
                                         HttpVersion.HTTP_1_1,
                                         HttpResponseStatus.FORBIDDEN);
@@ -172,7 +160,7 @@ public class HttpFilterTest {
                             HttpObject httpObject) {
                         if (httpObject instanceof HttpRequest) {
                             HttpRequest httpRequest = (HttpRequest) httpObject;
-                            if (httpRequest.getUri().equals("/testing2")) {
+                            if (httpRequest.uri().equals("/testing2")) {
                                 return new DefaultFullHttpResponse(
                                         HttpVersion.HTTP_1_1,
                                         HttpResponseStatus.FORBIDDEN);
@@ -193,7 +181,7 @@ public class HttpFilterTest {
 
                     public HttpObject serverToProxyResponse(
                             HttpObject httpObject) {
-                        if (originalRequest.getUri().contains("testing3")) {
+                        if (originalRequest.uri().contains("testing3")) {
                             return new DefaultFullHttpResponse(
                                     HttpVersion.HTTP_1_1,
                                     HttpResponseStatus.FORBIDDEN);
@@ -226,7 +214,7 @@ public class HttpFilterTest {
 
                     public HttpObject proxyToClientResponse(
                             HttpObject httpObject) {
-                        if (originalRequest.getUri().contains("testing4")) {
+                        if (originalRequest.uri().contains("testing4")) {
                             return new DefaultFullHttpResponse(
                                     HttpVersion.HTTP_1_1,
                                     HttpResponseStatus.FORBIDDEN);
@@ -373,9 +361,9 @@ public class HttpFilterTest {
 
         // Make sure the requests in the filter calls were the requests they
         // actually should have been.
-        assertEquals(url1, first.getUri());
-        assertEquals(url2, second.getUri());
-        assertEquals(url3, third.getUri());
+        assertEquals(url1, first.uri());
+        assertEquals(url2, second.uri());
+        assertEquals(url3, third.uri());
 
         requestCount.incrementAndGet();
         org.apache.http.HttpResponse response4 = HttpClientUtil.performHttpGet(url4, proxyServer);
@@ -547,18 +535,13 @@ public class HttpFilterTest {
         this.proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(filtersSource)
-                .withChainProxyManager(new ChainedProxyManager() {
+                .withChainProxyManager((httpRequest, chainedProxies, clientDetails) -> chainedProxies.add(new ChainedProxyAdapter() {
                     @Override
-                    public void lookupChainedProxies(HttpRequest httpRequest, Queue<ChainedProxy> chainedProxies, ClientDetails clientDetails) {
-                        chainedProxies.add(new ChainedProxyAdapter() {
-                            @Override
-                            public InetSocketAddress getChainedProxyAddress() {
-                                // port 0 is unconnectable
-                                return new InetSocketAddress("127.0.0.1", 0);
-                            }
-                        });
+                    public InetSocketAddress getChainedProxyAddress() {
+                        // port 0 is unconnectable
+                        return new InetSocketAddress("127.0.0.1", 0);
                     }
-                })
+                }))
                 .start();
 
         // the server doesn't have to exist, since the connection to the chained proxy will fail
@@ -615,28 +598,23 @@ public class HttpFilterTest {
         this.proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(filtersSource)
-                .withChainProxyManager(new ChainedProxyManager() {
+                .withChainProxyManager((httpRequest, chainedProxies, clientDetails) -> chainedProxies.add(new ChainedProxyAdapter() {
                     @Override
-                    public void lookupChainedProxies(HttpRequest httpRequest, Queue<ChainedProxy> chainedProxies, ClientDetails clientDetails) {
-                        chainedProxies.add(new ChainedProxyAdapter() {
-                            @Override
-                            public InetSocketAddress getChainedProxyAddress() {
-                                return chainedProxy.getListenAddress();
-                            }
-
-                            @Override
-                            public boolean requiresEncryption() {
-                                return true;
-                            }
-
-                            @Override
-                            public SSLEngine newSslEngine() {
-                                // use the same "bad" keystore as BadServerAuthenticationTCPChainedProxyTest
-                                return new SelfSignedSslEngineSource("chain_proxy_keystore_2.jks").newSslEngine();
-                            }
-                        });
+                    public InetSocketAddress getChainedProxyAddress() {
+                        return chainedProxy.getListenAddress();
                     }
-                })
+
+                    @Override
+                    public boolean requiresEncryption() {
+                        return true;
+                    }
+
+                    @Override
+                    public SSLEngine newSslEngine() {
+                        // use the same "bad" keystore as BadServerAuthenticationTCPChainedProxyTest
+                        return new SelfSignedSslEngineSource("chain_proxy_keystore_2.jks").newSslEngine();
+                    }
+                }))
                 .start();
 
         // the server doesn't have to exist, since the connection to the chained proxy will fail

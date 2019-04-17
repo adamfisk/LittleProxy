@@ -1,15 +1,10 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.*;
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 
 import java.nio.charset.Charset;
 import java.util.HashSet;
-import java.util.Queue;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.hasItem;
@@ -20,12 +15,12 @@ import static org.junit.Assert.assertThat;
  * Tests just a single basic proxy running as a man in the middle.
  */
 public class MitmProxyTest extends BaseProxyTest {
-    private Set<HttpMethod> requestPreMethodsSeen = new HashSet<HttpMethod>();
-    private Set<HttpMethod> requestPostMethodsSeen = new HashSet<HttpMethod>();
+    private Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
+    private Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
     private StringBuilder responsePreBody = new StringBuilder();
     private StringBuilder responsePostBody = new StringBuilder();
-    private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
-    private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
+    private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<>();
+    private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<>();
 
     @Override
     protected void setUp() {
@@ -42,7 +37,7 @@ public class MitmProxyTest extends BaseProxyTest {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPreMethodsSeen
                                             .add(((HttpRequest) httpObject)
-                                                    .getMethod());
+                                                    .method());
                                 }
                                 return null;
                             }
@@ -53,7 +48,7 @@ public class MitmProxyTest extends BaseProxyTest {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPostMethodsSeen
                                             .add(((HttpRequest) httpObject)
-                                                    .getMethod());
+                                                    .method());
                                 }
                                 return null;
                             }
@@ -63,7 +58,7 @@ public class MitmProxyTest extends BaseProxyTest {
                                     HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePreOriginalRequestMethodsSeen
-                                            .add(originalRequest.getMethod());
+                                            .add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
                                     responsePreBody.append(((HttpContent) httpObject)
                                             .content().toString(
@@ -77,7 +72,7 @@ public class MitmProxyTest extends BaseProxyTest {
                                     HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePostOriginalRequestMethodsSeen
-                                            .add(originalRequest.getMethod());
+                                            .add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
                                     responsePostBody.append(((HttpContent) httpObject)
                                             .content().toString(

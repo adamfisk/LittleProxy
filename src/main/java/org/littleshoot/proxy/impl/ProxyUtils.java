@@ -6,18 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.udt.nio.NioUdtProvider;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.DefaultHttpResponse;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpMessage;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
@@ -27,15 +16,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.Set;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.regex.Pattern;
 
 /**
@@ -99,8 +80,7 @@ public class ProxyUtils {
         if (slashIndex == -1) {
             return "/";
         }
-        final String noHostUri = noHttpUri.substring(slashIndex);
-        return noHostUri;
+        return noHttpUri.substring(slashIndex);
     }
 
     /**
@@ -179,8 +159,7 @@ public class ProxyUtils {
      * @return The host and port string.
      */
     public static String parseHostAndPort(final HttpRequest httpRequest) {
-        final String uriHostAndPort = parseHostAndPort(httpRequest.getUri());
-        return uriHostAndPort;
+        return parseHostAndPort(httpRequest.uri());
     }
 
     /**
@@ -220,14 +199,14 @@ public class ProxyUtils {
     public static HttpResponse copyMutableResponseFields(
             final HttpResponse original) {
 
-        HttpResponse copy = null;
+        HttpResponse copy;
         if (original instanceof DefaultFullHttpResponse) {
             ByteBuf content = ((DefaultFullHttpResponse) original).content();
-            copy = new DefaultFullHttpResponse(original.getProtocolVersion(),
-                    original.getStatus(), content);
+            copy = new DefaultFullHttpResponse(original.protocolVersion(),
+                    original.status(), content);
         } else {
-            copy = new DefaultHttpResponse(original.getProtocolVersion(),
-                    original.getStatus());
+            copy = new DefaultHttpResponse(original.protocolVersion(),
+                    original.status());
         }
         final Collection<String> headerNames = original.headers().names();
         for (final String name : headerNames) {
@@ -254,18 +233,16 @@ public class ProxyUtils {
      * @param alias the alias to provide in the Via header for this proxy
      */
     public static void addVia(HttpMessage httpMessage, String alias) {
-        String newViaHeader =  new StringBuilder()
-                .append(httpMessage.getProtocolVersion().majorVersion())
-                .append('.')
-                .append(httpMessage.getProtocolVersion().minorVersion())
-                .append(' ')
-                .append(alias)
-                .toString();
+        String newViaHeader = String.valueOf(httpMessage.protocolVersion().majorVersion()) +
+                '.' +
+                httpMessage.protocolVersion().minorVersion() +
+                ' ' +
+                alias;
 
         final List<String> vias;
         if (httpMessage.headers().contains(HttpHeaders.Names.VIA)) {
             List<String> existingViaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
-            vias = new ArrayList<String>(existingViaHeaders);
+            vias = new ArrayList<>(existingViaHeaders);
             vias.add(newViaHeader);
         } else {
             vias = Collections.singletonList(newViaHeader);
@@ -324,17 +301,14 @@ public class ProxyUtils {
     
     public static int extractInt(final Properties props, final String key, int defaultValue) {
         final String readThrottleString = props.getProperty(key);
-        if (StringUtils.isNotBlank(readThrottleString) &&
-            NumberUtils.isNumber(readThrottleString)) {
+        if (StringUtils.isNotBlank(readThrottleString) && NumberUtils.isCreatable(readThrottleString)) {
             return Integer.parseInt(readThrottleString);
         }
         return defaultValue;
     }
 
     public static boolean isCONNECT(HttpObject httpObject) {
-        return httpObject instanceof HttpRequest
-                && HttpMethod.CONNECT.equals(((HttpRequest) httpObject)
-                        .getMethod());
+        return httpObject instanceof HttpRequest && HttpMethod.CONNECT.equals(((HttpRequest) httpObject).method());
     }
 
     /**
@@ -344,7 +318,7 @@ public class ProxyUtils {
      * @return true if request is a HEAD, otherwise false
      */
     public static boolean isHEAD(HttpRequest httpRequest) {
-        return HttpMethod.HEAD.equals(httpRequest.getMethod());
+        return HttpMethod.HEAD.equals(httpRequest.method());
     }
 
     private static boolean checkTrueOrFalse(final String val,
@@ -364,7 +338,7 @@ public class ProxyUtils {
     public static boolean isContentAlwaysEmpty(HttpMessage msg) {
         if (msg instanceof HttpResponse) {
             HttpResponse res = (HttpResponse) msg;
-            int code = res.getStatus().code();
+            int code = res.status().code();
 
             // Correctly handle return codes of 1xx.
             //
@@ -436,15 +410,12 @@ public class ProxyUtils {
         }
 
         String contentLengthHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_LENGTH);
-        if (contentLengthHeader != null && !contentLengthHeader.isEmpty()) {
-            return true;
-        }
+        return contentLengthHeader != null && !contentLengthHeader.isEmpty();
 
         // not checking for multipart/byteranges, since it is seldom used and its use as a message length indicator was removed in RFC 7230
 
         // none of the other message length indicators are present, so the only way the server can indicate the end
         // of this message is to close the connection
-        return false;
     }
 
     /**
@@ -502,7 +473,7 @@ public class ProxyUtils {
      * @return a new HttpResponse with the same status line and headers
      */
     public static HttpResponse duplicateHttpResponse(HttpResponse originalResponse) {
-        DefaultHttpResponse newResponse = new DefaultHttpResponse(originalResponse.getProtocolVersion(), originalResponse.getStatus());
+        DefaultHttpResponse newResponse = new DefaultHttpResponse(originalResponse.protocolVersion(), originalResponse.status());
         newResponse.headers().add(originalResponse.headers());
 
         return newResponse;
@@ -516,14 +487,12 @@ public class ProxyUtils {
     public static String getHostName() {
         try {
             return InetAddress.getLocalHost().getHostName();
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             LOG.debug("Ignored exception", e);
-        } catch (RuntimeException e) {
-            // An exception here must not stop the proxy. Android could throw a
-            // runtime exception, since it not allows network access in the main
-            // process.
-            LOG.debug("Ignored exception", e);
-        }
+        } // An exception here must not stop the proxy. Android could throw a
+        // runtime exception, since it not allows network access in the main
+        // process.
+
         LOG.info("Could not lookup localhost");
         return null;
     }

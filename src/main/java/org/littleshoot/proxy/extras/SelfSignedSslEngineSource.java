@@ -5,23 +5,14 @@ import org.littleshoot.proxy.SslEngineSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.*;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.Security;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 
@@ -119,22 +110,18 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
                     .getInstance(algorithm);
             tmf.init(ks);
 
-            TrustManager[] trustManagers = null;
+            TrustManager[] trustManagers;
             if (!trustAllServers) {
                 trustManagers = tmf.getTrustManagers();
             } else {
                 trustManagers = new TrustManager[] { new X509TrustManager() {
                     // TrustManager that trusts all servers
                     @Override
-                    public void checkClientTrusted(X509Certificate[] arg0,
-                            String arg1)
-                            throws CertificateException {
+                    public void checkClientTrusted(X509Certificate[] arg0, String arg1) {
                     }
 
                     @Override
-                    public void checkServerTrusted(X509Certificate[] arg0,
-                            String arg1)
-                            throws CertificateException {
+                    public void checkServerTrusted(X509Certificate[] arg0, String arg1) {
                     }
 
                     @Override
@@ -144,7 +131,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
                 } };
             }
             
-            KeyManager[] keyManagers = null;
+            KeyManager[] keyManagers;
             if (sendCerts) {
                 keyManagers = kmf.getKeyManagers();
             } else {

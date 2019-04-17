@@ -6,10 +6,8 @@ import org.junit.Test;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLSession;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.*;
 
 public class SelfSignedMitmManagerTest {
 

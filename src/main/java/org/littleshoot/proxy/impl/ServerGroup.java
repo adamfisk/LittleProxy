@@ -64,19 +64,19 @@ public class ServerGroup {
      * List of all servers registered to use this ServerGroup. Any access to this list should be synchronized using the
      * {@link #SERVER_REGISTRATION_LOCK}.
      */
-    public final List<HttpProxyServer> registeredServers = new ArrayList<HttpProxyServer>(1);
+    public final List<HttpProxyServer> registeredServers = new ArrayList<>(1);
 
     /**
      * A mapping of {@link TransportProtocol}s to their initialized {@link ProxyThreadPools}. Each transport uses a
      * different thread pool, since the initialization parameters are different.
      */
-    private final EnumMap<TransportProtocol, ProxyThreadPools> protocolThreadPools = new EnumMap<TransportProtocol, ProxyThreadPools>(TransportProtocol.class);
+    private final EnumMap<TransportProtocol, ProxyThreadPools> protocolThreadPools = new EnumMap<>(TransportProtocol.class);
 
     /**
      * A mapping of selector providers to transport protocols. Avoids special-casing each transport protocol during
      * transport protocol initialization.
      */
-    private static final EnumMap<TransportProtocol, SelectorProvider> TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS = new EnumMap<TransportProtocol, SelectorProvider>(TransportProtocol.class);
+    private static final EnumMap<TransportProtocol, SelectorProvider> TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS = new EnumMap<>(TransportProtocol.class);
     static {
         TRANSPORT_PROTOCOL_SELECTOR_PROVIDERS.put(TransportProtocol.TCP, SelectorProvider.provider());
 
@@ -213,7 +213,7 @@ public class ServerGroup {
 
         // loop through all event loops managed by this server group. this includes acceptor and worker event loops
         // for both TCP and UDP transport protocols.
-        List<EventLoopGroup> allEventLoopGroups = new ArrayList<EventLoopGroup>();
+        List<EventLoopGroup> allEventLoopGroups = new ArrayList<>();
 
         for (ProxyThreadPools threadPools : protocolThreadPools.values()) {
             allEventLoopGroups.addAll(threadPools.getAllEventLoops());
