@@ -14,5 +14,5 @@ jmeter.log
 lib/
 LittleProxy.pro
 /bin
-*.jks
+/*.jks
 performance/site/
