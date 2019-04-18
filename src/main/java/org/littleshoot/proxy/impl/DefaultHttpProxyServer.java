@@ -820,7 +820,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 	@Override
 	public HttpProxyServerBootstrap withServerGroup(
 		ServerGroup group) {
-	this.serverGroup = group;
+	   this.serverGroup = group;
+	   return this;
 	}
 		
         @Override
