@@ -817,7 +817,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.serverResolver = serverResolver;
             return this;
         }
-
+	@Override
+	public HttpProxyServerBootstrap withServerGroup(
+		ServerGroup group) {
+	this.serverGroup = group;
+	}
+		
         @Override
         public HttpProxyServerBootstrap plusActivityTracker(
                 ActivityTracker activityTracker) {
