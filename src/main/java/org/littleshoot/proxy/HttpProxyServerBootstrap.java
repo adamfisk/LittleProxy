@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
 import org.littleshoot.proxy.impl.ThreadPoolConfiguration;
-import org.littleshot.proxy.impl.ServerGroup;
+import org.littleshoot.proxy.impl.ServerGroup;
 import java.net.InetSocketAddress;
 
 /**
