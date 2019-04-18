@@ -1,7 +1,7 @@
 package org.littleshoot.proxy;
 
 import org.littleshoot.proxy.impl.ThreadPoolConfiguration;
-
+import org.littleshot.proxy.impl.ServerGroup;
 import java.net.InetSocketAddress;
 
 /**
@@ -268,6 +268,15 @@ public interface HttpProxyServerBootstrap {
      */
     HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);
 
+    /**
+    * Specify a custom {@link ServerGroup} to use for managing this server's resources and such.
+    * If one isn't provided, a default one will be created using the {@link ThreadPoolConfiguration} provided
+    * 
+    * @param group A custom server group
+    * @return
+    */
+    HttpProxyServerBootstrap withServerGroup(ServerGroup group);
+    
     /**
      * <p>
      * Add an {@link ActivityTracker} for tracking activity in this proxy.
