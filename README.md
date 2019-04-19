@@ -26,6 +26,10 @@ You can embed LittleProxy in your own projects through Maven with the following:
     </dependency>
 ```
 
+Or with Gradle like this
+
+`compile "xyz.rogfam:littleproxy:2.0.0-beta-3"`
+
 Once you've included LittleProxy, you can start the server with the following:
 
 ```java
