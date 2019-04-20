@@ -1,19 +1,17 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.fail;
-
-import java.net.InetSocketAddress;
-import java.util.Queue;
-
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.example.socksproxy.SocksServerInitializer;
-import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+
+import java.net.InetSocketAddress;
+
+import static org.junit.Assert.fail;
 
 abstract public class BaseChainedSocksProxyTest extends BaseProxyTest {
     private EventLoopGroup socksBossGroup;
@@ -57,28 +55,23 @@ abstract public class BaseChainedSocksProxyTest extends BaseProxyTest {
     }
 
     private ChainedProxyManager chainedProxyManager() {
-        return new ChainedProxyManager() {
+        return (httpRequest, chainedProxies, details) -> chainedProxies.add(new ChainedProxyAdapter() {
             @Override
-            public void lookupChainedProxies(HttpRequest httpRequest, Queue<ChainedProxy> chainedProxies) {
-                chainedProxies.add(new ChainedProxyAdapter() {
-                    @Override
-                    public InetSocketAddress getChainedProxyAddress() {
-                        return new InetSocketAddress("127.0.0.1", socksPort);
-                    }
-                    @Override
-                    public ChainedProxyType getChainedProxyType() {
-                        final ChainedProxyType socksProxyType = getSocksProxyType();
-                        switch (socksProxyType) {
-                            case SOCKS4:
-                            case SOCKS5:
-                                return socksProxyType;
-                            default:
-                                fail(socksProxyType + " is not a type of SOCKS proxy");
-                                throw new UnknownChainedProxyTypeException(socksProxyType);
-                        }
-                    }
-                });
+            public InetSocketAddress getChainedProxyAddress() {
+                return new InetSocketAddress("127.0.0.1", socksPort);
             }
-        };
+            @Override
+            public ChainedProxyType getChainedProxyType() {
+                final ChainedProxyType socksProxyType = getSocksProxyType();
+                switch (socksProxyType) {
+                    case SOCKS4:
+                    case SOCKS5:
+                        return socksProxyType;
+                    default:
+                        fail(socksProxyType + " is not a type of SOCKS proxy");
+                        throw new UnknownChainedProxyTypeException(socksProxyType);
+                }
+            }
+        });
     }
 }
