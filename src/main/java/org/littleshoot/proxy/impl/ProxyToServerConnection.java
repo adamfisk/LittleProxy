@@ -1078,8 +1078,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
      * 
      * @param pipeline
+     * @param httpRequest
      */
-    private void initChannelPipeline(ChannelPipeline pipeline) {
+    private void initChannelPipeline(ChannelPipeline pipeline, HttpRequest httpRequest) {
 
         if (trafficHandler != null) {
             pipeline.addLast("global-traffic-shaping", trafficHandler);
