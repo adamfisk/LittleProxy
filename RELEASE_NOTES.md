@@ -14,3 +14,7 @@
 - 2.0.0-beta-3
   - Upgraded Netty, guava, Hamcrest, Jetty, Selenium, Apache commons cli and lang3
   - Upgrade Maven plugins to the latest versions
+  
+- 2.0.0-beta-4
+  - Allow users to set their own sesrvergroup within the bootstrap helper
+  - Added support for chained SOCKS proxies
