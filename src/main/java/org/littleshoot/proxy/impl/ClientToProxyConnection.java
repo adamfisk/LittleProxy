@@ -1108,7 +1108,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * response headers to reflect that it was proxied.
      * 
      * @param httpResponse
-     * @return
      */
     private void modifyResponseHeadersToReflectProxying(
             HttpResponse httpResponse) {

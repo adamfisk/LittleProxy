@@ -462,7 +462,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Disconnects. This will wait for pending writes to be flushed before
      * disconnecting.
      * 
-     * @return Future<Void> for when we're done disconnecting. If we weren't
+     * @return {@code Future<Void>} for when we're done disconnecting. If we weren't
      *         connected, this returns null.
      */
     Future<Void> disconnect() {

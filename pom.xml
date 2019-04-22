@@ -66,7 +66,6 @@
 
     <inceptionYear>2009</inceptionYear>
 
-    <!-- disable doclint, since Java 8 treats warnings as errors -->
     <profiles>
         <profile>
             <id>release</id>
@@ -105,8 +104,6 @@
                         <artifactId>maven-javadoc-plugin</artifactId>
                         <configuration>
                             <source>${java.version}</source>
-                            <!-- disable doclint, since Java 8 treats warnings as errors -->
-                            <doclint>none</doclint>
                         </configuration>
                         <executions>
                             <execution>
@@ -495,8 +492,6 @@
                     <links>
                         <link>http://netty.io/4.0/api/</link>
                     </links>
-                    <!-- disable doclint, since Java 8 treats warnings as errors -->
-                    <doclint>none</doclint>
                 </configuration>
             </plugin>
 
@@ -585,8 +580,6 @@
                     <links>
                         <link>http://netty.io/4.0/api/</link>
                     </links>
-                    <!-- disable doclint, since Java 8 treats warnings as errors -->
-                    <doclint>none</doclint>
                 </configuration>
             </plugin>
 
