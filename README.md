@@ -16,7 +16,7 @@ You can embed LittleProxy in your own projects through Maven with the following:
     <dependency>
         <groupId>org.littleshoot</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>1.1.2</version>
+        <version>1.1.3</version>
     </dependency>
 ```
 
@@ -118,7 +118,7 @@ public class AnswerRequestFilter extends HttpFiltersAdapter {
 		ByteBuf buffer = Unpooled.wrappedBuffer(answer.getBytes("UTF-8"));
 		HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buffer);
 		HttpHeaders.setContentLength(response, buffer.readableBytes());
-		HttpHeaders.setHeader(response, HttpHeaders.Names.CONTENT_TYPE, "text/html");
+		HttpHeaders.setHeader(response, HttpHeaderNames.CONTENT_TYPE, "text/html");
 		return response;
 	}
 }
@@ -156,4 +156,4 @@ Acknowledgments
 
 Many thanks to [The Measurement Factory](http://www.measurement-factory.com/) for the
 use of [Co-Advisor](http://coad.measurement-factory.com/) for HTTP standards
-compliance testing. 
+compliance testing.       

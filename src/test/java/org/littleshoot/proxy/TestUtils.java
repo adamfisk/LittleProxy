@@ -1,5 +1,26 @@
 package org.littleshoot.proxy;
 
+import com.sun.management.UnixOperatingSystemMXBean;
+import org.apache.http.HttpHost;
+import org.apache.http.client.HttpClient;
+import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.conn.ssl.X509HostnameVerifier;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.eclipse.jetty.server.*;
+import org.eclipse.jetty.server.handler.AbstractHandler;
+import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,31 +32,6 @@ import java.net.ServerSocket;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLException;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.sun.management.UnixOperatingSystemMXBean;
-
-import org.apache.http.HttpHost;
-import org.apache.http.client.HttpClient;
-import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.conn.ssl.X509HostnameVerifier;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.eclipse.jetty.server.Connector;
-import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.AbstractHandler;
-import org.eclipse.jetty.server.ssl.SslSocketConnector;
-import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
-
 public class TestUtils {
 
     private TestUtils() {
@@ -45,7 +41,7 @@ public class TestUtils {
      * Creates and starts an embedded web server on a JVM-assigned HTTP ports.
      * Each response has a body that indicates how many bytes were received with
      * a message like "Received x bytes\n".
-     * 
+     *
      * @return Instance of Server
      */
     public static Server startWebServer() {
@@ -76,7 +72,7 @@ public class TestUtils {
 
         httpServer.setHandler(new AbstractHandler() {
             public void handle(String target, Request baseRequest,
-                    HttpServletRequest request, HttpServletResponse response)
+                               HttpServletRequest request, HttpServletResponse response)
                     throws IOException, ServletException {
                 if (request.getRequestURI().contains("hang")) {
                     System.out.println("Hanging as requested");
@@ -86,7 +82,7 @@ public class TestUtils {
                         System.out.println("Stopped hanging due to interruption");
                     }
                 }
-                
+
                 long numberOfBytesRead = 0;
                 InputStream in = new BufferedInputStream(request
                         .getInputStream());
@@ -110,9 +106,7 @@ public class TestUtils {
             SSLContext sslContext = contextSource.getSslContext();
 
             sslContextFactory.setSslContext(sslContext);
-            SslSocketConnector connector = new SslSocketConnector(
-                    sslContextFactory);
-            connector.setPort(0);
+            ServerConnector connector = new ServerConnector(httpServer, sslContextFactory);
             /*
              * <p>Ox: For some reason, on OS X, a non-zero timeout can causes
              * sporadic issues. <a href="http://stackoverflow.com/questions
@@ -120,13 +114,12 @@ public class TestUtils {
              * -due-to-java-net-socketexception-invalid-argument-on-mac-o">This
              * StackOverflow thread</a> has some insights into it, but I don't
              * quite get it.</p>
-             * 
+             *
              * <p>This can cause problems with Jetty's SSL handshaking, so I
              * have to set the handshake timeout and the maxIdleTime to 0 so
              * that the SSLSocket has an infinite timeout.</p>
              */
-            connector.setHandshakeTimeout(0);
-            connector.setMaxIdleTime(0);
+            connector.setIdleTimeout(0);
             httpServer.addConnector(connector);
         }
 
@@ -144,7 +137,7 @@ public class TestUtils {
      * Each response has a body that contains the specified contents.
      *
      * @param enableHttps if true, an HTTPS connector will be added to the web server
-     * @param content The response the server will return
+     * @param content     The response the server will return
      * @return Instance of Server
      */
     public static Server startWebServerWithResponse(boolean enableHttps, final byte[] content) {
@@ -185,9 +178,7 @@ public class TestUtils {
             SSLContext sslContext = contextSource.getSslContext();
 
             sslContextFactory.setSslContext(sslContext);
-            SslSocketConnector connector = new SslSocketConnector(
-                    sslContextFactory);
-            connector.setPort(0);
+            ServerConnector connector = new ServerConnector(new Server(0), sslContextFactory);
             /*
              * <p>Ox: For some reason, on OS X, a non-zero timeout can causes
              * sporadic issues. <a href="http://stackoverflow.com/questions
@@ -200,8 +191,7 @@ public class TestUtils {
              * have to set the handshake timeout and the maxIdleTime to 0 so
              * that the SSLSocket has an infinite timeout.</p>
              */
-            connector.setHandshakeTimeout(0);
-            connector.setMaxIdleTime(0);
+            connector.setIdleTimeout(0);
             httpServer.addConnector(connector);
         }
 
@@ -222,8 +212,8 @@ public class TestUtils {
      */
     public static int findLocalHttpPort(Server webServer) {
         for (Connector connector : webServer.getConnectors()) {
-            if (!(connector instanceof SslSocketConnector)) {
-                return connector.getLocalPort();
+            if (!(connector.getDefaultConnectionFactory() instanceof SslConnectionFactory)) {
+                return ((ServerConnector) connector).getLocalPort();
             }
         }
 
@@ -238,8 +228,8 @@ public class TestUtils {
      */
     public static int findLocalHttpsPort(Server webServer) {
         for (Connector connector : webServer.getConnectors()) {
-            if (connector instanceof SslSocketConnector) {
-                return connector.getLocalPort();
+            if (connector.getDefaultConnectionFactory() instanceof SslConnectionFactory) {
+                return ((ServerConnector) connector).getLocalPort();
             }
         }
 
@@ -249,9 +239,8 @@ public class TestUtils {
     /**
      * Creates instance HttpClient that is configured to use proxy server. The
      * proxy server should run on 127.0.0.1 and given port
-     * 
-     * @param port
-     *            the proxy port
+     *
+     * @param port the proxy port
      * @return instance of HttpClient
      */
     public static HttpClient createProxiedHttpClient(final int port)
@@ -262,16 +251,14 @@ public class TestUtils {
     /**
      * Creates instance HttpClient that is configured to use proxy server. The
      * proxy server should run on 127.0.0.1 and given port
-     * 
-     * @param port
-     *            the proxy port
-     * @param supportSSL
-     *            if true, client will support SSL connections to servers using
-     *            self-signed certificates
+     *
+     * @param port       the proxy port
+     * @param supportSSL if true, client will support SSL connections to servers using
+     *                   self-signed certificates
      * @return instance of HttpClient
      */
     public static HttpClient createProxiedHttpClient(final int port,
-            final boolean supportSSL) throws Exception {
+                                                     final boolean supportSSL) throws Exception {
         final HttpClient httpclient = new DefaultHttpClient();
         // Note: we use 127.0.0.1 here because on OS X, using straight up
         // localhost yields a connect exception.
@@ -282,22 +269,22 @@ public class TestUtils {
             SSLSocketFactory sf = new SSLSocketFactory(
                     new TrustSelfSignedStrategy(),
                     new X509HostnameVerifier() {
-                public boolean verify(String arg0, SSLSession arg1) {
-                    return true;
-                }
+                        public boolean verify(String arg0, SSLSession arg1) {
+                            return true;
+                        }
 
-                public void verify(String host, String[] cns,
-                        String[] subjectAlts) throws SSLException {
-                }
+                        public void verify(String host, String[] cns,
+                                           String[] subjectAlts) throws SSLException {
+                        }
 
-                public void verify(String host, X509Certificate cert)
-                        throws SSLException {
-                }
+                        public void verify(String host, X509Certificate cert)
+                                throws SSLException {
+                        }
 
-                public void verify(String host, SSLSocket ssl)
-                        throws IOException {
-                }
-            });
+                        public void verify(String host, SSLSocket ssl)
+                                throws IOException {
+                        }
+                    });
             Scheme scheme = new Scheme("https", 443, sf);
             httpclient.getConnectionManager().getSchemeRegistry()
                     .register(scheme);
@@ -346,7 +333,7 @@ public class TestUtils {
             }
         }
     }
-    
+
     public static long getOpenFileDescriptorsAndPrintMemoryUsage() {
         // Below courtesy of:
         // http://stackoverflow.com/questions/10999076/programmatically-print-the-heap-usage-that-is-typically-printed-on-jvm-exit-when
@@ -383,30 +370,30 @@ public class TestUtils {
 
     /**
      * Creates a DefaultHttpClient instance.
-     * 
+     *
      * @return instance of DefaultHttpClient
      */
     public static DefaultHttpClient buildHttpClient() throws Exception {
         DefaultHttpClient httpClient = new DefaultHttpClient();
         SSLSocketFactory sf = new SSLSocketFactory(
                 new TrustSelfSignedStrategy(), new X509HostnameVerifier() {
-                    public boolean verify(String arg0, SSLSession arg1) {
-                        return true;
-                    }
+            public boolean verify(String arg0, SSLSession arg1) {
+                return true;
+            }
 
-                    public void verify(String host, String[] cns,
-                            String[] subjectAlts)
-                            throws SSLException {
-                    }
+            public void verify(String host, String[] cns,
+                               String[] subjectAlts)
+                    throws SSLException {
+            }
 
-                    public void verify(String host, X509Certificate cert)
-                            throws SSLException {
-                    }
+            public void verify(String host, X509Certificate cert)
+                    throws SSLException {
+            }
 
-                    public void verify(String host, SSLSocket ssl)
-                            throws IOException {
-                    }
-                });
+            public void verify(String host, SSLSocket ssl)
+                    throws IOException {
+            }
+        });
         Scheme scheme = new Scheme("https", 443, sf);
         httpClient.getConnectionManager().getSchemeRegistry().register(scheme);
         return httpClient;

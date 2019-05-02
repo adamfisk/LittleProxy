@@ -21,12 +21,7 @@ public class CategorizedThreadFactory implements ThreadFactory {
     /**
      * Exception handler for proxy threads. Logs the name of the thread and the exception that was caught.
      */
-    private static final Thread.UncaughtExceptionHandler UNCAUGHT_EXCEPTION_HANDLER = new Thread.UncaughtExceptionHandler() {
-        @Override
-        public void uncaughtException(Thread t, Throwable e) {
-            log.error("Uncaught throwable in thread: {}", t.getName(), e);
-        }
-    };
+    private static final Thread.UncaughtExceptionHandler UNCAUGHT_EXCEPTION_HANDLER = (t, e) -> log.error("Uncaught throwable in thread: {}", t.getName(), e);
 
 
     /**

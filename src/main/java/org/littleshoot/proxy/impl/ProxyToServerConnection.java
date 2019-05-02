@@ -403,7 +403,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void becameWritable() {
         super.becameWritable();
-        this.clientConnection.serverBecameWriteable(this);
+        this.clientConnection.serverBecameWriteable();
     }
 
     @Override
