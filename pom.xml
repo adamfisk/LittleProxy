@@ -365,10 +365,22 @@
                 <version>${netty.version}</version>
                 <scope>test</scope>
                 <exclusions>
-                  <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-tcnative</artifactId>
-                  </exclusion>
+                    <exclusion>
+                        <groupId>io.netty</groupId>
+                        <artifactId>netty-tcnative</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-classic</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.bouncycastle</groupId>
+                        <artifactId>bcprov-jdk15on</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
             <dependency>
