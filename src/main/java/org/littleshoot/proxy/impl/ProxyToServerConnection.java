@@ -468,6 +468,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             if (!is(DISCONNECTED)) {
                 LOG.info("Disconnecting open connection to server");
                 disconnect();
+                this.clientConnection.serverConnectionFailed(this, getCurrentState(), cause);
             }
         }
         // This can happen if we couldn't make the initial connection due
