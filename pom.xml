@@ -19,27 +19,12 @@
         <java.version>1.8</java.version>
     </properties>
 
-    <organization>
-        <name>LittleShoot</name>
-        <url>http://littleproxy.org</url>
-    </organization>
-
     <licenses>
         <license>
             <name>The Apache Software License, Version 2.0</name>
             <url>http://www.apache.org/licenses/LICENSE-2.0</url>
         </license>
     </licenses>
-
-    <mailingLists>
-        <mailingList>
-            <archive>http://groups.google.com/group/littleproxy</archive>
-            <name>littleproxy</name>
-            <post>littleproxy@googlegroups.com</post>
-            <subscribe>http://groups.google.com/group/littleproxy</subscribe>
-            <unsubscribe>littleproxy+unsubscribe@googlegroups.com</unsubscribe>
-        </mailingList>
-    </mailingLists>
 
     <issueManagement>
         <system>github</system>
