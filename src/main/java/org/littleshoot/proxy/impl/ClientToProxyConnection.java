@@ -1072,7 +1072,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param httpRequest
      */
     private void modifyRequestHeadersToReflectProxying(HttpRequest httpRequest) {
-        if (!currentServerConnection.hasUpstreamChainedProxy()) {
+        if (isNextHopOriginServer()) {
             /*
              * We are making the request to the origin server, so must modify
              * the 'absolute-URI' into the 'origin-form' as per RFC 7230
@@ -1100,6 +1100,32 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             stripConnectionTokens(headers);
             stripHopByHopHeaders(headers);
             ProxyUtils.addVia(httpRequest, proxyServer.getProxyAlias());
+        }
+    }
+
+    private boolean isNextHopOriginServer() {
+        // If there is no upstream chained proxy, the next hop must be the origin server.
+        if (!currentServerConnection.hasUpstreamChainedProxy()) {
+            return true;
+        }
+
+        /*
+         * Upstream SOCKS proxies are a special case because they do not 
+         * parse or modify the HTTP request in any way. If the upstream 
+         * chained proxy is a SOCKS proxy, we should treat it as if we 
+         * are connecting directly to the origin server.
+         */
+        switch (currentServerConnection.getChainedProxyType()) {
+            case HTTP:
+                return false;
+            case SOCKS4:
+            case SOCKS5:
+                return true;
+            default:
+                LOG.warn("Assuming upstream chained proxy of unknown type "
+                    + currentServerConnection.getChainedProxyType()
+                    + " should not be treated as an origin server");
+                return false;
         }
     }
 
