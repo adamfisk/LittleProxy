@@ -18,3 +18,6 @@
 - 2.0.0-beta-4
   - Allow users to set their own sesrvergroup within the bootstrap helper
   - Added support for chained SOCKS proxies
+
+- 2.0.0-beta-5
+  - Treat an upstream SOCKS proxy as if it is the origin server
