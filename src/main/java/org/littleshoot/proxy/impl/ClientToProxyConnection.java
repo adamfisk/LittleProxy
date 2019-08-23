@@ -11,6 +11,7 @@ import io.netty.handler.codec.http.*;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.Future;
+import io.netty.util.ReferenceCounted;
 import org.apache.commons.lang3.StringUtils;
 import org.littleshoot.proxy.*;
 
