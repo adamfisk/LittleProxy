@@ -21,3 +21,4 @@
 
 - 2.0.0-beta-5
   - Treat an upstream SOCKS proxy as if it is the origin server
+  - Fixed memoryLeak in ClientToProxyConnection
