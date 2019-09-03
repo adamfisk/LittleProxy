@@ -20,25 +20,17 @@ public interface ActivityTracker {
 
     /**
      * Record that a client connected.
-     * 
-     * @param clientAddress
      */
     void clientConnected(InetSocketAddress clientAddress);
 
     /**
      * Record that a client's SSL handshake completed.
-     * 
-     * @param clientAddress
-     * @param sslSession
      */
     void clientSSLHandshakeSucceeded(InetSocketAddress clientAddress,
             SSLSession sslSession);
 
     /**
      * Record that a client disconnected.
-     * 
-     * @param clientAddress
-     * @param sslSession
      */
     void clientDisconnected(InetSocketAddress clientAddress,
             SSLSession sslSession);

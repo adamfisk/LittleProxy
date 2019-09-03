@@ -37,8 +37,6 @@ public abstract class BaseProxyTest extends AbstractProxyTest {
     /**
      * This test tests a HEAD followed by a GET for the same resource, making
      * sure that the requests complete and that the Content-Length matches.
-     * 
-     * @throws Exception
      */
     @Test
     public void testHeadRequestFollowedByGet() throws Exception {

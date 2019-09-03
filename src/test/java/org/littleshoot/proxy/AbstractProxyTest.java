@@ -124,8 +124,6 @@ public abstract class AbstractProxyTest {
     /**
      * Override this to specify a username to use when authenticating with
      * proxy.
-     * 
-     * @return
      */
     protected String getUsername() {
         return null;
@@ -134,8 +132,6 @@ public abstract class AbstractProxyTest {
     /**
      * Override this to specify a password to use when authenticating with
      * proxy.
-     * 
-     * @return
      */
     protected String getPassword() {
         return null;

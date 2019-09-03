@@ -38,8 +38,6 @@ abstract class ConnectionFlowStep {
     /**
      * Indicates whether or not to suppress the initial request. Defaults to
      * false, can be overridden.
-     * 
-     * @return
      */
     boolean shouldSuppressInitialRequest() {
         return false;
@@ -55,9 +53,6 @@ abstract class ConnectionFlowStep {
      * If this step modifies the pipeline, for example by adding/removing
      * handlers, it's best to make it execute on the event loop.
      * </p>
-     * 
-     * 
-     * @return
      */
     boolean shouldExecuteOnEventLoop() {
         return true;
@@ -66,8 +61,6 @@ abstract class ConnectionFlowStep {
     /**
      * Implement this method to actually do the work involved in this step of
      * the flow.
-     * 
-     * @return
      */
     protected abstract Future execute();
 
@@ -76,8 +69,6 @@ abstract class ConnectionFlowStep {
      * this method. The default implementation simply continues with the flow.
      * Other implementations may choose to not continue and instead wait for a
      * message or something like that.
-     * 
-     * @param flow
      */
     void onSuccess(ConnectionFlow flow) {
         flow.advance();
