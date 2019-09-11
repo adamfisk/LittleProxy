@@ -33,14 +33,14 @@ public class ProxyUtils {
      */
     private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = ImmutableSet.of(
             HttpHeaderNames.CONNECTION.toString(),
+            HttpHeaderNames.KEEP_ALIVE.toString(),
             HttpHeaderNames.PROXY_AUTHENTICATE.toString(),
             HttpHeaderNames.PROXY_AUTHORIZATION.toString(),
             HttpHeaderNames.TE.toString(),
             HttpHeaderNames.TRAILER.toString(),
             /*  Note: Not removing Transfer-Encoding since LittleProxy does not normally re-chunk content.
                 HttpHeaderNames.TRANSFER_ENCODING.toString(), */
-            HttpHeaderNames.UPGRADE.toString(),
-            HttpHeaderNames.KEEP_ALIVE.toString()
+            HttpHeaderNames.UPGRADE.toString()
     );
 
     private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
