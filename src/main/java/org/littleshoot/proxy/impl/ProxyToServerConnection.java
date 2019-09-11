@@ -233,7 +233,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         setupConnectionParameters();
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Reading
      **************************************************************************/
 
@@ -335,7 +335,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Writing
      **************************************************************************/
 
@@ -402,7 +402,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         super.writeHttp(httpObject);
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Lifecycle
      **************************************************************************/
 
@@ -495,7 +495,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // connection, so there should not be any further action to take here.
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * State Management
      **************************************************************************/
     public TransportProtocol getTransportProtocol() {
@@ -536,7 +536,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return currentFilters;
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Private Implementation
      **************************************************************************/
 
@@ -1212,7 +1212,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return InetSocketAddress.createUnresolved(host, port);
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Activity Tracking/Statistics
      * 
      * We track statistics on bytes, requests and responses by adding handlers
