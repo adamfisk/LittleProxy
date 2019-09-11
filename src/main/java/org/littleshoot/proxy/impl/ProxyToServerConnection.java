@@ -3,10 +3,17 @@ package org.littleshoot.proxy.impl;
 import com.google.common.net.HostAndPort;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandler.Sharable;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpMessage;
@@ -43,15 +50,22 @@ import io.netty.handler.codec.socksx.v5.Socks5PasswordAuthResponse;
 import io.netty.handler.codec.socksx.v5.Socks5PasswordAuthResponseDecoder;
 import io.netty.handler.codec.socksx.v5.Socks5PasswordAuthStatus;
 import io.netty.handler.proxy.ProxyConnectException;
-import io.netty.handler.codec.haproxy.HAProxyMessage;
-import io.netty.handler.codec.http.*;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
-import org.littleshoot.proxy.*;
+import org.littleshoot.proxy.ActivityTracker;
+import org.littleshoot.proxy.ChainedProxy;
+import org.littleshoot.proxy.ChainedProxyAdapter;
+import org.littleshoot.proxy.ChainedProxyManager;
+import org.littleshoot.proxy.ChainedProxyType;
+import org.littleshoot.proxy.FullFlowContext;
+import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.MitmManager;
+import org.littleshoot.proxy.TransportProtocol;
+import org.littleshoot.proxy.UnknownTransportProtocolException;
 import org.littleshoot.proxy.extras.HAProxyMessageEncoder;
 
 import javax.net.ssl.SSLProtocolException;
@@ -65,7 +79,12 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
 
-import static org.littleshoot.proxy.impl.ConnectionState.*;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
+import static org.littleshoot.proxy.impl.ConnectionState.CONNECTING;
+import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECTED;
+import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
 
 /**
  * <p>

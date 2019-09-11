@@ -5,10 +5,8 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.params.CoreConnectionPNames;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.eclipse.jetty.server.Server;
 import org.junit.After;
@@ -85,18 +83,15 @@ public class HttpStreamingFilterTest {
         }
 
         final HttpPost request = new HttpPost("/");
-        request.getParams().setParameter(
-                CoreConnectionPNames.CONNECTION_TIMEOUT, 5000);
-        // request.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT,
-        // 15000);
+        request.setConfig(TestUtils.REQUEST_TIMEOUT_CONFIG);
+
         final ByteArrayEntity entity = new ByteArrayEntity(largeData);
         entity.setChunked(true);
         request.setEntity(entity);
 
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort(), "http");
-        httpClient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
-                proxy);
+        CloseableHttpClient httpClient = TestUtils.createProxiedHttpClient(
+                proxyServer.getListenAddress().getPort());
+
         final org.apache.http.HttpResponse response = httpClient.execute(
                 new HttpHost("127.0.0.1",
                         webServerPort), request);
