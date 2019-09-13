@@ -1,9 +1,11 @@
 package org.littleshoot.proxy.haproxy;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.*;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -54,27 +56,23 @@ public abstract class BaseProxyProtocolTest {
         childGroup = new NioEventLoopGroup();
         ServerBootstrap b = new ServerBootstrap();
         b.group(parentGroup, childGroup)
-            .channelFactory(new ChannelFactory<ServerChannel>() {
-                public ServerChannel newChannel() {
-                    return new NioServerSocketChannel();
-                }
-            })
-            .childHandler(new ChannelInitializer<SocketChannel>() {
-                @Override
-                public void initChannel(SocketChannel ch) {
-                    proxyProtocolServerHandler = new ProxyProtocolServerHandler();
-                    ch.pipeline().addLast(new HAProxyMessageDecoder()).addLast(new HttpRequestDecoder()).addLast(proxyProtocolServerHandler);
-                }
-            }).option(ChannelOption.SO_BACKLOG, 128)
-            .childOption(ChannelOption.SO_KEEPALIVE, true);
+                .channelFactory(NioServerSocketChannel::new)
+                .childHandler(new ChannelInitializer<SocketChannel>() {
+                    @Override
+                    public void initChannel(SocketChannel ch) {
+                        proxyProtocolServerHandler = new ProxyProtocolServerHandler();
+                        ch.pipeline().addLast(new HAProxyMessageDecoder()).addLast(new HttpRequestDecoder()).addLast(proxyProtocolServerHandler);
+                    }
+                }).option(ChannelOption.SO_BACKLOG, 128)
+                .childOption(ChannelOption.SO_KEEPALIVE, true);
 
         ChannelFuture f = b.bind(0)
-            .awaitUninterruptibly();
+                .awaitUninterruptibly();
         Throwable cause = f.cause();
         if (cause != null) {
             throw new RuntimeException(cause);
         }
-        serverPort = ((InetSocketAddress)f.channel().localAddress()).getPort();
+        serverPort = ((InetSocketAddress) f.channel().localAddress()).getPort();
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
                 stopServer();
@@ -85,22 +83,22 @@ public abstract class BaseProxyProtocolTest {
     void startClient() throws Exception {
         String host = "localhost";
         clientWorkGroup = new NioEventLoopGroup();
-            Bootstrap b = new Bootstrap();
-            b.group(clientWorkGroup);
-            b.channel(NioSocketChannel.class);
-            b.option(ChannelOption.SO_KEEPALIVE, true);
-            b.handler(new ChannelInitializer<SocketChannel>() {
-                @Override
-                public void initChannel(SocketChannel ch) {
-                    ch.pipeline().addLast(new ReadTimeoutHandler(1));
-                    if (acceptProxy) {
-                        ch.pipeline().addLast(new ProxyProtocolTestEncoder());
-                    }
-                    ch.pipeline().addLast(new HttpRequestEncoder()).addLast(new ProxyProtocolClientHandler(serverPort, getProxyProtocolHeader()));
+        Bootstrap b = new Bootstrap();
+        b.group(clientWorkGroup);
+        b.channel(NioSocketChannel.class);
+        b.option(ChannelOption.SO_KEEPALIVE, true);
+        b.handler(new ChannelInitializer<SocketChannel>() {
+            @Override
+            public void initChannel(SocketChannel ch) {
+                ch.pipeline().addLast(new ReadTimeoutHandler(1));
+                if (acceptProxy) {
+                    ch.pipeline().addLast(new ProxyProtocolTestEncoder());
                 }
-            });
-            ChannelFuture f = b.connect(host, proxyPort).sync();
-            f.channel().closeFuture().sync();
+                ch.pipeline().addLast(new HttpRequestEncoder()).addLast(new ProxyProtocolClientHandler(serverPort, getProxyProtocolHeader()));
+            }
+        });
+        ChannelFuture f = b.connect(host, proxyPort).sync();
+        f.channel().closeFuture().sync();
     }
 
     HAProxyMessage getRelayedHaProxyMessage() {
@@ -118,10 +116,10 @@ public abstract class BaseProxyProtocolTest {
 
     private void startProxyServer() {
         proxyServer = DefaultHttpProxyServer.bootstrap()
-            .withPort(0)
-            .withAcceptProxyProtocol(acceptProxy)
-            .withSendProxyProtocol(sendProxy)
-            .start();
+                .withPort(0)
+                .withAcceptProxyProtocol(acceptProxy)
+                .withSendProxyProtocol(sendProxy)
+                .start();
         proxyPort = proxyServer.getListenAddress().getPort();
 
     }
@@ -135,5 +133,4 @@ public abstract class BaseProxyProtocolTest {
         stopServer();
         stopProxyServer();
     }
-
 }

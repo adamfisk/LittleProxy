@@ -2,13 +2,16 @@ package org.littleshoot.proxy;
 
 import com.sun.management.UnixOperatingSystemMXBean;
 import org.apache.http.HttpHost;
-import org.apache.http.client.HttpClient;
-import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.conn.ssl.X509HostnameVerifier;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
@@ -18,8 +21,6 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
@@ -31,10 +32,11 @@ import java.lang.management.OperatingSystemMXBean;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.security.SecureRandom;
-import java.security.cert.X509Certificate;
 import java.util.Objects;
 
 public class TestUtils {
+
+    public static final RequestConfig REQUEST_TIMEOUT_CONFIG = RequestConfig.custom().setConnectTimeout(5000).build();
 
     private TestUtils() {
     }
@@ -228,49 +230,8 @@ public class TestUtils {
      *            the proxy port
      * @return instance of HttpClient
      */
-    public static HttpClient createProxiedHttpClient(final int port) throws Exception {
-        return createProxiedHttpClient(port, false);
-    }
-
-    /**
-     * Creates instance HttpClient that is configured to use proxy server. The
-     * proxy server should run on 127.0.0.1 and given port
-     * 
-     * @param port
-     *            the proxy port
-     * @param supportSSL
-     *            if true, client will support SSL connections to servers using
-     *            self-signed certificates
-     * @return instance of HttpClient
-     */
-    public static HttpClient createProxiedHttpClient(final int port, final boolean supportSSL) throws Exception {
-        final HttpClient httpclient = new DefaultHttpClient();
-        // Note: we use 127.0.0.1 here because on OS X, using straight up
-        // localhost yields a connect exception.
-        final HttpHost proxy = new HttpHost("127.0.0.1", port, "http");
-        httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
-        if (supportSSL) {
-            SSLSocketFactory sf = new SSLSocketFactory(
-                    new TrustSelfSignedStrategy(),
-                    new X509HostnameVerifier() {
-                public boolean verify(String arg0, SSLSession arg1) {
-                    return true;
-                }
-
-                public void verify(String host, String[] cns,
-                        String[] subjectAlts) {
-                }
-
-                public void verify(String host, X509Certificate cert) {
-                }
-
-                public void verify(String host, SSLSocket ssl) {
-                }
-            });
-            Scheme scheme = new Scheme("https", 443, sf);
-            httpclient.getConnectionManager().getSchemeRegistry().register(scheme);
-        }
-        return httpclient;
+    public static CloseableHttpClient createProxiedHttpClient(final int port) throws Exception {
+        return buildHttpClient(true, false, port, null, null);
     }
 
     public static int randomPort() {
@@ -334,28 +295,32 @@ public class TestUtils {
     /**
      * Creates a DefaultHttpClient instance.
      * 
-     * @return instance of DefaultHttpClient
+     * @return instance of ClosableHttpClient
      */
-    public static DefaultHttpClient buildHttpClient() throws Exception {
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        SSLSocketFactory sf = new SSLSocketFactory(
-                new TrustSelfSignedStrategy(), new X509HostnameVerifier() {
-                    public boolean verify(String arg0, SSLSession arg1) {
-                        return true;
-                    }
+    public static CloseableHttpClient buildHttpClient(boolean isProxied, boolean supportSsl, int proxyPort,
+                                                      String username, String password) throws Exception {
 
-                    public void verify(String host, String[] cns,
-                            String[] subjectAlts) {
-                    }
+        HttpClientBuilder builder = HttpClientBuilder.create()
+                .setSSLContext(SSLContextBuilder.create()
+                        .loadTrustMaterial(new TrustSelfSignedStrategy())
+                        .build());
 
-                    public void verify(String host, X509Certificate cert) {
-                    }
+        if(supportSsl){
+            builder.setSSLHostnameVerifier(new NoopHostnameVerifier());
+        }
 
-                    public void verify(String host, SSLSocket ssl) {
-                    }
-                });
-        Scheme scheme = new Scheme("https", 443, sf);
-        httpClient.getConnectionManager().getSchemeRegistry().register(scheme);
-        return httpClient;
+        if (isProxied) {
+            HttpHost proxy = new HttpHost("127.0.0.1", proxyPort);
+            builder.setProxy(proxy);
+            if (username != null && password != null) {
+                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                credentialsProvider.setCredentials(
+                        new AuthScope("127.0.0.1", proxyPort),
+                        new UsernamePasswordCredentials(username, password));
+                builder.setDefaultCredentialsProvider(credentialsProvider);
+            }
+        }
+
+        return builder.build();
     }
 }

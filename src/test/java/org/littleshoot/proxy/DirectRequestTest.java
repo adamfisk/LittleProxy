@@ -110,7 +110,7 @@ public class DirectRequestTest {
                             public HttpResponse clientToProxyRequest(HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     HttpRequest request = (HttpRequest) httpObject;
-                                    String viaHeader = request.headers().get(HttpHeaders.Names.VIA);
+                                    String viaHeader = request.headers().get(HttpHeaderNames.VIA);
                                     if (viaHeader != null && viaHeader.contains("testAllowRequestToOriginServerWithOverride")) {
                                         return new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
                                     } else {
