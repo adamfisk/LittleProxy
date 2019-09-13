@@ -31,6 +31,7 @@ public class ProxyUtils {
      *
      * Header names are stored as lowercase to make case-insensitive comparisons easier.
      */
+    @SuppressWarnings("deprecation") // Don't remove header names from this set until they're removed from Netty, just in case someone's still using them.
     private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = ImmutableSet.of(
             HttpHeaderNames.CONNECTION.toString(),
             HttpHeaderNames.KEEP_ALIVE.toString(),
