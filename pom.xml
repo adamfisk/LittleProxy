@@ -202,7 +202,7 @@
         <dependency>
             <groupId>org.mock-server</groupId>
             <artifactId>mockserver-netty</artifactId>
-            <version>5.5.1</version>
+            <version>5.6.1</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -391,6 +391,14 @@
                 <groupId>io.netty</groupId>
                 <artifactId>netty-transport-udp</artifactId>
                 <version>${netty.version}</version>
+            </dependency>
+
+            <dependency>
+                <!--Override transitive dependency of org.mock-server:mockserver-netty-->
+                <!--Provides patches for several CVE issues-->
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.9.9.3</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
