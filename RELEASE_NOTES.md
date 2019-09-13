@@ -22,3 +22,9 @@
 - 2.0.0-beta-5
   - Treat an upstream SOCKS proxy as if it is the origin server
   - Fixed memoryLeak in ClientToProxyConnection
+
+- 2.0.0-beta-6
+  - Cleaned up old code to conform with newer version of Netty
+  - Deprecated UDT support because it's deprecated in Netty
+  - Removed performance test code because it seems to be confusing GitHub into thinking that this is a PHP project.
+  
