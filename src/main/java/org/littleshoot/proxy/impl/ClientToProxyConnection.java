@@ -151,7 +151,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         haProxyMessage = msg;
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Reading
      **************************************************************************/
 
@@ -382,7 +382,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         currentServerConnection.write(buf);
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Writing
      **************************************************************************/
 
@@ -461,7 +461,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 currentHttpRequest, currentHttpResponse, httpObject);
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Connection Lifecycle
      **************************************************************************/
 
@@ -626,7 +626,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Other Lifecycle
      **************************************************************************/
 
@@ -738,7 +738,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Connection Management
      **************************************************************************/
 
@@ -939,7 +939,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         return false;
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Authentication
      **************************************************************************/
 
@@ -1025,7 +1025,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         write(response);
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Request/Response Rewriting
      **************************************************************************/
 
@@ -1215,7 +1215,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Miscellaneous
      **************************************************************************/
 
@@ -1373,7 +1373,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         this.mitming = isMitming;
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Activity Tracking/Statistics
      * 
      * We track statistics on bytes, requests and responses by adding handlers
