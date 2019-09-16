@@ -104,8 +104,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Read is invoked automatically by Netty as messages arrive on the socket.
-     * 
-     * @param msg
      */
     protected void read(Object msg) {
         LOG.debug("Reading: {}", msg);
@@ -132,8 +130,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Handles reading {@link HttpObject}s.
-     * 
-     * @param httpObject
      */
     @SuppressWarnings("unchecked")
     private void readHTTP(HttpObject httpObject) {
@@ -193,24 +189,17 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Implement this to handle reading the initial object (e.g.
      * {@link HttpRequest} or {@link HttpResponse}).
-     * 
-     * @param httpObject
-     * @return
      */
     protected abstract ConnectionState readHTTPInitial(I httpObject);
 
     /**
      * Implement this to handle reading a chunk in a chunked transfer.
-     * 
-     * @param chunk
      */
     protected abstract void readHTTPChunk(HttpContent chunk);
 
     /**
      * Implement this to handle reading a raw buffer as they are used in HTTP
      * tunneling.
-     * 
-     * @param buf
      */
     protected abstract void readRaw(ByteBuf buf);
 
@@ -221,8 +210,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * This method is called by users of the ProxyConnection to send stuff out
      * over the socket.
-     * 
-     * @param msg
      */
     void write(Object msg) {
         if (msg instanceof ReferenceCounted) {
@@ -249,8 +236,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Writes HttpObjects to the connection asynchronously.
-     * 
-     * @param httpObject
      */
     protected void writeHttp(HttpObject httpObject) {
         if (ProxyUtils.isLastChunk(httpObject)) {
@@ -264,8 +249,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Writes raw buffers to the connection.
-     * 
-     * @param buf
      */
     protected void writeRaw(ByteBuf buf) {
         writeToChannel(buf);
@@ -421,9 +404,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Enables decompression and aggregation of content, which is useful for
      * certain types of filtering activity.
-     * 
-     * @param pipeline
-     * @param numberOfBytesToBuffer
      */
     protected void aggregateContentForFiltering(ChannelPipeline pipeline,
             int numberOfBytesToBuffer) {
@@ -449,8 +429,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Override this to handle exceptions that occurred during asynchronous
      * processing on the {@link Channel}.
-     * 
-     * @param cause
      */
     protected void exceptionCaught(Throwable cause) {
     }
@@ -492,8 +470,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Indicates whether or not this connection is saturated (i.e. not
      * writeable).
-     * 
-     * @return
      */
     protected boolean isSaturated() {
         return !this.channel.isWritable();
@@ -501,9 +477,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     /**
      * Utility for checking current state.
-     * 
-     * @param state
-     * @return
      */
     protected boolean is(ConnectionState state) {
         return currentState == state;
@@ -512,17 +485,13 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * If this connection is currently in the process of going through a
      * {@link ConnectionFlow}, this will return true.
-     * 
-     * @return
      */
     protected boolean isConnecting() {
         return currentState.isPartOfConnectionFlow();
     }
 
     /**
-     * Udpates the current state to the given value.
-     * 
-     * @param state
+     * Updates the current state to the given value.
      */
     protected void become(ConnectionState state) {
         this.currentState = state;
@@ -564,7 +533,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * 
      * @param httpRequest
      *            Filter attached to the give HttpRequest (if any)
-     * @return
      */
     protected HttpFilters getHttpFiltersFromProxyServer(HttpRequest httpRequest) {
         return proxyServer.getFiltersSource().filterRequest(httpRequest, ctx);

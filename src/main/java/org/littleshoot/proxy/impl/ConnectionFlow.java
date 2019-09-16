@@ -50,9 +50,6 @@ class ConnectionFlow {
 
     /**
      * Add a {@link ConnectionFlowStep} to the beginning of this flow.
-     * 
-     * @param step
-     * @return
      */
     ConnectionFlow first(ConnectionFlowStep step) {
         steps.addFirst(step);
@@ -61,9 +58,6 @@ class ConnectionFlow {
 
     /**
      * Add a {@link ConnectionFlowStep} to the end of this flow.
-     * 
-     * @param step
-     * @return
      */
     ConnectionFlow then(ConnectionFlowStep step) {
         steps.addLast(step);
@@ -75,8 +69,6 @@ class ConnectionFlow {
      * {@link ProxyToServerConnection} are passed to this method, which passes
      * it on to {@link ConnectionFlowStep#read(ConnectionFlow, Object)} for the
      * current {@link ConnectionFlowStep}.
-     * 
-     * @param msg
      */
     void read(Object msg) {
         if (this.currentStep != null) {
@@ -144,8 +136,6 @@ class ConnectionFlow {
     /**
      * Does the work of processing the current step, checking the result and
      * handling success/failure.
-     * 
-     * @param LOG
      */
     @SuppressWarnings("unchecked")
     private void doProcessCurrentStep(final ProxyConnectionLogger LOG) {

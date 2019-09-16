@@ -127,8 +127,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     /**
      * Bootstrap a new {@link DefaultHttpProxyServer} starting from scratch.
-     *
-     * @return
      */
     public static HttpProxyServerBootstrap bootstrap() {
         return new DefaultHttpProxyServerBootstrap();
@@ -137,9 +135,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     /**
      * Bootstrap a new {@link DefaultHttpProxyServer} using defaults from the
      * given file.
-     *
-     * @param path
-     * @return
      */
     public static HttpProxyServerBootstrap bootstrapFromFile(String path) {
         final File propsFile = new File(path);
@@ -277,12 +272,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     /**
      * Creates a new GlobalTrafficShapingHandler for this HttpProxyServer, using this proxy's proxyToServerEventLoop.
-     *
-     * @param transportProtocol
-     * @param readThrottleBytesPerSecond
-     * @param writeThrottleBytesPerSecond
-     *
-     * @return
      */
     private GlobalTrafficShapingHandler createGlobalTrafficShapingHandler(TransportProtocol transportProtocol, long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
         EventLoopGroup proxyToServerEventLoop = this.getProxyToServerWorkerFor(transportProtocol);
@@ -443,8 +432,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     /**
      * Register a new {@link Channel} with this server, for later closing.
-     *
-     * @param channel
      */
     protected void registerChannel(Channel channel) {
         allChannels.add(channel);

@@ -482,6 +482,7 @@
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <version>3.1.1</version>
                     <configuration>
+                        <doclint>all,-missing</doclint>
                         <show>private</show>
                         <source>${java.version}</source>
                         <links>

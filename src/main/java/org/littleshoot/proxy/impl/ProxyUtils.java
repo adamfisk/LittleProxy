@@ -131,10 +131,6 @@ public class ProxyUtils {
      * represents the last chunk of a transfer.
      * 
      * @see io.netty.handler.codec.http.LastHttpContent
-     * 
-     * @param httpObject
-     * @return
-     * 
      */
     public static boolean isLastChunk(final HttpObject httpObject) {
         return httpObject instanceof LastHttpContent;
@@ -145,9 +141,6 @@ public class ProxyUtils {
      * chunks that will follow.
      * 
      * @see io.netty.handler.codec.http.FullHttpMessage
-     * 
-     * @param httpObject
-     * @return
      */
     public static boolean isChunked(final HttpObject httpObject) {
         return !isLastChunk(httpObject);

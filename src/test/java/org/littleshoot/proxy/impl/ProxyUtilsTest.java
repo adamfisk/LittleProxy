@@ -261,9 +261,6 @@ public class ProxyUtilsTest {
      * Helper method that asserts that 'sdch' is removed from the
      * 'Accept-Encoding' header.
      *
-     * @param inputEncodings The input value of the 'Accept-Encoding' header
-     *        that should be used as the basis for the assertion check.
-
      * @param inputEncodings The input list that maps to the values of the
      *        'Accept-Encoding' header that should be used as the basis for the
      *        assertion check.

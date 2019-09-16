@@ -20,9 +20,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = LittleProxy
      * </p>
-     * 
-     * @param name
-     * @return
      */
     HttpProxyServerBootstrap withName(String name);
 
@@ -34,9 +31,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = TCP
      * </p>
-     * 
-     * @param transportProtocol
-     * @return
      */
     HttpProxyServerBootstrap withTransportProtocol(
             TransportProtocol transportProtocol);
@@ -49,9 +43,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = [bound ip]:8080
      * </p>
-     * 
-     * @param address
-     * @return
      */
     HttpProxyServerBootstrap withAddress(InetSocketAddress address);
 
@@ -63,9 +54,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = 8080
      * </p>
-     * 
-     * @param port
-     * @return
      */
     HttpProxyServerBootstrap withPort(int port);
 
@@ -77,9 +65,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = true
      * </p>
-     * 
-     * @param allowLocalOnly
-     * @return
      */
     HttpProxyServerBootstrap withAllowLocalOnly(boolean allowLocalOnly);
 
@@ -105,9 +90,6 @@ public interface HttpProxyServerBootstrap {
      * Note - This and {@link #withManInTheMiddle(MitmManager)} are
      * mutually exclusive.
      * </p>
-     * 
-     * @param sslEngineSource
-     * @return
      */
     HttpProxyServerBootstrap withSslEngineSource(
             SslEngineSource sslEngineSource);
@@ -121,9 +103,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = true
      * </p>
-     * 
-     * @param authenticateSslClients
-     * @return
      */
     HttpProxyServerBootstrap withAuthenticateSslClients(
             boolean authenticateSslClients);
@@ -137,9 +116,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = null
      * </p>
-     * 
-     * @param proxyAuthenticator
-     * @return
      */
     HttpProxyServerBootstrap withProxyAuthenticator(
             ProxyAuthenticator proxyAuthenticator);
@@ -153,9 +129,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = null
      * </p>
-     * 
-     * @param chainProxyManager
-     * @return
      */
     HttpProxyServerBootstrap withChainProxyManager(
             ChainedProxyManager chainProxyManager);
@@ -174,9 +147,6 @@ public interface HttpProxyServerBootstrap {
      * Note - This and {@link #withSslEngineSource(SslEngineSource)} are
      * mutually exclusive.
      * </p>
-     * 
-     * @param mitmManager
-     * @return
      */
     HttpProxyServerBootstrap withManInTheMiddle(
             MitmManager mitmManager);
@@ -190,9 +160,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = null
      * </p>
-     * 
-     * @param filtersSource
-     * @return
      */
     HttpProxyServerBootstrap withFiltersSource(
             HttpFiltersSource filtersSource);
@@ -206,9 +173,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = false
      * </p>
-     * 
-     * @param useDnsSec
-     * @return
      */
     HttpProxyServerBootstrap withUseDnsSec(
             boolean useDnsSec);
@@ -221,9 +185,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = false
      * </p>
-     * 
-     * @param transparent
-     * @return
      */
     HttpProxyServerBootstrap withTransparent(
             boolean transparent);
@@ -237,9 +198,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = 70
      * </p>
-     * 
-     * @param idleConnectionTimeout
-     * @return
      */
     HttpProxyServerBootstrap withIdleConnectionTimeout(
             int idleConnectionTimeout);
@@ -253,18 +211,12 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Default = 40000
      * </p>
-     * 
-     * @param connectTimeout
-     * @return
      */
     HttpProxyServerBootstrap withConnectTimeout(
             int connectTimeout);
 
     /**
      * Specify a custom {@link HostResolver} for resolving server addresses.
-     * 
-     * @param serverResolver
-     * @return
      */
     HttpProxyServerBootstrap withServerResolver(HostResolver serverResolver);
 
@@ -273,7 +225,6 @@ public interface HttpProxyServerBootstrap {
     * If one isn't provided, a default one will be created using the {@link ThreadPoolConfiguration} provided
     * 
     * @param group A custom server group
-    * @return
     */
     HttpProxyServerBootstrap withServerGroup(ServerGroup group);
     
@@ -281,9 +232,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Add an {@link ActivityTracker} for tracking activity in this proxy.
      * </p>
-     * 
-     * @param activityTracker
-     * @return
      */
     HttpProxyServerBootstrap plusActivityTracker(ActivityTracker activityTracker);
 
@@ -291,9 +239,6 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Specify the read and/or write bandwidth throttles for this proxy server. 0 indicates not throttling.
      * </p>
-     * @param readThrottleBytesPerSecond
-     * @param writeThrottleBytesPerSecond
-     * @return
      */
     HttpProxyServerBootstrap withThrottling(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
 

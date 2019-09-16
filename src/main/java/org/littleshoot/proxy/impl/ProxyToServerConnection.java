@@ -174,14 +174,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     
     /**
      * Create a new ProxyToServerConnection.
-     * 
-     * @param proxyServer
-     * @param clientConnection
-     * @param serverHostAndPort
-     * @param initialFilters
-     * @param initialHttpRequest
-     * @return
-     * @throws UnknownHostException
      */
     static ProxyToServerConnection create(DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
@@ -342,9 +334,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Like {@link #write(Object)} and also sets the current filters to the
      * given value.
-     * 
-     * @param msg
-     * @param filters
      */
     void write(Object msg, HttpFilters filters) {
         this.currentFilters = filters;
@@ -543,8 +532,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Keeps track of the current HttpResponse so that we can associate its
      * headers with future related chunks for this same transfer.
-     * 
-     * @param response
      */
     private void rememberCurrentResponse(HttpResponse response) {
         LOG.debug("Remembering the current response.");
@@ -558,8 +545,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /**
      * Respond to the client with the given {@link HttpObject}.
-     * 
-     * @param httpObject
      */
     private void respondWith(HttpObject httpObject) {
         clientConnection.respond(this, currentFilters, currentHttpRequest,
@@ -1095,9 +1080,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
      * the {@link HttpResponseEncoder} or {@link HttpRequestEncoder} before the
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
-     * 
-     * @param pipeline
-     * @param httpRequest
      */
     private void initChannelPipeline(ChannelPipeline pipeline, HttpRequest httpRequest) {
 
@@ -1218,6 +1200,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * We track statistics on bytes, requests and responses by adding handlers
      * at the appropriate parts of the pipeline (see initChannelPipeline()).
      **************************************************************************/
+
     private final BytesReadMonitor bytesReadMonitor = new BytesReadMonitor() {
         @Override
         protected void bytesRead(int numberOfBytes) {

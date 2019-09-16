@@ -198,9 +198,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Note - the "server" could be a chained proxy, not the final endpoint for
      * the request.
      * </p>
-     * 
-     * @param httpRequest
-     * @return
      */
     private ConnectionState doReadHTTPInitial(HttpRequest httpRequest) {
         // Make a copy of the original request
@@ -528,8 +525,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Called when {@link ProxyToServerConnection} starts its connection flow.
-     * 
-     * @param serverConnection
      */
     protected void serverConnectionFlowStarted(
             ProxyToServerConnection serverConnection) {
@@ -540,9 +535,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * If the {@link ProxyToServerConnection} completes its connection lifecycle
      * successfully, this method is called to let us know about it.
-     * 
-     * @param serverConnection
-     * @param shouldForwardInitialRequest
      */
     protected void serverConnectionSucceeded(
             ProxyToServerConnection serverConnection,
@@ -633,8 +625,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * On disconnect of the server, track that we have one fewer connected
      * servers and then disconnect the client if necessary.
-     * 
-     * @param serverConnection
      */
     protected void serverDisconnected(ProxyToServerConnection serverConnection) {
         numberOfCurrentlyConnectedServers.decrementAndGet();
@@ -684,8 +674,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * When a server becomes saturated, we stop reading from the client.
-     * 
-     * @param serverConnection
      */
     synchronized protected void serverBecameSaturated(
             ProxyToServerConnection serverConnection) {
@@ -698,8 +686,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * When a server becomes writeable, we check to see if all servers are
      * writeable and if they are, we resume reading.
-     * 
-     * @param serverConnection
      */
     synchronized protected void serverBecameWriteable(
             ProxyToServerConnection serverConnection) {
@@ -753,8 +739,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
      * the {@link HttpResponseEncoder} or {@link io.netty.handler.codec.http.HttpRequestEncoder} before the
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
-     * 
-     * @param pipeline
      */
     private void initChannelPipeline(ChannelPipeline pipeline) {
         LOG.debug("Configuring ChannelPipeline");
@@ -839,11 +823,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Determine whether or not the client connection should be closed.
-     * 
-     * @param req
-     * @param res
-     * @param httpObject
-     * @return
      */
     private boolean shouldCloseClientConnection(HttpRequest req,
             HttpResponse res, HttpObject httpObject) {
@@ -957,9 +936,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * provided or the credentials were wrong, this writes a 407 response to the
      * client.
      * </p>
-     * 
-     * @param request
-     * @return
      */
     private boolean authenticationRequired(HttpRequest request) {
 
@@ -1031,9 +1007,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Copy the given {@link HttpRequest} verbatim.
-     * 
-     * @param original
-     * @return
      */
     private HttpRequest copy(HttpRequest original) {
         if (original instanceof FullHttpRequest) {
@@ -1050,8 +1023,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Chunked encoding is an HTTP 1.1 feature, but sometimes we get a chunked
      * response that reports its HTTP version as 1.0. In this case, we change it
      * to 1.1.
-     * 
-     * @param httpResponse
      */
     private void fixHttpVersionHeaderIfNecessary(HttpResponse httpResponse) {
         String te = httpResponse.headers().get(
@@ -1068,8 +1039,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * If and only if our proxy is not running in transparent mode, modify the
      * request headers to reflect that it was proxied.
-     * 
-     * @param httpRequest
      */
     private void modifyRequestHeadersToReflectProxying(HttpRequest httpRequest) {
         if (isNextHopOriginServer()) {
@@ -1132,8 +1101,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * If and only if our proxy is not running in transparent mode, modify the
      * response headers to reflect that it was proxied.
-     * 
-     * @param httpResponse
      */
     private void modifyResponseHeadersToReflectProxying(
             HttpResponse httpResponse) {
@@ -1329,9 +1296,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Identify the host and port for a request.
-     * 
-     * @param httpRequest
-     * @return
      */
     private String identifyHostAndPort(HttpRequest httpRequest) {
         String hostAndPort = ProxyUtils.parseHostAndPort(httpRequest);

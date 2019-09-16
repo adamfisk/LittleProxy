@@ -21,7 +21,6 @@ public class SocketClientUtil {
      *
      * @param string string to write
      * @param socket socket to write to
-     * @throws IOException
      */
     public static void writeStringToSocket(String string, Socket socket) throws IOException {
         OutputStream out = socket.getOutputStream();
@@ -54,7 +53,6 @@ public class SocketClientUtil {
      *
      * @param socket socket to test
      * @return true if the socket is open and can be written to, otherwise false
-     * @throws IOException
      */
     public static boolean isSocketReadyToWrite(Socket socket) throws IOException {
         OutputStream out = socket.getOutputStream();
@@ -77,7 +75,6 @@ public class SocketClientUtil {
      *
      * @param socket socket to test
      * @return true if the socket is open and can be read from, otherwise false
-     * @throws IOException
      */
     public static boolean isSocketReadyToRead(Socket socket) throws IOException {
         InputStream in = socket.getInputStream();
@@ -100,7 +97,6 @@ public class SocketClientUtil {
      *
      * @param proxyServer proxy server to open the socket to
      * @return the new socket
-     * @throws IOException
      */
     public static Socket getSocketToProxyServer(HttpProxyServer proxyServer) throws IOException {
         Socket socket = new Socket();
