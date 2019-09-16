@@ -161,8 +161,6 @@ searching for older answers.)
 
 To subscribe, send an e-mail to [LittleProxy2+subscribe@googlegroups.com](mailto:LittleProxy2+subscribe@googlegroups.com). 
 
-Benchmarking instructions and results can be found [here](performance).
-
 Acknowledgments
 ---------------
 
