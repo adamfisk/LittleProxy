@@ -1,11 +1,10 @@
 package org.littleshoot.proxy;
 
-import static org.littleshoot.proxy.TransportProtocol.*;
+import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 
 import javax.net.ssl.SSLEngine;
 
-import org.junit.Ignore;
-import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
+import static org.littleshoot.proxy.TransportProtocol.TCP;
 
 /**
  * Tests that clients are authenticated and that if they're missing certs, we
@@ -15,7 +14,7 @@ public class MitmWithBadClientAuthenticationTCPChainedProxyTest extends
         MitmWithChainedProxyTest {
     private final SslEngineSource serverSslEngineSource = new SelfSignedSslEngineSource(
             "chain_proxy_keystore_1.jks");
-    
+
     private final SslEngineSource clientSslEngineSource = new SelfSignedSslEngineSource(
             "chain_proxy_keystore_1.jks", false, false);
 
@@ -23,7 +22,7 @@ public class MitmWithBadClientAuthenticationTCPChainedProxyTest extends
     protected boolean expectBadGatewayForEverything() {
         return true;
     }
-    
+
     @Override
     protected HttpProxyServerBootstrap upstreamProxy() {
         return super.upstreamProxy()
