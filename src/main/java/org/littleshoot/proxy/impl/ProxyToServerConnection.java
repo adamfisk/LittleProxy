@@ -54,6 +54,7 @@ import io.netty.util.concurrent.Future;
 import org.littleshoot.proxy.*;
 import org.littleshoot.proxy.extras.HAProxyMessageEncoder;
 
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
@@ -956,7 +957,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // sends back a valid certificate for the expected host. we can retry the connection without SNI to allow the proxy
         // to connect to these misconfigured hosts. we should only retry the connection without SNI if the connection
         // failure happened when SNI was enabled, to prevent never-ending connection attempts due to SNI warnings.
-        if (!disableSni && cause instanceof SSLProtocolException) {
+        if (!disableSni && (cause instanceof SSLProtocolException) || (cause instanceof SSLHandshakeException)) {
             // unfortunately java does not expose the specific TLS alert number (112), so we have to look for the
             // unrecognized_name string in the exception's message
             if (cause.getMessage() != null && cause.getMessage().contains("unrecognized_name")) {
