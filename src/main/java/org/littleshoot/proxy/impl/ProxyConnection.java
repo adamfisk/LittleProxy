@@ -138,7 +138,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
                 break;
             case AWAITING_CHUNK:
                 HttpContent chunk = (HttpContent) httpObject;
-                readHTTPChunk(chunk);
+                readHTTPContent(chunk);
                 nextState = ProxyUtils.isLastChunk(chunk) ? AWAITING_INITIAL
                         : AWAITING_CHUNK;
                 break;
@@ -190,7 +190,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      *
      * @param chunk
      */
-    protected abstract void readHTTPChunk(HttpContent chunk);
+    protected abstract void readHTTPContent(HttpContent chunk);
 
     /**
      * Implement this to handle reading a raw buffer as they are used in HTTP
@@ -400,8 +400,6 @@ abstract class ProxyConnection<I extends HttpObject> extends
         };
     }
 
-    ;
-
     /**
      * Enables decompression and aggregation of content, which is useful for
      * certain types of filtering activity.
@@ -454,18 +452,21 @@ abstract class ProxyConnection<I extends HttpObject> extends
             return null;
         } else {
             final Promise<Void> promise = channel.newPromise();
-            writeToChannel(Unpooled.EMPTY_BUFFER).addListener(
+            ChannelFuture channelFuture = channel.writeAndFlush(Unpooled.EMPTY_BUFFER);
+            channelFuture.addListener(
                     future -> closeChannel(promise));
+            LOG.info("DISCONNECT ");
             return promise;
         }
     }
 
     private void closeChannel(final Promise<Void> promise) {
-        channel.close().addListener(
+        ChannelFuture channelFuture = channel.close();
+        channelFuture.addListener(
                 future -> {
-                    if (future
+                    if (future.isDone() && future
                             .isSuccess()) {
-                        promise.setSuccess(null);
+                        promise.trySuccess(null);
                     } else {
                         promise.setFailure(future
                                 .cause());

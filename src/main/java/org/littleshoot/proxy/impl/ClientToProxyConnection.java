@@ -1,6 +1,5 @@
 package org.littleshoot.proxy.impl;
 
-import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -9,37 +8,22 @@ import io.netty.handler.codec.http.*;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.commons.lang3.StringUtils;
-import org.littleshoot.proxy.ActivityTracker;
-import org.littleshoot.proxy.FlowContext;
-import org.littleshoot.proxy.FullFlowContext;
-import org.littleshoot.proxy.HttpFilters;
-import org.littleshoot.proxy.HttpFiltersAdapter;
-import org.littleshoot.proxy.ProxyAuthenticator;
-import org.littleshoot.proxy.SslEngineSource;
+import org.littleshoot.proxy.*;
 
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.charset.Charset;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
-import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_PROXY_AUTHENTICATION;
-import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECT_REQUESTED;
-import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
+import static org.littleshoot.proxy.impl.ConnectionState.*;
 
 /**
  * <p>
@@ -143,16 +127,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             encrypt(pipeline, sslEngineSource.newSslEngine(),
                     authenticateClients)
                     .addListener(
-                            new GenericFutureListener<Future<? super Channel>>() {
-                                @Override
-                                public void operationComplete(
-                                        Future<? super Channel> future)
-                                        throws Exception {
-                                    if (future.isSuccess()) {
-                                        clientSslSession = sslEngine
-                                                .getSession();
-                                        recordClientSSLHandshakeSucceeded();
-                                    }
+                            future -> {
+                                if (future.isDone() && future.isSuccess()) {
+                                    clientSslSession = sslEngine
+                                            .getSession();
+                                    recordClientSSLHandshakeSucceeded();
                                 }
                             });
         }
@@ -380,7 +359,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     @Override
-    protected void readHTTPChunk(HttpContent chunk) {
+    protected void readHTTPContent(HttpContent chunk) {
         currentFilters.clientToProxyRequest(chunk);
         currentFilters.proxyToServerRequest(chunk);
 
@@ -958,9 +937,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         String fullValue = values.iterator().next();
         String value = StringUtils.substringAfter(fullValue, "Basic ").trim();
 
-        byte[] decodedValue = BaseEncoding.base64().decode(value);
+        byte[] decodedValue = java.util.Base64.getDecoder().decode(value);
 
-        String decodedString = new String(decodedValue, Charset.forName("UTF-8"));
+        String decodedString = new String(decodedValue, StandardCharsets.UTF_8);
 
         String userName = StringUtils.substringBefore(decodedString, ":");
         String password = StringUtils.substringAfter(decodedString, ":");
@@ -1031,8 +1010,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         String te = httpResponse.headers().get(
                 HttpHeaderNames.TRANSFER_ENCODING);
         if (StringUtils.isNotBlank(te)
-                && te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED)) {
-            if (httpResponse.getProtocolVersion() != HttpVersion.HTTP_1_1) {
+                && HttpHeaderValues.CHUNKED.contentEqualsIgnoreCase(te)) {
+            if (httpResponse.protocolVersion() != HttpVersion.HTTP_1_1) {
                 LOG.debug("Fixing HTTP version.");
                 httpResponse.setProtocolVersion(HttpVersion.HTTP_1_1);
             }

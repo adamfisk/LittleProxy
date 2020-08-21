@@ -10,10 +10,6 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.conn.ssl.X509HostnameVerifier;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.CoreConnectionPNames;
@@ -23,12 +19,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
-import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
-import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.security.cert.X509Certificate;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.Matchers.greaterThan;
@@ -136,7 +128,7 @@ public abstract class AbstractProxyTest {
     /**
      * Override this to specify a username to use when authenticating with
      * proxy.
-     * 
+     *
      * @return
      */
     protected String getUsername() {
@@ -146,7 +138,7 @@ public abstract class AbstractProxyTest {
     /**
      * Override this to specify a password to use when authenticating with
      * proxy.
-     * 
+     *
      * @return
      */
     protected String getPassword() {
@@ -198,7 +190,7 @@ public abstract class AbstractProxyTest {
     }
 
     protected ResponseInfo httpGetWithApacheClient(HttpHost host,
-            String resourceUrl, boolean isProxied, boolean callHeadFirst)
+                                                   String resourceUrl, boolean isProxied, boolean callHeadFirst)
             throws Exception {
         String username = getUsername();
         String password = getPassword();
@@ -241,7 +233,7 @@ public abstract class AbstractProxyTest {
                 assertEquals(
                         "Content-Length from GET should match that from HEAD",
                         contentLength,
-                        new Integer(response.getFirstHeader("Content-Length")
+                        Integer.valueOf(response.getFirstHeader("Content-Length")
                                 .getValue()));
             }
             return new ResponseInfo(response.getStatusLine().getStatusCode(),
@@ -252,7 +244,7 @@ public abstract class AbstractProxyTest {
     }
 
     protected String compareProxiedAndUnproxiedPOST(HttpHost host,
-            String resourceUrl) throws Exception {
+                                                    String resourceUrl) throws Exception {
         ResponseInfo proxiedResponse = httpPostWithApacheClient(host,
                 resourceUrl, true);
         if (expectBadGatewayForEverything()) {
@@ -267,7 +259,7 @@ public abstract class AbstractProxyTest {
     }
 
     protected String compareProxiedAndUnproxiedGET(HttpHost host,
-            String resourceUrl) throws Exception {
+                                                   String resourceUrl) throws Exception {
         ResponseInfo proxiedResponse = httpGetWithApacheClient(host,
                 resourceUrl, true, false);
         if (expectBadGatewayForEverything()) {
@@ -350,7 +342,7 @@ public abstract class AbstractProxyTest {
 
                     @Override
                     public void bytesSentToServer(FullFlowContext flowContext,
-                            int numberOfBytes) {
+                                                  int numberOfBytes) {
                         bytesSentToServer.addAndGet(numberOfBytes);
                     }
 
@@ -377,7 +369,7 @@ public abstract class AbstractProxyTest {
 
                     @Override
                     public void bytesSentToClient(FlowContext flowContext,
-                            int numberOfBytes) {
+                                                  int numberOfBytes) {
                         bytesSentToClient.addAndGet(numberOfBytes);
                     }
 

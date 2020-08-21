@@ -1,9 +1,10 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.littleshoot</groupId>
     <artifactId>littleproxy</artifactId>
     <packaging>jar</packaging>
-    <version>1.1.6</version>
+    <version>1.1.7</version>
     <name>LittleProxy</name>
     <description>
         LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework.
@@ -14,8 +15,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <github.global.server>github</github.global.server>
-        <netty.version>4.1.42.Final</netty.version>
-        <slf4j.version>1.7.28</slf4j.version>
+        <netty.version>4.1.51.Final</netty.version>
+        <slf4j.version>1.7.30</slf4j.version>
         <java.version>11</java.version>
     </properties>
 
@@ -145,7 +146,7 @@
         <profile>
             <id>netty-4.1</id>
             <properties>
-                <netty.version>4.1.34.Final</netty.version>
+                <netty.version>4.1.51.Final</netty.version>
             </properties>
         </profile>
     </profiles>
@@ -154,7 +155,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>28.1-jre</version>
+            <version>29.0-jre</version>
         </dependency>
 
         <dependency>
@@ -168,7 +169,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.9</version>
+            <version>3.11</version>
         </dependency>
 
         <dependency>
@@ -195,15 +196,21 @@
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-server</artifactId>
-            <version>9.4.21.v20190926</version>
+            <version>9.4.31.v20200723</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>3.1.0</version>
+            <version>3.5.2</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler-proxy</artifactId>
+            <version>4.1.51.Final</version>
         </dependency>
 
         <dependency>
@@ -215,6 +222,10 @@
                 <exclusion>
                     <groupId>ch.qos.logback</groupId>
                     <artifactId>logback-classic</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-handler-proxy</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -242,7 +253,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.10</version>
+            <version>4.5.12</version>
             <scope>test</scope>
         </dependency>
 
@@ -273,7 +284,7 @@
         <dependency>
             <groupId>dnsjava</groupId>
             <artifactId>dnsjava</artifactId>
-            <version>2.1.9</version>
+            <version>3.2.2</version>
             <optional>true</optional>
         </dependency>
 
@@ -369,6 +380,24 @@
                 <groupId>io.netty</groupId>
                 <artifactId>netty-example</artifactId>
                 <version>${netty.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.netty</groupId>
+                        <artifactId>netty-tcnative</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-classic</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.bouncycastle</groupId>
+                        <artifactId>bcprov-jdk15on</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -442,7 +471,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.0.0-M3</version>
                 <configuration>
-                    <argLine>-Xmx1g -XX:MaxPermSize=256m</argLine>
+                    <argLine>-Xmx1g</argLine>
                 </configuration>
             </plugin>
 
@@ -503,12 +532,14 @@
                             </filters>
 
                             <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
                                         <Main-Class>org.littleshoot.proxy.Launcher</Main-Class>
                                     </manifestEntries>
                                 </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
                                     <resource>log4j.xml</resource>
                                     <file>src/main/config/log4j.xml</file>
                                 </transformer>
@@ -663,7 +694,9 @@
             <email>a@littleshoot.org</email>
             <organization>LittleShoot</organization>
             <organizationUrl>http://www.littleshoot.org/</organizationUrl>
-            <roles><role>Developer</role></roles>
+            <roles>
+                <role>Developer</role>
+            </roles>
             <timezone>-5</timezone>
         </developer>
 
@@ -673,7 +706,9 @@
             <email>ox@getlantern.org</email>
             <organization>GetLantern</organization>
             <organizationUrl>https://www.getlantern.org/</organizationUrl>
-            <roles><role>Developer</role></roles>
+            <roles>
+                <role>Developer</role>
+            </roles>
             <timezone>-5</timezone>
         </developer>
     </developers>
