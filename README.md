@@ -22,13 +22,13 @@ You can embed LittleProxy in your own projects through Maven with the following:
     <dependency>
         <groupId>xyz.rogfam</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>2.0.0-beta-5</version>
+        <version>2.0.1</version>
     </dependency>
 ```
 
 Or with Gradle like this
 
-`compile "xyz.rogfam:littleproxy:2.0.0-beta-5"`
+`compile "xyz.rogfam:littleproxy:2.0.1"`
 
 Once you've included LittleProxy, you can start the server with the following:
 
