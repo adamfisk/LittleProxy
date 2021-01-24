@@ -56,10 +56,18 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private static final HttpResponseStatus CONNECTION_ESTABLISHED = new HttpResponseStatus(
             200, "Connection established");
 
+    // Pipeline handler names:
+    private static final String HTTP_ENCODER_NAME = "encoder";
+    private static final String HTTP_DECODER_NAME = "decoder";
+    private static final String HTTP_PROXY_DECODER_NAME = "proxy-protocol-decoder";
+    private static final String HTTP_REQUEST_READ_MONITOR_NAME = "requestReadMonitor";
+    private static final String HTTP_RESPONSE_WRITTEN_MONITOR_NAME = "responseWrittenMonitor";
+    private static final String MAIN_HANDLER_NAME = "handler";
+
     /**
      * Used for case-insensitive comparisons when checking direct proxy request.
      */
-    private static final Pattern HTTP_SCHEME = Pattern.compile("^http://.*", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ABSOLUTE_URI_PATTERN = Pattern.compile("^(http|ws)://.*", Pattern.CASE_INSENSITIVE);
 
     /**
      * Keep track of all ProxyToServerConnections by host+port.
@@ -363,7 +371,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         // direct requests to the proxy have the path only without a scheme
         String uri = httpRequest.uri();
-        return !HTTP_SCHEME.matcher(uri).matches();
+        return !ABSOLUTE_URI_PATTERN.matcher(uri).matches();
     }
 
     @Override
@@ -414,8 +422,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return;
         }
 
+        boolean isSwithchingToWebSocketProtocol = false;
         if (httpObject instanceof HttpResponse) {
             HttpResponse httpResponse = (HttpResponse) httpObject;
+
+            isSwithchingToWebSocketProtocol = ProxyUtils.isSwitchingToWebSocketProtocol(httpResponse);
 
             // if this HttpResponse does not have any means of signaling the end of the message body other than closing
             // the connection, convert the message to a "Transfer-Encoding: chunked" HTTP response. This avoids the need
@@ -453,9 +464,24 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (ProxyUtils.isLastChunk(httpObject)) {
             writeEmptyBuffer();
         }
+        else if (isSwithchingToWebSocketProtocol) {
+            switchToWebSocketProtocol(serverConnection);
+        }
 
         closeConnectionsAfterWriteIfNecessary(serverConnection,
                 currentHttpRequest, currentHttpResponse, httpObject);
+    }
+
+    private void switchToWebSocketProtocol(final ProxyToServerConnection serverConnection) {
+        final List<String> orderedHandlersToRemove = Arrays.asList(HTTP_REQUEST_READ_MONITOR_NAME,
+                HTTP_RESPONSE_WRITTEN_MONITOR_NAME, HTTP_PROXY_DECODER_NAME, HTTP_ENCODER_NAME, HTTP_DECODER_NAME);
+        this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-server",
+                new ProxyConnectionPipeHandler(serverConnection));
+        orderedHandlersToRemove.stream()
+                .map(handlerName -> this.channel.pipeline().get(handlerName))
+                .filter(Objects::nonNull)
+                .forEach(handler -> this.channel.pipeline().remove(handler));
+        serverConnection.switchToWebSocketProtocol();
     }
 
     /* *************************************************************************
@@ -746,13 +772,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
 
-        pipeline.addLast("encoder", new HttpResponseEncoder());
+        pipeline.addLast(HTTP_ENCODER_NAME, new HttpResponseEncoder());
         if (isAcceptProxyProtocol()) {
-            pipeline.addLast("proxy-protocol-decoder", new HAProxyMessageDecoder());
+            pipeline.addLast(HTTP_PROXY_DECODER_NAME, new HAProxyMessageDecoder());
         }
         // We want to allow longer request lines, headers, and chunks
         // respectively.
-        pipeline.addLast("decoder", new HttpRequestDecoder(
+        pipeline.addLast(HTTP_DECODER_NAME, new HttpRequestDecoder(
                 proxyServer.getMaxInitialLineLength(),
                 proxyServer.getMaxHeaderSize(),
                 proxyServer.getMaxChunkSize()));
@@ -764,15 +790,15 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
         }
 
-        pipeline.addLast("requestReadMonitor", requestReadMonitor);
-        pipeline.addLast("responseWrittenMonitor", responseWrittenMonitor);
+        pipeline.addLast(HTTP_REQUEST_READ_MONITOR_NAME, requestReadMonitor);
+        pipeline.addLast(HTTP_RESPONSE_WRITTEN_MONITOR_NAME, responseWrittenMonitor);
 
         pipeline.addLast(
                 "idle",
                 new IdleStateHandler(0, 0, proxyServer
                         .getIdleConnectionTimeout()));
 
-        pipeline.addLast("handler", this);
+        pipeline.addLast(MAIN_HANDLER_NAME, this);
     }
 
     /**

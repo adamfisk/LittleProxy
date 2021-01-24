@@ -60,7 +60,7 @@ public class ProxyUtils {
 
     // Schemes are case-insensitive:
     // http://tools.ietf.org/html/rfc3986#section-3.1
-    private static Pattern HTTP_PREFIX = Pattern.compile("^https?://.*",
+    private static Pattern HTTP_PREFIX = Pattern.compile("^(http|ws)s?://.*",
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -626,5 +626,18 @@ public class ProxyUtils {
                 }
             }
         }
+    }
+
+    /**
+     * Tests whether the given response indicates that the connection is switching
+     * to the WebSocket protocol.
+     *
+     * @param response the response to check.
+     * @return true if switching to the WebSocket protocol; false otherwise;
+     */
+    public static boolean isSwitchingToWebSocketProtocol(HttpResponse response) {
+        return (response.status() == HttpResponseStatus.SWITCHING_PROTOCOLS)
+                && response.headers().contains(HttpHeaderNames.CONNECTION, HttpHeaderNames.UPGRADE, true)
+                && response.headers().contains(HttpHeaderNames.UPGRADE, "websocket", true);
     }
 }
