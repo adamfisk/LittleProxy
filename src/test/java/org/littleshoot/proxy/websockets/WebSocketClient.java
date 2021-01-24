@@ -120,10 +120,10 @@ public class WebSocketClient {
         }
     }
 
-    public void send(final String value) throws IOException {
+    public ChannelFuture send(final String value) {
         lock.readLock().lock();
         try {
-            channel.writeAndFlush(new TextWebSocketFrame(value));   
+            return channel.writeAndFlush(new TextWebSocketFrame(value));
         } finally {
             lock.readLock().unlock();
         }

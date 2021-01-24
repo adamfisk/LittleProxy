@@ -2,7 +2,9 @@ package org.littleshoot.proxy.websockets;
 
 import java.net.InetSocketAddress;
 import java.security.cert.CertificateException;
+import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -15,6 +17,7 @@ import com.google.common.base.Preconditions;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
@@ -44,7 +47,7 @@ public class WebSocketServer {
     private EventLoopGroup workerGroup;
     private Channel channel;
 
-    public InetSocketAddress start(final boolean ssl) throws InterruptedException, CertificateException, SSLException {
+    public InetSocketAddress start(final boolean ssl, final Duration bindTimeout) throws CertificateException, SSLException, TimeoutException {
         lock.lock();
         try {
             if (bossGroup != null) {
@@ -66,7 +69,11 @@ public class WebSocketServer {
                     .channel(NioServerSocketChannel.class).handler(new LoggingHandler(LogLevel.DEBUG))
                     .childHandler(new WebSocketServerInitializer(sslCtx));
 
-            channel = bootstrap.bind("localhost", 0).sync().channel();
+            final ChannelFuture bindFuture = bootstrap.bind("localhost", 0);
+            if (!bindFuture.awaitUninterruptibly(bindTimeout.toMillis())) {
+                throw new TimeoutException("Bind timed out after " + bindTimeout);
+            }
+            channel = bindFuture.channel();
             final InetSocketAddress serverAddress = (InetSocketAddress) channel.localAddress();
             logger.info("{} listening on {}", getClass().getSimpleName(), serverAddress);
             return serverAddress;

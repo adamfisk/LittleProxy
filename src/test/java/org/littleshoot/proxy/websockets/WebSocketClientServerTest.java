@@ -1,6 +1,7 @@
 package org.littleshoot.proxy.websockets;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.net.InetSocketAddress;
@@ -21,9 +22,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class WebSocketClientServerTest {
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(1);
-    private static final int MAX_CONNECTION_ATTEMPTS = 3;
-    private static final long TEST_TIMEOUT_MILLIS = 10000L;
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(5);
+    private static final int MAX_CONNECTION_ATTEMPTS = 5;
+    private static final long TEST_TIMEOUT_MILLIS = 60000L;
     private static final Logger logger = LoggerFactory.getLogger(WebSocketClientServerTest.class);
     private HttpProxyServer proxy;
     private WebSocketServer server;
@@ -46,7 +48,7 @@ public class WebSocketClientServerTest {
             server = null;
         }
         if (proxy != null) {
-            proxy.abort();
+            proxy.stop();
             proxy = null;
         }
     }
@@ -96,7 +98,7 @@ public class WebSocketClientServerTest {
     }
     
     private void testIntegration(final boolean withSsl, final boolean withProxy, final String scheme) throws Exception {
-        final InetSocketAddress serverAddress = server.start(withSsl);
+        final InetSocketAddress serverAddress = server.start(withSsl, CONNECT_TIMEOUT);
         if (withProxy) {
             startProxy(withSsl);
         }
@@ -107,8 +109,8 @@ public class WebSocketClientServerTest {
         openClient(serverUri, withProxy);
 
         final String request = "test";
-        client.send(request);
-        final String response = client.waitForResponse(Duration.ofSeconds(5));
+        assertTrue("Timed out waiting for message to be sent after " + RESPONSE_TIMEOUT, client.send(request).awaitUninterruptibly(RESPONSE_TIMEOUT.toMillis()));
+        final String response = client.waitForResponse(RESPONSE_TIMEOUT);
         assertEquals(request.toUpperCase(), response);
     }
     
@@ -121,7 +123,7 @@ public class WebSocketClientServerTest {
                 client.open(uri, CONNECT_TIMEOUT, proxyAddress);
                 connected = true;
             } catch (TimeoutException e) {
-                logger.warn("Connection attempt {} of {} timed out after {}", connectionAttempt, MAX_CONNECTION_ATTEMPTS, CONNECT_TIMEOUT);
+                logger.warn("Connection attempt {} of {} : {}", connectionAttempt, MAX_CONNECTION_ATTEMPTS, e.getMessage());
                 Thread.sleep(CONNECT_TIMEOUT.toMillis() / 2);
             }
         }
