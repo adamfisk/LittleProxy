@@ -75,7 +75,9 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
@@ -105,8 +107,15 @@ import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
  */
 @Sharable
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
+    // Pipeline handler names:
+    private static final String HTTP_ENCODER_NAME = "encoder";
+    private static final String HTTP_DECODER_NAME = "decoder";
+    private static final String HTTP_PROXY_ENCODER_NAME = "proxy-protocol-encoder";
+    private static final String HTTP_REQUEST_WRITTEN_MONITOR_NAME = "requestWrittenMonitor";
+    private static final String HTTP_RESPONSE_READ_MONITOR_NAME = "responseReadMonitor";
     private static final String SOCKS_ENCODER_NAME = "socksEncoder";
     private static final String SOCKS_DECODER_NAME = "socksDecoder";
+    private static final String MAIN_HANDLER_NAME = "handler";
     private final ClientToProxyConnection clientConnection;
     private final ProxyToServerConnection serverConnection = this;
     private volatile TransportProtocol transportProtocol;
@@ -1092,10 +1101,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
 
         if ( proxyServer.isSendProxyProtocol()) {
-            pipeline.addLast("proxy-protocol-encoder", new HAProxyMessageEncoder());
+            pipeline.addLast(HTTP_PROXY_ENCODER_NAME, new HAProxyMessageEncoder());
         }
-        pipeline.addLast("encoder", new HttpRequestEncoder());
-        pipeline.addLast("decoder", new HeadAwareHttpResponseDecoder(
+        pipeline.addLast(HTTP_ENCODER_NAME, new HttpRequestEncoder());
+        pipeline.addLast(HTTP_DECODER_NAME, new HeadAwareHttpResponseDecoder(
                 proxyServer.getMaxInitialLineLength(),
                 proxyServer.getMaxHeaderSize(),
                 proxyServer.getMaxChunkSize()));
@@ -1107,8 +1116,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
         }
 
-        pipeline.addLast("responseReadMonitor", responseReadMonitor);
-        pipeline.addLast("requestWrittenMonitor", requestWrittenMonitor);
+        pipeline.addLast(HTTP_RESPONSE_READ_MONITOR_NAME, responseReadMonitor);
+        pipeline.addLast(HTTP_REQUEST_WRITTEN_MONITOR_NAME, requestWrittenMonitor);
 
         // Set idle timeout
         pipeline.addLast(
@@ -1116,7 +1125,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 new IdleStateHandler(0, 0, proxyServer
                         .getIdleConnectionTimeout()));
 
-        pipeline.addLast("handler", this);
+        pipeline.addLast(MAIN_HANDLER_NAME, this);
     }
 
     /**
@@ -1193,6 +1202,17 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         String host = parsedHostAndPort.getHost();
         int port = parsedHostAndPort.getPortOrDefault(80);
         return InetSocketAddress.createUnresolved(host, port);
+    }
+
+    void switchToWebSocketProtocol() {
+        final List<String> orderedHandlersToRemove = Arrays.asList(HTTP_REQUEST_WRITTEN_MONITOR_NAME,
+                HTTP_RESPONSE_READ_MONITOR_NAME, HTTP_PROXY_ENCODER_NAME, HTTP_ENCODER_NAME, HTTP_DECODER_NAME);
+        this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-client",
+                new ProxyConnectionPipeHandler(clientConnection));
+        orderedHandlersToRemove.stream()
+                .map(handlerName -> this.channel.pipeline().get(handlerName))
+                .filter(Objects::nonNull)
+                .forEach(handler -> this.channel.pipeline().remove(handler));
     }
 
     /* *************************************************************************
