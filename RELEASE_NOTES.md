@@ -1,5 +1,8 @@
 # Release Notes
 
+- 2.0.2
+  - Support for WebSockets with MITM in transparent mode
+  
 - 2.0.1
   - Removed beta tag from version
   - Updated various dependency versions
