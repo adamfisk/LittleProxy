@@ -208,4 +208,13 @@ public interface HttpFilters {
      */
     void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx);
 
+    /**
+     * Allow this proxy to act as an SSL man in the middle.
+     *
+     * <p>Has no impact if man in the middle is not enabled.</p>
+     *
+     * @return true to allow mitm, false to not mitm the proxy to server connection.
+     */
+    boolean proxyToServerAllowMitm();
+
 }
