@@ -2,6 +2,7 @@
 
 - 2.0.2
   - Support for WebSockets with MITM in transparent mode
+  - Support for per request conditional MITM
   
 - 2.0.1
   - Removed beta tag from version

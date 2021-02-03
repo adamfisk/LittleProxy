@@ -465,6 +465,7 @@ public class HttpFilterTest {
 
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionStartedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestInvoked());
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerAllowMitmInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionFailedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSucceededInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSendingInvoked());
@@ -507,6 +508,7 @@ public class HttpFilterTest {
         assertTrue("Expected filter method to be called", filter.isProxyToServerResolutionSucceededInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToClientResponseInvoked());
 
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerAllowMitmInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSendingInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSentInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
@@ -560,6 +562,7 @@ public class HttpFilterTest {
         assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionStartedInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToClientResponseInvoked());
 
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerAllowMitmInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionStartedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionSucceededInvoked());
@@ -634,6 +637,7 @@ public class HttpFilterTest {
         assertTrue("Expected filter method to be called", filter.isProxyToClientResponseInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
 
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerAllowMitmInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionStartedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionSucceededInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerRequestSendingInvoked());
@@ -695,6 +699,7 @@ public class HttpFilterTest {
         assertTrue("Expected filter method to be called", filter.isProxyToServerConnectionSucceededInvoked());
         assertTrue("Expected filter method to be called", filter.isProxyToClientResponseInvoked());
 
+        assertFalse("Expected filter method to not be called", filter.isProxyToServerAllowMitmInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerResolutionFailedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionFailedInvoked());
         assertFalse("Expected filter method to not be called", filter.isProxyToServerConnectionSSLHandshakeStartedInvoked());
@@ -793,6 +798,7 @@ public class HttpFilterTest {
         private final AtomicBoolean proxyToServerConnectionFailed = new AtomicBoolean(false);
         private final AtomicBoolean proxyToServerConnectionSucceeded = new AtomicBoolean(false);
         private final AtomicBoolean clientToProxyRequest = new AtomicBoolean(false);
+	private final AtomicBoolean proxyToServerAllowMitm = new AtomicBoolean(false);
         private final AtomicBoolean proxyToServerRequest = new AtomicBoolean(false);
         private final AtomicBoolean proxyToServerRequestSending = new AtomicBoolean(false);
         private final AtomicBoolean proxyToServerRequestSent = new AtomicBoolean(false);
@@ -819,6 +825,10 @@ public class HttpFilterTest {
         public boolean isClientToProxyRequestInvoked() {
             return clientToProxyRequest.get();
         }
+
+	public boolean isProxyToServerAllowMitmInvoked() {
+            return proxyToServerAllowMitm.get();
+	}
 
         public boolean isProxyToServerRequestInvoked() {
             return proxyToServerRequest.get();
@@ -965,5 +975,11 @@ public class HttpFilterTest {
         public void proxyToServerConnectionSSLHandshakeStarted() {
             proxyToServerConnectionSSLHandshakeStarted.set(true);
         }
+
+       @Override
+       public boolean proxyToServerAllowMitm() {
+            clientToProxyRequest.set(true);
+	    return true;
+       }
     }
 }

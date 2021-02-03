@@ -609,7 +609,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         	
             MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
+            boolean isMitmEnabled = currentFilters.proxyToServerAllowMitm() && mitmManager != null;
 
             if (isMitmEnabled) {
                 // When MITM is enabled and when chained proxy is set up, remoteAddress
@@ -708,7 +708,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             LOG.debug("Handling CONNECT request through Chained Proxy");
             chainedProxy.filterRequest(initialRequest);
             MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
+            boolean isMitmEnabled = currentFilters.proxyToServerAllowMitm() && mitmManager != null;
             /*
              * We ignore the LastHttpContent which we read from the client
              * connection when we are negotiating connect (see readHttp()
