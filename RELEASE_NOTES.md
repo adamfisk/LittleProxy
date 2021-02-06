@@ -1,5 +1,8 @@
 # Release Notes
 
+- 2.0.3
+  - Upgrade guava to 30.1
+  
 - 2.0.2
   - Support for WebSockets with MITM in transparent mode
   - Support for per request conditional MITM
