@@ -3,6 +3,7 @@
 - 2.0.3
   - Upgrade guava to 30.1
   - Threads are now set as daemon (not user, which is the default) threads so the JVM exits as expected when all other threads stop.
+  - Close thread pool if proxy fails to start
   
 - 2.0.2
   - Support for WebSockets with MITM in transparent mode
