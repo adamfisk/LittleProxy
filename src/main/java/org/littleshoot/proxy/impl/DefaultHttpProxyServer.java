@@ -520,6 +520,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         Throwable cause = future.cause();
         if (cause != null) {
+            abort();
             throw new RuntimeException(cause);
         }
 
