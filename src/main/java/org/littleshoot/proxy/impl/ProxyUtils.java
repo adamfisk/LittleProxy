@@ -540,7 +540,7 @@ public class ProxyUtils {
     public static boolean isUdtAvailable() {
         try {
             return NioUdtProvider.BYTE_PROVIDER != null;
-        } catch (NoClassDefFoundError e) {
+        } catch (Throwable e) {
             return false;
         }
     }
