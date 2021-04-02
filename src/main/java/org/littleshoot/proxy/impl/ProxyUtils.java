@@ -542,6 +542,9 @@ public class ProxyUtils {
             return NioUdtProvider.BYTE_PROVIDER != null;
         } catch (NoClassDefFoundError e) {
             return false;
+            // necessary for Android which throws VerifyError if the field BYTE_PROVIDER is accessed of the unavailable class
+        } catch (VerifyError e) {
+            return false;
         }
     }
 
