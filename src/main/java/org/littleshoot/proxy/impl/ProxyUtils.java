@@ -540,7 +540,10 @@ public class ProxyUtils {
     public static boolean isUdtAvailable() {
         try {
             return NioUdtProvider.BYTE_PROVIDER != null;
-        } catch (Throwable e) {
+        } catch (NoClassDefFoundError e) {
+            return false;
+            // necessary for Android which throws VerifyError if the field BYTE_PROVIDER is accessed of the unavailable class
+        } catch (VerifyError e) {
             return false;
         }
     }
