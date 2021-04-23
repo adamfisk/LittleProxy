@@ -7,27 +7,59 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.handler.codec.haproxy.HAProxyMessageDecoder;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpRequestDecoder;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseEncoder;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpUtil;
+import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
-import io.netty.util.concurrent.Future;
 import io.netty.util.ReferenceCounted;
+import io.netty.util.concurrent.Future;
 import org.apache.commons.lang3.StringUtils;
-import org.littleshoot.proxy.*;
+import org.littleshoot.proxy.ActivityTracker;
+import org.littleshoot.proxy.FlowContext;
+import org.littleshoot.proxy.FullFlowContext;
+import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.HttpFiltersAdapter;
+import org.littleshoot.proxy.ProxyAuthenticator;
+import org.littleshoot.proxy.SslEngineSource;
 
 import javax.net.ssl.SSLSession;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
-import static org.littleshoot.proxy.impl.ConnectionState.*;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_PROXY_AUTHENTICATION;
+import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECT_REQUESTED;
+import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
 
 /**
  * <p>
@@ -475,12 +507,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private void switchToWebSocketProtocol(final ProxyToServerConnection serverConnection) {
         final List<String> orderedHandlersToRemove = Arrays.asList(HTTP_REQUEST_READ_MONITOR_NAME,
                 HTTP_RESPONSE_WRITTEN_MONITOR_NAME, HTTP_PROXY_DECODER_NAME, HTTP_ENCODER_NAME, HTTP_DECODER_NAME);
-        this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-server",
-                new ProxyConnectionPipeHandler(serverConnection));
+        if (this.channel.pipeline().get(MAIN_HANDLER_NAME) != null) {
+            this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-server",
+                    new ProxyConnectionPipeHandler(serverConnection));
+        }
         orderedHandlersToRemove.stream()
-                .map(handlerName -> this.channel.pipeline().get(handlerName))
-                .filter(Objects::nonNull)
-                .forEach(handler -> this.channel.pipeline().remove(handler));
+                .forEach(this::removeHandlerIfPresent);
         serverConnection.switchToWebSocketProtocol();
     }
 
@@ -799,6 +831,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         .getIdleConnectionTimeout()));
 
         pipeline.addLast(MAIN_HANDLER_NAME, this);
+    }
+    
+    private void removeHandlerIfPresent(String name) {
+        removeHandlerIfPresent(channel.pipeline(), name);
     }
 
     /**

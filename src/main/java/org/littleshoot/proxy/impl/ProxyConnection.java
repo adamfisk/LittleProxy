@@ -312,18 +312,10 @@ abstract class ProxyConnection<I extends HttpObject> extends
         protected Future execute() {
             try {
                 ChannelPipeline pipeline = ctx.pipeline();
-                if (pipeline.get("encoder") != null) {
-                    pipeline.remove("encoder");
-                }
-                if (pipeline.get("responseWrittenMonitor") != null) {
-                    pipeline.remove("responseWrittenMonitor");
-                }
-                if (pipeline.get("decoder") != null) {
-                    pipeline.remove("decoder");
-                }
-                if (pipeline.get("requestReadMonitor") != null) {
-                    pipeline.remove("requestReadMonitor");
-                }
+                removeHandlerIfPresent(pipeline, "encoder");
+                removeHandlerIfPresent(pipeline, "responseWrittenMonitor");
+                removeHandlerIfPresent(pipeline, "decoder");
+                removeHandlerIfPresent(pipeline, "requestReadMonitor");
                 tunneling = true;
                 return channel.newSucceededFuture();
             } catch (Throwable t) {
@@ -431,6 +423,20 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * processing on the {@link Channel}.
      */
     protected void exceptionCaught(Throwable cause) {
+    }
+    
+    /**
+     * Removes the handler with the given name if it is present in the pipeline.
+     * @param pipeline the pipeline from which to remove the handler.
+     * @param handlerName the name of the handler to remove.
+     * @return true if the handler was found and removed; false otherwise.
+     */
+    protected boolean removeHandlerIfPresent(ChannelPipeline pipeline, String handlerName) {
+        if (pipeline.get(handlerName) != null) {
+            pipeline.remove(handlerName);
+            return true;
+        }
+        return false;
     }
 
     /* *************************************************************************
