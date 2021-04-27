@@ -3,6 +3,7 @@
 - 2.0.4
   - Android compatibility fix (Issue #76)
   - Fix NoSuchElementException when switching protocols to WebSocket (Issue #78)
+  - Prevent NullPointerException in ProxyUtils::isHEAD (Issue #79)
 
 - 2.0.3
   - Upgrade guava to 30.1
