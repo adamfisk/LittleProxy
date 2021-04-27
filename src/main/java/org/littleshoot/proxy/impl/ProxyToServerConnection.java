@@ -71,13 +71,13 @@ import org.littleshoot.proxy.extras.HAProxyMessageEncoder;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
@@ -648,9 +648,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
     
     private void removeHandlerIfPresent(String name) {
-        if (channel.pipeline().context(name) != null) {
-            channel.pipeline().remove(name);
-        }
+        removeHandlerIfPresent(channel.pipeline(), name);
     }
 
     /**
@@ -1207,12 +1205,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     void switchToWebSocketProtocol() {
         final List<String> orderedHandlersToRemove = Arrays.asList(HTTP_REQUEST_WRITTEN_MONITOR_NAME,
                 HTTP_RESPONSE_READ_MONITOR_NAME, HTTP_PROXY_ENCODER_NAME, HTTP_ENCODER_NAME, HTTP_DECODER_NAME);
-        this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-client",
-                new ProxyConnectionPipeHandler(clientConnection));
+        if (this.channel.pipeline().get(MAIN_HANDLER_NAME) != null) {
+            this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-client",
+                    new ProxyConnectionPipeHandler(clientConnection));
+        }
         orderedHandlersToRemove.stream()
-                .map(handlerName -> this.channel.pipeline().get(handlerName))
-                .filter(Objects::nonNull)
-                .forEach(handler -> this.channel.pipeline().remove(handler));
+                .forEach(this::removeHandlerIfPresent);
     }
 
     /* *************************************************************************
