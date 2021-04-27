@@ -313,7 +313,7 @@ public class ProxyUtils {
      * @return true if request is a HEAD, otherwise false
      */
     public static boolean isHEAD(HttpRequest httpRequest) {
-        return HttpMethod.HEAD.equals(httpRequest.method());
+        return httpRequest != null && HttpMethod.HEAD.equals(httpRequest.method());
     }
 
     private static boolean checkTrueOrFalse(final String val,
