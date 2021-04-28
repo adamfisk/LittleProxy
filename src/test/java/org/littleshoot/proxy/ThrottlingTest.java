@@ -263,6 +263,7 @@ public class ThrottlingTest {
             HttpClientUtils.closeQuietly(response);
 
             proxyServer.setThrottle(THROTTLED_READ_BYTES_PER_SECOND * 2, 0);
+            Thread.sleep(1000); // necessary for the traffic shaping to reset
 
             long secondStart = System.currentTimeMillis();
             response = httpClient.execute(
@@ -322,6 +323,7 @@ public class ThrottlingTest {
             HttpClientUtils.closeQuietly(response);
 
             proxyServer.setThrottle(0, 0);
+            Thread.sleep(1000); // necessary for the traffic shaping to reset
 
             long secondStart = System.currentTimeMillis();
             response = httpClient.execute(
