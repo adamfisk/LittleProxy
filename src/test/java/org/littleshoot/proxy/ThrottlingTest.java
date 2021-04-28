@@ -43,7 +43,7 @@ public class ThrottlingTest {
     private int msToReadThrottled;
 
     // time to allow for an unthrottled local request
-    private static final int UNTRHOTTLED_REQUEST_TIME_MS = 1500;
+    private static final int UNTHROTTLED_REQUEST_TIME_MS = 1500;
 
     private int writeWebServerPort;
     private int readWebServerPort;
@@ -155,8 +155,8 @@ public class ThrottlingTest {
             assertEquals("Received " + largeData.length + " bytes\n",
                     EntityUtils.toString(response.getEntity()));
 
-            assertThat("Unthrottled write took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms",
-                    finish - start, lessThan((long) UNTRHOTTLED_REQUEST_TIME_MS));
+            assertThat("Unthrottled write took " + (finish - start) + "ms, but expected to complete in " + UNTHROTTLED_REQUEST_TIME_MS + "ms",
+                    finish - start, lessThan((long) UNTHROTTLED_REQUEST_TIME_MS));
         }
     }
 
@@ -225,8 +225,8 @@ public class ThrottlingTest {
             assertThat("Expected to read " + LARGE_DATA_SIZE + " bytes but actually read " + bytesRead + "bytes",
                     bytesRead, equalTo(LARGE_DATA_SIZE));
 
-            assertThat("Unthrottled read took " + (finish - start) + "ms, but expected to complete in " + UNTRHOTTLED_REQUEST_TIME_MS + "ms",
-                    finish - start, lessThan((long)UNTRHOTTLED_REQUEST_TIME_MS));
+            assertThat("Unthrottled read took " + (finish - start) + "ms, but expected to complete in " + UNTHROTTLED_REQUEST_TIME_MS + "ms",
+                    finish - start, lessThan((long)UNTHROTTLED_REQUEST_TIME_MS));
         }
     }
 
@@ -344,9 +344,9 @@ public class ThrottlingTest {
 
             HttpClientUtils.closeQuietly(response);
 
-            assertThat("Expected second read to complete within " + UNTRHOTTLED_REQUEST_TIME_MS + "ms, without throttling. First read took "
+            assertThat("Expected second read to complete within " + UNTHROTTLED_REQUEST_TIME_MS + "ms, without throttling. First read took "
                             + (firstFinish - firstStart) + "ms" + ". Second read took " + (secondFinish - secondStart) + "ms",
-                    secondFinish - secondStart, lessThan((long) UNTRHOTTLED_REQUEST_TIME_MS));
+                    secondFinish - secondStart, lessThan((long) UNTHROTTLED_REQUEST_TIME_MS));
         }
 
     }
