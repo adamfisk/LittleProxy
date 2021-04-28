@@ -24,7 +24,7 @@ import static org.junit.Assert.assertThat;
 
 @FixMethodOrder(MethodSorters.JVM)
 public class ThrottlingTest {
-    private static final int LARGE_DATA_SIZE = 100000;
+    private static final int LARGE_DATA_SIZE = 200000;
     private static final long THROTTLED_READ_BYTES_PER_SECOND = 25000L;
     private static final long THROTTLED_WRITE_BYTES_PER_SECOND = 25000L;
 
@@ -43,7 +43,7 @@ public class ThrottlingTest {
     private int msToReadThrottled;
 
     // time to allow for an unthrottled local request
-    private static final int UNTRHOTTLED_REQUEST_TIME_MS = 1000;
+    private static final int UNTRHOTTLED_REQUEST_TIME_MS = 1500;
 
     private int writeWebServerPort;
     private int readWebServerPort;
