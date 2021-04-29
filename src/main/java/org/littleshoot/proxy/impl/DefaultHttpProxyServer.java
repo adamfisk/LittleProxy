@@ -332,11 +332,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     public long getReadThrottle() {
-        return globalTrafficShapingHandler.getReadLimit();
+        if (globalTrafficShapingHandler != null) {
+            return globalTrafficShapingHandler.getReadLimit();
+        } else {
+            return 0;
+        }
     }
 
     public long getWriteThrottle() {
-        return globalTrafficShapingHandler.getWriteLimit();
+        if (globalTrafficShapingHandler != null) {
+            return globalTrafficShapingHandler.getWriteLimit();
+        } else {
+            return 0;
+        }
     }
 
     public int getMaxInitialLineLength() {
