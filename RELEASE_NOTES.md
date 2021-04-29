@@ -5,6 +5,7 @@
   - Fix NoSuchElementException when switching protocols to WebSocket (PR #78)
   - Prevent NullPointerException in ProxyUtils::isHEAD (PR #79)
   - Fixes in ThrottlingTest, Upgrade to Netty 4.1.63.Final (PR #65)
+  - Fix NPEs in getReadThrottle and getWriteThrottle when globalTrafficShapingHandler is null (PR #80)
 
 - 2.0.3
   - Upgrade guava to 30.1
