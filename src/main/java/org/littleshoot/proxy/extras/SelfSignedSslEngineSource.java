@@ -179,11 +179,10 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             }
             String dataAsString = new String(data);
 
-            LOG.info("Completed native call: '{}'\nResponse: '" + dataAsString + "'",
-                    Arrays.asList(commands));
+            LOG.info("Completed native call: '{}'\nResponse: '{}'", Arrays.asList(commands), dataAsString);
             return dataAsString;
         } catch (final IOException e) {
-            LOG.error("Error running commands: " + Arrays.asList(commands), e);
+            LOG.error("Error running commands: {}", Arrays.asList(commands), e);
             return "";
         }
     }

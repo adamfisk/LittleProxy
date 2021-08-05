@@ -209,7 +209,7 @@ public class ServerGroup {
             return;
         }
 
-        log.info("Shutting down server group event loops " + (graceful ? "(graceful)" : "(non-graceful)"));
+        log.info("Shutting down server group event loops {}", graceful ? "(graceful)" : "(non-graceful)");
 
         // loop through all event loops managed by this server group. this includes acceptor and worker event loops
         // for both TCP and UDP transport protocols.
