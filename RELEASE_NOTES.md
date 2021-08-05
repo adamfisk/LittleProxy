@@ -1,5 +1,8 @@
 # Release Notes
 
+- 2.0.6
+  - Use single Hamcrest dependency in tests
+
 - 2.0.5
   - Bumped jetty-server from 9.4.34.v20201102 to 9.4.41.v20210516.
 
