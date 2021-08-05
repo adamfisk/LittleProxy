@@ -451,7 +451,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param graceful when false, attempts to shutdown all channels immediately and ignores any channel-closing exceptions
      */
     protected void closeAllChannels(boolean graceful) {
-        LOG.info("Closing all channels " + (graceful ? "(graceful)" : "(non-graceful)"));
+        LOG.info("Closing all channels {}", graceful ? "(graceful)" : "(non-graceful)");
 
         ChannelGroupFuture future = allChannels.close();
 
@@ -477,7 +477,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private HttpProxyServer start() {
         if (!serverGroup.isStopped()) {
-            LOG.info("Starting proxy at address: " + this.requestedAddress);
+            LOG.info("Starting proxy at address: {}", this.requestedAddress);
 
             serverGroup.registerProxyServer(this);
 
@@ -533,7 +533,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         this.boundAddress = ((InetSocketAddress) future.channel().localAddress());
-        LOG.info("Proxy started at address: " + this.boundAddress);
+        LOG.info("Proxy started at address: {}", this.boundAddress);
 
         Runtime.getRuntime().addShutdownHook(jvmShutdownHook);
     }

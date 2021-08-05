@@ -2,6 +2,7 @@
 
 - 2.0.6
   - Use single Hamcrest dependency in tests
+  - Improve logging performance
 
 - 2.0.5
   - Bumped jetty-server from 9.4.34.v20201102 to 9.4.41.v20210516.
@@ -17,11 +18,11 @@
   - Upgrade guava to 30.1
   - Threads are now set as daemon (not user, which is the default) threads so the JVM exits as expected when all other threads stop.
   - Close thread pool if proxy fails to start
-  
+
 - 2.0.2
   - Support for WebSockets with MITM in transparent mode
   - Support for per request conditional MITM
-  
+
 - 2.0.1
   - Removed beta tag from version
   - Updated various dependency versions
