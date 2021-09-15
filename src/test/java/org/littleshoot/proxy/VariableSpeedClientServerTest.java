@@ -151,7 +151,7 @@ public class VariableSpeedClientServerTest {
                             "Date: Sun, 20 Jan 2013 00:16:23 GMT\r\n" +
                             "Expires: -1\r\n" +
                             "Cache-Control: private, max-age=0\r\n" +
-                            "Content-Type: text/html; charset=ISO-8859-1\r\n" +
+                            "Content-Type: text/html; charset=utf-8\r\n" +
                             "Server: gws\r\n" +
                             "Content-Length: " + CONTENT_LENGTH + "\r\n\r\n"; // 10
                                                                               // gigs
