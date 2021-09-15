@@ -77,7 +77,7 @@ public class MessageTerminationTest {
         String transferEncoding = transferEncodingHeaders[0].getValue();
         assertEquals("Expected Transfer-Encoding to be chunked", "chunked", transferEncoding);
 
-        String bodyString = EntityUtils.toString(response.getEntity(), "ISO-8859-1");
+        String bodyString = EntityUtils.toString(response.getEntity(), "UTF-8");
         response.getEntity().getContent().close();
 
         assertEquals("Success!", bodyString);
@@ -112,7 +112,7 @@ public class MessageTerminationTest {
         Header[] transferEncodingHeaders = response.getHeaders("Transfer-Encoding");
         assertThat("Did not expect to see a Transfer-Encoding header", transferEncodingHeaders, emptyArray());
 
-        String bodyString = EntityUtils.toString(response.getEntity(), "ISO-8859-1");
+        String bodyString = EntityUtils.toString(response.getEntity(), "UTF-8");
         response.getEntity().getContent().close();
 
         assertEquals("Success!", bodyString);
@@ -159,7 +159,7 @@ public class MessageTerminationTest {
         Header[] contentLengthHeaders = response.getHeaders("Content-Length");
         assertThat("Expected to see a Content-Length header", contentLengthHeaders.length, greaterThanOrEqualTo(1));
 
-        String bodyString = EntityUtils.toString(response.getEntity(), "ISO-8859-1");
+        String bodyString = EntityUtils.toString(response.getEntity(), "UTF-8");
         response.getEntity().getContent().close();
 
         assertEquals("Success!", bodyString);
