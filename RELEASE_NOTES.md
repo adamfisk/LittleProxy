@@ -6,6 +6,7 @@
   - Bumped netty-codec from 4.1.63.Final to 4.1.68.Final
   - Bump netty-codec-http from 4.1.68.Final to 4.1.71.Final
   - Bumped log4j-core from 2.14.0 to 2.16.0
+  - Added public key file
 
 - 2.0.5
   - Bumped jetty-server from 9.4.34.v20201102 to 9.4.41.v20210516.
