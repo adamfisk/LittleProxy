@@ -4,6 +4,7 @@
   - Use single Hamcrest dependency in tests
   - Improve logging performance
   - Bumped netty-codec from 4.1.63.Final to 4.1.68.Final
+  - Bump netty-codec-http from 4.1.68.Final to 4.1.71.Final
   - Bumped log4j-core from 2.14.0 to 2.16.0
 
 - 2.0.5
