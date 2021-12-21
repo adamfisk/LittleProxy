@@ -1,5 +1,8 @@
 # Release Notes
 
+- 2.0.7
+  - Bumped log4j-core from 2.16.0 to 2.17.0
+
 - 2.0.6
   - Use single Hamcrest dependency in tests
   - Improve logging performance
