@@ -1,5 +1,10 @@
 # Release Notes
 
+- 2.0.8
+  - Bumped log4j-core from 2.17.0 to 2.17.1
+  - Bumped netty from 4.1.71 to 4.1.72
+  - Bumped slf4j from 1.7.30 to 1.7.32
+
 - 2.0.7
   - Bumped log4j-core from 2.16.0 to 2.17.0
 
