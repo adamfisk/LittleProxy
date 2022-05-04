@@ -21,5 +21,18 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
           cache: maven
-      - name: Build with Maven
-        run: mvn -B package -Psmoke-test
+      - name: Compile code
+        run: mvn --batch-mode compile
+      - name: Run tests
+        run: mvn --batch-mode package -Psmoke-test
+      - name: Generate Maven test report
+        if: failure()
+        run: mvn --batch-mode surefire-report:report-only
+      - name: Upload test report
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: test-report
+          path: |
+            target/surefire-reports
+            target/site

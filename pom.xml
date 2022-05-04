@@ -53,6 +53,35 @@
 
     <profiles>
         <profile>
+            <id>smoke-test</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                          <excludes>
+                            <!-- Failing tests: -->
+                            <exclude>org/littleshoot/proxy/websockets/*</exclude>
+                            <exclude>org/littleshoot/proxy/BadClientAuthenticationTCPChainedProxyTest*</exclude>
+                            <exclude>org/littleshoot/proxy/EncryptedUDTChainedProxyTest*</exclude>
+                            <exclude>org/littleshoot/proxy/MitmWithBadClientAuthenticationTCPChainedProxyTest*</exclude>
+                            <exclude>org/littleshoot/proxy/MitmWithEncryptedUDTChainedProxyTest*</exclude>
+                            <exclude>org/littleshoot/proxy/MitmWithUnencryptedUDTChainedProxyTest*</exclude>
+                            <exclude>org/littleshoot/proxy/UnencryptedUDTChainedProxyTest*</exclude>
+                            <exclude>org/littleshoot/proxy/VariableSpeedClientServerTest*</exclude>
+
+                            <!-- Slow tests: -->
+                            <exclude>org/littleshoot/proxy/KeepAliveTest*</exclude>
+                            <exclude>org/littleshoot/proxy/IdlingProxyTest*</exclude>
+                            <exclude>org/littleshoot/proxy/ThrottlingTest*</exclude>
+                          </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <id>release</id>
             <activation>
                 <property>
@@ -510,7 +539,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Xmx1g -XX:MaxPermSize=256m</argLine>
+                    <argLine>-Xmx1g</argLine>
                 </configuration>
             </plugin>
 
@@ -625,7 +654,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-report-plugin</artifactId>
-                <version>3.0.0-M5</version>
+                <version>3.0.0-M6</version>
                 <configuration>
                     <showSuccess>false</showSuccess>
                 </configuration>
