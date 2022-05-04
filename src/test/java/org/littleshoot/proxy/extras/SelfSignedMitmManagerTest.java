@@ -40,6 +40,6 @@ public class SelfSignedMitmManagerTest {
         SSLEngine engine = mock(SSLEngine.class);
         when(source.newSslEngine()).thenReturn(engine);
         assertEquals(engine, manager.clientSslEngineFor(request, session));
-        verifyZeroInteractions(request, session);
+        verifyNoMoreInteractions(request, session);
     }
 }
