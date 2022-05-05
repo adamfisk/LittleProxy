@@ -14,13 +14,16 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.littleshoot.proxy.HttpProxyServer;
 import org.littleshoot.proxy.HttpProxyServerBootstrap;
+import org.littleshoot.proxy.SlowTest;
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Category(SlowTest.class)
 public class WebSocketClientServerTest {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(5);
