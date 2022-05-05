@@ -12,6 +12,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.runners.MethodSorters;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
@@ -22,6 +23,7 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
+@Category(SlowTest.class)
 @FixMethodOrder(MethodSorters.JVM)
 public class ThrottlingTest {
     private static final int LARGE_DATA_SIZE = 200000;

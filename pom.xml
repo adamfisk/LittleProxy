@@ -60,13 +60,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                          <excludes>
-                            <!-- Slow tests: -->
-                            <exclude>org/littleshoot/proxy/websockets/*</exclude>
-                            <exclude>org/littleshoot/proxy/KeepAliveTest*</exclude>
-                            <exclude>org/littleshoot/proxy/IdlingProxyTest*</exclude>
-                            <exclude>org/littleshoot/proxy/ThrottlingTest*</exclude>
-                          </excludes>
+                          <excludedGroups>org.littleshoot.proxy.SlowTest</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
