@@ -61,13 +61,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                           <excludes>
-                            <!-- Failing tests: -->
-                            <exclude>org/littleshoot/proxy/EncryptedUDTChainedProxyTest*</exclude>
-                            <exclude>org/littleshoot/proxy/MitmWithEncryptedUDTChainedProxyTest*</exclude>
-                            <exclude>org/littleshoot/proxy/MitmWithUnencryptedUDTChainedProxyTest*</exclude>
-                            <exclude>org/littleshoot/proxy/UnencryptedUDTChainedProxyTest*</exclude>
-                            <exclude>org/littleshoot/proxy/VariableSpeedClientServerTest*</exclude>
-
                             <!-- Slow tests: -->
                             <exclude>org/littleshoot/proxy/websockets/*</exclude>
                             <exclude>org/littleshoot/proxy/KeepAliveTest*</exclude>

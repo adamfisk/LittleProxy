@@ -13,8 +13,8 @@ import java.net.URL;
 
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
+import static org.littleshoot.proxy.TestUtils.disableOnMac;
+import static org.littleshoot.proxy.TestUtils.requireUnix;
 
 /**
  * Note - this test only works on UNIX systems because it checks file descriptor
@@ -31,8 +31,8 @@ public class IdleTest {
 
     @Before
     public void setup() throws Exception {
-        assumeTrue("Skipping due to non-Unix OS", TestUtils.isUnixManagementCapable());
-        assumeFalse("Skipping due to Mac OS", System.getProperty("os.name").toLowerCase().contains("mac"));
+        requireUnix();
+        disableOnMac();
 
         webServer = new Server(0);
         webServer.start();
