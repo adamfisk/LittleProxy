@@ -1,13 +1,10 @@
 package org.littleshoot.proxy;
 
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.conn.params.ConnRoutePNames;
 import org.apache.http.entity.InputStreamEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.params.CoreConnectionPNames;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -54,13 +51,7 @@ public class VariableSpeedClientServerTest {
         DefaultHttpProxyServer.bootstrap().withPort(proxyPort).start();
         Thread.yield();
         Thread.sleep(400);
-        final DefaultHttpClient client = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", proxyPort, "http");
-        client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
-        client.getParams().setParameter(
-                CoreConnectionPNames.CONNECTION_TIMEOUT, 50000);
-        // client.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT,
-        // 120000);
+        final CloseableHttpClient client = TestUtils.createProxiedHttpClient(proxyPort);
 
         System.out
                 .println("------------------ Memory Usage At Beginning ------------------");
@@ -68,6 +59,7 @@ public class VariableSpeedClientServerTest {
 
         final String endpoint = "http://127.0.0.1:" + port + "/";
         final HttpPost post = new HttpPost(endpoint);
+        post.setConfig(TestUtils.REQUEST_TIMEOUT_CONFIG);
         post.setEntity(new InputStreamEntity(new InputStream() {
             private int remaining = CONTENT_LENGTH;
 

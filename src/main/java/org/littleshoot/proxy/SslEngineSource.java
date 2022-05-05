@@ -10,8 +10,6 @@ public interface SslEngineSource {
     /**
      * Returns an {@link SSLEngine} to use for a server connection from
      * LittleProxy to the client.
-     * 
-     * @return
      */
     SSLEngine newSslEngine();
 
@@ -26,7 +24,6 @@ public interface SslEngineSource {
      *            to start a client connection to the server.
      * @param peerPort
      *            to start a client connection to the server.
-     * @return
      */
     SSLEngine newSslEngine(String peerHost, int peerPort);
 

@@ -13,9 +13,6 @@ public interface HttpFiltersSource {
     /**
      * Return an {@link HttpFilters} object for this request if and only if we
      * want to filter the request and/or its responses.
-     * 
-     * @param originalRequest
-     * @return
      */
     HttpFilters filterRequest(HttpRequest originalRequest,
             ChannelHandlerContext ctx);
@@ -29,8 +26,6 @@ public interface HttpFiltersSource {
      * received from the client, with its content already decompressed (in case
      * the client was compressing it). If the request size exceeds the maximum
      * buffer size, the request will fail.
-     * 
-     * @return
      */
     int getMaximumRequestBufferSizeInBytes();
 
@@ -43,8 +38,6 @@ public interface HttpFiltersSource {
      * received from the server, with its content already decompressed (in case
      * the server was compressing it). If the response size exceeds the maximum
      * buffer size, the response will fail.
-     * 
-     * @return
      */
     int getMaximumResponseBufferSizeInBytes();
 }

@@ -26,16 +26,12 @@ public interface ChainedProxy extends SslEngineSource {
     /**
      * (Optional) ensure that the connection is opened from a specific local
      * address (useful when doing NAT traversal).
-     * 
-     * @return
      */
     InetSocketAddress getLocalAddress();
 
     /**
      * Tell LittleProxy what kind of TransportProtocol to use to communicate
      * with the chained proxy.
-     * 
-     * @return
      */
     TransportProtocol getTransportProtocol();
 
@@ -73,8 +69,6 @@ public interface ChainedProxy extends SslEngineSource {
 
     /**
      * Filters requests on their way to the chained proxy.
-     * 
-     * @param httpObject
      */
     void filterRequest(HttpObject httpObject);
 

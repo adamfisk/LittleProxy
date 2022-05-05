@@ -215,8 +215,8 @@ public class KeepAliveTest {
 
 	        // match the whole response to make sure that the it is not repeated
             assertThat("The response is repeated:", response, is("HTTP/1.1 504 Gateway Timeout\r\n" +
-                    "Content-Length: 15\r\n" +
-                    "Content-Type: text/html; charset=utf-8\r\n" +
+                    "content-length: 15\r\n" +
+                    "content-type: text/html; charset=utf-8\r\n" +
                     "\r\n" +
                     "Gateway Timeout"));
         }
@@ -246,7 +246,7 @@ public class KeepAliveTest {
                     public HttpResponse clientToProxyRequest(HttpObject httpObject) {
                         if (httpObject instanceof HttpRequest) {
                             HttpResponse shortCircuitResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-                            HttpHeaders.setContentLength(shortCircuitResponse, 0);
+                            HttpUtil.setContentLength(shortCircuitResponse, 0);
                             return shortCircuitResponse;
                         } else {
                             return null;
@@ -304,8 +304,8 @@ public class KeepAliveTest {
                     public HttpResponse clientToProxyRequest(HttpObject httpObject) {
                         if (httpObject instanceof HttpRequest) {
                             HttpResponse shortCircuitResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-                            HttpHeaders.setContentLength(shortCircuitResponse, 0);
-                            HttpHeaders.setKeepAlive(shortCircuitResponse, false);
+                            HttpUtil.setContentLength(shortCircuitResponse, 0);
+                            HttpUtil.setKeepAlive(shortCircuitResponse, false);
                             return shortCircuitResponse;
                         } else {
                             return null;

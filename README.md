@@ -22,13 +22,13 @@ You can embed LittleProxy in your own projects through Maven with the following:
     <dependency>
         <groupId>xyz.rogfam</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>2.0.0-beta-3</version>
+        <version>2.0.7</version>
     </dependency>
 ```
 
 Or with Gradle like this
 
-`compile "xyz.rogfam:littleproxy:2.0.0-beta-3"`
+`compile "xyz.rogfam:littleproxy:2.0.7"`
 
 Once you've included LittleProxy, you can start the server with the following:
 
@@ -160,8 +160,6 @@ accepting posts from new users.  But it's still a great resource if you're
 searching for older answers.)
 
 To subscribe, send an e-mail to [LittleProxy2+subscribe@googlegroups.com](mailto:LittleProxy2+subscribe@googlegroups.com). 
-
-Benchmarking instructions and results can be found [here](performance).
 
 Acknowledgments
 ---------------

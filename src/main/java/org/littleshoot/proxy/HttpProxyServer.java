@@ -51,8 +51,6 @@ public interface HttpProxyServer {
 
     /**
      * Return the address on which this proxy is listening.
-     * 
-     * @return
      */
     InetSocketAddress getListenAddress();
 
@@ -60,8 +58,6 @@ public interface HttpProxyServer {
      * <p>
      * Set the read/write throttle bandwidths (in bytes/second) for this proxy.
      * </p>
-     * @param readThrottleBytesPerSecond
-     * @param writeThrottleBytesPerSecond
      */
     void setThrottle(long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond);
 }

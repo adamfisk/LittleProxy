@@ -7,26 +7,59 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.handler.codec.haproxy.HAProxyMessageDecoder;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.DefaultHttpRequest;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpRequestDecoder;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseEncoder;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpUtil;
+import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
+import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import org.apache.commons.lang3.StringUtils;
-import org.littleshoot.proxy.*;
+import org.littleshoot.proxy.ActivityTracker;
+import org.littleshoot.proxy.FlowContext;
+import org.littleshoot.proxy.FullFlowContext;
+import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.HttpFiltersAdapter;
+import org.littleshoot.proxy.ProxyAuthenticator;
+import org.littleshoot.proxy.SslEngineSource;
 
 import javax.net.ssl.SSLSession;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
-import static org.littleshoot.proxy.impl.ConnectionState.*;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_PROXY_AUTHENTICATION;
+import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECT_REQUESTED;
+import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
 
 /**
  * <p>
@@ -54,15 +87,19 @@ import static org.littleshoot.proxy.impl.ConnectionState.*;
 public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private static final HttpResponseStatus CONNECTION_ESTABLISHED = new HttpResponseStatus(
             200, "Connection established");
-    /**
-     * Used for case-insensitive comparisons when parsing Connection header values.
-     */
-    private static final String LOWERCASE_TRANSFER_ENCODING_HEADER = HttpHeaders.Names.TRANSFER_ENCODING.toLowerCase(Locale.US);
+
+    // Pipeline handler names:
+    private static final String HTTP_ENCODER_NAME = "encoder";
+    private static final String HTTP_DECODER_NAME = "decoder";
+    private static final String HTTP_PROXY_DECODER_NAME = "proxy-protocol-decoder";
+    private static final String HTTP_REQUEST_READ_MONITOR_NAME = "requestReadMonitor";
+    private static final String HTTP_RESPONSE_WRITTEN_MONITOR_NAME = "responseWrittenMonitor";
+    private static final String MAIN_HANDLER_NAME = "handler";
 
     /**
      * Used for case-insensitive comparisons when checking direct proxy request.
      */
-    private static final Pattern HTTP_SCHEME = Pattern.compile("^http://.*", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ABSOLUTE_URI_PATTERN = Pattern.compile("^(http|ws)://.*", Pattern.CASE_INSENSITIVE);
 
     /**
      * Keep track of all ProxyToServerConnections by host+port.
@@ -154,7 +191,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         haProxyMessage = msg;
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Reading
      **************************************************************************/
 
@@ -201,9 +238,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Note - the "server" could be a chained proxy, not the final endpoint for
      * the request.
      * </p>
-     * 
-     * @param httpRequest
-     * @return
      */
     private ConnectionState doReadHTTPInitial(HttpRequest httpRequest) {
         // Make a copy of the original request
@@ -369,7 +403,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         // direct requests to the proxy have the path only without a scheme
         String uri = httpRequest.uri();
-        return !HTTP_SCHEME.matcher(uri).matches();
+        return !ABSOLUTE_URI_PATTERN.matcher(uri).matches();
     }
 
     @Override
@@ -385,7 +419,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         currentServerConnection.write(buf);
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Writing
      **************************************************************************/
 
@@ -409,6 +443,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
             HttpObject httpObject) {
         // we are sending a response to the client, so we are done handling this request
+        if (currentRequest != null && currentRequest instanceof ReferenceCounted) {
+         	((ReferenceCounted)currentRequest).release();
+         }
         this.currentRequest = null;
 
         httpObject = filters.serverToProxyResponse(httpObject);
@@ -417,8 +454,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return;
         }
 
+        boolean isSwithchingToWebSocketProtocol = false;
         if (httpObject instanceof HttpResponse) {
             HttpResponse httpResponse = (HttpResponse) httpObject;
+
+            isSwithchingToWebSocketProtocol = ProxyUtils.isSwitchingToWebSocketProtocol(httpResponse);
 
             // if this HttpResponse does not have any means of signaling the end of the message body other than closing
             // the connection, convert the message to a "Transfer-Encoding: chunked" HTTP response. This avoids the need
@@ -456,12 +496,27 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (ProxyUtils.isLastChunk(httpObject)) {
             writeEmptyBuffer();
         }
+        else if (isSwithchingToWebSocketProtocol) {
+            switchToWebSocketProtocol(serverConnection);
+        }
 
         closeConnectionsAfterWriteIfNecessary(serverConnection,
                 currentHttpRequest, currentHttpResponse, httpObject);
     }
 
-    /***************************************************************************
+    private void switchToWebSocketProtocol(final ProxyToServerConnection serverConnection) {
+        final List<String> orderedHandlersToRemove = Arrays.asList(HTTP_REQUEST_READ_MONITOR_NAME,
+                HTTP_RESPONSE_WRITTEN_MONITOR_NAME, HTTP_PROXY_DECODER_NAME, HTTP_ENCODER_NAME, HTTP_DECODER_NAME);
+        if (this.channel.pipeline().get(MAIN_HANDLER_NAME) != null) {
+            this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-server",
+                    new ProxyConnectionPipeHandler(serverConnection));
+        }
+        orderedHandlersToRemove.stream()
+                .forEach(this::removeHandlerIfPresent);
+        serverConnection.switchToWebSocketProtocol();
+    }
+
+    /* *************************************************************************
      * Connection Lifecycle
      **************************************************************************/
 
@@ -479,7 +534,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             LOG.debug("Responding with CONNECT successful");
             HttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                     CONNECTION_ESTABLISHED);
-            response.headers().set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
+            response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
             ProxyUtils.addVia(response, proxyServer.getProxyAlias());
             return writeToChannel(response);
         }
@@ -528,8 +583,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Called when {@link ProxyToServerConnection} starts its connection flow.
-     * 
-     * @param serverConnection
      */
     protected void serverConnectionFlowStarted(
             ProxyToServerConnection serverConnection) {
@@ -540,9 +593,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * If the {@link ProxyToServerConnection} completes its connection lifecycle
      * successfully, this method is called to let us know about it.
-     * 
-     * @param serverConnection
-     * @param shouldForwardInitialRequest
      */
     protected void serverConnectionSucceeded(
             ProxyToServerConnection serverConnection,
@@ -626,15 +676,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Other Lifecycle
      **************************************************************************/
 
     /**
      * On disconnect of the server, track that we have one fewer connected
      * servers and then disconnect the client if necessary.
-     * 
-     * @param serverConnection
      */
     protected void serverDisconnected(ProxyToServerConnection serverConnection) {
         numberOfCurrentlyConnectedServers.decrementAndGet();
@@ -684,8 +732,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * When a server becomes saturated, we stop reading from the client.
-     * 
-     * @param serverConnection
      */
     synchronized protected void serverBecameSaturated(
             ProxyToServerConnection serverConnection) {
@@ -698,8 +744,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * When a server becomes writeable, we check to see if all servers are
      * writeable and if they are, we resume reading.
-     * 
-     * @param serverConnection
      */
     synchronized protected void serverBecameWriteable(
             ProxyToServerConnection serverConnection) {
@@ -738,7 +782,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Connection Management
      **************************************************************************/
 
@@ -753,8 +797,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
      * the {@link HttpResponseEncoder} or {@link io.netty.handler.codec.http.HttpRequestEncoder} before the
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
-     * 
-     * @param pipeline
      */
     private void initChannelPipeline(ChannelPipeline pipeline) {
         LOG.debug("Configuring ChannelPipeline");
@@ -762,13 +804,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         pipeline.addLast("bytesReadMonitor", bytesReadMonitor);
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
 
-        pipeline.addLast("encoder", new HttpResponseEncoder());
+        pipeline.addLast(HTTP_ENCODER_NAME, new HttpResponseEncoder());
         if (isAcceptProxyProtocol()) {
-            pipeline.addLast("proxy-protocol-decoder", new HAProxyMessageDecoder());
+            pipeline.addLast(HTTP_PROXY_DECODER_NAME, new HAProxyMessageDecoder());
         }
         // We want to allow longer request lines, headers, and chunks
         // respectively.
-        pipeline.addLast("decoder", new HttpRequestDecoder(
+        pipeline.addLast(HTTP_DECODER_NAME, new HttpRequestDecoder(
                 proxyServer.getMaxInitialLineLength(),
                 proxyServer.getMaxHeaderSize(),
                 proxyServer.getMaxChunkSize()));
@@ -780,15 +822,19 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
         }
 
-        pipeline.addLast("requestReadMonitor", requestReadMonitor);
-        pipeline.addLast("responseWrittenMonitor", responseWrittenMonitor);
+        pipeline.addLast(HTTP_REQUEST_READ_MONITOR_NAME, requestReadMonitor);
+        pipeline.addLast(HTTP_RESPONSE_WRITTEN_MONITOR_NAME, responseWrittenMonitor);
 
         pipeline.addLast(
                 "idle",
                 new IdleStateHandler(0, 0, proxyServer
                         .getIdleConnectionTimeout()));
 
-        pipeline.addLast("handler", this);
+        pipeline.addLast(MAIN_HANDLER_NAME, this);
+    }
+    
+    private void removeHandlerIfPresent(String name) {
+        removeHandlerIfPresent(channel.pipeline(), name);
     }
 
     /**
@@ -839,11 +885,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Determine whether or not the client connection should be closed.
-     * 
-     * @param req
-     * @param res
-     * @param httpObject
-     * @return
      */
     private boolean shouldCloseClientConnection(HttpRequest req,
             HttpResponse res, HttpObject httpObject) {
@@ -939,7 +980,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         return false;
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Authentication
      **************************************************************************/
 
@@ -957,9 +998,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * provided or the credentials were wrong, this writes a 407 response to the
      * client.
      * </p>
-     * 
-     * @param request
-     * @return
      */
     private boolean authenticationRequired(HttpRequest request) {
 
@@ -973,13 +1011,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (authenticator == null)
             return false;
 
-        if (!request.headers().contains(HttpHeaders.Names.PROXY_AUTHORIZATION)) {
+        if (!request.headers().contains(HttpHeaderNames.PROXY_AUTHORIZATION)) {
             writeAuthenticationRequired(authenticator.getRealm());
             return true;
         }
 
         List<String> values = request.headers().getAll(
-                HttpHeaders.Names.PROXY_AUTHORIZATION);
+                HttpHeaderNames.PROXY_AUTHORIZATION);
         String fullValue = values.iterator().next();
         String value = StringUtils.substringAfter(fullValue, "Basic ").trim();
 
@@ -998,9 +1036,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         LOG.debug("Got proxy authorization!");
         // We need to remove the header before sending the request on.
         String authentication = request.headers().get(
-                HttpHeaders.Names.PROXY_AUTHORIZATION);
+                HttpHeaderNames.PROXY_AUTHORIZATION);
         LOG.debug(authentication);
-        request.headers().remove(HttpHeaders.Names.PROXY_AUTHORIZATION);
+        request.headers().remove(HttpHeaderNames.PROXY_AUTHORIZATION);
         authenticated.set(true);
         return false;
     }
@@ -1019,21 +1057,18 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 + "the credentials required.</p>\n" + "</body></html>\n";
         FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, body);
-        HttpHeaders.setDate(response, new Date());
-        response.headers().set("Proxy-Authenticate",
+        response.headers().set(HttpHeaderNames.DATE, new Date());
+        response.headers().set(HttpHeaderNames.PROXY_AUTHENTICATE,
                 "Basic realm=\"" + (realm == null ? "Restricted Files" : realm) + "\"");
         write(response);
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Request/Response Rewriting
      **************************************************************************/
 
     /**
      * Copy the given {@link HttpRequest} verbatim.
-     * 
-     * @param original
-     * @return
      */
     private HttpRequest copy(HttpRequest original) {
         if (original instanceof FullHttpRequest) {
@@ -1050,14 +1085,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Chunked encoding is an HTTP 1.1 feature, but sometimes we get a chunked
      * response that reports its HTTP version as 1.0. In this case, we change it
      * to 1.1.
-     * 
-     * @param httpResponse
      */
     private void fixHttpVersionHeaderIfNecessary(HttpResponse httpResponse) {
         String te = httpResponse.headers().get(
-                HttpHeaders.Names.TRANSFER_ENCODING);
+                HttpHeaderNames.TRANSFER_ENCODING);
         if (StringUtils.isNotBlank(te)
-                && te.equalsIgnoreCase(HttpHeaders.Values.CHUNKED)) {
+                && te.equalsIgnoreCase(HttpHeaderValues.CHUNKED.toString())) {
             if (httpResponse.protocolVersion() != HttpVersion.HTTP_1_1) {
                 LOG.debug("Fixing HTTP version.");
                 httpResponse.setProtocolVersion(HttpVersion.HTTP_1_1);
@@ -1068,11 +1101,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * If and only if our proxy is not running in transparent mode, modify the
      * request headers to reflect that it was proxied.
-     * 
-     * @param httpRequest
      */
     private void modifyRequestHeadersToReflectProxying(HttpRequest httpRequest) {
-        if (!currentServerConnection.hasUpstreamChainedProxy()) {
+        if (isNextHopOriginServer()) {
             /*
              * We are making the request to the origin server, so must modify
              * the 'absolute-URI' into the 'origin-form' as per RFC 7230
@@ -1103,11 +1134,35 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
+    private boolean isNextHopOriginServer() {
+        // If there is no upstream chained proxy, the next hop must be the origin server.
+        if (!currentServerConnection.hasUpstreamChainedProxy()) {
+            return true;
+        }
+
+        /*
+         * Upstream SOCKS proxies are a special case because they do not 
+         * parse or modify the HTTP request in any way. If the upstream 
+         * chained proxy is a SOCKS proxy, we should treat it as if we 
+         * are connecting directly to the origin server.
+         */
+        switch (currentServerConnection.getChainedProxyType()) {
+            case HTTP:
+                return false;
+            case SOCKS4:
+            case SOCKS5:
+                return true;
+            default:
+                LOG.warn("Assuming upstream chained proxy of unknown type "
+                    + currentServerConnection.getChainedProxyType()
+                    + " should not be treated as an origin server");
+                return false;
+        }
+    }
+
     /**
      * If and only if our proxy is not running in transparent mode, modify the
      * response headers to reflect that it was proxied.
-     * 
-     * @param httpResponse
      */
     private void modifyResponseHeadersToReflectProxying(
             HttpResponse httpResponse) {
@@ -1125,8 +1180,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
              * assigned one by the recipient if the message will be cached by
              * that recipient or gatewayed via a protocol which requires a Date.
              */
-            if (!headers.contains(HttpHeaders.Names.DATE)) {
-                HttpHeaders.setDate(httpResponse, new Date());
+            if (!headers.contains(HttpHeaderNames.DATE)) {
+                headers.set(HttpHeaderNames.DATE, new Date());
             }
         }
     }
@@ -1144,7 +1199,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (headers.contains(proxyConnectionKey)) {
             String header = headers.get(proxyConnectionKey);
             headers.remove(proxyConnectionKey);
-            headers.set(HttpHeaders.Names.CONNECTION, header);
+            headers.set(HttpHeaderNames.CONNECTION, header);
         }
     }
 
@@ -1160,12 +1215,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      *            The headers to modify
      */
     private void stripConnectionTokens(HttpHeaders headers) {
-        if (headers.contains(HttpHeaders.Names.CONNECTION)) {
-            for (String headerValue : headers.getAll(HttpHeaders.Names.CONNECTION)) {
+        if (headers.contains(HttpHeaderNames.CONNECTION)) {
+            for (String headerValue : headers.getAll(HttpHeaderNames.CONNECTION)) {
                 for (String connectionToken : ProxyUtils.splitCommaSeparatedHeaderValues(headerValue)) {
                     // do not strip out the Transfer-Encoding header if it is specified in the Connection header, since LittleProxy does not
                     // normally modify the Transfer-Encoding of the message.
-                    if (!LOWERCASE_TRANSFER_ENCODING_HEADER.equals(connectionToken.toLowerCase(Locale.US))) {
+                    if (!HttpHeaderNames.TRANSFER_ENCODING.toString().equals(connectionToken.toLowerCase(Locale.US))) {
                         headers.remove(connectionToken);
                     }
                 }
@@ -1189,7 +1244,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Miscellaneous
      **************************************************************************/
 
@@ -1303,15 +1358,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Identify the host and port for a request.
-     * 
-     * @param httpRequest
-     * @return
      */
     private String identifyHostAndPort(HttpRequest httpRequest) {
         String hostAndPort = ProxyUtils.parseHostAndPort(httpRequest);
         if (StringUtils.isBlank(hostAndPort)) {
             List<String> hosts = httpRequest.headers().getAll(
-                    HttpHeaders.Names.HOST);
+                    HttpHeaderNames.HOST);
             if (hosts != null && !hosts.isEmpty()) {
                 hostAndPort = hosts.get(0);
             }
@@ -1347,7 +1399,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         this.mitming = isMitming;
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Activity Tracking/Statistics
      * 
      * We track statistics on bytes, requests and responses by adding handlers

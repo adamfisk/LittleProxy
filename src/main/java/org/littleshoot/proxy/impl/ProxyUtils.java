@@ -7,6 +7,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.codec.http.*;
+import io.netty.util.AsciiString;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
@@ -30,16 +31,17 @@ public class ProxyUtils {
      *
      * Header names are stored as lowercase to make case-insensitive comparisons easier.
      */
+    @SuppressWarnings("deprecation") // Don't remove header names from this set until they're removed from Netty, just in case someone's still using them.
     private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = ImmutableSet.of(
-            HttpHeaders.Names.CONNECTION.toLowerCase(Locale.US),
-            HttpHeaders.Names.PROXY_AUTHENTICATE.toLowerCase(Locale.US),
-            HttpHeaders.Names.PROXY_AUTHORIZATION.toLowerCase(Locale.US),
-            HttpHeaders.Names.TE.toLowerCase(Locale.US),
-            HttpHeaders.Names.TRAILER.toLowerCase(Locale.US),
+            HttpHeaderNames.CONNECTION.toString(),
+            HttpHeaderNames.KEEP_ALIVE.toString(),
+            HttpHeaderNames.PROXY_AUTHENTICATE.toString(),
+            HttpHeaderNames.PROXY_AUTHORIZATION.toString(),
+            HttpHeaderNames.TE.toString(),
+            HttpHeaderNames.TRAILER.toString(),
             /*  Note: Not removing Transfer-Encoding since LittleProxy does not normally re-chunk content.
-                HttpHeaders.Names.TRANSFER_ENCODING.toLowerCase(Locale.US), */
-            HttpHeaders.Names.UPGRADE.toLowerCase(Locale.US),
-            "Keep-Alive".toLowerCase(Locale.US)
+                HttpHeaderNames.TRANSFER_ENCODING.toString(), */
+            HttpHeaderNames.UPGRADE.toString()
     );
 
     private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
@@ -58,7 +60,7 @@ public class ProxyUtils {
 
     // Schemes are case-insensitive:
     // http://tools.ietf.org/html/rfc3986#section-3.1
-    private static Pattern HTTP_PREFIX = Pattern.compile("^https?://.*",
+    private static Pattern HTTP_PREFIX = Pattern.compile("^(http|ws)s?://.*",
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -129,10 +131,6 @@ public class ProxyUtils {
      * represents the last chunk of a transfer.
      * 
      * @see io.netty.handler.codec.http.LastHttpContent
-     * 
-     * @param httpObject
-     * @return
-     * 
      */
     public static boolean isLastChunk(final HttpObject httpObject) {
         return httpObject instanceof LastHttpContent;
@@ -143,9 +141,6 @@ public class ProxyUtils {
      * chunks that will follow.
      * 
      * @see io.netty.handler.codec.http.FullHttpMessage
-     * 
-     * @param httpObject
-     * @return
      */
     public static boolean isChunked(final HttpObject httpObject) {
         return !isLastChunk(httpObject);
@@ -240,15 +235,15 @@ public class ProxyUtils {
                 alias;
 
         final List<String> vias;
-        if (httpMessage.headers().contains(HttpHeaders.Names.VIA)) {
-            List<String> existingViaHeaders = httpMessage.headers().getAll(HttpHeaders.Names.VIA);
+        if (httpMessage.headers().contains(HttpHeaderNames.VIA)) {
+            List<String> existingViaHeaders = httpMessage.headers().getAll(HttpHeaderNames.VIA);
             vias = new ArrayList<>(existingViaHeaders);
             vias.add(newViaHeader);
         } else {
             vias = Collections.singletonList(newViaHeader);
         }
 
-        httpMessage.headers().set(HttpHeaders.Names.VIA, vias);
+        httpMessage.headers().set(HttpHeaderNames.VIA, vias);
     }
 
     /**
@@ -318,7 +313,7 @@ public class ProxyUtils {
      * @return true if request is a HEAD, otherwise false
      */
     public static boolean isHEAD(HttpRequest httpRequest) {
-        return HttpMethod.HEAD.equals(httpRequest.method());
+        return httpRequest != null && HttpMethod.HEAD.equals(httpRequest.method());
     }
 
     private static boolean checkTrueOrFalse(final String val,
@@ -400,16 +395,16 @@ public class ProxyUtils {
         }
 
         // if there is a Transfer-Encoding value, determine whether the final encoding is "chunked", which makes the message self-terminating
-        List<String> allTransferEncodingHeaders = getAllCommaSeparatedHeaderValues(HttpHeaders.Names.TRANSFER_ENCODING, response);
+        List<String> allTransferEncodingHeaders = getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, response);
         if (!allTransferEncodingHeaders.isEmpty()) {
             String finalEncoding = allTransferEncodingHeaders.get(allTransferEncodingHeaders.size() - 1);
 
             // per #3 above: "If a message is received with both a Transfer-Encoding header field and a Content-Length header field, the latter MUST be ignored."
             // since the Transfer-Encoding field is present, the message is self-terminating if and only if the final Transfer-Encoding value is "chunked"
-            return HttpHeaders.Values.CHUNKED.equals(finalEncoding);
+            return HttpHeaderValues.CHUNKED.toString().equals(finalEncoding);
         }
 
-        String contentLengthHeader = HttpHeaders.getHeader(response, HttpHeaders.Names.CONTENT_LENGTH);
+        String contentLengthHeader = response.headers().get(HttpHeaderNames.CONTENT_LENGTH);
         return contentLengthHeader != null && !contentLengthHeader.isEmpty();
 
         // not checking for multipart/byteranges, since it is seldom used and its use as a message length indicator was removed in RFC 7230
@@ -451,7 +446,7 @@ public class ProxyUtils {
      * @param httpMessage the HTTP message whose header values will be retrieved
      * @return a list of single header values, or an empty list if the header was not present in the message or contained no values
      */
-    public static List<String> getAllCommaSeparatedHeaderValues(String headerName, HttpMessage httpMessage) {
+    public static List<String> getAllCommaSeparatedHeaderValues(AsciiString headerName, HttpMessage httpMessage) {
         List<String> allHeaders = httpMessage.headers().getAll(headerName);
         if (allHeaders.isEmpty()) {
             return Collections.emptyList();
@@ -521,13 +516,13 @@ public class ProxyUtils {
      * @return true if this header is a hop-by-hop header and should be removed when proxying, otherwise false
      */
     public static boolean shouldRemoveHopByHopHeader(String headerName) {
-        return SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS.contains(headerName.toLowerCase(Locale.US));
+        return SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS.contains(headerName);
     }
 
     /**
      * Splits comma-separated header values into tokens. For example, if the value of the Connection header is "Transfer-Encoding, close",
      * this method will return "Transfer-Encoding" and "close". This method strips trims any optional whitespace from
-     * the tokens. Unlike {@link #getAllCommaSeparatedHeaderValues(String, HttpMessage)}, this method only operates on
+     * the tokens. Unlike {@link #getAllCommaSeparatedHeaderValues(AsciiString, HttpMessage)}, this method only operates on
      * a single header value, rather than all instances of the header in a message.
      *
      * @param headerValue the un-tokenized header value (must not be null)
@@ -546,6 +541,9 @@ public class ProxyUtils {
         try {
             return NioUdtProvider.BYTE_PROVIDER != null;
         } catch (NoClassDefFoundError e) {
+            return false;
+            // necessary for Android which throws VerifyError if the field BYTE_PROVIDER is accessed of the unavailable class
+        } catch (VerifyError e) {
             return false;
         }
     }
@@ -598,8 +596,8 @@ public class ProxyUtils {
 
         if (body != null) {
             response = new DefaultFullHttpResponse(httpVersion, status, body);
-            response.headers().set(HttpHeaders.Names.CONTENT_LENGTH, contentLength);
-            response.headers().set(HttpHeaders.Names.CONTENT_TYPE, contentType);
+            response.headers().set(HttpHeaderNames.CONTENT_LENGTH, contentLength);
+            response.headers().set(HttpHeaderNames.CONTENT_TYPE, contentType);
         } else {
             response = new DefaultFullHttpResponse(httpVersion, status);
         }
@@ -615,8 +613,8 @@ public class ProxyUtils {
      * @param headers The headers to modify.
      */
     public static void removeSdchEncoding(HttpHeaders headers) {
-        List<String> encodings = headers.getAll(HttpHeaders.Names.ACCEPT_ENCODING);
-        headers.remove(HttpHeaders.Names.ACCEPT_ENCODING);
+        List<String> encodings = headers.getAll(HttpHeaderNames.ACCEPT_ENCODING);
+        headers.remove(HttpHeaderNames.ACCEPT_ENCODING);
 
         for (String encoding : encodings) {
             if (encoding != null) {
@@ -627,9 +625,22 @@ public class ProxyUtils {
                 encoding = encoding.replaceAll(",? *(sdch|SDCH)", "").replaceFirst("^ *, *", "");
 
                 if (StringUtils.isNotBlank(encoding)) {
-                    headers.add(HttpHeaders.Names.ACCEPT_ENCODING, encoding);
+                    headers.add(HttpHeaderNames.ACCEPT_ENCODING, encoding);
                 }
             }
         }
+    }
+
+    /**
+     * Tests whether the given response indicates that the connection is switching
+     * to the WebSocket protocol.
+     *
+     * @param response the response to check.
+     * @return true if switching to the WebSocket protocol; false otherwise;
+     */
+    public static boolean isSwitchingToWebSocketProtocol(HttpResponse response) {
+        return (response.status() == HttpResponseStatus.SWITCHING_PROTOCOLS)
+                && response.headers().contains(HttpHeaderNames.CONNECTION, HttpHeaderNames.UPGRADE, true)
+                && response.headers().contains(HttpHeaderNames.UPGRADE, "websocket", true);
     }
 }

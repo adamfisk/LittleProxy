@@ -3,10 +3,17 @@ package org.littleshoot.proxy.impl;
 import com.google.common.net.HostAndPort;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandler.Sharable;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpMessage;
@@ -43,29 +50,44 @@ import io.netty.handler.codec.socksx.v5.Socks5PasswordAuthResponse;
 import io.netty.handler.codec.socksx.v5.Socks5PasswordAuthResponseDecoder;
 import io.netty.handler.codec.socksx.v5.Socks5PasswordAuthStatus;
 import io.netty.handler.proxy.ProxyConnectException;
-import io.netty.handler.codec.haproxy.HAProxyMessage;
-import io.netty.handler.codec.http.*;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
-import org.littleshoot.proxy.*;
+import org.littleshoot.proxy.ActivityTracker;
+import org.littleshoot.proxy.ChainedProxy;
+import org.littleshoot.proxy.ChainedProxyAdapter;
+import org.littleshoot.proxy.ChainedProxyManager;
+import org.littleshoot.proxy.ChainedProxyType;
+import org.littleshoot.proxy.FullFlowContext;
+import org.littleshoot.proxy.HttpFilters;
+import org.littleshoot.proxy.MitmManager;
+import org.littleshoot.proxy.TransportProtocol;
+import org.littleshoot.proxy.UnknownTransportProtocolException;
 import org.littleshoot.proxy.extras.HAProxyMessageEncoder;
 
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.RejectedExecutionException;
 
-import static org.littleshoot.proxy.impl.ConnectionState.*;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CONNECT_OK;
+import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
+import static org.littleshoot.proxy.impl.ConnectionState.CONNECTING;
+import static org.littleshoot.proxy.impl.ConnectionState.DISCONNECTED;
+import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
 
 /**
  * <p>
@@ -85,8 +107,15 @@ import static org.littleshoot.proxy.impl.ConnectionState.*;
  */
 @Sharable
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
+    // Pipeline handler names:
+    private static final String HTTP_ENCODER_NAME = "encoder";
+    private static final String HTTP_DECODER_NAME = "decoder";
+    private static final String HTTP_PROXY_ENCODER_NAME = "proxy-protocol-encoder";
+    private static final String HTTP_REQUEST_WRITTEN_MONITOR_NAME = "requestWrittenMonitor";
+    private static final String HTTP_RESPONSE_READ_MONITOR_NAME = "responseReadMonitor";
     private static final String SOCKS_ENCODER_NAME = "socksEncoder";
     private static final String SOCKS_DECODER_NAME = "socksDecoder";
+    private static final String MAIN_HANDLER_NAME = "handler";
     private final ClientToProxyConnection clientConnection;
     private final ProxyToServerConnection serverConnection = this;
     private volatile TransportProtocol transportProtocol;
@@ -155,14 +184,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     
     /**
      * Create a new ProxyToServerConnection.
-     * 
-     * @param proxyServer
-     * @param clientConnection
-     * @param serverHostAndPort
-     * @param initialFilters
-     * @param initialHttpRequest
-     * @return
-     * @throws UnknownHostException
      */
     static ProxyToServerConnection create(DefaultHttpProxyServer proxyServer,
             ClientToProxyConnection clientConnection,
@@ -214,7 +235,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         setupConnectionParameters();
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Reading
      **************************************************************************/
 
@@ -316,16 +337,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Writing
      **************************************************************************/
 
     /**
      * Like {@link #write(Object)} and also sets the current filters to the
      * given value.
-     * 
-     * @param msg
-     * @param filters
      */
     void write(Object msg, HttpFilters filters) {
         this.currentFilters = filters;
@@ -383,7 +401,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         super.writeHttp(httpObject);
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Lifecycle
      **************************************************************************/
 
@@ -477,7 +495,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // connection, so there should not be any further action to take here.
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * State Management
      **************************************************************************/
     public TransportProtocol getTransportProtocol() {
@@ -518,15 +536,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return currentFilters;
     }
 
-    /***************************************************************************
+    /* *************************************************************************
      * Private Implementation
      **************************************************************************/
 
     /**
      * Keeps track of the current HttpResponse so that we can associate its
      * headers with future related chunks for this same transfer.
-     * 
-     * @param response
      */
     private void rememberCurrentResponse(HttpResponse response) {
         LOG.debug("Remembering the current response.");
@@ -540,8 +556,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /**
      * Respond to the client with the given {@link HttpObject}.
-     * 
-     * @param httpObject
      */
     private void respondWith(HttpObject httpObject) {
         clientConnection.respond(this, currentFilters, currentHttpRequest,
@@ -596,7 +610,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         	
             MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
+            boolean isMitmEnabled = currentFilters.proxyToServerAllowMitm() && mitmManager != null;
 
             if (isMitmEnabled) {
                 // When MITM is enabled and when chained proxy is set up, remoteAddress
@@ -635,9 +649,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
     
     private void removeHandlerIfPresent(String name) {
-        if (channel.pipeline().context(name) != null) {
-            channel.pipeline().remove(name);
-        }
+        removeHandlerIfPresent(channel.pipeline(), name);
     }
 
     /**
@@ -695,7 +707,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             LOG.debug("Handling CONNECT request through Chained Proxy");
             chainedProxy.filterRequest(initialRequest);
             MitmManager mitmManager = proxyServer.getMitmManager();
-            boolean isMitmEnabled = mitmManager != null;
+            boolean isMitmEnabled = currentFilters.proxyToServerAllowMitm() && mitmManager != null;
             /*
              * We ignore the LastHttpContent which we read from the client
              * connection when we are negotiating connect (see readHttp()
@@ -957,7 +969,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // sends back a valid certificate for the expected host. we can retry the connection without SNI to allow the proxy
         // to connect to these misconfigured hosts. we should only retry the connection without SNI if the connection
         // failure happened when SNI was enabled, to prevent never-ending connection attempts due to SNI warnings.
-        if (!disableSni && cause instanceof SSLProtocolException) {
+        if (!disableSni && (cause instanceof SSLProtocolException) || (cause instanceof SSLHandshakeException)) {
             // unfortunately java does not expose the specific TLS alert number (112), so we have to look for the
             // unrecognized_name string in the exception's message
             if (cause.getMessage() != null && cause.getMessage().contains("unrecognized_name")) {
@@ -1077,9 +1089,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
      * the {@link HttpResponseEncoder} or {@link HttpRequestEncoder} before the
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
-     * 
-     * @param pipeline
-     * @param httpRequest
      */
     private void initChannelPipeline(ChannelPipeline pipeline, HttpRequest httpRequest) {
 
@@ -1091,10 +1100,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         pipeline.addLast("bytesWrittenMonitor", bytesWrittenMonitor);
 
         if ( proxyServer.isSendProxyProtocol()) {
-            pipeline.addLast("proxy-protocol-encoder", new HAProxyMessageEncoder());
+            pipeline.addLast(HTTP_PROXY_ENCODER_NAME, new HAProxyMessageEncoder());
         }
-        pipeline.addLast("encoder", new HttpRequestEncoder());
-        pipeline.addLast("decoder", new HeadAwareHttpResponseDecoder(
+        pipeline.addLast(HTTP_ENCODER_NAME, new HttpRequestEncoder());
+        pipeline.addLast(HTTP_DECODER_NAME, new HeadAwareHttpResponseDecoder(
                 proxyServer.getMaxInitialLineLength(),
                 proxyServer.getMaxHeaderSize(),
                 proxyServer.getMaxChunkSize()));
@@ -1106,8 +1115,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             aggregateContentForFiltering(pipeline, numberOfBytesToBuffer);
         }
 
-        pipeline.addLast("responseReadMonitor", responseReadMonitor);
-        pipeline.addLast("requestWrittenMonitor", requestWrittenMonitor);
+        pipeline.addLast(HTTP_RESPONSE_READ_MONITOR_NAME, responseReadMonitor);
+        pipeline.addLast(HTTP_REQUEST_WRITTEN_MONITOR_NAME, requestWrittenMonitor);
 
         // Set idle timeout
         pipeline.addLast(
@@ -1115,7 +1124,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 new IdleStateHandler(0, 0, proxyServer
                         .getIdleConnectionTimeout()));
 
-        pipeline.addLast("handler", this);
+        pipeline.addLast(MAIN_HANDLER_NAME, this);
     }
 
     /**
@@ -1194,12 +1203,24 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         return InetSocketAddress.createUnresolved(host, port);
     }
 
-    /***************************************************************************
+    void switchToWebSocketProtocol() {
+        final List<String> orderedHandlersToRemove = Arrays.asList(HTTP_REQUEST_WRITTEN_MONITOR_NAME,
+                HTTP_RESPONSE_READ_MONITOR_NAME, HTTP_PROXY_ENCODER_NAME, HTTP_ENCODER_NAME, HTTP_DECODER_NAME);
+        if (this.channel.pipeline().get(MAIN_HANDLER_NAME) != null) {
+            this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-client",
+                    new ProxyConnectionPipeHandler(clientConnection));
+        }
+        orderedHandlersToRemove.stream()
+                .forEach(this::removeHandlerIfPresent);
+    }
+
+    /* *************************************************************************
      * Activity Tracking/Statistics
      * 
      * We track statistics on bytes, requests and responses by adding handlers
      * at the appropriate parts of the pipeline (see initChannelPipeline()).
      **************************************************************************/
+
     private final BytesReadMonitor bytesReadMonitor = new BytesReadMonitor() {
         @Override
         protected void bytesRead(int numberOfBytes) {

@@ -127,8 +127,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     /**
      * Bootstrap a new {@link DefaultHttpProxyServer} starting from scratch.
-     *
-     * @return
      */
     public static HttpProxyServerBootstrap bootstrap() {
         return new DefaultHttpProxyServerBootstrap();
@@ -137,9 +135,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     /**
      * Bootstrap a new {@link DefaultHttpProxyServer} using defaults from the
      * given file.
-     *
-     * @param path
-     * @return
      */
     public static HttpProxyServerBootstrap bootstrapFromFile(String path) {
         final File propsFile = new File(path);
@@ -277,12 +272,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     /**
      * Creates a new GlobalTrafficShapingHandler for this HttpProxyServer, using this proxy's proxyToServerEventLoop.
-     *
-     * @param transportProtocol
-     * @param readThrottleBytesPerSecond
-     * @param writeThrottleBytesPerSecond
-     *
-     * @return
      */
     private GlobalTrafficShapingHandler createGlobalTrafficShapingHandler(TransportProtocol transportProtocol, long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
         EventLoopGroup proxyToServerEventLoop = this.getProxyToServerWorkerFor(transportProtocol);
@@ -343,11 +332,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     public long getReadThrottle() {
-        return globalTrafficShapingHandler.getReadLimit();
+        if (globalTrafficShapingHandler != null) {
+            return globalTrafficShapingHandler.getReadLimit();
+        } else {
+            return 0;
+        }
     }
 
     public long getWriteThrottle() {
-        return globalTrafficShapingHandler.getWriteLimit();
+        if (globalTrafficShapingHandler != null) {
+            return globalTrafficShapingHandler.getWriteLimit();
+        } else {
+            return 0;
+        }
     }
 
     public int getMaxInitialLineLength() {
@@ -443,8 +440,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     /**
      * Register a new {@link Channel} with this server, for later closing.
-     *
-     * @param channel
      */
     protected void registerChannel(Channel channel) {
         allChannels.add(channel);
@@ -456,7 +451,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param graceful when false, attempts to shutdown all channels immediately and ignores any channel-closing exceptions
      */
     protected void closeAllChannels(boolean graceful) {
-        LOG.info("Closing all channels " + (graceful ? "(graceful)" : "(non-graceful)"));
+        LOG.info("Closing all channels {}", graceful ? "(graceful)" : "(non-graceful)");
 
         ChannelGroupFuture future = allChannels.close();
 
@@ -482,7 +477,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private HttpProxyServer start() {
         if (!serverGroup.isStopped()) {
-            LOG.info("Starting proxy at address: " + this.requestedAddress);
+            LOG.info("Starting proxy at address: {}", this.requestedAddress);
 
             serverGroup.registerProxyServer(this);
 
@@ -533,11 +528,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         Throwable cause = future.cause();
         if (cause != null) {
+            abort();
             throw new RuntimeException(cause);
         }
 
         this.boundAddress = ((InetSocketAddress) future.channel().localAddress());
-        LOG.info("Proxy started at address: " + this.boundAddress);
+        LOG.info("Proxy started at address: {}", this.boundAddress);
 
         Runtime.getRuntime().addShutdownHook(jvmShutdownHook);
     }
