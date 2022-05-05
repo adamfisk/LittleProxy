@@ -76,7 +76,9 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
 
     @Override
     protected void tearDown() {
-        this.upstreamProxy.abort();
+        if (upstreamProxy != null) {
+            upstreamProxy.abort();
+        }
     }
 
     @Override

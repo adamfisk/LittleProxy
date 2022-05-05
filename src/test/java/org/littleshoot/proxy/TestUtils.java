@@ -34,6 +34,9 @@ import java.net.ServerSocket;
 import java.security.SecureRandom;
 import java.util.Objects;
 
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
+
 public class TestUtils {
 
     public static final RequestConfig REQUEST_TIMEOUT_CONFIG = RequestConfig.custom().setConnectTimeout(5000).build();
@@ -290,6 +293,14 @@ public class TestUtils {
         OperatingSystemMXBean osMxBean = ManagementFactory.getOperatingSystemMXBean();
 
         return (osMxBean instanceof UnixOperatingSystemMXBean);
+    }
+
+    public static void requireUnix() {
+        assumeTrue("Skipping test on non-Unix OS", isUnixManagementCapable());
+    }
+
+    public static void disableOnMac() {
+        assumeFalse("Skipping test on Mac OS", System.getProperty("os.name").toLowerCase().contains("mac"));
     }
 
     /**
