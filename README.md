@@ -1,4 +1,3 @@
-[![Build Status](https://travis-ci.com/mrog/LittleProxy.svg?branch=master)](https://travis-ci.com/mrog/LittleProxy)
 [![DepShield Badge](https://depshield.sonatype.org/badges/mrog/LittleProxy/depshield.svg)](https://depshield.github.io)
 
 This is an updated fork of adamfisk's LittleProxy.  The original project appears

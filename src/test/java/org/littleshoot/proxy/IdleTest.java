@@ -32,7 +32,6 @@ public class IdleTest {
     @Before
     public void setup() throws Exception {
         assumeTrue("Skipping due to non-Unix OS", TestUtils.isUnixManagementCapable());
-        assumeFalse("Skipping for travis-ci build", "true".equals(System.getenv("TRAVIS")));
         assumeFalse("Skipping due to Mac OS", System.getProperty("os.name").toLowerCase().contains("mac"));
 
         webServer = new Server(0);
