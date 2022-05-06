@@ -144,7 +144,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private volatile SSLSession clientSslSession;
 
     /**
-     * Tracks whether or not this ClientToProxyConnection is current doing MITM.
+     * Tracks whether this ClientToProxyConnection is current doing MITM.
      */
     private volatile boolean mitming = false;
 
@@ -384,7 +384,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
          URI in absolute-form as the request-target.
          [...]
          An example absolute-form of request-line would be:
-         GET http://www.example.org/pub/WWW/TheProject.html HTTP/1.1
+         GET <a href="http://www.example.org/pub/WWW/TheProject.html">http://www.example.org/pub/WWW/TheProject.html</a> HTTP/1.1
          To allow for transition to the absolute-form for all requests in some
          future version of HTTP, a server MUST accept the absolute-form in
          requests, even though HTTP/1.1 clients will only send them in
@@ -454,11 +454,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return;
         }
 
-        boolean isSwithchingToWebSocketProtocol = false;
+        boolean isSwitchingToWebSocketProtocol = false;
         if (httpObject instanceof HttpResponse) {
             HttpResponse httpResponse = (HttpResponse) httpObject;
 
-            isSwithchingToWebSocketProtocol = ProxyUtils.isSwitchingToWebSocketProtocol(httpResponse);
+            isSwitchingToWebSocketProtocol = ProxyUtils.isSwitchingToWebSocketProtocol(httpResponse);
 
             // if this HttpResponse does not have any means of signaling the end of the message body other than closing
             // the connection, convert the message to a "Transfer-Encoding: chunked" HTTP response. This avoids the need
@@ -496,7 +496,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (ProxyUtils.isLastChunk(httpObject)) {
             writeEmptyBuffer();
         }
-        else if (isSwithchingToWebSocketProtocol) {
+        else if (isSwitchingToWebSocketProtocol) {
             switchToWebSocketProtocol(serverConnection);
         }
 
@@ -1472,7 +1472,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                         clientAddress, clientSslSession);
             }
         } catch (Exception e) {
-            LOG.error("Unable to recorClientSSLHandshakeSucceeded", e);
+            LOG.error("Unable to recordClientSSLHandshakeSucceeded", e);
         }
     }
 

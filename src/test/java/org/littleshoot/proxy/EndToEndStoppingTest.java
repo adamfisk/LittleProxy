@@ -32,7 +32,7 @@ import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
 /**
- * End to end test making sure the proxy is able to service simple HTTP requests
+ * End-to-end test making sure the proxy is able to service simple HTTP requests
  * and stop at the end. Made into a unit test from isopov and nasis's
  * contributions at: https://github.com/adamfisk/LittleProxy/issues/36
  */

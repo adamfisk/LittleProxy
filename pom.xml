@@ -308,7 +308,7 @@
     <dependencyManagement>
         <dependencies>
             <!-- Manage the version of all netty libraries included in netty-all. This prevents maven from pulling multiple netty versions
-                 onto the compile and test classpaths if transitive dependencies also use netty but declare specific dependencies, rather
+                 onto compile and test classpath if transitive dependencies also use netty but declare specific dependencies, rather
                  than using netty-all as we do. -->
             <dependency>
                 <groupId>io.netty</groupId>

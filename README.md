@@ -1,5 +1,5 @@
 This is an updated fork of adamfisk's LittleProxy.  The original project appears
-to have been abondoned.  Because it's so incredibly useful, it's being brought
+to have been abandoned.  Because it's so incredibly useful, it's being brought
 back to life in this repository.
 
 LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's

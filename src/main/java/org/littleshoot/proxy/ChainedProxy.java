@@ -58,7 +58,7 @@ public interface ChainedProxy extends SslEngineSource {
     String getPassword();
 
     /**
-     * Implement this method to tell LittleProxy whether or not to encrypt
+     * Implement this method to tell LittleProxy whether to encrypt
      * connections to the chained proxy for the given request. If true,
      * LittleProxy will call {@link SslEngineSource#newSslEngine()} to obtain an
      * SSLContext used by the downstream proxy.
@@ -81,7 +81,7 @@ public interface ChainedProxy extends SslEngineSource {
      * Called to let us know that connecting to this proxy failed.
      * 
      * @param cause
-     *            exception that caused this failure (may be null)
+     *            exception that caused this failure (maybe null)
      */
     void connectionFailed(Throwable cause);
 

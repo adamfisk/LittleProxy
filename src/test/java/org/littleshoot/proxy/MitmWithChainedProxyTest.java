@@ -154,11 +154,11 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
     private void assertMethodSeenInResponseFilters(HttpMethod method) {
         assertThat(
                 method
-                        + " should have been seen as the original requests's method in serverToProxyResponse filter",
+                        + " should have been seen as the original request's method in serverToProxyResponse filter",
                 responsePreOriginalRequestMethodsSeen, hasItem(method));
         assertThat(
                 method
-                        + " should have been seen as the original requests's method in proxyToClientResponse filter",
+                        + " should have been seen as the original request's method in proxyToClientResponse filter",
                 responsePostOriginalRequestMethodsSeen, hasItem(method));
     }
 
