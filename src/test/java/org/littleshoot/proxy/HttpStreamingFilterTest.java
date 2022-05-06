@@ -89,19 +89,20 @@ public class HttpStreamingFilterTest {
         entity.setChunked(true);
         request.setEntity(entity);
 
-        CloseableHttpClient httpClient = TestUtils.createProxiedHttpClient(
-                proxyServer.getListenAddress().getPort());
+        try (CloseableHttpClient httpClient = TestUtils.createProxiedHttpClient(
+                proxyServer.getListenAddress().getPort())) {
 
-        final org.apache.http.HttpResponse response = httpClient.execute(
-                new HttpHost("127.0.0.1",
-                        webServerPort), request);
+            final org.apache.http.HttpResponse response = httpClient.execute(
+              new HttpHost("127.0.0.1",
+                webServerPort), request);
 
-        assertEquals("Received 20000 bytes\n",
-                EntityUtils.toString(response.getEntity()));
+            assertEquals("Received 20000 bytes\n",
+              EntityUtils.toString(response.getEntity()));
 
-        assertEquals("Filter should have seen only 1 HttpRequest", 1,
-                numberOfInitialRequestsFiltered.get());
-        assertThat("Filter should have seen 1 or more chunks",
-                numberOfSubsequentChunksFiltered.get(), greaterThanOrEqualTo(1));
+            assertEquals("Filter should have seen only 1 HttpRequest", 1,
+              numberOfInitialRequestsFiltered.get());
+            assertThat("Filter should have seen 1 or more chunks",
+              numberOfSubsequentChunksFiltered.get(), greaterThanOrEqualTo(1));
+        }
     }
 }

@@ -68,18 +68,18 @@ public class TimeoutTest {
                                 .withDelay(new Delay(TimeUnit.SECONDS, 5))
                 );
 
-        CloseableHttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServer.getListenAddress().getPort());
+        try (CloseableHttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServer.getListenAddress().getPort())) {
+            long start = System.nanoTime();
+            HttpGet get = new HttpGet("http://127.0.0.1:" + mockServerPort + "/idleconnection");
+            long stop = System.nanoTime();
 
-        long start = System.nanoTime();
-        HttpGet get = new HttpGet("http://127.0.0.1:" + mockServerPort + "/idleconnection");
-        long stop = System.nanoTime();
+            HttpResponse response = httpClient.execute(get);
+            EntityUtils.consumeQuietly(response.getEntity());
 
-        HttpResponse response = httpClient.execute(get);
-        EntityUtils.consumeQuietly(response.getEntity());
-
-        assertEquals("Expected to receive an HTTP 504 (Gateway Timeout) response after proxy did not receive a response within 1 second", 504, response.getStatusLine().getStatusCode());
-        assertThat("Expected idle connection timeout to happen after approximately 1 second",
-                TimeUnit.MILLISECONDS.convert(stop - start, TimeUnit.NANOSECONDS), lessThan(2000L));
+            assertEquals("Expected to receive an HTTP 504 (Gateway Timeout) response after proxy did not receive a response within 1 second", 504, response.getStatusLine().getStatusCode());
+            assertThat("Expected idle connection timeout to happen after approximately 1 second",
+              TimeUnit.MILLISECONDS.convert(stop - start, TimeUnit.NANOSECONDS), lessThan(2000L));
+        }
     }
 
     @Test
@@ -89,19 +89,20 @@ public class TimeoutTest {
                 .withConnectTimeout(1000)
                 .start();
 
-        CloseableHttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServer.getListenAddress().getPort());
+        try (CloseableHttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServer.getListenAddress().getPort())) {
 
-        HttpGet get = new HttpGet(UNUSED_URI_FOR_BAD_GATEWAY);
+            HttpGet get = new HttpGet(UNUSED_URI_FOR_BAD_GATEWAY);
 
-        long start = System.nanoTime();
-        HttpResponse response = httpClient.execute(get);
-        long stop = System.nanoTime();
+            long start = System.nanoTime();
+            HttpResponse response = httpClient.execute(get);
+            long stop = System.nanoTime();
 
-        EntityUtils.consumeQuietly(response.getEntity());
+            EntityUtils.consumeQuietly(response.getEntity());
 
-        assertEquals("Expected to receive an HTTP 502 (Bad Gateway) response after proxy could not connect within 1 second", 502, response.getStatusLine().getStatusCode());
-        assertThat("Expected connection timeout to happen after approximately 1 second",
-                TimeUnit.MILLISECONDS.convert(stop - start, TimeUnit.NANOSECONDS), lessThan(2000L));
+            assertEquals("Expected to receive an HTTP 502 (Bad Gateway) response after proxy could not connect within 1 second", 502, response.getStatusLine().getStatusCode());
+            assertThat("Expected connection timeout to happen after approximately 1 second",
+              TimeUnit.MILLISECONDS.convert(stop - start, TimeUnit.NANOSECONDS), lessThan(2000L));
+        }
     }
 
     /**

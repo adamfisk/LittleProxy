@@ -51,55 +51,57 @@ public class VariableSpeedClientServerTest {
         DefaultHttpProxyServer.bootstrap().withPort(proxyPort).start();
         Thread.yield();
         Thread.sleep(400);
-        final CloseableHttpClient client = TestUtils.createProxiedHttpClient(proxyPort);
+        try (CloseableHttpClient client = TestUtils.createProxiedHttpClient(proxyPort)) {
 
-        System.out
-                .println("------------------ Memory Usage At Beginning ------------------");
-        TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
+            System.out
+              .println("------------------ Memory Usage At Beginning ------------------");
+            TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
 
-        final String endpoint = "http://127.0.0.1:" + port + "/";
-        final HttpPost post = new HttpPost(endpoint);
-        post.setConfig(TestUtils.REQUEST_TIMEOUT_CONFIG);
-        post.setEntity(new InputStreamEntity(new InputStream() {
-            private int remaining = CONTENT_LENGTH;
+            final String endpoint = "http://127.0.0.1:" + port + "/";
+            final HttpPost post = new HttpPost(endpoint);
+            post.setConfig(TestUtils.REQUEST_TIMEOUT_CONFIG);
+            post.setEntity(new InputStreamEntity(new InputStream() {
+                private int remaining = CONTENT_LENGTH;
 
-            @Override
-            public int read() {
-                if (remaining > 0) {
-                    remaining -= 1;
-                    return 77;
-                } else {
-                    return 0;
+                @Override
+                public int read() {
+                    if (remaining > 0) {
+                        remaining -= 1;
+                        return 77;
+                    }
+                    else {
+                        return 0;
+                    }
+                }
+
+                @Override
+                public int available() {
+                    return remaining;
+                }
+            }, CONTENT_LENGTH));
+            final HttpResponse response = client.execute(post);
+
+            final HttpEntity entity = response.getEntity();
+            final long cl = entity.getContentLength();
+            assertEquals(CONTENT_LENGTH, cl);
+
+            int bytesRead = 0;
+            try (InputStream content = slowServer ? new ThrottledInputStream(entity.getContent(), 10 * 1000) : entity.getContent()) {
+                final byte[] input = new byte[100000];
+                int read = content.read(input);
+
+                while (read != -1) {
+                    bytesRead += read;
+                    read = content.read(input);
                 }
             }
-
-            @Override
-            public int available() {
-                return remaining;
-            }
-        }, CONTENT_LENGTH));
-        final HttpResponse response = client.execute(post);
-
-        final HttpEntity entity = response.getEntity();
-        final long cl = entity.getContentLength();
-        assertEquals(CONTENT_LENGTH, cl);
-
-        int bytesRead = 0;
-        try (InputStream content = slowServer ? new ThrottledInputStream(entity.getContent(), 10 * 1000) : entity.getContent()) {
-            final byte[] input = new byte[100000];
-            int read = content.read(input);
-
-            while (read != -1) {
-                bytesRead += read;
-                read = content.read(input);
-            }
+            assertEquals(CONTENT_LENGTH, bytesRead);
+            // final String body = IOUtils.toString(entity.getContent());
+            EntityUtils.consume(entity);
+            System.out
+              .println("------------------ Memory Usage At Beginning ------------------");
+            TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
         }
-        assertEquals(CONTENT_LENGTH, bytesRead);
-        // final String body = IOUtils.toString(entity.getContent());
-        EntityUtils.consume(entity);
-        System.out
-                .println("------------------ Memory Usage At Beginning ------------------");
-        TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
     }
 
     private void startServer(final int port, final boolean slowReader) {

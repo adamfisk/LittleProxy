@@ -5,8 +5,8 @@ import io.netty.handler.codec.http.HttpRequest;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.junit.After;
 import org.junit.Before;
@@ -139,9 +139,7 @@ public class EndToEndStoppingTest {
                     }
                 }).start();
 
-        try {
-            final HttpClient client = TestUtils.createProxiedHttpClient(proxy.getListenAddress().getPort());
-
+        try (CloseableHttpClient client = TestUtils.createProxiedHttpClient(proxy.getListenAddress().getPort())) {
             // final HttpPost get = new HttpPost(site);
             final HttpGet get = new HttpGet(site);
 

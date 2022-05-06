@@ -2,8 +2,8 @@ package org.littleshoot.proxy;
 
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.junit.After;
 import org.junit.Before;
@@ -66,11 +66,12 @@ public class ProxyHeadersTest {
                 .withPort(0)
                 .start();
 
-        HttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServer.getListenAddress().getPort());
-        HttpResponse response = httpClient.execute(new HttpGet("http://localhost:" + mockServerPort + "/connectionheaders"));
-        EntityUtils.consume(response.getEntity());
+        try (CloseableHttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServer.getListenAddress().getPort())) {
+            HttpResponse response = httpClient.execute(new HttpGet("http://localhost:" + mockServerPort + "/connectionheaders"));
+            EntityUtils.consume(response.getEntity());
 
-        Header[] dummyHeaders = response.getHeaders("Dummy-Header");
-        assertThat("Expected proxy to remove the Dummy-Header specified in the Connection header", dummyHeaders, emptyArray());
+            Header[] dummyHeaders = response.getHeaders("Dummy-Header");
+            assertThat("Expected proxy to remove the Dummy-Header specified in the Connection header", dummyHeaders, emptyArray());
+        }
     }
 }
