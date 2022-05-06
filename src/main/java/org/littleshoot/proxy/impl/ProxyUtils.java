@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 public class ProxyUtils {
     /**
      * Hop-by-hop headers that should be removed when proxying, as defined by the HTTP 1.1 spec, section 13.5.1
-     * (http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1). Transfer-Encoding is NOT included in this list, since LittleProxy
+     * (https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1). Transfer-Encoding is NOT included in this list, since LittleProxy
      * does not typically modify the transfer encoding. See also {@link #shouldRemoveHopByHopHeader(String)}.
      *
      * Header names are stored as lowercase to make case-insensitive comparisons easier.
@@ -59,12 +59,12 @@ public class ProxyUtils {
     private static final String PATTERN_RFC1123 = "EEE, dd MMM yyyy HH:mm:ss zzz";
 
     // Schemes are case-insensitive:
-    // http://tools.ietf.org/html/rfc3986#section-3.1
+    // https://tools.ietf.org/html/rfc3986#section-3.1
     private static final Pattern HTTP_PREFIX = Pattern.compile("^(http|ws)s?://.*",
             Pattern.CASE_INSENSITIVE);
 
     /**
-     * Strips the host from a URI string. This will turn "http://host.com/path"
+     * Strips the host from a URI string. This will turn "https://host.com/path"
      * into "/path".
      * 
      * @param uri
@@ -338,7 +338,7 @@ public class ProxyUtils {
             // Correctly handle return codes of 1xx.
             //
             // See:
-            //     - http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html Section 4.4
+            //     - https://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html Section 4.4
             //     - https://github.com/netty/netty/issues/222
             if (code >= 100 && code < 200) {
                 // According to RFC 7231, section 6.1, 1xx responses have no content (https://tools.ietf.org/html/rfc7231#section-6.2):
@@ -495,7 +495,7 @@ public class ProxyUtils {
     /**
      * Determines if the specified header should be removed from the proxied response because it is a hop-by-hop header, as defined by the
      * HTTP 1.1 spec in section 13.5.1. The comparison is case-insensitive, so "Connection" will be treated the same as "connection" or "CONNECTION".
-     * From http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1 :
+     * From https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1 :
      * <pre>
        The following HTTP/1.1 headers are hop-by-hop headers:
         - Connection

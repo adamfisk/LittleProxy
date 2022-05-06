@@ -383,7 +383,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
          URI in absolute-form as the request-target.
          [...]
          An example absolute-form of request-line would be:
-         GET <a href="http://www.example.org/pub/WWW/TheProject.html">http://www.example.org/pub/WWW/TheProject.html</a> HTTP/1.1
+         GET <a href="https://www.example.org/pub/WWW/TheProject.html">https://www.example.org/pub/WWW/TheProject.html</a> HTTP/1.1
          To allow for transition to the absolute-form for all requests in some
          future version of HTTP, a server MUST accept the absolute-form in
          requests, even though HTTP/1.1 clients will only send them in
