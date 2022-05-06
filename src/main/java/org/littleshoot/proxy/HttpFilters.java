@@ -63,7 +63,7 @@ import java.net.InetSocketAddress;
  * <li>proxyToServerRequestSending</li>
  * <li>proxyToServerRequestSent</li>
  * <li>serverToProxyResponseReceiving</li>
- * <li>serverToProxyResponse (can be multiple if chuncked)</li>
+ * <li>serverToProxyResponse (can be multiple if chunked)</li>
  * <li>serverToProxyResponseReceived</li>
  * <li>proxyToClientResponse</li>
  * </ol>

@@ -32,7 +32,7 @@ class ProxyConnectionLogger {
         final Logger lg = LoggerFactory.getLogger(connection
                 .getClass());
         if (lg instanceof LocationAwareLogger) {
-            dispatch = new LocationAwareLogggerDispatch((LocationAwareLogger) lg);
+            dispatch = new LocationAwareLoggerDispatch((LocationAwareLogger) lg);
         }
         else {
             dispatch = new LoggerDispatch();
@@ -163,11 +163,11 @@ class ProxyConnectionLogger {
     /**
      * Dispatcher for a LocationAwareLogger.
      */
-    private class LocationAwareLogggerDispatch implements LogDispatch {
+    private class LocationAwareLoggerDispatch implements LogDispatch {
 
         private LocationAwareLogger log;
 
-        public LocationAwareLogggerDispatch(LocationAwareLogger log) {
+        public LocationAwareLoggerDispatch(LocationAwareLogger log) {
             this.log = log;
         }
 

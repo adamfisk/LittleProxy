@@ -50,7 +50,7 @@
   - Fixed memoryLeak in ClientToProxyConnection
 
 - 2.0.0-beta-4
-  - Allow users to set their own sesrvergroup within the bootstrap helper
+  - Allow users to set their own server group within the bootstrap helper
   - Added support for chained SOCKS proxies
 
 - 2.0.0-beta-3
