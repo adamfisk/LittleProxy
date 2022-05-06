@@ -738,7 +738,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Utility handler for monitoring requests written on this connection.
      */
     @Sharable
-    protected abstract class RequestWrittenMonitor extends
+    protected static abstract class RequestWrittenMonitor extends
             ChannelOutboundHandlerAdapter {
         @Override
         public void write(ChannelHandlerContext ctx,

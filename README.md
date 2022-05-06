@@ -112,22 +112,26 @@ your proxy. You can return a `HttpFilters` implementation which answers
 responses with HTML content or redirects in `clientToProxyRequest` like this:
 
 ```java
+import java.nio.charset.StandardCharsets;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class AnswerRequestFilter extends HttpFiltersAdapter {
-	private final String answer;
+  private final String answer;
 
-	public AnswerRequestFilter(HttpRequest originalRequest, String answer) {
-		super(originalRequest, null);
-		this.answer = answer;
-	}
+  public AnswerRequestFilter(HttpRequest originalRequest, String answer) {
+    super(originalRequest, null);
+    this.answer = answer;
+  }
 
-	@Override
-	public HttpResponse clientToProxyRequest(HttpObject httpObject) {
-		ByteBuf buffer = Unpooled.wrappedBuffer(answer.getBytes("UTF-8"));
-		HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buffer);
-		HttpHeaders.setContentLength(response, buffer.readableBytes());
-		HttpHeaders.setHeader(response, HttpHeaders.Names.CONTENT_TYPE, "text/html");
-		return response;
-	}
+  @Override
+  public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+    ByteBuf buffer = Unpooled.wrappedBuffer(answer.getBytes(UTF_8));
+    HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buffer);
+    HttpHeaders.setContentLength(response, buffer.readableBytes());
+    HttpHeaders.setHeader(response, HttpHeaders.Names.CONTENT_TYPE, "text/html");
+    return response;
+  }
 }
 ```
 On answering a redirect, you should add a Connection: close header, to avoid 

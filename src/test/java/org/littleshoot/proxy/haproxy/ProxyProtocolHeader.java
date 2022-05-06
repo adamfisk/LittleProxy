@@ -2,10 +2,10 @@ package org.littleshoot.proxy.haproxy;
 
 class ProxyProtocolHeader {
 
-    private String sourceAddress;
-    private String destinationAddress;
-    private String sourcePort;
-    private String destinationPort;
+    private final String sourceAddress;
+    private final String destinationAddress;
+    private final String sourcePort;
+    private final String destinationPort;
 
     ProxyProtocolHeader(String sourceAddress, String destinationAddress, String sourcePort, String destinationPort) {
         this.sourceAddress = sourceAddress;

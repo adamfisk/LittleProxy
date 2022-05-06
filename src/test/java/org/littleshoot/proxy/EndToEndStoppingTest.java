@@ -5,8 +5,8 @@ import io.netty.handler.codec.http.HttpRequest;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.junit.After;
 import org.junit.Before;
@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -139,9 +139,7 @@ public class EndToEndStoppingTest {
                     }
                 }).start();
 
-        try {
-            final HttpClient client = TestUtils.createProxiedHttpClient(proxy.getListenAddress().getPort());
-
+        try (CloseableHttpClient client = TestUtils.createProxiedHttpClient(proxy.getListenAddress().getPort())) {
             // final HttpPost get = new HttpPost(site);
             final HttpGet get = new HttpGet(site);
 

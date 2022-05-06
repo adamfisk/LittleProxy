@@ -165,7 +165,7 @@ class ProxyConnectionLogger {
      */
     private class LocationAwareLoggerDispatch implements LogDispatch {
 
-        private LocationAwareLogger log;
+        private final LocationAwareLogger log;
 
         public LocationAwareLoggerDispatch(LocationAwareLogger log) {
             this.log = log;

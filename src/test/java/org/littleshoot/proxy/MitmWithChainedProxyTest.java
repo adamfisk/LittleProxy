@@ -1,27 +1,31 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 import org.littleshoot.proxy.extras.SelfSignedMitmManager;
 
-import java.nio.charset.Charset;
 import java.util.HashSet;
 import java.util.Set;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
  * Tests a proxy that runs as a MITM and which is chained with
  * another proxy.
  */
 public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
-    private Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
-    private Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
-    private StringBuilder responsePreBody = new StringBuilder();
-    private StringBuilder responsePostBody = new StringBuilder();
-    private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<>();
-    private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
+    private final StringBuilder responsePreBody = new StringBuilder();
+    private final StringBuilder responsePostBody = new StringBuilder();
+    private final Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<>();
 
     @Override
     protected void setUp() {
@@ -70,8 +74,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                             .add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
                                     responsePreBody.append(((HttpContent) httpObject)
-                                            .content().toString(
-                                                    Charset.forName("UTF-8")));
+                                            .content().toString(UTF_8));
                                 }
                                 return httpObject;
                             }
@@ -84,8 +87,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                             .add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
                                     responsePostBody.append(((HttpContent) httpObject)
-                                            .content().toString(
-                                                    Charset.forName("UTF-8")));
+                                            .content().toString(UTF_8));
                                 }
                                 return httpObject;
                             }

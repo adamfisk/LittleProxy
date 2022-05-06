@@ -10,7 +10,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.nio.charset.Charset;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Utilities for interacting with the proxy server using sockets.
@@ -24,7 +25,7 @@ public class SocketClientUtil {
      */
     public static void writeStringToSocket(String string, Socket socket) throws IOException {
         OutputStream out = socket.getOutputStream();
-        out.write(string.getBytes(Charset.forName("UTF-8")));
+        out.write(string.getBytes(UTF_8));
         out.flush();
     }
 
@@ -44,7 +45,7 @@ public class SocketClientUtil {
             throw new EOFException("Unable to read from socket. The socket is closed.");
         }
 
-        return new String(bytes, 0, bytesRead, Charset.forName("UTF-8"));
+        return new String(bytes, 0, bytesRead, UTF_8);
     }
 
     /**

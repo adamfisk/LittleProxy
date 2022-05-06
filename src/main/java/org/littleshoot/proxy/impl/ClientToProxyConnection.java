@@ -38,11 +38,9 @@ import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.SslEngineSource;
 
 import javax.net.ssl.SSLSession;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -55,6 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_PROXY_AUTHENTICATION;
@@ -148,7 +147,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private volatile boolean mitming = false;
 
-    private AtomicBoolean authenticated = new AtomicBoolean();
+    private final AtomicBoolean authenticated = new AtomicBoolean();
 
     private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
@@ -511,8 +510,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-server",
                     new ProxyConnectionPipeHandler(serverConnection));
         }
-        orderedHandlersToRemove.stream()
-                .forEach(this::removeHandlerIfPresent);
+        orderedHandlersToRemove.forEach(this::removeHandlerIfPresent);
         serverConnection.switchToWebSocketProtocol();
     }
 
@@ -1023,7 +1021,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         byte[] decodedValue = BaseEncoding.base64().decode(value);
 
-        String decodedString = new String(decodedValue, Charset.forName("UTF-8"));
+        String decodedString = new String(decodedValue, UTF_8);
         
         String userName = StringUtils.substringBefore(decodedString, ":");
         String password = StringUtils.substringAfter(decodedString, ":");
@@ -1416,7 +1414,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     };
 
-    private RequestReadMonitor requestReadMonitor = new RequestReadMonitor() {
+    private final RequestReadMonitor requestReadMonitor = new RequestReadMonitor() {
         @Override
         protected void requestRead(HttpRequest httpRequest) {
             FlowContext flowContext = flowContext();
@@ -1427,7 +1425,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     };
 
-    private BytesWrittenMonitor bytesWrittenMonitor = new BytesWrittenMonitor() {
+    private final BytesWrittenMonitor bytesWrittenMonitor = new BytesWrittenMonitor() {
         @Override
         protected void bytesWritten(int numberOfBytes) {
             FlowContext flowContext = flowContext();
@@ -1438,7 +1436,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     };
 
-    private ResponseWrittenMonitor responseWrittenMonitor = new ResponseWrittenMonitor() {
+    private final ResponseWrittenMonitor responseWrittenMonitor = new ResponseWrittenMonitor() {
         @Override
         protected void responseWritten(HttpResponse httpResponse) {
             FlowContext flowContext = flowContext();

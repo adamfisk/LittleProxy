@@ -150,7 +150,7 @@ public class WebSocketClient {
         }
     }
 
-    private class WebSocketClientChannelInitializer extends ChannelInitializer<SocketChannel> {
+    private static class WebSocketClientChannelInitializer extends ChannelInitializer<SocketChannel> {
         private final WebSocketClientHandler handler;
         private final URI uri;
         private final Optional<InetSocketAddress> httpProxy;

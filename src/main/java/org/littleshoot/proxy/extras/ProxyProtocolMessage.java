@@ -7,13 +7,13 @@ import io.netty.handler.codec.haproxy.HAProxyProxiedProtocol;
 
 public class ProxyProtocolMessage {
 
-    private HAProxyProtocolVersion protocolVersion;
-    private HAProxyCommand command;
-    private HAProxyProxiedProtocol proxiedProtocol;
-    private String sourceAddress;
-    private String destinationAddress;
-    private int sourcePort;
-    private int destinationPort;
+    private final HAProxyProtocolVersion protocolVersion;
+    private final HAProxyCommand command;
+    private final HAProxyProxiedProtocol proxiedProtocol;
+    private final String sourceAddress;
+    private final String destinationAddress;
+    private final int sourcePort;
+    private final int destinationPort;
 
     public ProxyProtocolMessage(HAProxyProtocolVersion protocolVersion, HAProxyCommand command, HAProxyProxiedProtocol proxiedProtocol, String sourceAddress, String destinationAddress
         , int sourcePort, int destinationPort) {

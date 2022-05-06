@@ -99,7 +99,7 @@ public class WebSocketServer {
         }
     }
 
-    private class WebSocketServerInitializer extends ChannelInitializer<SocketChannel> {
+    private static class WebSocketServerInitializer extends ChannelInitializer<SocketChannel> {
         private final Optional<SslContext> sslCtx;
 
         public WebSocketServerInitializer(final Optional<SslContext> sslCtx) {
@@ -107,7 +107,7 @@ public class WebSocketServer {
         }
 
         @Override
-        public void initChannel(final SocketChannel channel) throws Exception {
+        public void initChannel(final SocketChannel channel) {
             final ChannelPipeline pipeline = channel.pipeline();
             sslCtx.map(ctx -> ctx.newHandler(channel.alloc()))
                     .ifPresent(handler -> pipeline.addLast("ssl", handler));

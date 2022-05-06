@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
  * Base for tests that test the proxy. This base class encapsulates all of the
@@ -176,8 +176,7 @@ public abstract class AbstractProxyTest {
                 HttpHead request = new HttpHead(resourceUrl);
                 request.setConfig(TestUtils.REQUEST_TIMEOUT_CONFIG);
                 HttpResponse response = httpClient.execute(host, request);
-                contentLength = new Integer(response.getFirstHeader(
-                        "Content-Length").getValue());
+                contentLength = Integer.valueOf(response.getFirstHeader("Content-Length").getValue());
             }
 
             HttpGet request = new HttpGet(resourceUrl);
@@ -188,10 +187,9 @@ public abstract class AbstractProxyTest {
 
             if (contentLength != null) {
                 assertEquals(
-                        "Content-Length from GET should match that from HEAD",
-                        contentLength,
-                        new Integer(response.getFirstHeader("Content-Length")
-                                .getValue()));
+                  "Content-Length from GET should match that from HEAD",
+                  contentLength,
+                  Integer.valueOf(response.getFirstHeader("Content-Length").getValue()));
             }
             return new ResponseInfo(response.getStatusLine().getStatusCode(),
                     EntityUtils.toString(resEntity));

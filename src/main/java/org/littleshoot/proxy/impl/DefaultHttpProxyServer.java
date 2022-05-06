@@ -79,7 +79,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     * The actual address to which the server is bound. May be different from the requestedAddress in some circumstances,
     * for example when the requested port is 0.
     */
-    private volatile InetSocketAddress localAddress;
+    private final InetSocketAddress localAddress;
     private volatile InetSocketAddress boundAddress;
     private final SslEngineSource sslEngineSource;
     private final boolean authenticateSslClients;
@@ -587,7 +587,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
-        private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<>();
+        private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<>();
         private int connectTimeout = 40000;
         private HostResolver serverResolver = new DefaultHostResolver();
         private long readThrottleBytesPerSecond;
