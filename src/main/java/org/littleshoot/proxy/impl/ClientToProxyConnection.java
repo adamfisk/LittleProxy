@@ -510,8 +510,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-server",
                     new ProxyConnectionPipeHandler(serverConnection));
         }
-        orderedHandlersToRemove.stream()
-                .forEach(this::removeHandlerIfPresent);
+        orderedHandlersToRemove.forEach(this::removeHandlerIfPresent);
         serverConnection.switchToWebSocketProtocol();
     }
 

@@ -1210,8 +1210,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-client",
                     new ProxyConnectionPipeHandler(clientConnection));
         }
-        orderedHandlersToRemove.stream()
-                .forEach(this::removeHandlerIfPresent);
+        orderedHandlersToRemove.forEach(this::removeHandlerIfPresent);
     }
 
     /* *************************************************************************
