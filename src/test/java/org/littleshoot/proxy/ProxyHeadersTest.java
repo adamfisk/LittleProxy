@@ -14,7 +14,7 @@ import org.mockserver.matchers.Times;
 import org.mockserver.model.ConnectionOptions;
 
 import static org.hamcrest.Matchers.emptyArray;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 

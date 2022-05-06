@@ -12,7 +12,7 @@ import java.net.Proxy;
 import java.net.URL;
 
 import static org.hamcrest.Matchers.lessThan;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.littleshoot.proxy.TestUtils.disableOnMac;
 import static org.littleshoot.proxy.TestUtils.requireUnix;
 

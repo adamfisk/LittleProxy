@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
  * Base class for tests that test a proxy chained to an upstream proxy. In
