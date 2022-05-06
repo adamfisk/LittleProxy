@@ -107,7 +107,7 @@ public class WebSocketServer {
         }
 
         @Override
-        public void initChannel(final SocketChannel channel) throws Exception {
+        public void initChannel(final SocketChannel channel) {
             final ChannelPipeline pipeline = channel.pipeline();
             sslCtx.map(ctx -> ctx.newHandler(channel.alloc()))
                     .ifPresent(handler -> pipeline.addLast("ssl", handler));

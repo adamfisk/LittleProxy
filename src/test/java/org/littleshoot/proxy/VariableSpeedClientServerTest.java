@@ -16,9 +16,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.Charset;
 import java.util.Arrays;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -139,7 +139,7 @@ public class VariableSpeedClientServerTest {
             // or
             // so.
 
-            os.write(responseHeaders.getBytes(Charset.forName("UTF-8")));
+            os.write(responseHeaders.getBytes(UTF_8));
 
             int bufferSize = 100000;
             final byte[] bytes = new byte[bufferSize];
