@@ -16,7 +16,7 @@ public class CategorizedThreadFactory implements ThreadFactory {
     private final String category;
     private final int uniqueServerGroupId;
 
-    private AtomicInteger threadCount = new AtomicInteger(0);
+    private final AtomicInteger threadCount = new AtomicInteger(0);
 
     /**
      * Exception handler for proxy threads. Logs the name of the thread and the exception that was caught.

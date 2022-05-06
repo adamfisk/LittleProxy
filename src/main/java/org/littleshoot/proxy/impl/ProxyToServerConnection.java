@@ -175,7 +175,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Limits bandwidth when throttling is enabled.
      */
-    private volatile GlobalTrafficShapingHandler trafficHandler;
+    private final GlobalTrafficShapingHandler trafficHandler;
 
     /**
      * Minimum size of the adaptive recv buffer when throttling is enabled. 
@@ -655,7 +655,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Opens the socket connection.
      */
-    private ConnectionFlowStep ConnectChannel = new ConnectionFlowStep(this,
+    private final ConnectionFlowStep ConnectChannel = new ConnectionFlowStep(this,
             CONNECTING) {
         @Override
         boolean shouldExecuteOnEventLoop() {
@@ -701,7 +701,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Writes the HTTP CONNECT to the server and waits for a 200 response.
      */
-    private ConnectionFlowStep HTTPCONNECTWithChainedProxy = new ConnectionFlowStep(
+    private final ConnectionFlowStep HTTPCONNECTWithChainedProxy = new ConnectionFlowStep(
             this, AWAITING_CONNECT_OK) {
         protected Future<?> execute() {
             LOG.debug("Handling CONNECT request through Chained Proxy");
@@ -757,7 +757,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Establishes a SOCKS4 connection.
      */
-    private ConnectionFlowStep SOCKS4CONNECTWithChainedProxy = new ConnectionFlowStep(
+    private final ConnectionFlowStep SOCKS4CONNECTWithChainedProxy = new ConnectionFlowStep(
             this, AWAITING_CONNECT_OK) {
 
         @Override
@@ -799,7 +799,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Initiates a SOCKS5 connection.
      */
-    private ConnectionFlowStep SOCKS5InitialRequest = new ConnectionFlowStep(
+    private final ConnectionFlowStep SOCKS5InitialRequest = new ConnectionFlowStep(
             this, AWAITING_CONNECT_OK) {
 
         @Override
@@ -854,7 +854,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Sends SOCKS5 password credentials after {@link #SOCKS5InitialRequest} has completed.
      */
-    private ConnectionFlowStep SOCKS5SendPasswordCredentials = new ConnectionFlowStep(
+    private final ConnectionFlowStep SOCKS5SendPasswordCredentials = new ConnectionFlowStep(
             this, AWAITING_CONNECT_OK) {
 
         @Override
@@ -888,7 +888,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Establishes a SOCKS5 connection after {@link #SOCKS5InitialRequest} and
      * (optionally) {@link #SOCKS5SendPasswordCredentials} have completed.
      */
-    private ConnectionFlowStep SOCKS5CONNECTRequestWithChainedProxy = new ConnectionFlowStep(
+    private final ConnectionFlowStep SOCKS5CONNECTRequestWithChainedProxy = new ConnectionFlowStep(
             this, AWAITING_CONNECT_OK) {
 
         @Override
@@ -930,7 +930,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * respond to the CONNECT request.
      * </p>
      */
-    private ConnectionFlowStep MitmEncryptClientChannel = new ConnectionFlowStep(
+    private final ConnectionFlowStep MitmEncryptClientChannel = new ConnectionFlowStep(
             this, HANDSHAKING) {
         @Override
         boolean shouldExecuteOnEventLoop() {
@@ -1233,7 +1233,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
     };
 
-    private ResponseReadMonitor responseReadMonitor = new ResponseReadMonitor() {
+    private final ResponseReadMonitor responseReadMonitor = new ResponseReadMonitor() {
         @Override
         protected void responseRead(HttpResponse httpResponse) {
             FullFlowContext flowContext = new FullFlowContext(clientConnection,
@@ -1245,7 +1245,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
     };
 
-    private BytesWrittenMonitor bytesWrittenMonitor = new BytesWrittenMonitor() {
+    private final BytesWrittenMonitor bytesWrittenMonitor = new BytesWrittenMonitor() {
         @Override
         protected void bytesWritten(int numberOfBytes) {
             FullFlowContext flowContext = new FullFlowContext(clientConnection,
@@ -1257,7 +1257,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
     };
 
-    private RequestWrittenMonitor requestWrittenMonitor = new RequestWrittenMonitor() {
+    private final RequestWrittenMonitor requestWrittenMonitor = new RequestWrittenMonitor() {
         @Override
         protected void requestWriting(HttpRequest httpRequest) {
             FullFlowContext flowContext = new FullFlowContext(clientConnection,

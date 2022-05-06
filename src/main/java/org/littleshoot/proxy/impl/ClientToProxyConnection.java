@@ -147,7 +147,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private volatile boolean mitming = false;
 
-    private AtomicBoolean authenticated = new AtomicBoolean();
+    private final AtomicBoolean authenticated = new AtomicBoolean();
 
     private final GlobalTrafficShapingHandler globalTrafficShapingHandler;
 
@@ -1415,7 +1415,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     };
 
-    private RequestReadMonitor requestReadMonitor = new RequestReadMonitor() {
+    private final RequestReadMonitor requestReadMonitor = new RequestReadMonitor() {
         @Override
         protected void requestRead(HttpRequest httpRequest) {
             FlowContext flowContext = flowContext();
@@ -1426,7 +1426,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     };
 
-    private BytesWrittenMonitor bytesWrittenMonitor = new BytesWrittenMonitor() {
+    private final BytesWrittenMonitor bytesWrittenMonitor = new BytesWrittenMonitor() {
         @Override
         protected void bytesWritten(int numberOfBytes) {
             FlowContext flowContext = flowContext();
@@ -1437,7 +1437,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
     };
 
-    private ResponseWrittenMonitor responseWrittenMonitor = new ResponseWrittenMonitor() {
+    private final ResponseWrittenMonitor responseWrittenMonitor = new ResponseWrittenMonitor() {
         @Override
         protected void responseWritten(HttpResponse httpResponse) {
             FlowContext flowContext = flowContext();

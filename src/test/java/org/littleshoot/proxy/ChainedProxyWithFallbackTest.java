@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * connection.
  */
 public class ChainedProxyWithFallbackTest extends BaseProxyTest {
-    private AtomicBoolean unableToConnect = new AtomicBoolean(false);
+    private final AtomicBoolean unableToConnect = new AtomicBoolean(false);
 
     @Override
     protected void setUp() {

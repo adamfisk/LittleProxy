@@ -19,12 +19,12 @@ import static org.junit.Assert.assertThat;
  * Tests just a single basic proxy running as a man in the middle.
  */
 public class MitmProxyTest extends BaseProxyTest {
-    private Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
-    private Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
-    private StringBuilder responsePreBody = new StringBuilder();
-    private StringBuilder responsePostBody = new StringBuilder();
-    private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<>();
-    private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
+    private final StringBuilder responsePreBody = new StringBuilder();
+    private final StringBuilder responsePostBody = new StringBuilder();
+    private final Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<>();
 
     @Override
     protected void setUp() {

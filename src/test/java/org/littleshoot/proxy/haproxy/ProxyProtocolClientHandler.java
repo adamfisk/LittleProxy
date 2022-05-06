@@ -11,8 +11,8 @@ import io.netty.handler.codec.http.HttpVersion;
 public class ProxyProtocolClientHandler extends ChannelInboundHandlerAdapter {
 
     private static final String HOST = "http://localhost";
-    private int serverPort;
-    private ProxyProtocolHeader proxyProtocolHeader;
+    private final int serverPort;
+    private final ProxyProtocolHeader proxyProtocolHeader;
 
     ProxyProtocolClientHandler(int serverPort, ProxyProtocolHeader proxyProtocolHeader) {
         this.serverPort = serverPort;

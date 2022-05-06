@@ -20,12 +20,12 @@ import static org.junit.Assert.assertThat;
  * another proxy.
  */
 public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
-    private Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
-    private Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
-    private StringBuilder responsePreBody = new StringBuilder();
-    private StringBuilder responsePostBody = new StringBuilder();
-    private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<>();
-    private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
+    private final StringBuilder responsePreBody = new StringBuilder();
+    private final StringBuilder responsePostBody = new StringBuilder();
+    private final Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<>();
 
     @Override
     protected void setUp() {
