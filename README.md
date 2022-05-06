@@ -1,5 +1,3 @@
-[![DepShield Badge](https://depshield.sonatype.org/badges/LittleProxy/LittleProxy/depshield.svg)](https://depshield.github.io)
-
 This is an updated fork of adamfisk's LittleProxy.  The original project appears
 to have been abondoned.  Because it's so incredibly useful, it's being brought
 back to life in this repository.
