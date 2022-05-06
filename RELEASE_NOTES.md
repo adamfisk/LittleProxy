@@ -1,9 +1,16 @@
 # Release Notes
 
 - 2.0.8
-  - Bumped log4j-core from 2.17.0 to 2.17.1
-  - Bumped netty from 4.1.71 to 4.1.72
-  - Bumped slf4j from 1.7.30 to 1.7.32
+  - #26 fixed TLS 1.3 handshake bug  --  thanks Dan Powell for PR https://github.com/LittleProxy/LittleProxy/pull/26
+  - Bumped log4j-core from 2.17.0 to 2.17.2
+  - Bumped netty from 4.1.71 to 4.1.76
+  - Bumped slf4j from 1.7.30 to 1.7.36
+  - Bumped jackson from 2.11.3 to 2.12.6.1
+  - Bumped guava from 30.1-jre to 31.1-jre
+  - Bumped commons-cli from 1.4 to 1.5.0
+  - Relocated slf4j-log4j to slf4j-reload4j
+  - moved the project to https://github.com/LittleProxy/LittleProxy
+  - moved CI from Travis to https://github.com/LittleProxy/LittleProxy/actions
 
 - 2.0.7
   - Bumped log4j-core from 2.16.0 to 2.17.0
