@@ -9,6 +9,7 @@ log.txt
 *.DS_Store
 *.orig
 target/
+dependency-reduced-pom.xml
 .idea/
 jmeter.log
 lib/
