@@ -99,7 +99,7 @@ public class WebSocketServer {
         }
     }
 
-    private class WebSocketServerInitializer extends ChannelInitializer<SocketChannel> {
+    private static class WebSocketServerInitializer extends ChannelInitializer<SocketChannel> {
         private final Optional<SslContext> sslCtx;
 
         public WebSocketServerInitializer(final Optional<SslContext> sslCtx) {
