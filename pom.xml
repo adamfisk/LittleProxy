@@ -8,7 +8,7 @@
     <description>
         LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework.
     </description>
-    <url>https://github.com/mrog/LittleProxy</url>
+    <url>https://github.com/LittleProxy/LittleProxy</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -28,13 +28,13 @@
 
     <issueManagement>
         <system>github</system>
-        <url>https://github.com/mrog/LittleProxy/issues</url>
+        <url>https://github.com/LittleProxy/LittleProxy/issues</url>
     </issueManagement>
 
     <scm>
-        <connection>scm:git:https://github.com/mrog/LittleProxy.git</connection>
-        <developerConnection>scm:git:git@github.com:mrog/LittleProxy.git</developerConnection>
-        <url>scm:git:https://github.com/mrog/LittleProxy</url>
+        <connection>scm:git:https://github.com/LittleProxy/LittleProxy.git</connection>
+        <developerConnection>scm:git:git@github.com:LittleProxy/LittleProxy.git</developerConnection>
+        <url>scm:git:https://github.com/LittleProxy/LittleProxy</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -742,6 +742,15 @@
             <organizationUrl>https://github.com/mrog</organizationUrl>
             <roles><role>Developer</role></roles>
             <timezone>-7</timezone>
+        </developer>
+        <developer>
+            <id>asolntsev</id>
+            <name>Andrei Solntsev</name>
+            <email>andrei.solntsev+littleproxy@gmail.com</email>
+            <organization>LittleProxy</organization>
+            <organizationUrl>https://github.com/LittleProxy</organizationUrl>
+            <roles><role>Maintainer</role></roles>
+            <timezone>+3</timezone>
         </developer>
     </developers>
 </project>

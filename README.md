@@ -1,4 +1,4 @@
-[![DepShield Badge](https://depshield.sonatype.org/badges/mrog/LittleProxy/depshield.svg)](https://depshield.github.io)
+[![DepShield Badge](https://depshield.sonatype.org/badges/LittleProxy/LittleProxy/depshield.svg)](https://depshield.github.io)
 
 This is an updated fork of adamfisk's LittleProxy.  The original project appears
 to have been abondoned.  Because it's so incredibly useful, it's being brought
@@ -11,7 +11,7 @@ stable, performs well, and is easy to integrate into your projects.
 One option is to clone LittleProxy and run it from the command line. This is as simple as:
 
 ```
-$ git clone git@github.com:mrog/LittleProxy.git
+$ git clone git@github.com:LittleProxy/LittleProxy.git
 $ cd LittleProxy
 $ ./run.bash
 ```
