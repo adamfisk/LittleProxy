@@ -1,5 +1,8 @@
 # Release Notes
 
+- 2.0.9
+  - #115 reverted to maven-shade-plugin 3.2.4 (because 3.3.0 generated artifact without compile/runtime dependencies)
+
 - 2.0.8
   - #26 fixed TLS 1.3 handshake bug  --  thanks Dan Powell for PR https://github.com/LittleProxy/LittleProxy/pull/26
   - Bumped log4j-core from 2.17.0 to 2.17.2
