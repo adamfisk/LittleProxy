@@ -16,17 +16,12 @@ public class CategorizedThreadFactory implements ThreadFactory {
     private final String category;
     private final int uniqueServerGroupId;
 
-    private AtomicInteger threadCount = new AtomicInteger(0);
+    private final AtomicInteger threadCount = new AtomicInteger(0);
 
     /**
      * Exception handler for proxy threads. Logs the name of the thread and the exception that was caught.
      */
-    private static final Thread.UncaughtExceptionHandler UNCAUGHT_EXCEPTION_HANDLER = new Thread.UncaughtExceptionHandler() {
-        @Override
-        public void uncaughtException(Thread t, Throwable e) {
-            log.error("Uncaught throwable in thread: {}", t.getName(), e);
-        }
-    };
+    private static final Thread.UncaughtExceptionHandler UNCAUGHT_EXCEPTION_HANDLER = (t, e) -> log.error("Uncaught throwable in thread: {}", t.getName(), e);
 
 
     /**
@@ -44,6 +39,7 @@ public class CategorizedThreadFactory implements ThreadFactory {
     public Thread newThread(Runnable r) {
         Thread t = new Thread(r, name + "-" + uniqueServerGroupId + "-" + category + "-" + threadCount.getAndIncrement());
 
+        t.setDaemon(true);
         t.setUncaughtExceptionHandler(UNCAUGHT_EXCEPTION_HANDLER);
 
         return t;

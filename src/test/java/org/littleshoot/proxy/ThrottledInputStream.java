@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -51,7 +51,7 @@ public class ThrottledInputStream extends InputStream {
     this.maxBytesPerSec = maxBytesPerSec;
   }
 
-  /** @inheritDoc */
+  /** {@inheritDoc} */
   @Override
   public int read() throws IOException {
     throttle();
@@ -62,7 +62,7 @@ public class ThrottledInputStream extends InputStream {
     return data;
   }
 
-  /** @inheritDoc */
+  /** {@inheritDoc} */
   @Override
   public int read(byte[] b) throws IOException {
     throttle();
@@ -73,7 +73,7 @@ public class ThrottledInputStream extends InputStream {
     return readLen;
   }
 
-  /** @inheritDoc */
+  /** {@inheritDoc} */
   @Override
   public int read(byte[] b, int off, int len) throws IOException {
     throttle();
@@ -125,7 +125,7 @@ public class ThrottledInputStream extends InputStream {
     return totalSleepTime;
   }
 
-  /** @inheritDoc */
+  /** {@inheritDoc} */
   @Override
   public String toString() {
     return "ThrottledInputStream{" +

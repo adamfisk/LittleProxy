@@ -1,6 +1,7 @@
 package org.littleshoot.proxy;
 
 import io.netty.handler.codec.http.HttpRequest;
+import org.littleshoot.proxy.impl.ClientDetails;
 
 import java.util.Queue;
 
@@ -29,10 +30,8 @@ public interface ChainedProxyManager {
      * To keep the proxy from attempting any connection, leave the list blank.
      * This will cause the proxy to return a 502 response.
      * </p>
-     * 
-     * @param httpRequest
-     * @param chainedProxies
      */
     void lookupChainedProxies(HttpRequest httpRequest,
-            Queue<ChainedProxy> chainedProxies);
+                              Queue<ChainedProxy> chainedProxies,
+                              ClientDetails clientDetails);
 }

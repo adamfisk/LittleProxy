@@ -2,9 +2,8 @@ package org.littleshoot.proxy;
 
 import io.netty.handler.codec.http.HttpObject;
 
-import java.net.InetSocketAddress;
-
 import javax.net.ssl.SSLEngine;
+import java.net.InetSocketAddress;
 
 /**
  * Convenience base class for implementations of {@link ChainedProxy}.
@@ -29,6 +28,21 @@ public class ChainedProxyAdapter implements ChainedProxy {
     @Override
     public TransportProtocol getTransportProtocol() {
         return TransportProtocol.TCP;
+    }
+    
+    @Override
+    public ChainedProxyType getChainedProxyType() {
+        return ChainedProxyType.HTTP;
+    }
+    
+    @Override
+    public String getUsername() {
+        return null;
+    }
+    
+    @Override
+    public String getPassword() {
+        return null;
     }
 
     @Override

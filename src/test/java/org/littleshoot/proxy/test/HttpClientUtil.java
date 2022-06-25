@@ -12,7 +12,8 @@ import org.apache.http.util.EntityUtils;
 import org.littleshoot.proxy.HttpProxyServer;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Utility methods for creating HTTP clients and sending requests to servers via a LittleProxy instance.
@@ -53,7 +54,7 @@ public class HttpClientUtil {
         }
 
         HttpPost post = new HttpPost(url);
-        post.setEntity(new StringEntity(sb.toString(), Charset.forName("UTF-8")));
+        post.setEntity(new StringEntity(sb.toString(), UTF_8));
 
         return performHttpRequest(httpClient, post);
     }
@@ -65,11 +66,9 @@ public class HttpClientUtil {
      * @return new HttpClient
      */
     private static CloseableHttpClient buildHttpClient(HttpProxyServer proxyServer) {
-        CloseableHttpClient httpClient = HttpClients.custom()
+        return HttpClients.custom()
                 .setProxy(new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort()))
                 .build();
-
-        return httpClient;
     }
 
     /**

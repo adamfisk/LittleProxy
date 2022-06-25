@@ -1,12 +1,6 @@
 package org.littleshoot.proxy;
 
-import io.netty.handler.codec.http.DefaultHttpResponse;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpObject;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,8 +11,8 @@ import javax.net.ssl.SSLException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -30,19 +24,19 @@ public class DirectRequestTest {
     private HttpProxyServer proxyServer;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         proxyServer = null;
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         if (proxyServer != null) {
             proxyServer.abort();
         }
     }
 
     @Test(timeout = 5000)
-    public void testAnswerBadRequestInsteadOfEndlessLoop() throws Exception {
+    public void testAnswerBadRequestInsteadOfEndlessLoop() {
 
         startProxyServer();
 
@@ -54,7 +48,7 @@ public class DirectRequestTest {
     }
 
     @Test(timeout = 5000)
-    public void testAnswerFromFilterShouldBeServed() throws Exception {
+    public void testAnswerFromFilterShouldBeServed() {
 
         startProxyServerWithFilterAnsweringStatusCode(403);
 
@@ -118,7 +112,7 @@ public class DirectRequestTest {
                             public HttpResponse clientToProxyRequest(HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     HttpRequest request = (HttpRequest) httpObject;
-                                    String viaHeader = request.headers().get(HttpHeaders.Names.VIA);
+                                    String viaHeader = request.headers().get(HttpHeaderNames.VIA);
                                     if (viaHeader != null && viaHeader.contains("testAllowRequestToOriginServerWithOverride")) {
                                         return new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
                                     } else {

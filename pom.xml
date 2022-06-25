@@ -1,55 +1,40 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.littleshoot</groupId>
+    <groupId>xyz.rogfam</groupId>
     <artifactId>littleproxy</artifactId>
     <packaging>jar</packaging>
-    <version>1.1.3-SNAPSHOT</version>
+    <version>2.0.9</version>
     <name>LittleProxy</name>
     <description>
         LittleProxy is a high performance HTTP proxy written in Java and using the Netty networking framework.
     </description>
-    <url>http://littleproxy.org</url>
+    <url>https://github.com/LittleProxy/LittleProxy</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <github.global.server>github</github.global.server>
-        <netty.version>4.0.44.Final</netty.version>
-        <slf4j.version>1.7.24</slf4j.version>
-        <java.version>1.7</java.version>
+        <netty.version>4.1.78.Final</netty.version>
+        <slf4j.version>1.7.36</slf4j.version>
+        <java.version>1.8</java.version>
     </properties>
-
-    <organization>
-        <name>LittleShoot</name>
-        <url>http://littleproxy.org</url>
-    </organization>
 
     <licenses>
         <license>
             <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
         </license>
     </licenses>
 
-    <mailingLists>
-        <mailingList>
-            <archive>http://groups.google.com/group/littleproxy</archive>
-            <name>littleproxy</name>
-            <post>littleproxy@googlegroups.com</post>
-            <subscribe>http://groups.google.com/group/littleproxy</subscribe>
-            <unsubscribe>littleproxy+unsubscribe@googlegroups.com</unsubscribe>
-        </mailingList>
-    </mailingLists>
-
     <issueManagement>
         <system>github</system>
-        <url>https://github.com/adamfisk/LittleProxy/issues</url>
+        <url>https://github.com/LittleProxy/LittleProxy/issues</url>
     </issueManagement>
 
     <scm>
-        <connection>scm:git:https://adamfisk@github.com/adamfisk/LittleProxy.git</connection>
-        <developerConnection>scm:git:git@github.com:adamfisk/LittleProxy</developerConnection>
-        <url>scm:git:git@github.com:adamfisk/LittleProxy.git</url>
+        <connection>scm:git:https://github.com/LittleProxy/LittleProxy.git</connection>
+        <developerConnection>scm:git:git@github.com:LittleProxy/LittleProxy.git</developerConnection>
+        <url>scm:git:https://github.com/LittleProxy/LittleProxy</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -58,7 +43,6 @@
             <id>ossrh</id>
             <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
-
         <repository>
             <id>ossrh</id>
             <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
@@ -67,36 +51,35 @@
 
     <inceptionYear>2009</inceptionYear>
 
-    <!-- disable doclint, since Java 8 treats warnings as errors -->
     <profiles>
         <profile>
-            <id>doclint-java8-disable</id>
-            <activation>
-                <jdk>[1.8,)</jdk>
-            </activation>
-            <properties>
-                <javadoc.opts>-Xdoclint:none</javadoc.opts>
-            </properties>
+            <id>smoke-test</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                          <excludedGroups>org.littleshoot.proxy.SlowTest</excludedGroups>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
-        <profile>
-            <id>doclint-java7-earlier</id>
-            <activation>
-                <jdk>[,1.8)</jdk>
-            </activation>
-            <properties>
-                <javadoc.opts />
-            </properties>
-        </profile>
-
         <profile>
             <id>release</id>
+            <activation>
+                <property>
+                    <name>performRelease</name>
+                    <value>true</value>
+                </property>
+            </activation>
             <build>
                 <plugins>
                     <!-- Skipping tests when preparing a release -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <version>2.19.1</version>
                         <configuration>
                             <skipTests>true</skipTests>
                         </configuration>
@@ -104,7 +87,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
-                        <version>3.0.1</version>
                         <executions>
                             <execution>
                                 <id>attach-sources</id>
@@ -118,12 +100,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>2.10.4</version>
-                        <configuration>
-                            <source>${java.version}</source>
-                            <!-- disable doclint, since Java 8 treats warnings as errors -->
-                            <additionalparam>${javadoc.opts}</additionalparam>
-                        </configuration>
                         <executions>
                             <execution>
                                 <id>attach-javadocs</id>
@@ -137,7 +113,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.6</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
@@ -145,13 +120,21 @@
                                 <goals>
                                     <goal>sign</goal>
                                 </goals>
+                                <configuration>
+                                    <keyname>${gpg.keyname}</keyname>
+                                    <passphraseServerId>${gpg.keyname}</passphraseServerId>
+                                    <executable>gpg</executable>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.sonatype.plugins</groupId>
                         <artifactId>nexus-staging-maven-plugin</artifactId>
-                        <version>1.6.7</version>
                         <extensions>true</extensions>
                         <configuration>
                             <serverId>ossrh</serverId>
@@ -162,7 +145,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-release-plugin</artifactId>
-                        <version>2.5.3</version>
                         <configuration>
                             <autoVersionSubmodules>true</autoVersionSubmodules>
                             <useReleaseProfile>false</useReleaseProfile>
@@ -173,26 +155,19 @@
                 </plugins>
             </build>
         </profile>
-
-        <profile>
-            <id>netty-4.1</id>
-            <properties>
-                <netty.version>4.1.8.Final</netty.version>
-            </properties>
-        </profile>
     </profiles>
 
     <dependencies>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>23.0</version>
+            <version>31.1-jre</version>
         </dependency>
 
         <dependency>
             <groupId>commons-cli</groupId>
             <artifactId>commons-cli</artifactId>
-            <version>1.3.1</version>
+            <version>1.5.0</version>
             <!-- Only required when running as a standalone jar -->
             <optional>true</optional>
         </dependency>
@@ -200,48 +175,41 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.5</version>
+            <version>3.12.0</version>
         </dependency>
 
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.12</version>
+            <version>4.13.2</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest-core</artifactId>
-            <version>1.3</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest-library</artifactId>
-            <version>1.3</version>
+            <artifactId>hamcrest</artifactId>
+            <version>2.2</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-server</artifactId>
-            <version>8.1.17.v20150415</version>
+            <version>9.4.46.v20220331</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>2.7.12</version>
+            <version>4.6.1</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.mock-server</groupId>
             <artifactId>mockserver-netty</artifactId>
-            <version>3.10.4</version>
+            <version>5.13.2</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -254,7 +222,7 @@
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
             <artifactId>selenium-java</artifactId>
-            <version>2.53.1</version>
+            <version>4.2.2</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -265,22 +233,27 @@
         </dependency>
 
         <dependency>
-            <groupId>log4j</groupId>
-            <artifactId>log4j</artifactId>
-            <version>1.2.17</version>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.17.2</version>
             <optional>true</optional>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.3</version>
+            <version>4.5.13</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-example</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -305,13 +278,13 @@
         <dependency>
             <groupId>dnsjava</groupId>
             <artifactId>dnsjava</artifactId>
-            <version>2.1.8</version>
+            <version>3.5.1</version>
             <optional>true</optional>
         </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-log4j12</artifactId>
+            <artifactId>slf4j-reload4j</artifactId>
             <version>${slf4j.version}</version>
             <optional>true</optional>
         </dependency>
@@ -335,7 +308,7 @@
     <dependencyManagement>
         <dependencies>
             <!-- Manage the version of all netty libraries included in netty-all. This prevents maven from pulling multiple netty versions
-                 onto the compile and test classpaths if transitive dependencies also use netty but declare specific dependencies, rather
+                 onto compile and test classpath if transitive dependencies also use netty but declare specific dependencies, rather
                  than using netty-all as we do. -->
             <dependency>
                 <groupId>io.netty</groupId>
@@ -374,7 +347,36 @@
             </dependency>
             <dependency>
                 <groupId>io.netty</groupId>
+                <artifactId>netty-example</artifactId>
+                <version>${netty.version}</version>
+                <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.netty</groupId>
+                        <artifactId>netty-tcnative</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-classic</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.bouncycastle</groupId>
+                        <artifactId>bcprov-jdk15on</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
                 <artifactId>netty-handler</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-handler-proxy</artifactId>
                 <version>${netty.version}</version>
             </dependency>
             <dependency>
@@ -397,17 +399,17 @@
                 <artifactId>netty-transport-udp</artifactId>
                 <version>${netty.version}</version>
             </dependency>
+
             <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-example</artifactId>
-                <version>${netty.version}</version>
+                <!--Override transitive dependency of org.mock-server:mockserver-netty-->
+                <!--Provides patches for several CVE issues-->
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.13.2.2</version>
+                <type>bundle</type>
             </dependency>
         </dependencies>
     </dependencyManagement>
-
-    <prerequisites>
-        <maven>3.0.4</maven>
-    </prerequisites>
 
     <build>
         <pluginManagement>
@@ -415,13 +417,13 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
-                    <version>1.4.1</version>
+                    <version>3.1.0</version>
                 </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-site-plugin</artifactId>
-                    <version>3.6</version>
+                    <version>3.12.0</version>
                 </plugin>
 
                 <plugin>
@@ -433,38 +435,88 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
-                    <version>2.10</version>
+                    <version>3.3.0</version>
                 </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-clean-plugin</artifactId>
-                    <version>3.0.0</version>
+                    <version>3.2.0</version>
                 </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-deploy-plugin</artifactId>
-                    <version>2.8.2</version>
+                    <version>3.0.0-M2</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.10.1</version>
+                    <configuration>
+                        <source>${java.version}</source>
+                        <target>${java.version}</target>
+                        <encoding>UTF-8</encoding>
+                    </configuration>
                 </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-install-plugin</artifactId>
-                    <version>2.5.2</version>
+                    <version>3.0.0-M1</version>
                 </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.0.2</version>
+                    <version>3.2.2</version>
                 </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-resources-plugin</artifactId>
-                    <version>3.0.2</version>
+                    <version>3.2.0</version>
                 </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.2.1</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.4.0</version>
+                    <configuration>
+                        <doclint>all,-missing</doclint>
+                        <show>private</show>
+                        <source>${java.version}</source>
+                        <links>
+                            <link>http://netty.io/4.0/api/</link>
+                        </links>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.0.0-M7</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>3.0.1</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.sonatype.plugins</groupId>
+                    <artifactId>nexus-staging-maven-plugin</artifactId>
+                    <version>1.6.13</version>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
@@ -472,42 +524,25 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.19.1</version>
                 <configuration>
-                    <argLine>-Xmx1g -XX:MaxPermSize=256m</argLine>
+                    <argLine>-Xmx1g</argLine>
                 </configuration>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.6.0</version>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                    <encoding>UTF-8</encoding>
-                </configuration>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.10.4</version>
-                <configuration>
-                    <show>private</show>
-                    <source>${java.version}</source>
-                    <links>
-                        <link>http://netty.io/4.0/api/</link>
-                    </links>
-                    <!-- disable doclint, since Java 8 treats warnings as errors -->
-                    <additionalparam>${javadoc.opts}</additionalparam>
-                </configuration>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>2.4.3</version>
+                <version>3.2.4</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -549,6 +584,27 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-maven</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>3.0.4</version>
+                                </requireMavenVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 
@@ -557,12 +613,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-site-plugin</artifactId>
-                <version>3.4</version>
             </plugin>
 
             <plugin>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>2.10</version>
                 <reportSets>
                     <reportSet>
                         <reports>
@@ -571,47 +625,39 @@
                     </reportSet>
                 </reportSets>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-project-info-reports-plugin</artifactId>
-                <version>2.9</version>
-                <configuration>
-                    <dependencyDetailsEnabled>true</dependencyDetailsEnabled>
-                    <dependencyLocationsEnabled>true</dependencyLocationsEnabled>
-                </configuration>
+                <version>3.3.0</version>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.10.3</version>
-                <configuration>
-                    <show>private</show>
-                    <source>${java.version}</source>
-                    <links>
-                        <link>http://netty.io/4.0/api/</link>
-                    </links>
-                    <!-- disable doclint, since Java 8 treats warnings as errors -->
-                    <additionalparam>${javadoc.opts}</additionalparam>
-                </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-report-plugin</artifactId>
-                <version>2.19.1</version>
+                <version>3.0.0-M7</version>
                 <configuration>
                     <showSuccess>false</showSuccess>
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>2.17</version>
+                <version>3.1.2</version>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-changelog-plugin</artifactId>
                 <version>2.3</version>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-changes-plugin</artifactId>
@@ -624,23 +670,26 @@
                     </reportSet>
                 </reportSets>
             </plugin>
+
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>findbugs-maven-plugin</artifactId>
-                <version>3.0.4</version>
+                <version>3.0.5</version>
                 <configuration>
                     <!-- Optional directory to put findbugs xml report -->
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jxr-plugin</artifactId>
-                <version>2.5</version>
+                <version>3.2.0</version>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.7</version>
+                <version>3.17.0</version>
                 <configuration>
                     <linkXRef>true</linkXRef>
                     <sourceEncoding>utf-8</sourceEncoding>
@@ -648,15 +697,11 @@
                     <targetJdk>${java.version}</targetJdk>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>cobertura-maven-plugin</artifactId>
-                <version>2.7</version>
-            </plugin>
+
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>versions-maven-plugin</artifactId>
-                <version>2.3</version>
+                <version>2.11.0</version>
                 <reportSets>
                     <reportSet>
                         <reports>
@@ -672,7 +717,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>taglist-maven-plugin</artifactId>
-                <version>2.4</version>
+                <version>3.0.0</version>
                 <configuration>
                     <multipleLineComments>true</multipleLineComments>
                     <tags>
@@ -690,23 +735,22 @@
 
     <developers>
         <developer>
-            <id>afisk</id>
-            <name>Adam fisk</name>
-            <email>a@littleshoot.org</email>
-            <organization>LittleShoot</organization>
-            <organizationUrl>http://www.littleshoot.org/</organizationUrl>
+            <id>mrogers</id>
+            <name>Mark Rogers</name>
+            <email>mark.rogers@gmail.com</email>
+            <organization>Mark Rogers</organization>
+            <organizationUrl>https://github.com/mrog</organizationUrl>
             <roles><role>Developer</role></roles>
-            <timezone>-5</timezone>
+            <timezone>-7</timezone>
         </developer>
-
         <developer>
-            <id>ox.to.a.cart</id>
-            <name>Ox Cart</name>
-            <email>ox@getlantern.org</email>
-            <organization>GetLantern</organization>
-            <organizationUrl>https://www.getlantern.org/</organizationUrl>
-            <roles><role>Developer</role></roles>
-            <timezone>-5</timezone>
+            <id>asolntsev</id>
+            <name>Andrei Solntsev</name>
+            <email>andrei.solntsev+littleproxy@gmail.com</email>
+            <organization>LittleProxy</organization>
+            <organizationUrl>https://github.com/LittleProxy</organizationUrl>
+            <roles><role>Maintainer</role></roles>
+            <timezone>+3</timezone>
         </developer>
     </developers>
 </project>

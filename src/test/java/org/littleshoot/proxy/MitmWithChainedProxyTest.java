@@ -1,41 +1,40 @@
 package org.littleshoot.proxy;
 
-import static org.hamcrest.Matchers.hasItem;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
-
-import java.nio.charset.Charset;
-import java.util.HashSet;
-import java.util.Set;
-
-import org.littleshoot.proxy.extras.SelfSignedMitmManager;
-
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import org.littleshoot.proxy.extras.SelfSignedMitmManager;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.hamcrest.Matchers.hasItem;
+import static org.junit.Assert.assertEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
  * Tests a proxy that runs as a MITM and which is chained with
- * another proxy. 
+ * another proxy.
  */
 public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
-    private Set<HttpMethod> requestPreMethodsSeen = new HashSet<HttpMethod>();
-    private Set<HttpMethod> requestPostMethodsSeen = new HashSet<HttpMethod>();
-    private StringBuilder responsePreBody = new StringBuilder();
-    private StringBuilder responsePostBody = new StringBuilder();
-    private Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
-    private Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<HttpMethod>();
-    
+    private final Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
+    private final StringBuilder responsePreBody = new StringBuilder();
+    private final StringBuilder responsePostBody = new StringBuilder();
+    private final Set<HttpMethod> responsePreOriginalRequestMethodsSeen = new HashSet<>();
+    private final Set<HttpMethod> responsePostOriginalRequestMethodsSeen = new HashSet<>();
+
     @Override
     protected void setUp() {
-   	
+
         REQUESTS_SENT_BY_DOWNSTREAM.set(0);
         REQUESTS_RECEIVED_BY_UPSTREAM.set(0);
         TRANSPORTS_USED.clear();
         this.upstreamProxy = upstreamProxy().start();
-    	
+
         this.proxyServer = bootstrapProxy()
                 .withPort(0)
                 .withChainProxyManager(chainedProxyManager())
@@ -51,7 +50,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPreMethodsSeen
                                             .add(((HttpRequest) httpObject)
-                                                    .getMethod());
+                                                    .method());
                                 }
                                 return null;
                             }
@@ -62,7 +61,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                 if (httpObject instanceof HttpRequest) {
                                     requestPostMethodsSeen
                                             .add(((HttpRequest) httpObject)
-                                                    .getMethod());
+                                                    .method());
                                 }
                                 return null;
                             }
@@ -72,11 +71,10 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                     HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePreOriginalRequestMethodsSeen
-                                            .add(originalRequest.getMethod());
+                                            .add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
                                     responsePreBody.append(((HttpContent) httpObject)
-                                            .content().toString(
-                                                    Charset.forName("UTF-8")));
+                                            .content().toString(UTF_8));
                                 }
                                 return httpObject;
                             }
@@ -86,11 +84,10 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                                     HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
                                     responsePostOriginalRequestMethodsSeen
-                                            .add(originalRequest.getMethod());
+                                            .add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
                                     responsePostBody.append(((HttpContent) httpObject)
-                                            .content().toString(
-                                                    Charset.forName("UTF-8")));
+                                            .content().toString(UTF_8));
                                 }
                                 return httpObject;
                             }
@@ -99,7 +96,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                 })
                 .start();
     }
-    
+
     @Override
     protected boolean isMITM() {
         return true;
@@ -135,7 +132,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
             assertResponseFromFiltersMatchesActualResponse();
         }
     }
-    
+
     @Override
     public void testSimplePostRequestOverHTTPS() throws Exception {
         super.testSimplePostRequestOverHTTPS();
@@ -146,7 +143,7 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
             assertResponseFromFiltersMatchesActualResponse();
         }
     }
-    
+
     private void assertMethodSeenInRequestFilters(HttpMethod method) {
         assertThat(method
                         + " should have been seen in clientToProxyRequest filter",
@@ -159,11 +156,11 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
     private void assertMethodSeenInResponseFilters(HttpMethod method) {
         assertThat(
                 method
-                        + " should have been seen as the original requests's method in serverToProxyResponse filter",
+                        + " should have been seen as the original request's method in serverToProxyResponse filter",
                 responsePreOriginalRequestMethodsSeen, hasItem(method));
         assertThat(
                 method
-                        + " should have been seen as the original requests's method in proxyToClientResponse filter",
+                        + " should have been seen as the original request's method in proxyToClientResponse filter",
                 responsePostOriginalRequestMethodsSeen, hasItem(method));
     }
 
@@ -175,9 +172,9 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                 "Data received through HttpFilters.proxyToClientResponse should match response",
                 lastResponse, responsePostBody.toString());
     }
-    
+
     @Override
-    protected void tearDown() throws Exception {
+    protected void tearDown() {
         this.upstreamProxy.abort();
     }
 }

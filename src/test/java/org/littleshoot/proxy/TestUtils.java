@@ -1,5 +1,28 @@
 package org.littleshoot.proxy;
 
+import com.sun.management.UnixOperatingSystemMXBean;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.handler.AbstractHandler;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
+
+import javax.net.ssl.SSLContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,34 +32,14 @@ import java.lang.management.OperatingSystemMXBean;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.security.SecureRandom;
-import java.security.cert.X509Certificate;
+import java.util.Objects;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLException;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.sun.management.UnixOperatingSystemMXBean;
-
-import org.apache.http.HttpHost;
-import org.apache.http.client.HttpClient;
-import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.conn.ssl.X509HostnameVerifier;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.eclipse.jetty.server.Connector;
-import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.AbstractHandler;
-import org.eclipse.jetty.server.ssl.SslSocketConnector;
-import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 public class TestUtils {
+
+    public static final RequestConfig REQUEST_TIMEOUT_CONFIG = RequestConfig.custom().setConnectTimeout(5000).build();
 
     private TestUtils() {
     }
@@ -75,9 +78,10 @@ public class TestUtils {
         final Server httpServer = new Server(0);
 
         httpServer.setHandler(new AbstractHandler() {
-            public void handle(String target, Request baseRequest,
-                    HttpServletRequest request, HttpServletResponse response)
-                    throws IOException, ServletException {
+            public void handle(String target,
+                               Request baseRequest,
+                               HttpServletRequest request,
+                               HttpServletResponse response) throws IOException {
                 if (request.getRequestURI().contains("hang")) {
                     System.out.println("Hanging as requested");
                     try {
@@ -88,10 +92,10 @@ public class TestUtils {
                 }
                 
                 long numberOfBytesRead = 0;
-                InputStream in = new BufferedInputStream(request
-                        .getInputStream());
-                while (in.read() != -1) {
-                    numberOfBytesRead += 1;
+                try (InputStream in = new BufferedInputStream(request.getInputStream())) {
+                    while (in.read() != -1) {
+                        numberOfBytesRead += 1;
+                    }
                 }
                 System.out.println("Done reading # of bytes: "
                         + numberOfBytesRead);
@@ -102,31 +106,18 @@ public class TestUtils {
                 response.getOutputStream().write(content);
             }
         });
+
         if (enableHttps) {
             // Add SSL connector
-            org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
+            SslContextFactory sslContextFactory = new SslContextFactory.Server();
 
             SelfSignedSslEngineSource contextSource = new SelfSignedSslEngineSource();
             SSLContext sslContext = contextSource.getSslContext();
 
             sslContextFactory.setSslContext(sslContext);
-            SslSocketConnector connector = new SslSocketConnector(
-                    sslContextFactory);
+            ServerConnector connector = new ServerConnector(httpServer, sslContextFactory);
             connector.setPort(0);
-            /*
-             * <p>Ox: For some reason, on OS X, a non-zero timeout can causes
-             * sporadic issues. <a href="http://stackoverflow.com/questions
-             * /16191236/tomcat-startup-fails
-             * -due-to-java-net-socketexception-invalid-argument-on-mac-o">This
-             * StackOverflow thread</a> has some insights into it, but I don't
-             * quite get it.</p>
-             * 
-             * <p>This can cause problems with Jetty's SSL handshaking, so I
-             * have to set the handshake timeout and the maxIdleTime to 0 so
-             * that the SSLSocket has an infinite timeout.</p>
-             */
-            connector.setHandshakeTimeout(0);
-            connector.setMaxIdleTime(0);
+            connector.setIdleTimeout(0);
             httpServer.addConnector(connector);
         }
 
@@ -150,9 +141,10 @@ public class TestUtils {
     public static Server startWebServerWithResponse(boolean enableHttps, final byte[] content) {
         final Server httpServer = new Server(0);
         httpServer.setHandler(new AbstractHandler() {
-            public void handle(String target, Request baseRequest,
-                               HttpServletRequest request, HttpServletResponse response)
-                    throws IOException, ServletException {
+            public void handle(String target,
+                               Request baseRequest,
+                               HttpServletRequest request,
+                               HttpServletResponse response) throws IOException {
                 if (request.getRequestURI().contains("hang")) {
                     System.out.println("Hanging as requested");
                     try {
@@ -163,10 +155,10 @@ public class TestUtils {
                 }
 
                 long numberOfBytesRead = 0;
-                InputStream in = new BufferedInputStream(request
-                        .getInputStream());
-                while (in.read() != -1) {
-                    numberOfBytesRead += 1;
+                try (InputStream in = new BufferedInputStream(request.getInputStream())) {
+                    while (in.read() != -1) {
+                        numberOfBytesRead += 1;
+                    }
                 }
                 System.out.println("Done reading # of bytes: "
                         + numberOfBytesRead);
@@ -177,31 +169,18 @@ public class TestUtils {
                 response.getOutputStream().write(content);
             }
         });
+
         if (enableHttps) {
             // Add SSL connector
-            org.eclipse.jetty.util.ssl.SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
+            SslContextFactory sslContextFactory = new SslContextFactory.Server();
 
             SelfSignedSslEngineSource contextSource = new SelfSignedSslEngineSource();
             SSLContext sslContext = contextSource.getSslContext();
 
             sslContextFactory.setSslContext(sslContext);
-            SslSocketConnector connector = new SslSocketConnector(
-                    sslContextFactory);
+            ServerConnector connector = new ServerConnector(httpServer, sslContextFactory);
             connector.setPort(0);
-            /*
-             * <p>Ox: For some reason, on OS X, a non-zero timeout can causes
-             * sporadic issues. <a href="http://stackoverflow.com/questions
-             * /16191236/tomcat-startup-fails
-             * -due-to-java-net-socketexception-invalid-argument-on-mac-o">This
-             * StackOverflow thread</a> has some insights into it, but I don't
-             * quite get it.</p>
-             *
-             * <p>This can cause problems with Jetty's SSL handshaking, so I
-             * have to set the handshake timeout and the maxIdleTime to 0 so
-             * that the SSLSocket has an infinite timeout.</p>
-             */
-            connector.setHandshakeTimeout(0);
-            connector.setMaxIdleTime(0);
+            connector.setIdleTimeout(0);
             httpServer.addConnector(connector);
         }
 
@@ -222,8 +201,8 @@ public class TestUtils {
      */
     public static int findLocalHttpPort(Server webServer) {
         for (Connector connector : webServer.getConnectors()) {
-            if (!(connector instanceof SslSocketConnector)) {
-                return connector.getLocalPort();
+            if (!Objects.equals(connector.getDefaultConnectionFactory().getProtocol(), "SSL")) {
+                return ((ServerConnector) connector).getLocalPort();
             }
         }
 
@@ -238,8 +217,8 @@ public class TestUtils {
      */
     public static int findLocalHttpsPort(Server webServer) {
         for (Connector connector : webServer.getConnectors()) {
-            if (connector instanceof SslSocketConnector) {
-                return connector.getLocalPort();
+            if (Objects.equals(connector.getDefaultConnectionFactory().getProtocol(), "SSL")) {
+                return ((ServerConnector) connector).getLocalPort();
             }
         }
 
@@ -254,55 +233,8 @@ public class TestUtils {
      *            the proxy port
      * @return instance of HttpClient
      */
-    public static HttpClient createProxiedHttpClient(final int port)
-            throws Exception {
-        return createProxiedHttpClient(port, false);
-    }
-
-    /**
-     * Creates instance HttpClient that is configured to use proxy server. The
-     * proxy server should run on 127.0.0.1 and given port
-     * 
-     * @param port
-     *            the proxy port
-     * @param supportSSL
-     *            if true, client will support SSL connections to servers using
-     *            self-signed certificates
-     * @return instance of HttpClient
-     */
-    public static HttpClient createProxiedHttpClient(final int port,
-            final boolean supportSSL) throws Exception {
-        final HttpClient httpclient = new DefaultHttpClient();
-        // Note: we use 127.0.0.1 here because on OS X, using straight up
-        // localhost yields a connect exception.
-        final HttpHost proxy = new HttpHost("127.0.0.1", port, "http");
-        httpclient.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY,
-                proxy);
-        if (supportSSL) {
-            SSLSocketFactory sf = new SSLSocketFactory(
-                    new TrustSelfSignedStrategy(),
-                    new X509HostnameVerifier() {
-                public boolean verify(String arg0, SSLSession arg1) {
-                    return true;
-                }
-
-                public void verify(String host, String[] cns,
-                        String[] subjectAlts) throws SSLException {
-                }
-
-                public void verify(String host, X509Certificate cert)
-                        throws SSLException {
-                }
-
-                public void verify(String host, SSLSocket ssl)
-                        throws IOException {
-                }
-            });
-            Scheme scheme = new Scheme("https", 443, sf);
-            httpclient.getConnectionManager().getSchemeRegistry()
-                    .register(scheme);
-        }
-        return httpclient;
+    public static CloseableHttpClient createProxiedHttpClient(final int port) throws Exception {
+        return buildHttpClient(true, false, port, null, null);
     }
 
     public static int randomPort() {
@@ -312,38 +244,20 @@ public class TestUtils {
             // Math.abs(Integer.MIN_VALUE) == Integer.MIN_VALUE -- caught
             // by FindBugs.
             final int randomPort = 1024 + (Math.abs(secureRandom.nextInt() + 1) % 60000);
-            ServerSocket sock = null;
-            try {
-                sock = new ServerSocket();
+            try (ServerSocket sock = new ServerSocket()) {
                 sock.bind(new InetSocketAddress("127.0.0.1", randomPort));
                 return sock.getLocalPort();
-            } catch (final IOException e) {
-            } finally {
-                if (sock != null) {
-                    try {
-                        sock.close();
-                    } catch (IOException e) {
-                    }
-                }
+            } catch (final IOException ignored) {
             }
         }
 
         // If we can't grab one of our securely chosen random ports, use
         // whatever port the OS assigns.
-        ServerSocket sock = null;
-        try {
-            sock = new ServerSocket();
+        try (ServerSocket sock = new ServerSocket()) {
             sock.bind(null);
             return sock.getLocalPort();
         } catch (final IOException e) {
             return 1024 + (Math.abs(secureRandom.nextInt() + 1) % 60000);
-        } finally {
-            if (sock != null) {
-                try {
-                    sock.close();
-                } catch (IOException e) {
-                }
-            }
         }
     }
     
@@ -381,34 +295,43 @@ public class TestUtils {
         return (osMxBean instanceof UnixOperatingSystemMXBean);
     }
 
+    public static void requireUnix() {
+        assumeTrue("Skipping test on non-Unix OS", isUnixManagementCapable());
+    }
+
+    public static void disableOnMac() {
+        assumeFalse("Skipping test on Mac OS", System.getProperty("os.name").toLowerCase().contains("mac"));
+    }
+
     /**
      * Creates a DefaultHttpClient instance.
      * 
-     * @return instance of DefaultHttpClient
+     * @return instance of ClosableHttpClient
      */
-    public static DefaultHttpClient buildHttpClient() throws Exception {
-        DefaultHttpClient httpClient = new DefaultHttpClient();
-        SSLSocketFactory sf = new SSLSocketFactory(
-                new TrustSelfSignedStrategy(), new X509HostnameVerifier() {
-                    public boolean verify(String arg0, SSLSession arg1) {
-                        return true;
-                    }
+    public static CloseableHttpClient buildHttpClient(boolean isProxied, boolean supportSsl, int proxyPort,
+                                                      String username, String password) throws Exception {
 
-                    public void verify(String host, String[] cns,
-                            String[] subjectAlts)
-                            throws SSLException {
-                    }
+        HttpClientBuilder builder = HttpClientBuilder.create()
+                .setSSLContext(SSLContextBuilder.create()
+                        .loadTrustMaterial(new TrustSelfSignedStrategy())
+                        .build());
 
-                    public void verify(String host, X509Certificate cert)
-                            throws SSLException {
-                    }
+        if(supportSsl){
+            builder.setSSLHostnameVerifier(new NoopHostnameVerifier());
+        }
 
-                    public void verify(String host, SSLSocket ssl)
-                            throws IOException {
-                    }
-                });
-        Scheme scheme = new Scheme("https", 443, sf);
-        httpClient.getConnectionManager().getSchemeRegistry().register(scheme);
-        return httpClient;
+        if (isProxied) {
+            HttpHost proxy = new HttpHost("127.0.0.1", proxyPort);
+            builder.setProxy(proxy);
+            if (username != null && password != null) {
+                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                credentialsProvider.setCredentials(
+                        new AuthScope("127.0.0.1", proxyPort),
+                        new UsernamePasswordCredentials(username, password));
+                builder.setDefaultCredentialsProvider(credentialsProvider);
+            }
+        }
+
+        return builder.build();
     }
 }

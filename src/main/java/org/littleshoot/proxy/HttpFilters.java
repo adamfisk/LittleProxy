@@ -63,7 +63,7 @@ import java.net.InetSocketAddress;
  * <li>proxyToServerRequestSending</li>
  * <li>proxyToServerRequestSent</li>
  * <li>serverToProxyResponseReceiving</li>
- * <li>serverToProxyResponse (can be multiple if chuncked)</li>
+ * <li>serverToProxyResponse (can be multiple if chunked)</li>
  * <li>serverToProxyResponseReceived</li>
  * <li>proxyToClientResponse</li>
  * </ol>
@@ -207,5 +207,14 @@ public interface HttpFilters {
      * @param serverCtx the {@link io.netty.channel.ChannelHandlerContext} used to connect to the server
      */
     void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx);
+
+    /**
+     * Allow this proxy to act as an SSL man in the middle.
+     *
+     * <p>Has no impact if man in the middle is not enabled.</p>
+     *
+     * @return true to allow mitm, false to not mitm the proxy to server connection.
+     */
+    boolean proxyToServerAllowMitm();
 
 }

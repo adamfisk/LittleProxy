@@ -26,21 +26,39 @@ public interface ChainedProxy extends SslEngineSource {
     /**
      * (Optional) ensure that the connection is opened from a specific local
      * address (useful when doing NAT traversal).
-     * 
-     * @return
      */
     InetSocketAddress getLocalAddress();
 
     /**
      * Tell LittleProxy what kind of TransportProtocol to use to communicate
      * with the chained proxy.
-     * 
-     * @return
      */
     TransportProtocol getTransportProtocol();
 
     /**
-     * Implement this method to tell LittleProxy whether or not to encrypt
+     * Tell LittleProxy the type of chained proxy that it will be
+     * connecting to.  This setting determines what type of requests
+     * LittleProxy will use to communicate with the chained proxy.
+     * @return the chained proxy type.
+     */
+    ChainedProxyType getChainedProxyType();
+
+    /**
+     * (Optional) implement this method if the chained proxy requires
+     * a username.
+     * @return the username to send to the chained proxy.
+     */
+    String getUsername();
+
+    /**
+     * (Optional) implement this method if the chained proxy requires
+     * a password.
+     * @return the password to send to the chained proxy.
+     */
+    String getPassword();
+
+    /**
+     * Implement this method to tell LittleProxy whether to encrypt
      * connections to the chained proxy for the given request. If true,
      * LittleProxy will call {@link SslEngineSource#newSslEngine()} to obtain an
      * SSLContext used by the downstream proxy.
@@ -51,8 +69,6 @@ public interface ChainedProxy extends SslEngineSource {
 
     /**
      * Filters requests on their way to the chained proxy.
-     * 
-     * @param httpObject
      */
     void filterRequest(HttpObject httpObject);
 
@@ -65,7 +81,7 @@ public interface ChainedProxy extends SslEngineSource {
      * Called to let us know that connecting to this proxy failed.
      * 
      * @param cause
-     *            exception that caused this failure (may be null)
+     *            exception that caused this failure (maybe null)
      */
     void connectionFailed(Throwable cause);
 

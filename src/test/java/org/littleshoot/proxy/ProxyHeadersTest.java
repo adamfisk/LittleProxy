@@ -2,8 +2,8 @@ package org.littleshoot.proxy;
 
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.junit.After;
 import org.junit.Before;
@@ -14,7 +14,7 @@ import org.mockserver.matchers.Times;
 import org.mockserver.model.ConnectionOptions;
 
 import static org.hamcrest.Matchers.emptyArray;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -28,13 +28,13 @@ public class ProxyHeadersTest {
     private int mockServerPort;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         mockServer = new ClientAndServer(0);
-        mockServerPort = mockServer.getPort();
+        mockServerPort = mockServer.getLocalPort();
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         try {
             if (proxyServer != null) {
                 proxyServer.abort();
@@ -66,11 +66,12 @@ public class ProxyHeadersTest {
                 .withPort(0)
                 .start();
 
-        HttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServer.getListenAddress().getPort());
-        HttpResponse response = httpClient.execute(new HttpGet("http://localhost:" + mockServerPort + "/connectionheaders"));
-        EntityUtils.consume(response.getEntity());
+        try (CloseableHttpClient httpClient = TestUtils.createProxiedHttpClient(proxyServer.getListenAddress().getPort())) {
+            HttpResponse response = httpClient.execute(new HttpGet("http://localhost:" + mockServerPort + "/connectionheaders"));
+            EntityUtils.consume(response.getEntity());
 
-        Header[] dummyHeaders = response.getHeaders("Dummy-Header");
-        assertThat("Expected proxy to remove the Dummy-Header specified in the Connection header", dummyHeaders, emptyArray());
+            Header[] dummyHeaders = response.getHeaders("Dummy-Header");
+            assertThat("Expected proxy to remove the Dummy-Header specified in the Connection header", dummyHeaders, emptyArray());
+        }
     }
 }

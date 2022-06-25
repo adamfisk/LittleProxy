@@ -6,13 +6,13 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.hamcrest.Matchers.isIn;
+import static org.hamcrest.Matchers.in;
+import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
  * Base class for tests that test a proxy chained to an upstream proxy. In
@@ -21,10 +21,10 @@ import static org.junit.Assert.assertThat;
  */
 public abstract class BaseChainedProxyTest extends BaseProxyTest {
     protected final AtomicLong REQUESTS_SENT_BY_DOWNSTREAM = new AtomicLong(
-            0l);
+            0L);
     protected final AtomicLong REQUESTS_RECEIVED_BY_UPSTREAM = new AtomicLong(
-            0l);
-    protected final ConcurrentSkipListSet<TransportProtocol> TRANSPORTS_USED = new ConcurrentSkipListSet<TransportProtocol>();
+            0L);
+    protected final ConcurrentSkipListSet<TransportProtocol> TRANSPORTS_USED = new ConcurrentSkipListSet<>();
 
     protected final ActivityTracker DOWNSTREAM_TRACKER = new ActivityTrackerAdapter() {
         @Override
@@ -67,13 +67,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
     }
     
     protected ChainedProxyManager chainedProxyManager() {
-        return new ChainedProxyManager() {
-            @Override
-            public void lookupChainedProxies(HttpRequest httpRequest,
-                    Queue<ChainedProxy> chainedProxies) {
-                chainedProxies.add(newChainedProxy());
-            }
-        };
+        return (httpRequest, chainedProxies, clientDetails) -> chainedProxies.add(newChainedProxy());
     }
 
     protected ChainedProxy newChainedProxy() {
@@ -81,8 +75,10 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
     }
 
     @Override
-    protected void tearDown() throws Exception {
-        this.upstreamProxy.abort();
+    protected void tearDown() {
+        if (upstreamProxy != null) {
+            upstreamProxy.abort();
+        }
     }
 
     @Override
@@ -123,7 +119,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
                 "1 and only 1 transport protocol should have been used to upstream proxy",
                 1, TRANSPORTS_USED.size());
         assertThat("Correct transport should have been used",
-                newChainedProxy().getTransportProtocol(), isIn(TRANSPORTS_USED));
+                newChainedProxy().getTransportProtocol(), is(in(TRANSPORTS_USED)));
     }
 
     protected class BaseChainedProxy extends ChainedProxyAdapter {

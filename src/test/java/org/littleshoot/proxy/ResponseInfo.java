@@ -1,8 +1,8 @@
 package org.littleshoot.proxy;
 
 public class ResponseInfo {
-    private int statusCode;
-    private String body;
+    private final int statusCode;
+    private final String body;
 
     public ResponseInfo(int statusCode, String body) {
         super();
@@ -41,9 +41,7 @@ public class ResponseInfo {
                 return false;
         } else if (!body.equals(other.body))
             return false;
-        if (statusCode != other.statusCode)
-            return false;
-        return true;
+        return statusCode == other.statusCode;
     }
 
     @Override

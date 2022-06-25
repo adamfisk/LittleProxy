@@ -103,4 +103,9 @@ public class HttpFiltersAdapter implements HttpFilters {
     @Override
     public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
     }
+
+    @Override
+    public boolean proxyToServerAllowMitm() {
+        return true;
+    }
 }

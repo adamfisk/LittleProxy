@@ -1,24 +1,31 @@
-[![Build Status](https://travis-ci.org/adamfisk/LittleProxy.png?branch=master)](https://travis-ci.org/adamfisk/LittleProxy)
+This is an updated fork of adamfisk's LittleProxy.  The original project appears
+to have been abandoned.  Because it's so incredibly useful, it's being brought
+back to life in this repository.
 
-LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's excellent [Netty](http://netty.io) event-based networking library. It's quite stable, performs well, and is easy to integrate into your projects. 
+LittleProxy is a high performance HTTP proxy written in Java atop Trustin Lee's
+excellent [Netty](http://netty.io) event-based networking library. It's quite
+stable, performs well, and is easy to integrate into your projects. 
 
 One option is to clone LittleProxy and run it from the command line. This is as simple as:
 
 ```
-$ git clone git://github.com/adamfisk/LittleProxy.git
+$ git clone git@github.com:LittleProxy/LittleProxy.git
 $ cd LittleProxy
 $ ./run.bash
 ```
 
 You can embed LittleProxy in your own projects through Maven with the following:
-
 ```
     <dependency>
-        <groupId>org.littleshoot</groupId>
+        <groupId>xyz.rogfam</groupId>
         <artifactId>littleproxy</artifactId>
-        <version>1.1.2</version>
+        <version>2.0.9</version>
     </dependency>
 ```
+
+Or with Gradle like this
+
+`compile "xyz.rogfam:littleproxy:2.0.9"`
 
 Once you've included LittleProxy, you can start the server with the following:
 
@@ -105,22 +112,26 @@ your proxy. You can return a `HttpFilters` implementation which answers
 responses with HTML content or redirects in `clientToProxyRequest` like this:
 
 ```java
+import java.nio.charset.StandardCharsets;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class AnswerRequestFilter extends HttpFiltersAdapter {
-	private final String answer;
+  private final String answer;
 
-	public AnswerRequestFilter(HttpRequest originalRequest, String answer) {
-		super(originalRequest, null);
-		this.answer = answer;
-	}
+  public AnswerRequestFilter(HttpRequest originalRequest, String answer) {
+    super(originalRequest, null);
+    this.answer = answer;
+  }
 
-	@Override
-	public HttpResponse clientToProxyRequest(HttpObject httpObject) {
-		ByteBuf buffer = Unpooled.wrappedBuffer(answer.getBytes("UTF-8"));
-		HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buffer);
-		HttpHeaders.setContentLength(response, buffer.readableBytes());
-		HttpHeaders.setHeader(response, HttpHeaders.Names.CONTENT_TYPE, "text/html");
-		return response;
-	}
+  @Override
+  public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+    ByteBuf buffer = Unpooled.wrappedBuffer(answer.getBytes(UTF_8));
+    HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buffer);
+    HttpHeaders.setContentLength(response, buffer.readableBytes());
+    HttpHeaders.setHeader(response, HttpHeaders.Names.CONTENT_TYPE, "text/html");
+    return response;
+  }
 }
 ```
 On answering a redirect, you should add a Connection: close header, to avoid 
@@ -143,13 +154,13 @@ For examples of configuring logging, see [src/test/resources/log4j.xml](src/test
 
 If you have questions, please visit our Google Group here:
 
-https://groups.google.com/forum/#!forum/littleproxy
+https://groups.google.com/forum/#!forum/littleproxy2
 
-To subscribe, send an E-Mail to mailto:LittleProxy+subscribe@googlegroups.com. 
-Simply answering, don't clicking the button, bypasses Googles registration 
-process. You will become a member. 
+(The original group at https://groups.google.com/forum/#!forum/littleproxy isn't
+accepting posts from new users.  But it's still a great resource if you're
+searching for older answers.)
 
-Benchmarking instructions and results can be found [here](performance).
+To subscribe, send an e-mail to [LittleProxy2+subscribe@googlegroups.com](mailto:LittleProxy2+subscribe@googlegroups.com). 
 
 Acknowledgments
 ---------------

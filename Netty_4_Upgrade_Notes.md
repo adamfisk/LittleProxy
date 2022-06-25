@@ -21,7 +21,7 @@ Relevant Changes
 
 * DefaultChannelGroup?
 
-* SimpleChannelUpstreamHandler -> SimpleChanneInboundHandler
+* SimpleChannelUpstreamHandler -> SimpleChannelInboundHandler
 
 * InterestOps is gone - what does this mean to setReadable() and
   channelInterestChanged()  ?

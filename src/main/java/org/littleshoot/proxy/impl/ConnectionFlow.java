@@ -1,10 +1,16 @@
 package org.littleshoot.proxy.impl;
 
+import io.netty.handler.codec.haproxy.HAProxyCommand;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
+import io.netty.handler.codec.haproxy.HAProxyProtocolVersion;
+import io.netty.handler.codec.haproxy.HAProxyProxiedProtocol;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import org.littleshoot.proxy.extras.ProxyProtocolMessage;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.net.InetSocketAddress;
 
 /**
  * Coordinates the various steps involved in establishing a connection, such as
@@ -12,7 +18,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * processing, and so on.
  */
 class ConnectionFlow {
-    private Queue<ConnectionFlowStep> steps = new ConcurrentLinkedQueue<ConnectionFlowStep>();
+    private final Deque<ConnectionFlowStep> steps = new ConcurrentLinkedDeque<ConnectionFlowStep>();
 
     private final ClientToProxyConnection clientConnection;
     private final ProxyToServerConnection serverConnection;
@@ -43,13 +49,18 @@ class ConnectionFlow {
     }
 
     /**
-     * Add a {@link ConnectionFlowStep} to this flow.
-     * 
-     * @param step
-     * @return
+     * Add a {@link ConnectionFlowStep} to the beginning of this flow.
+     */
+    ConnectionFlow first(ConnectionFlowStep step) {
+        steps.addFirst(step);
+        return this;
+    }
+
+    /**
+     * Add a {@link ConnectionFlowStep} to the end of this flow.
      */
     ConnectionFlow then(ConnectionFlowStep step) {
-        steps.add(step);
+        steps.addLast(step);
         return this;
     }
 
@@ -58,8 +69,6 @@ class ConnectionFlow {
      * {@link ProxyToServerConnection} are passed to this method, which passes
      * it on to {@link ConnectionFlowStep#read(ConnectionFlow, Object)} for the
      * current {@link ConnectionFlowStep}.
-     * 
-     * @param msg
      */
     void read(Object msg) {
         if (this.currentStep != null) {
@@ -118,12 +127,7 @@ class ConnectionFlow {
                 || currentStep.shouldSuppressInitialRequest();
 
         if (currentStep.shouldExecuteOnEventLoop()) {
-            connection.ctx.executor().submit(new Runnable() {
-                @Override
-                public void run() {
-                    doProcessCurrentStep(LOG);
-                }
-            });
+            connection.ctx.executor().submit(() -> doProcessCurrentStep(LOG));
         } else {
             doProcessCurrentStep(LOG);
         }
@@ -132,28 +136,21 @@ class ConnectionFlow {
     /**
      * Does the work of processing the current step, checking the result and
      * handling success/failure.
-     * 
-     * @param LOG
      */
     @SuppressWarnings("unchecked")
     private void doProcessCurrentStep(final ProxyConnectionLogger LOG) {
         currentStep.execute().addListener(
-                new GenericFutureListener<Future<?>>() {
-                    public void operationComplete(
-                            io.netty.util.concurrent.Future<?> future)
-                            throws Exception {
-                        synchronized (connectLock) {
-                            if (future.isSuccess()) {
-                                LOG.debug("ConnectionFlowStep succeeded");
-                                currentStep
-                                        .onSuccess(ConnectionFlow.this);
-                            } else {
-                                LOG.debug("ConnectionFlowStep failed",
-                                        future.cause());
-                                fail(future.cause());
-                            }
+                future -> {
+                    synchronized (connectLock) {
+                        if (future.isSuccess()) {
+                            LOG.debug("ConnectionFlowStep succeeded");
+                            currentStep.onSuccess(ConnectionFlow.this);
+                        } else {
+                            LOG.debug("ConnectionFlowStep failed",
+                                    future.cause());
+                            fail(future.cause());
                         }
-                    };
+                    }
                 });
     }
 
@@ -166,8 +163,26 @@ class ConnectionFlow {
             serverConnection.getLOG().debug(
                     "Connection flow completed successfully: {}", currentStep);
             serverConnection.connectionSucceeded(!suppressInitialRequest);
+            relayProxyInformation();
             notifyThreadsWaitingForConnection();
         }
+    }
+
+    private void relayProxyInformation() {
+        if (clientConnection.isSendProxyProtocol()) {
+            ProxyProtocolMessage proxyProtocolMessage = getHAProxyMessage(clientConnection.getClientAddress(), serverConnection.getRemoteAddress());
+            if ( proxyProtocolMessage != null ){
+                serverConnection.writeToChannel(proxyProtocolMessage);
+            }
+        }
+    }
+
+    private ProxyProtocolMessage getHAProxyMessage(InetSocketAddress clientAddress, InetSocketAddress remoteAddress) {
+        HAProxyMessage haProxyMessage = clientConnection.getHaProxyMessage();
+        if ( haProxyMessage != null ){
+            return new ProxyProtocolMessage(haProxyMessage);
+        }
+        return new ProxyProtocolMessage(HAProxyProtocolVersion.V1, HAProxyCommand.PROXY, HAProxyProxiedProtocol.TCP4, clientAddress.getAddress().getHostAddress(), remoteAddress.getAddress().getHostAddress(), clientAddress.getPort(), remoteAddress.getPort());
     }
 
     /**
@@ -180,22 +195,18 @@ class ConnectionFlow {
         final ConnectionState lastStateBeforeFailure = serverConnection
                 .getCurrentState();
         serverConnection.disconnect().addListener(
-                new GenericFutureListener() {
-                    @Override
-                    public void operationComplete(Future future)
-                            throws Exception {
-                        synchronized (connectLock) {
-                            if (!clientConnection.serverConnectionFailed(
-                                    serverConnection,
-                                    lastStateBeforeFailure,
-                                    cause)) {
-                                // the connection to the server failed and we are not retrying, so transition to the
-                                // DISCONNECTED state
-                                serverConnection.become(ConnectionState.DISCONNECTED);
+                (GenericFutureListener) future -> {
+                    synchronized (connectLock) {
+                        if (!clientConnection.serverConnectionFailed(
+                                serverConnection,
+                                lastStateBeforeFailure,
+                                cause)) {
+                            // the connection to the server failed and we are not retrying, so transition to the
+                            // DISCONNECTED state
+                            serverConnection.become(ConnectionState.DISCONNECTED);
 
-                                // We are not retrying our connection, let anyone waiting for a connection know that we're done
-                                notifyThreadsWaitingForConnection();
-                            }
+                            // We are not retrying our connection, let anyone waiting for a connection know that we're done
+                            notifyThreadsWaitingForConnection();
                         }
                     }
                 });

@@ -1,12 +1,14 @@
 package org.littleshoot.proxy;
 
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import static org.junit.Assert.assertEquals;
 
 /**
  * Tests just a single basic proxy.
  */
+@Category(SlowTest.class)
 public class IdlingProxyTest extends AbstractProxyTest {
     @Override
     protected void setUp() {

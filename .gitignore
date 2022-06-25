@@ -9,10 +9,11 @@ log.txt
 *.DS_Store
 *.orig
 target/
+dependency-reduced-pom.xml
 .idea/
 jmeter.log
 lib/
 LittleProxy.pro
 /bin
-*.jks
+/*.jks
 performance/site/

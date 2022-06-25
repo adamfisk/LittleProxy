@@ -1,14 +1,7 @@
 package org.littleshoot.proxy.impl;
 
-import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.ServerChannel;
+import io.netty.channel.*;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
@@ -16,21 +9,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.traffic.GlobalTrafficShapingHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
-import org.littleshoot.proxy.ActivityTracker;
-import org.littleshoot.proxy.ChainedProxyManager;
-import org.littleshoot.proxy.DefaultHostResolver;
-import org.littleshoot.proxy.DnsSecServerResolver;
-import org.littleshoot.proxy.HostResolver;
-import org.littleshoot.proxy.HttpFilters;
-import org.littleshoot.proxy.HttpFiltersSource;
-import org.littleshoot.proxy.HttpFiltersSourceAdapter;
-import org.littleshoot.proxy.HttpProxyServer;
-import org.littleshoot.proxy.HttpProxyServerBootstrap;
-import org.littleshoot.proxy.MitmManager;
-import org.littleshoot.proxy.ProxyAuthenticator;
-import org.littleshoot.proxy.SslEngineSource;
-import org.littleshoot.proxy.TransportProtocol;
-import org.littleshoot.proxy.UnknownTransportProtocolException;
+import org.littleshoot.proxy.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,7 +79,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     * The actual address to which the server is bound. May be different from the requestedAddress in some circumstances,
     * for example when the requested port is 0.
     */
-    private volatile InetSocketAddress localAddress;
+    private final InetSocketAddress localAddress;
     private volatile InetSocketAddress boundAddress;
     private final SslEngineSource sslEngineSource;
     private final boolean authenticateSslClients;
@@ -117,6 +96,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final int maxHeaderSize;
     private final int maxChunkSize;
     private final boolean allowRequestsToOriginServer;
+    private final boolean acceptProxyProtocol;
+    private final boolean sendProxyProtocol;
 
     /**
      * The alias or pseudonym for this proxy, used when adding the Via header.
@@ -131,7 +112,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     /**
      * Track all ActivityTrackers for tracking proxying activity.
      */
-    private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
+    private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<>();
 
     /**
      * Keep track of all channels created by this proxy server for later shutdown when the proxy is stopped.
@@ -142,17 +123,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * JVM shutdown hook to shutdown this proxy server. Declared as a class-level variable to allow removing the shutdown hook when the
      * proxy server is stopped normally.
      */
-    private final Thread jvmShutdownHook = new Thread(new Runnable() {
-        @Override
-        public void run() {
-            abort();
-        }
-    }, "LittleProxy-JVM-shutdown-hook");
+    private final Thread jvmShutdownHook = new Thread(this::abort, "LittleProxy-JVM-shutdown-hook");
 
     /**
      * Bootstrap a new {@link DefaultHttpProxyServer} starting from scratch.
-     *
-     * @return
      */
     public static HttpProxyServerBootstrap bootstrap() {
         return new DefaultHttpProxyServerBootstrap();
@@ -161,9 +135,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     /**
      * Bootstrap a new {@link DefaultHttpProxyServer} using defaults from the
      * given file.
-     *
-     * @param path
-     * @return
      */
     public static HttpProxyServerBootstrap bootstrapFromFile(String path) {
         final File propsFile = new File(path);
@@ -230,6 +201,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param maxChunkSize
      * @param allowRequestsToOriginServer
      *            when true, allow the proxy to handle requests that contain an origin-form URI, as defined in RFC 7230 5.3.1
+     * @param acceptProxyProtocol when true, the proxy will accept a proxy protocol header from client
+     * @param sendProxyProtocol when true, the proxy will send a proxy protocol header to the server
      */
     private DefaultHttpProxyServer(ServerGroup serverGroup,
             TransportProtocol transportProtocol,
@@ -252,7 +225,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             int maxInitialLineLength,
             int maxHeaderSize,
             int maxChunkSize,
-            boolean allowRequestsToOriginServer) {
+            boolean allowRequestsToOriginServer,
+            boolean acceptProxyProtocol,
+            boolean sendProxyProtocol) {
         this.serverGroup = serverGroup;
         this.transportProtocol = transportProtocol;
         this.requestedAddress = requestedAddress;
@@ -291,16 +266,12 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.maxHeaderSize = maxHeaderSize;
         this.maxChunkSize = maxChunkSize;
         this.allowRequestsToOriginServer = allowRequestsToOriginServer;
+        this.acceptProxyProtocol = acceptProxyProtocol;
+        this.sendProxyProtocol = sendProxyProtocol;
     }
 
     /**
      * Creates a new GlobalTrafficShapingHandler for this HttpProxyServer, using this proxy's proxyToServerEventLoop.
-     *
-     * @param transportProtocol
-     * @param readThrottleBytesPerSecond
-     * @param writeThrottleBytesPerSecond
-     *
-     * @return
      */
     private GlobalTrafficShapingHandler createGlobalTrafficShapingHandler(TransportProtocol transportProtocol, long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
         EventLoopGroup proxyToServerEventLoop = this.getProxyToServerWorkerFor(transportProtocol);
@@ -361,11 +332,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     public long getReadThrottle() {
-        return globalTrafficShapingHandler.getReadLimit();
+        if (globalTrafficShapingHandler != null) {
+            return globalTrafficShapingHandler.getReadLimit();
+        } else {
+            return 0;
+        }
     }
 
     public long getWriteThrottle() {
-        return globalTrafficShapingHandler.getWriteLimit();
+        if (globalTrafficShapingHandler != null) {
+            return globalTrafficShapingHandler.getWriteLimit();
+        } else {
+            return 0;
+        }
     }
 
     public int getMaxInitialLineLength() {
@@ -382,6 +361,14 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
 	public boolean isAllowRequestsToOriginServer() {
         return allowRequestsToOriginServer;
+    }
+
+    public boolean isAcceptProxyProtocol() {
+        return acceptProxyProtocol;
+    }
+
+    public boolean isSendProxyProtocol() {
+        return sendProxyProtocol;
     }
 
     @Override
@@ -453,8 +440,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     /**
      * Register a new {@link Channel} with this server, for later closing.
-     *
-     * @param channel
      */
     protected void registerChannel(Channel channel) {
         allChannels.add(channel);
@@ -466,7 +451,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * @param graceful when false, attempts to shutdown all channels immediately and ignores any channel-closing exceptions
      */
     protected void closeAllChannels(boolean graceful) {
-        LOG.info("Closing all channels " + (graceful ? "(graceful)" : "(non-graceful)"));
+        LOG.info("Closing all channels {}", graceful ? "(graceful)" : "(non-graceful)");
 
         ChannelGroupFuture future = allChannels.close();
 
@@ -492,7 +477,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private HttpProxyServer start() {
         if (!serverGroup.isStopped()) {
-            LOG.info("Starting proxy at address: " + this.requestedAddress);
+            LOG.info("Starting proxy at address: {}", this.requestedAddress);
 
             serverGroup.registerProxyServer(this);
 
@@ -510,24 +495,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 serverGroup.getClientToProxyWorkerPoolForTransport(transportProtocol));
 
         ChannelInitializer<Channel> initializer = new ChannelInitializer<Channel>() {
-            protected void initChannel(Channel ch) throws Exception {
+            protected void initChannel(Channel ch) {
                 new ClientToProxyConnection(
                         DefaultHttpProxyServer.this,
                         sslEngineSource,
                         authenticateSslClients,
                         ch.pipeline(),
                         globalTrafficShapingHandler);
-            };
+            }
         };
         switch (transportProtocol) {
             case TCP:
                 LOG.info("Proxy listening with TCP transport");
-                serverBootstrap.channelFactory(new ChannelFactory<ServerChannel>() {
-                    @Override
-                    public ServerChannel newChannel() {
-                        return new NioServerSocketChannel();
-                    }
-                });
+                serverBootstrap.channelFactory(NioServerSocketChannel::new);
                 break;
             case UDT:
                 LOG.info("Proxy listening with UDT transport");
@@ -540,23 +520,20 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
         serverBootstrap.childHandler(initializer);
         ChannelFuture future = serverBootstrap.bind(requestedAddress)
-                .addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture future)
-                            throws Exception {
-                        if (future.isSuccess()) {
-                            registerChannel(future.channel());
-                        }
+                .addListener((ChannelFutureListener) future1 -> {
+                    if (future1.isSuccess()) {
+                        registerChannel(future1.channel());
                     }
                 }).awaitUninterruptibly();
 
         Throwable cause = future.cause();
         if (cause != null) {
+            abort();
             throw new RuntimeException(cause);
         }
 
         this.boundAddress = ((InetSocketAddress) future.channel().localAddress());
-        LOG.info("Proxy started at address: " + this.boundAddress);
+        LOG.info("Proxy started at address: {}", this.boundAddress);
 
         Runtime.getRuntime().addShutdownHook(jvmShutdownHook);
     }
@@ -610,7 +587,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
         private boolean transparent = false;
         private int idleConnectionTimeout = 70;
-        private Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<ActivityTracker>();
+        private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<>();
         private int connectTimeout = 40000;
         private HostResolver serverResolver = new DefaultHostResolver();
         private long readThrottleBytesPerSecond;
@@ -624,6 +601,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private int maxHeaderSize = MAX_HEADER_SIZE_DEFAULT;
         private int maxChunkSize = MAX_CHUNK_SIZE_DEFAULT;
         private boolean allowRequestToOriginServer = false;
+        private boolean acceptProxyProtocol = false;
+        private boolean sendProxyProtocol = false;
 
         private DefaultHttpProxyServerBootstrap() {
         }
@@ -834,7 +813,13 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             this.serverResolver = serverResolver;
             return this;
         }
-
+	@Override
+	public HttpProxyServerBootstrap withServerGroup(
+		ServerGroup group) {
+	   this.serverGroup = group;
+	   return this;
+	}
+		
         @Override
         public HttpProxyServerBootstrap plusActivityTracker(
                 ActivityTracker activityTracker) {
@@ -874,6 +859,18 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        public HttpProxyServerBootstrap withAcceptProxyProtocol(boolean acceptProxyProtocol) {
+            this.acceptProxyProtocol = acceptProxyProtocol;
+            return this;
+        }
+
+        @Override
+        public HttpProxyServerBootstrap withSendProxyProtocol(boolean sendProxyProtocol) {
+            this.sendProxyProtocol = sendProxyProtocol;
+            return this;
+        }
+
+        @Override
         public HttpProxyServer start() {
             return build().start();
         }
@@ -904,7 +901,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                     idleConnectionTimeout, activityTrackers, connectTimeout,
                     serverResolver, readThrottleBytesPerSecond, writeThrottleBytesPerSecond,
                     localAddress, proxyAlias, maxInitialLineLength, maxHeaderSize, maxChunkSize,
-                    allowRequestToOriginServer);
+                    allowRequestToOriginServer, acceptProxyProtocol, sendProxyProtocol);
         }
 
         private InetSocketAddress determineListenAddress() {

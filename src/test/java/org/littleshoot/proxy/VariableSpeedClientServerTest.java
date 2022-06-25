@@ -1,29 +1,25 @@
 package org.littleshoot.proxy;
 
-import static org.junit.Assert.*;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.util.EntityUtils;
+import org.junit.Ignore;
+import org.junit.Test;
+import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.Charset;
 import java.util.Arrays;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.conn.params.ConnRoutePNames;
-import org.apache.http.entity.InputStreamEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.params.CoreConnectionPNames;
-import org.apache.http.util.EntityUtils;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests cases where either the client or the server is slower than the other.
@@ -55,78 +51,66 @@ public class VariableSpeedClientServerTest {
         DefaultHttpProxyServer.bootstrap().withPort(proxyPort).start();
         Thread.yield();
         Thread.sleep(400);
-        final DefaultHttpClient client = new DefaultHttpClient();
-        final HttpHost proxy = new HttpHost("127.0.0.1", proxyPort, "http");
-        client.getParams().setParameter(ConnRoutePNames.DEFAULT_PROXY, proxy);
-        client.getParams().setParameter(
-                CoreConnectionPNames.CONNECTION_TIMEOUT, 50000);
-        // client.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT,
-        // 120000);
+        try (CloseableHttpClient client = TestUtils.createProxiedHttpClient(proxyPort)) {
 
-        System.out
-                .println("------------------ Memory Usage At Beginning ------------------");
-        TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
+            System.out
+              .println("------------------ Memory Usage At Beginning ------------------");
+            TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
 
-        final String endpoint = "http://127.0.0.1:" + port + "/";
-        final HttpPost post = new HttpPost(endpoint);
-        post.setEntity(new InputStreamEntity(new InputStream() {
-            private int remaining = CONTENT_LENGTH;
+            final String endpoint = "http://127.0.0.1:" + port + "/";
+            final HttpPost post = new HttpPost(endpoint);
+            post.setConfig(TestUtils.REQUEST_TIMEOUT_CONFIG);
+            post.setEntity(new InputStreamEntity(new InputStream() {
+                private int remaining = CONTENT_LENGTH;
 
-            @Override
-            public int read() throws IOException {
-                if (remaining > 0) {
-                    remaining -= 1;
-                    return 77;
-                } else {
-                    return 0;
+                @Override
+                public int read() {
+                    if (remaining > 0) {
+                        remaining -= 1;
+                        return 77;
+                    }
+                    else {
+                        return 0;
+                    }
+                }
+
+                @Override
+                public int available() {
+                    return remaining;
+                }
+            }, CONTENT_LENGTH));
+            final HttpResponse response = client.execute(post);
+
+            final HttpEntity entity = response.getEntity();
+            final long cl = entity.getContentLength();
+            assertEquals(CONTENT_LENGTH, cl);
+
+            int bytesRead = 0;
+            try (InputStream content = slowServer ? new ThrottledInputStream(entity.getContent(), 10 * 1000) : entity.getContent()) {
+                final byte[] input = new byte[100000];
+                int read = content.read(input);
+
+                while (read != -1) {
+                    bytesRead += read;
+                    read = content.read(input);
                 }
             }
-
-            @Override
-            public int available() throws IOException {
-                return remaining;
-            }
-        }, CONTENT_LENGTH));
-        final HttpResponse response = client.execute(post);
-
-        final HttpEntity entity = response.getEntity();
-        final long cl = entity.getContentLength();
-        assertEquals(CONTENT_LENGTH, cl);
-
-        InputStream content = entity.getContent();
-        if (!slowServer) {
-            content = new ThrottledInputStream(entity.getContent(), 10 * 1000);
+            assertEquals(CONTENT_LENGTH, bytesRead);
+            // final String body = IOUtils.toString(entity.getContent());
+            EntityUtils.consume(entity);
+            System.out
+              .println("------------------ Memory Usage At Beginning ------------------");
+            TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
         }
-        final byte[] input = new byte[100000];
-        int read = content.read(input);
-
-        int bytesRead = 0;
-        while (read != -1) {
-            bytesRead += read;
-            read = content.read(input);
-        }
-        assertEquals(CONTENT_LENGTH, bytesRead);
-        // final String body = IOUtils.toString(entity.getContent());
-        EntityUtils.consume(entity);
-        content.close();
-        System.out
-                .println("------------------ Memory Usage At Beginning ------------------");
-        TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
     }
 
-    private void startServer(final int port, final boolean slowReader)
-            throws Exception {
-        final Thread t = new Thread(new Runnable() {
-
-            @Override
-            public void run() {
-                try {
-                    startServerOnThread(port, slowReader);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+    private void startServer(final int port, final boolean slowReader) {
+        final Thread t = new Thread(() -> {
+            try {
+                startServerOnThread(port, slowReader);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-
         }, "Test-Server-Thread");
         t.setDaemon(true);
         t.start();
@@ -134,8 +118,7 @@ public class VariableSpeedClientServerTest {
 
     private void startServerOnThread(int port, boolean slowReader)
             throws Exception {
-        final ServerSocket server = new ServerSocket(port);
-        try {
+        try (ServerSocket server = new ServerSocket(port)) {
             server.setSoTimeout(100000);
             final Socket sock = server.accept();
             InputStream is = sock.getInputStream();
@@ -154,11 +137,11 @@ public class VariableSpeedClientServerTest {
                             "Content-Type: text/html; charset=ISO-8859-1\r\n" +
                             "Server: gws\r\n" +
                             "Content-Length: " + CONTENT_LENGTH + "\r\n\r\n"; // 10
-                                                                              // gigs
-                                                                              // or
-                                                                              // so.
+            // gigs
+            // or
+            // so.
 
-            os.write(responseHeaders.getBytes(Charset.forName("UTF-8")));
+            os.write(responseHeaders.getBytes(UTF_8));
 
             int bufferSize = 100000;
             final byte[] bytes = new byte[bufferSize];
@@ -171,8 +154,6 @@ public class VariableSpeedClientServerTest {
                 remainingBytes -= numberOfBytesToWrite;
             }
             os.close();
-        } finally {
-            server.close();
         }
     }
 }

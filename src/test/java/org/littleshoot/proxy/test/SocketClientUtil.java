@@ -10,7 +10,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.nio.charset.Charset;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Utilities for interacting with the proxy server using sockets.
@@ -21,11 +22,10 @@ public class SocketClientUtil {
      *
      * @param string string to write
      * @param socket socket to write to
-     * @throws IOException
      */
     public static void writeStringToSocket(String string, Socket socket) throws IOException {
         OutputStream out = socket.getOutputStream();
-        out.write(string.getBytes(Charset.forName("UTF-8")));
+        out.write(string.getBytes(UTF_8));
         out.flush();
     }
 
@@ -45,9 +45,7 @@ public class SocketClientUtil {
             throw new EOFException("Unable to read from socket. The socket is closed.");
         }
 
-        String read = new String(bytes, 0, bytesRead, Charset.forName("UTF-8"));
-
-        return read;
+        return new String(bytes, 0, bytesRead, UTF_8);
     }
 
     /**
@@ -56,7 +54,6 @@ public class SocketClientUtil {
      *
      * @param socket socket to test
      * @return true if the socket is open and can be written to, otherwise false
-     * @throws IOException
      */
     public static boolean isSocketReadyToWrite(Socket socket) throws IOException {
         OutputStream out = socket.getOutputStream();
@@ -79,7 +76,6 @@ public class SocketClientUtil {
      *
      * @param socket socket to test
      * @return true if the socket is open and can be read from, otherwise false
-     * @throws IOException
      */
     public static boolean isSocketReadyToRead(Socket socket) throws IOException {
         InputStream in = socket.getInputStream();
@@ -102,7 +98,6 @@ public class SocketClientUtil {
      *
      * @param proxyServer proxy server to open the socket to
      * @return the new socket
-     * @throws IOException
      */
     public static Socket getSocketToProxyServer(HttpProxyServer proxyServer) throws IOException {
         Socket socket = new Socket();
