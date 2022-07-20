@@ -1,5 +1,10 @@
 # Release Notes
 
+- 2.0.10
+  - #135 Bump netty.version from 4.1.77.Final to 4.1.79.Final
+  - #132 Bump selenium-java from 4.1.4 to 4.3.0
+  - #118 Bump dnsjava from 3.5.0 to 3.5.1
+
 - 2.0.9
   - #115 reverted to maven-shade-plugin 3.2.4 (because 3.3.0 generated artifact without compile/runtime dependencies)
 
