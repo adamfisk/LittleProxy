@@ -95,7 +95,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
  * ProxyConnections are reused fairly liberally, and can go from disconnected to
  * connected, back to disconnected and so on.
  * </p>
- * 
+ *
  * <p>
  * Connecting a {@link ProxyToServerConnection} can involve more than just
  * connecting the underlying {@link Channel}. In particular, the connection may
@@ -178,10 +178,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private final GlobalTrafficShapingHandler trafficHandler;
 
     /**
-     * Minimum size of the adaptive recv buffer when throttling is enabled. 
+     * Minimum size of the adaptive recv buffer when throttling is enabled.
      */
     private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
-    
+
     /**
      * Create a new ProxyToServerConnection.
      */
@@ -304,12 +304,12 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * doesn't know that any given response is to a HEAD request, so it needs to
      * be told that there's no content so that it doesn't hang waiting for it.
      * </p>
-     * 
+     *
      * <p>
      * See the documentation for {@link HttpResponseDecoder} for information
      * about why HEAD requests need special handling.
      * </p>
-     * 
+     *
      * <p>
      * Thanks to <a href="https://github.com/nataliakoval">nataliakoval</a> for
      * pointing out that with connections being reused as they are, this needs
@@ -608,7 +608,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             if (hasUpstreamChainedProxy() && (chainedProxyType == ChainedProxyType.HTTP)) {
                 connectionFlow.then(serverConnection.HTTPCONNECTWithChainedProxy);
             }
-        	
+
             MitmManager mitmManager = proxyServer.getMitmManager();
             boolean isMitmEnabled = currentFilters.proxyToServerAllowMitm() && mitmManager != null;
 
@@ -638,7 +638,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
     }
-    
+
     private void addFirstOrReplaceHandler(String name, ChannelHandler handler) {
         if (channel.pipeline().context(name) != null) {
             channel.pipeline().replace(name, name, handler);
@@ -647,7 +647,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             channel.pipeline().addFirst(name, handler);
         }
     }
-    
+
     private void removeHandlerIfPresent(String name) {
         removeHandlerIfPresent(channel.pipeline(), name);
     }
@@ -753,7 +753,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
         }
     };
-    
+
     /**
      * Establishes a SOCKS4 connection.
      */
@@ -768,7 +768,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             } catch (UnknownHostException e) {
                 return channel.newFailedFuture(e);
             }
-            
+
             DefaultSocks4CommandRequest connectRequest = new DefaultSocks4CommandRequest(
                 Socks4CommandType.CONNECT, destinationAddress.getHostString(), destinationAddress.getPort());
 
@@ -789,13 +789,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             }
             flow.fail();
         }
-        
+
         @Override
         void onSuccess(ConnectionFlow flow) {
             // Do not advance the flow until the SOCKS response has been parsed
         }
     };
-    
+
     /**
      * Initiates a SOCKS5 connection.
      */
@@ -850,7 +850,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // Do not advance the flow until the SOCKS response has been parsed
         }
     };
-    
+
     /**
      * Sends SOCKS5 password credentials after {@link #SOCKS5InitialRequest} has completed.
      */
@@ -883,7 +883,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // Do not advance the flow until the SOCKS response has been parsed
         }
     };
-    
+
     /**
      * Establishes a SOCKS5 connection after {@link #SOCKS5InitialRequest} and
      * (optionally) {@link #SOCKS5SendPasswordCredentials} have completed.
@@ -924,7 +924,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * <p>
      * Encrypts the client channel based on our server {@link SSLSession}.
      * </p>
-     * 
+     *
      * <p>
      * This does not wait for the handshake to finish so that we can go on and
      * respond to the CONNECT request.
@@ -1007,6 +1007,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             return true;
         }
 
+        resetInitialRequest();
+
         // no chained proxy fallback or other retry mechanism available
         return false;
     }
@@ -1029,7 +1031,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Set up our connection parameters based on server address and chained
      * proxies.
-     * 
+     *
      * @throws UnknownHostException when unable to resolve the hostname to an IP address
      */
     private void setupConnectionParameters() throws UnknownHostException {
@@ -1081,11 +1083,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     /**
      * Initialize our {@link ChannelPipeline} to connect the upstream server.
      * LittleProxy acts as a client here.
-     * 
+     *
      * A {@link ChannelPipeline} invokes the read (Inbound) handlers in
      * ascending ordering of the list and then the write (Outbound) handlers in
      * descending ordering.
-     * 
+     *
      * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
      * the {@link HttpResponseEncoder} or {@link HttpRequestEncoder} before the
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
@@ -1132,7 +1134,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Do all the stuff that needs to be done after our {@link ConnectionFlow}
      * has succeeded.
      * </p>
-     * 
+     *
      * @param shouldForwardInitialRequest
      *            whether or not we should forward the initial HttpRequest to
      *            the server after the connection has been established.
@@ -1160,6 +1162,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         // we're now done with the initialRequest: it's either been forwarded to the upstream server (HTTP requests), or
         // completely dropped (HTTPS CONNECTs). if the initialRequest is reference counted (typically because the HttpObjectAggregator is in
         // the pipeline to generate FullHttpRequests), we need to manually release it to avoid a memory leak.
+        resetInitialRequest();
+    }
+
+    private void resetInitialRequest() {
         if (initialRequest instanceof ReferenceCounted) {
             ((ReferenceCounted)initialRequest).release();
         }
@@ -1167,7 +1173,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /**
      * Build an {@link InetSocketAddress} for the given hostAndPort.
-     * 
+     *
      * @param hostAndPort String representation of the host and port
      * @param proxyServer the current {@link DefaultHttpProxyServer}
      * @return a resolved InetSocketAddress for the specified hostAndPort
@@ -1215,7 +1221,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
 
     /* *************************************************************************
      * Activity Tracking/Statistics
-     * 
+     *
      * We track statistics on bytes, requests and responses by adding handlers
      * at the appropriate parts of the pipeline (see initChannelPipeline()).
      **************************************************************************/

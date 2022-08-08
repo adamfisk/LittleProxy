@@ -66,7 +66,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
  * ClientToProxyConnection can have multiple {@link ProxyToServerConnection}s,
  * at most one per outbound host:port.
  * </p>
- * 
+ *
  * <p>
  * Once a ProxyToServerConnection has been created for a given server, it is
  * continually reused. The ProxyToServerConnection goes through its own
@@ -75,7 +75,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
  * per server. The one exception to this is CONNECT tunneling - if a connection
  * has been used for CONNECT tunneling, that connection will never be reused.
  * </p>
- * 
+ *
  * <p>
  * As the ProxyToServerConnections receive responses from their servers, they
  * feed these back to the client by calling
@@ -227,12 +227,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * <p>
      * Reads an {@link HttpRequest}.
      * </p>
-     * 
+     *
      * <p>
      * If we don't yet have a {@link ProxyToServerConnection} for the desired
      * server, this takes care of creating it.
      * </p>
-     * 
+     *
      * <p>
      * Note - the "server" could be a chained proxy, not the final endpoint for
      * the request.
@@ -424,7 +424,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * Send a response to the client.
-     * 
+     *
      * @param serverConnection
      *            the ProxyToServerConnection that's responding
      * @param filters
@@ -442,10 +442,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             HttpRequest currentHttpRequest, HttpResponse currentHttpResponse,
             HttpObject httpObject) {
         // we are sending a response to the client, so we are done handling this request
-        if (currentRequest != null && currentRequest instanceof ReferenceCounted) {
-         	((ReferenceCounted)currentRequest).release();
-         }
-        this.currentRequest = null;
+        resetCurrentRequest();
 
         httpObject = filters.serverToProxyResponse(httpObject);
         if (httpObject == null) {
@@ -501,6 +498,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         closeConnectionsAfterWriteIfNecessary(serverConnection,
                 currentHttpRequest, currentHttpResponse, httpObject);
+    }
+
+    private void resetCurrentRequest() {
+        if (currentRequest != null && currentRequest instanceof ReferenceCounted) {
+            ((ReferenceCounted) currentRequest).release();
+        }
+        this.currentRequest = null;
     }
 
     private void switchToWebSocketProtocol(final ProxyToServerConnection serverConnection) {
@@ -606,23 +610,23 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * If the {@link ProxyToServerConnection} fails to complete its connection
      * lifecycle successfully, this method is called to let us know about it.
-     * 
+     *
      * <p>
      * After failing to connect to the server, one of two things can happen:
      * </p>
-     * 
+     *
      * <ol>
      * <li>If the server was a chained proxy, we fall back to connecting to the
      * ultimate endpoint directly.</li>
      * <li>If the server was the ultimate endpoint, we return a 502 Bad Gateway
      * to the client.</li>
      * </ol>
-     * 
+     *
      * @param serverConnection
      * @param lastStateBeforeFailure
      * @param cause
      *            what caused the failure
-     * 
+     *
      * @return true if we're falling back to a another chained proxy (or direct
      *         connection) and trying again
      */
@@ -787,11 +791,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * Initialize the {@link ChannelPipeline} for the client to proxy channel.
      * LittleProxy acts like a server here.
-     * 
+     *
      * A {@link ChannelPipeline} invokes the read (Inbound) handlers in
      * ascending ordering of the list and then the write (Outbound) handlers in
      * descending ordering.
-     * 
+     *
      * Regarding the Javadoc of {@link HttpObjectAggregator} it's needed to have
      * the {@link HttpResponseEncoder} or {@link io.netty.handler.codec.http.HttpRequestEncoder} before the
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
@@ -830,7 +834,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         pipeline.addLast(MAIN_HANDLER_NAME, this);
     }
-    
+
     private void removeHandlerIfPresent(String name) {
         removeHandlerIfPresent(channel.pipeline(), name);
     }
@@ -921,20 +925,20 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Determines if the remote connection should be closed based on the request
      * and response pair. If the request is HTTP 1.0 with no keep-alive header,
      * for example, the connection should be closed.
-     * 
+     *
      * This in part determines if we should close the connection. Here's the
      * relevant section of RFC 2616:
-     * 
+     *
      * "HTTP/1.1 defines the "close" connection option for the sender to signal
      * that the connection will be closed after completion of the response. For
      * example,
-     * 
+     *
      * Connection: close
-     * 
+     *
      * in either the request or the response header fields indicates that the
      * connection SHOULD NOT be considered `persistent' (section 8.1) after the
      * current request/response is complete."
-     * 
+     *
      * @param req
      *            The request.
      * @param res
@@ -986,11 +990,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * <p>
      * Checks whether the given HttpRequest requires authentication.
      * </p>
-     * 
+     *
      * <p>
      * If the request contains credentials, these are checked.
      * </p>
-     * 
+     *
      * <p>
      * If authentication is still required, either because no credentials were
      * provided or the credentials were wrong, this writes a 407 response to the
@@ -1022,7 +1026,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         byte[] decodedValue = BaseEncoding.base64().decode(value);
 
         String decodedString = new String(decodedValue, UTF_8);
-        
+
         String userName = StringUtils.substringBefore(decodedString, ":");
         String password = StringUtils.substringAfter(decodedString, ":");
         if (!authenticator.authenticate(userName, password)) {
@@ -1139,9 +1143,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         }
 
         /*
-         * Upstream SOCKS proxies are a special case because they do not 
-         * parse or modify the HTTP request in any way. If the upstream 
-         * chained proxy is a SOCKS proxy, we should treat it as if we 
+         * Upstream SOCKS proxies are a special case because they do not
+         * parse or modify the HTTP request in any way. If the upstream
+         * chained proxy is a SOCKS proxy, we should treat it as if we
          * are connecting directly to the origin server.
          */
         switch (currentServerConnection.getChainedProxyType()) {
@@ -1173,7 +1177,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
             /*
              * RFC2616 Section 14.18
-             * 
+             *
              * A received message that does not have a Date header field MUST be
              * assigned one by the recipient if the message will be cached by
              * that recipient or gatewayed via a protocol which requires a Date.
@@ -1188,7 +1192,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Switch the de-facto standard "Proxy-Connection" header to "Connection"
      * when we pass it along to the remote host. This is largely undocumented
      * but seems to be what most browsers and servers expect.
-     * 
+     *
      * @param headers
      *            The headers to modify
      */
@@ -1203,12 +1207,12 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * RFC2616 Section 14.10
-     * 
+     *
      * HTTP/1.1 proxies MUST parse the Connection header field before a message
      * is forwarded and, for each connection-token in this field, remove any
      * header field(s) from the message with the same name as the
      * connection-token.
-     * 
+     *
      * @param headers
      *            The headers to modify
      */
@@ -1229,7 +1233,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * Removes all headers that should not be forwarded. See RFC 2616 13.5.1
      * End-to-end and Hop-by-hop Headers.
-     * 
+     *
      * @param headers
      *            The headers to modify
      */
@@ -1319,7 +1323,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      */
     private boolean respondWithShortCircuitResponse(HttpResponse httpResponse) {
         // we are sending a response to the client, so we are done handling this request
-        this.currentRequest = null;
+        resetCurrentRequest();
 
         HttpResponse filteredResponse = (HttpResponse) currentFilters.proxyToClientResponse(httpResponse);
         if (filteredResponse == null) {
@@ -1399,7 +1403,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /* *************************************************************************
      * Activity Tracking/Statistics
-     * 
+     *
      * We track statistics on bytes, requests and responses by adding handlers
      * at the appropriate parts of the pipeline (see initChannelPipeline()).
      **************************************************************************/
@@ -1505,7 +1509,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     public HAProxyMessage getHaProxyMessage() {
         return haProxyMessage;
     }
-  
+
     public ClientDetails getClientDetails() {
         return clientDetails;
     }
