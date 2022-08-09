@@ -1344,13 +1344,13 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // restore the keep alive status, if it was overwritten when modifying headers for proxying
         HttpUtil.setKeepAlive(httpResponse, isKeepAlive);
 
-        write(httpResponse);
+        write(filteredResponse);
 
-        if (ProxyUtils.isLastChunk(httpResponse)) {
+        if (ProxyUtils.isLastChunk(filteredResponse)) {
             writeEmptyBuffer();
         }
 
-        if (!HttpUtil.isKeepAlive(httpResponse)) {
+        if (!HttpUtil.isKeepAlive(filteredResponse)) {
             disconnect();
             return false;
         }
