@@ -1,5 +1,10 @@
 # Release Notes
 
+- 2.0.11
+  - #131 fix memory leak: release byte buffer when closing request - see PR #141
+  - #142 fix some "modify response" problem, see https://github.com/adamfisk/LittleProxy/issues/359
+  - #144 HTTP CONNECT can't be Keep-Alive - thanks Michel Belleau for PR #144
+
 - 2.0.10
   - #135 Bump netty.version from 4.1.77.Final to 4.1.79.Final
   - #132 Bump selenium-java from 4.1.4 to 4.3.0
