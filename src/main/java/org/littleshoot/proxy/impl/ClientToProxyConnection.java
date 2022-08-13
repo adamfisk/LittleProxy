@@ -1324,24 +1324,24 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // we are sending a response to the client, so we are done handling this request
         resetCurrentRequest();
 
+        // allow short-circuit messages to close the connection. normally the Connection header would be stripped when modifying
+        // the message for proxying, so save the keep-alive status before the modifications are made.
+        boolean isKeepAlive = HttpUtil.isKeepAlive(httpResponse);
+
         HttpResponse filteredResponse = (HttpResponse) currentFilters.proxyToClientResponse(httpResponse);
         if (filteredResponse == null) {
             disconnect();
             return false;
         }
 
-        // allow short-circuit messages to close the connection. normally the Connection header would be stripped when modifying
-        // the message for proxying, so save the keep-alive status before the modifications are made.
-        boolean isKeepAlive = HttpUtil.isKeepAlive(httpResponse);
-
         // if the response is not a Bad Gateway or Gateway Timeout, modify the headers "as if" the short-circuit response were proxied
-        int statusCode = httpResponse.status().code();
+        int statusCode = filteredResponse.status().code();
         if (statusCode != HttpResponseStatus.BAD_GATEWAY.code() && statusCode != HttpResponseStatus.GATEWAY_TIMEOUT.code()) {
-            modifyResponseHeadersToReflectProxying(httpResponse);
+            modifyResponseHeadersToReflectProxying(filteredResponse);
         }
 
         // restore the keep alive status, if it was overwritten when modifying headers for proxying
-        HttpUtil.setKeepAlive(httpResponse, isKeepAlive);
+        HttpUtil.setKeepAlive(filteredResponse, isKeepAlive);
 
         write(filteredResponse);
 
