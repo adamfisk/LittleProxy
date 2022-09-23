@@ -1,19 +1,25 @@
 # Release Notes
 
-- 2.0.11
+- 2.0.12 (23.09.2022)
+  - #145 Restore Keep-Alive value when filtering short-circuit response  --  thanks to krlvm for PR
+  - Bump netty from 4.1.79.Final to 4.1.82.Final
+  - Bump slf4j from 1.7.36 to 2.0.1
+  - Bump log4j-core from 2.18.0 to 2.19.0
+
+- 2.0.11 (13.08.2022)
   - #131 fix memory leak: release byte buffer when closing request - see PR #141
   - #142 fix some "modify response" problem, see https://github.com/adamfisk/LittleProxy/issues/359
   - #144 HTTP CONNECT can't be Keep-Alive - thanks Michel Belleau for PR #144
 
-- 2.0.10
+- 2.0.10 (20.07.2022)
   - #135 Bump netty.version from 4.1.77.Final to 4.1.79.Final
   - #132 Bump selenium-java from 4.1.4 to 4.3.0
   - #118 Bump dnsjava from 3.5.0 to 3.5.1
 
-- 2.0.9
+- 2.0.9 (10.05.2022)
   - #115 reverted to maven-shade-plugin 3.2.4 (because 3.3.0 generated artifact without compile/runtime dependencies)
 
-- 2.0.8
+- 2.0.8 (06.05.2022)
   - #26 fixed TLS 1.3 handshake bug  --  thanks Dan Powell for PR https://github.com/LittleProxy/LittleProxy/pull/26
   - Bumped log4j-core from 2.17.0 to 2.17.2
   - Bumped netty from 4.1.71 to 4.1.76
@@ -25,7 +31,7 @@
   - moved the project to https://github.com/LittleProxy/LittleProxy
   - moved CI from Travis to https://github.com/LittleProxy/LittleProxy/actions
 
-- 2.0.7
+- 2.0.7 (21.12.2021)
   - Bumped log4j-core from 2.16.0 to 2.17.0
 
 - 2.0.6
