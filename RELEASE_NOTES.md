@@ -1,5 +1,10 @@
 # Release Notes
 
+- 2.0.13 (04.10.2022)
+  - #170 restore transitive dependencies in generated pom  --  thanks to Mateusz Pietryga for PR #171
+  - Bump slf4j from 2.0.1 to 2.0.3
+  - Bump selenium-java from 4.4.0 to 4.5.0
+
 - 2.0.12 (23.09.2022)
   - #145 Restore Keep-Alive value when filtering short-circuit response  --  thanks to krlvm for PR
   - Bump netty from 4.1.79.Final to 4.1.82.Final
