@@ -1,5 +1,8 @@
 # Release Notes
 
+- 2.0.14
+  - Bump jackson-databind from 2.13.2.2 to 2.13.4
+
 - 2.0.13 (04.10.2022)
   - #170 restore transitive dependencies in generated pom  --  thanks to Mateusz Pietryga for PR #171
   - Bump slf4j from 2.0.1 to 2.0.3
