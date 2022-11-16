@@ -3,6 +3,7 @@ package org.littleshoot.proxy;
 import io.netty.handler.codec.http.HttpRequest;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -47,7 +48,7 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
     protected HttpProxyServer upstreamProxy;
 
     @Override
-    protected void setUp() {
+    protected void setUp() throws IOException {
         REQUESTS_SENT_BY_DOWNSTREAM.set(0);
         REQUESTS_RECEIVED_BY_UPSTREAM.set(0);
         TRANSPORTS_USED.clear();

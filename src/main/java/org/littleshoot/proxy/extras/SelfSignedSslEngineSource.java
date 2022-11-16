@@ -155,7 +155,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         } else {
             File keyStoreLocalFile = new File(keyStoreFile);
             if(!keyStoreLocalFile.isFile()) {
-                initializeKeyStore(keyStoreLocalFile.getName());
+                initializeKeyStore(keyStoreLocalFile.getAbsolutePath());
             }
             loadKeyStore(keyStore, keyStoreLocalFile.toURI().toURL());
         }
