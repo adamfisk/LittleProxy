@@ -85,7 +85,7 @@ public class ProxyUtilsTest {
 
     @Test
     public void testGetHeaderValuesWhenSingleHeaderValueWithExtraSpacesIsPresent() {
-        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, false);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, " chunked  , ");
         List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
                 HttpHeaderNames.TRANSFER_ENCODING, message);
@@ -136,7 +136,7 @@ public class ProxyUtilsTest {
     public void testGetHeaderValuesWhenMultipleCommaSeparatedValuesInMultipleSeparateHeaderLinesArePresent() {
         // multiple comma-separated values in multiple header lines with spurious spaces, commas,
         // and tabs (horizontal tabs are defined as optional whitespace in RFC 7230 section 3.2.3)
-        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, false);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, " gzip,compress,");
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "\tdeflate\t,  gzip, ");
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, ",gzip,,deflate,\t, ,");
