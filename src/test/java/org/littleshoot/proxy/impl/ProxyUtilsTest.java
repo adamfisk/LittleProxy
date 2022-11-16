@@ -57,68 +57,91 @@ public class ProxyUtilsTest {
     }
 
     @Test
-    public void testCommaSeparatedHeaderValues() {
-        DefaultHttpMessage message;
-        List<String> commaSeparatedHeaders;
-
-        // test the empty headers case
-        message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, message);
+    public void testGetHeaderValuesWhenHeadersAreEmpty() {
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
+                HttpHeaderNames.TRANSFER_ENCODING, message);
         assertThat(commaSeparatedHeaders, empty());
+    }
 
-        // two headers present, but no values
-        message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+    @Test
+    public void testGetHeaderValuesWhenTwoHeadersWithNoValuesArePresent() {
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "");
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, message);
+        List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
+                HttpHeaderNames.TRANSFER_ENCODING, message);
         assertThat(commaSeparatedHeaders, empty());
+    }
 
-        // a single header value
-        message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+    @Test
+    public void testGetHeaderValuesWhenSingleHeaderValueIsPresent() {
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, message);
+        List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
+                HttpHeaderNames.TRANSFER_ENCODING, message);
         assertThat(commaSeparatedHeaders, contains("chunked"));
+    }
 
-        // a single header value with extra spaces
-        message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+    @Test
+    public void testGetHeaderValuesWhenSingleHeaderValueWithExtraSpacesIsPresent() {
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, " chunked  , ");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, message);
+        List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
+                HttpHeaderNames.TRANSFER_ENCODING, message);
         assertThat(commaSeparatedHeaders, contains("chunked"));
+    }
 
-        // two comma-separated values in one header line
-        message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+    @Test
+    public void testGetHeaderValuesWhenTwoCommaSeparatedValuesInOneHeaderLineArePresent() {
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "compress, gzip");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, message);
+        List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
+                HttpHeaderNames.TRANSFER_ENCODING, message);
         assertThat(commaSeparatedHeaders, contains("compress", "gzip"));
+    }
 
+    @Test
+    public void testGetHeaderValuesWhenTwoCommaSeparatedValuesInOneHeaderLineWithSpuriousCommaAndSpaceArePresent() {
         // two comma-separated values in one header line with a spurious ',' and space. see RFC 7230 section 7
         // for information on empty list items (not all of which are valid header-values).
-        message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "compress, gzip, ,");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, message);
+        List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
+                HttpHeaderNames.TRANSFER_ENCODING, message);
         assertThat(commaSeparatedHeaders, contains("compress", "gzip"));
+    }
 
-        // two values in two separate header lines
-        message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+    @Test
+    public void testGetHeaderValuesWhenTwoValuesInTwoSeparateHeaderLinesArePresent() {
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "gzip");
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "chunked");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, message);
+        List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
+                HttpHeaderNames.TRANSFER_ENCODING, message);
         assertThat(commaSeparatedHeaders, contains("gzip", "chunked"));
+    }
 
-        // multiple comma-separated values in two separate header lines
-        message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+    @Test
+    public void testGetHeaderValuesWhenMultipleCommaSeparatedValuesInTwoSeparateHeaderLinesArePresent() {
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "gzip, compress");
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "deflate, gzip");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, message);
+        List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
+                HttpHeaderNames.TRANSFER_ENCODING, message);
         assertThat(commaSeparatedHeaders, contains("gzip", "compress", "deflate", "gzip"));
+    }
 
+    @Test
+    public void testGetHeaderValuesWhenMultipleCommaSeparatedValuesInMultipleSeparateHeaderLinesArePresent() {
         // multiple comma-separated values in multiple header lines with spurious spaces, commas,
         // and tabs (horizontal tabs are defined as optional whitespace in RFC 7230 section 3.2.3)
-        message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        DefaultHttpMessage message = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, " gzip,compress,");
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, "\tdeflate\t,  gzip, ");
         message.headers().add(HttpHeaderNames.TRANSFER_ENCODING, ",gzip,,deflate,\t, ,");
-        commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(HttpHeaderNames.TRANSFER_ENCODING, message);
+        List<String> commaSeparatedHeaders = ProxyUtils.getAllCommaSeparatedHeaderValues(
+                HttpHeaderNames.TRANSFER_ENCODING, message);
         assertThat(commaSeparatedHeaders, contains("gzip", "compress", "deflate", "gzip", "gzip", "deflate"));
     }
 
