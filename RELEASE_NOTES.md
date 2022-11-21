@@ -1,7 +1,12 @@
 # Release Notes
 
-- 2.0.14
+- 2.0.14 (21.11.2022, https://github.com/LittleProxy/LittleProxy/milestone/19?closed=1)
+  - #184 Respect full KeyStore file path while generating certs by `SelfSignedMitmManager`  --  thanks to Valery Yatsynovich
+  - #187 CI: run build on all major OS-s  --  thanks to Valery Yatsynovich
+  - #183 Bump netty from 4.1.82.Final to 4.1.85.Final  --  thanks to Valery Yatsynovich for fixing tests after upgrading Netty.
+  - #189 Bump slf4j.version from 2.0.3 to 2.0.4
   - Bump jackson-databind from 2.13.2.2 to 2.13.4
+  - #191 Bump dnsjava from 3.5.1 to 3.5.2
 
 - 2.0.13 (04.10.2022)
   - #170 restore transitive dependencies in generated pom  --  thanks to Mateusz Pietryga for PR #171
