@@ -1,5 +1,11 @@
 # Release Notes
 
+- 2.0.15 (14.12.2022, https://github.com/LittleProxy/LittleProxy/milestone/TODO?closed=1)
+  - Bump netty-codec-haproxy from 4.1.85.Final to 4.1.86.Final
+  - Bump selenium-java from 4.6.0 to 4.7.1
+  - Bump slf4j.version from 2.0.4 to 2.0.5
+  - Bump httpclient from 4.5.13 to 4.5.14
+
 - 2.0.14 (21.11.2022, https://github.com/LittleProxy/LittleProxy/milestone/19?closed=1)
   - #184 Respect full KeyStore file path while generating certs by `SelfSignedMitmManager`  --  thanks to Valery Yatsynovich
   - #187 CI: run build on all major OS-s  --  thanks to Valery Yatsynovich
