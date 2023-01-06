@@ -34,6 +34,12 @@ public class SelfSignedGeneratedSslEngineChainedProxyTest extends BaseChainedPro
         assertTrue(keyStoreFile.exists());
     }
 
+    @Test
+    public void testCertExportedToKeyStoreDirectory() {
+        File certFile = temporaryFolder.getRoot().toPath().resolve("./certs/littleproxy_cert").toFile();
+        assertTrue(certFile.exists());
+    }
+
     @Override
     protected HttpProxyServerBootstrap upstreamProxy() {
         return super.upstreamProxy()

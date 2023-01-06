@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.Security;
@@ -79,15 +80,26 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         return sslContext;
     }
 
-    private void initializeKeyStore(String filename) {
-        nativeCall("keytool", "-genkey", "-alias", alias, "-keysize",
-                "4096", "-validity", "36500", "-keyalg", "RSA", "-dname",
-                "CN=littleproxy", "-keypass", password, "-storepass",
-                password, "-keystore", filename);
+    private void initializeKeyStore(File keyStoreLocalFile) {
+        File keyStoreLocalAbsoluteFile = keyStoreLocalFile.getAbsoluteFile();
 
-        nativeCall("keytool", "-exportcert", "-alias", alias, "-keystore",
-                filename, "-storepass", password, "-file",
-                "littleproxy_cert");
+        nativeCall("keytool", "-genkey",
+                "-alias", alias,
+                "-keysize", "4096",
+                "-validity", "36500",
+                "-keyalg", "RSA",
+                "-dname", "CN=littleproxy",
+                "-keypass", password,
+                "-storepass", password,
+                "-keystore", keyStoreLocalAbsoluteFile.getPath()
+        );
+
+        nativeCall("keytool", "-exportcert",
+                "-alias", alias,
+                "-keystore", keyStoreLocalAbsoluteFile.getPath(),
+                "-storepass", password,
+                "-file", Paths.get(keyStoreLocalAbsoluteFile.getParent(),"littleproxy_cert").toString()
+        );
     }
 
     private void initializeSSLContext() {
@@ -155,7 +167,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         } else {
             File keyStoreLocalFile = new File(keyStoreFile);
             if(!keyStoreLocalFile.isFile()) {
-                initializeKeyStore(keyStoreLocalFile.getAbsolutePath());
+                initializeKeyStore(keyStoreLocalFile);
             }
             loadKeyStore(keyStore, keyStoreLocalFile.toURI().toURL());
         }
