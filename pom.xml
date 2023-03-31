@@ -403,10 +403,11 @@
             <dependency>
                 <!--Override transitive dependency of org.mock-server:mockserver-netty-->
                 <!--Provides patches for several CVE issues-->
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
-                <version>2.13.4</version>
-                <type>bundle</type>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>2.14.2</version>
+                <scope>import</scope>
+                <type>pom</type>
             </dependency>
         </dependencies>
     </dependencyManagement>
