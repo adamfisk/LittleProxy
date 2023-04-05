@@ -1,7 +1,7 @@
 # Release Notes
 
 - 2.0.18 (in progress)
-  - 
+  - #242 Bump netty.version from 4.1.90.Final to 4.1.91.Final
 
 - 2.0.17 (01.04.2023, https://github.com/LittleProxy/LittleProxy/milestone/22?closed=1)
   - #235 Bump netty.version from 4.1.89.Final to 4.1.90.Final
