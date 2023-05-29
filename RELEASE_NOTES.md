@@ -1,5 +1,8 @@
 # Release Notes
 
+- 2.0.19 (in progress)
+  - ...
+
 - 2.0.18 (29.05.2023, https://github.com/LittleProxy/LittleProxy/milestone/23?closed=1)
   - Bump Selenium from 4.8.3 to 4.9.1 (see https://github.com/SeleniumHQ/selenium)
   - #242 Bump Netty from 4.1.90.Final to 4.1.93.Final
