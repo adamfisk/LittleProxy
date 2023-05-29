@@ -1,7 +1,10 @@
 # Release Notes
 
-- 2.0.18 (in progress)
-  - #242 Bump netty.version from 4.1.90.Final to 4.1.91.Final
+- 2.0.18 (29.05.2023, https://github.com/LittleProxy/LittleProxy/milestone/23?closed=1)
+  - Bump Selenium from 4.8.3 to 4.9.1 (see https://github.com/SeleniumHQ/selenium)
+  - #242 Bump Netty from 4.1.90.Final to 4.1.93.Final
+  - Bump Jackson from 2.14.2 to 2.15.1
+  - Bump guava from 31.1-jre to 32.0.0-jre
 
 - 2.0.17 (01.04.2023, https://github.com/LittleProxy/LittleProxy/milestone/22?closed=1)
   - #235 Bump netty.version from 4.1.89.Final to 4.1.90.Final
