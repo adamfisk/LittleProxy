@@ -1,6 +1,8 @@
 package org.littleshoot.proxy;
 
 import com.sun.management.UnixOperatingSystemMXBean;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -13,7 +15,10 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.HttpConfiguration;
+import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.server.SecureRequestCustomizer;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.AbstractHandler;
@@ -21,8 +26,6 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 
 import javax.net.ssl.SSLContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -78,6 +81,7 @@ public class TestUtils {
         final Server httpServer = new Server(0);
 
         httpServer.setHandler(new AbstractHandler() {
+            @Override
             public void handle(String target,
                                Request baseRequest,
                                HttpServletRequest request,
@@ -109,13 +113,21 @@ public class TestUtils {
 
         if (enableHttps) {
             // Add SSL connector
-            SslContextFactory sslContextFactory = new SslContextFactory.Server();
-
             SelfSignedSslEngineSource contextSource = new SelfSignedSslEngineSource();
             SSLContext sslContext = contextSource.getSslContext();
 
+            SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
             sslContextFactory.setSslContext(sslContext);
-            ServerConnector connector = new ServerConnector(httpServer, sslContextFactory);
+
+            SecureRequestCustomizer secureRequestCustomizer = new SecureRequestCustomizer();
+            secureRequestCustomizer.setSniHostCheck(false);
+
+            HttpConfiguration httpConfiguration = new HttpConfiguration();
+            httpConfiguration.addCustomizer(secureRequestCustomizer);
+
+            HttpConnectionFactory httpConnectionFactory = new HttpConnectionFactory(httpConfiguration);
+
+            ServerConnector connector = new ServerConnector(httpServer, sslContextFactory, httpConnectionFactory);
             connector.setPort(0);
             connector.setIdleTimeout(0);
             httpServer.addConnector(connector);
@@ -141,6 +153,7 @@ public class TestUtils {
     public static Server startWebServerWithResponse(boolean enableHttps, final byte[] content) {
         final Server httpServer = new Server(0);
         httpServer.setHandler(new AbstractHandler() {
+            @Override
             public void handle(String target,
                                Request baseRequest,
                                HttpServletRequest request,
@@ -172,7 +185,7 @@ public class TestUtils {
 
         if (enableHttps) {
             // Add SSL connector
-            SslContextFactory sslContextFactory = new SslContextFactory.Server();
+            SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
 
             SelfSignedSslEngineSource contextSource = new SelfSignedSslEngineSource();
             SSLContext sslContext = contextSource.getSslContext();
