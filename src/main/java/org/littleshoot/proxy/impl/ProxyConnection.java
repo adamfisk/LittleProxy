@@ -567,6 +567,12 @@ abstract class ProxyConnection<I extends HttpObject> extends
         }
     }
 
+    @Override
+    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+        this.proxyServer.unregisterChannel(ctx.channel());
+        super.channelUnregistered(ctx);
+    }
+
     /**
      * Only once the Netty Channel is active to we recognize the ProxyConnection
      * as connected.
