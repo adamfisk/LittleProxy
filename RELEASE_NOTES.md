@@ -1,7 +1,15 @@
 # Release Notes
 
-- 2.0.19 (in progress)
-  - ...
+- 2.0.20 (in progress)
+  - ... 
+
+- 2.0.19 (22.07.2023, https://github.com/LittleProxy/LittleProxy/milestone/24?closed=1)
+  - #283 fix memory leak: On proxy connection unregister, unregister downstream channels - thanks to Craig Andrews
+  - #274 Bump Selenium from 4.9.1 to 4.10.0 (see https://github.com/SeleniumHQ/selenium)
+  - #266 Bump Jackson from 2.15.1 to 2.15.2
+  - #281 Bump guava from 32.0.0-jre to 32.1.1-jre
+  - #282 Bump Netty from 4.1.93.Final to 4.1.95.Final
+  - #264 Migrate Jetty 9 to Jetty 11 - thanks to Valery Yatsynovich
 
 - 2.0.18 (29.05.2023, https://github.com/LittleProxy/LittleProxy/milestone/23?closed=1)
   - Bump Selenium from 4.8.3 to 4.9.1 (see https://github.com/SeleniumHQ/selenium)
