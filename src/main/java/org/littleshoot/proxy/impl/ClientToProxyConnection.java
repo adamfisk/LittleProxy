@@ -239,6 +239,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * </p>
      */
     private ConnectionState doReadHTTPInitial(HttpRequest httpRequest) {
+        resetCurrentRequest();
         // Make a copy of the original request
         this.currentRequest = copy(httpRequest);
 
