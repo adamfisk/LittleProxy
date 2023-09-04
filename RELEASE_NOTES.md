@@ -1,7 +1,15 @@
 # Release Notes
 
-- 2.0.20 (in progress)
+- 2.0.21 (in progress)
   - ... 
+
+- 2.0.20 (04.09.2023, https://github.com/LittleProxy/LittleProxy/milestone/25?closed=1)
+  - #295 #131 fix memory leak "LEAK: ByteBuf.release() was not called..."  --  thanks to Sujit Joshi for the fix
+  - #284 #291 Bump netty.version from 4.1.95.Final to 4.1.97.Final
+  - #286 #293 Bump org.seleniumhq.selenium:selenium-java from 4.10.0 to 4.12.0
+  - #285 Bump org.apache.commons:commons-lang3 from 3.12.0 to 3.13.0
+  - #287 Bump com.google.guava:guava from 32.1.1-jre to 32.1.2-jre
+  - #294 Bump slf4j.version from 2.0.7 to 2.0.9 
 
 - 2.0.19 (22.07.2023, https://github.com/LittleProxy/LittleProxy/milestone/24?closed=1)
   - #283 fix memory leak: On proxy connection unregister, unregister downstream channels - thanks to Craig Andrews
