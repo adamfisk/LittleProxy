@@ -643,4 +643,16 @@ public class ProxyUtils {
                 && response.headers().contains(HttpHeaderNames.CONNECTION, HttpHeaderNames.UPGRADE, true)
                 && response.headers().contains(HttpHeaderNames.UPGRADE, "websocket", true);
     }
+
+    /**
+     * Tests whether the given request indicates that the connection is switching
+     * to the WebSocket protocol.
+     *
+     * @param request the request to check.
+     * @return true if switching to the WebSocket protocol; false otherwise;
+     */
+    public static boolean isSwitchingToWebSocketProtocol(HttpRequest request) {
+        return request.headers().contains(HttpHeaderNames.CONNECTION, HttpHeaderNames.UPGRADE, true)
+                && request.headers().contains(HttpHeaderNames.UPGRADE, "websocket", true);
+    }
 }

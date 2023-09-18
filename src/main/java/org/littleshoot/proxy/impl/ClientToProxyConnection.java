@@ -303,6 +303,11 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     "Not reusing existing ProxyToServerConnection because request is a CONNECT for: {}",
                     serverHostAndPort);
             newConnectionRequired = true;
+        } else if (ProxyUtils.isSwitchingToWebSocketProtocol(httpRequest)) {
+            LOG.debug(
+                    "Not reusing existing ProxyToServerConnection because request is an upgrade to websocket for: {}",
+                    serverHostAndPort);
+            newConnectionRequired = true;
         } else if (currentServerConnection == null) {
             LOG.debug("Didn't find existing ProxyToServerConnection for: {}",
                     serverHostAndPort);
