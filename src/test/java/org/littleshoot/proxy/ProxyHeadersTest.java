@@ -12,11 +12,14 @@ import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 import org.mockserver.model.ConnectionOptions;
+import org.mockserver.model.HttpRequest;
+import org.mockserver.model.NottableString;
 
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests the proxy's handling and manipulation of headers.
@@ -74,4 +77,27 @@ public class ProxyHeadersTest {
             assertThat("Expected proxy to remove the Dummy-Header specified in the Connection header", dummyHeaders, emptyArray());
         }
     }
+
+	@Test
+	public void testProxyRemovesHopByHopHeadersFromClient() throws Exception {
+		HttpRequest expectedServerRequest = request() //
+				.withMethod("GET") //
+				.withPath("/connectionheaders") //
+				.withHeader(NottableString.not("proxy-authenticate")) //
+				.withHeader(NottableString.not("proxy-authorization"));
+		mockServer.when(expectedServerRequest, Times.exactly(1)) //
+				.respond(response().withStatusCode(200).withBody("success"));
+
+		this.proxyServer = DefaultHttpProxyServer.bootstrap().withPort(0).start();
+
+		try (CloseableHttpClient httpClient = TestUtils
+				.createProxiedHttpClient(proxyServer.getListenAddress().getPort())) {
+			HttpGet clientRequest = new HttpGet("http://localhost:" + mockServerPort + "/connectionheaders");
+			clientRequest.addHeader("Proxy-Authenticate", "");
+			clientRequest.addHeader("Proxy-Authorization", "");
+			HttpResponse response = httpClient.execute(clientRequest);
+			EntityUtils.consume(response.getEntity());
+			assertEquals(200, response.getStatusLine().getStatusCode());
+		}
+	}
 }

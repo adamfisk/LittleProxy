@@ -46,7 +46,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1243,12 +1242,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      *            The headers to modify
      */
     private void stripHopByHopHeaders(HttpHeaders headers) {
-        Set<String> headerNames = headers.names();
-        for (String headerName : headerNames) {
-            if (ProxyUtils.shouldRemoveHopByHopHeader(headerName)) {
-                headers.remove(headerName);
-            }
-        }
+    	ProxyUtils.stripHopByHopHeaders(headers);
     }
 
     /* *************************************************************************

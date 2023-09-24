@@ -520,6 +520,18 @@ public class ProxyUtils {
     }
 
     /**
+     * Removes all headers that should not be forwarded. See RFC 2616 13.5.1
+     * End-to-end and Hop-by-hop Headers.
+     *
+     * @param headers
+     *            The headers to modify
+     */
+    public static void stripHopByHopHeaders(HttpHeaders headers) {
+      // Not explicitly documented, but remove is case insensitve as a HTTP header handling function should be
+      SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS.forEach(headers::remove);
+    }    
+
+    /**
      * Splits comma-separated header values into tokens. For example, if the value of the Connection header is "Transfer-Encoding, close",
      * this method will return "Transfer-Encoding" and "close". This method strips trims any optional whitespace from
      * the tokens. Unlike {@link #getAllCommaSeparatedHeaderValues(AsciiString, HttpMessage)}, this method only operates on
