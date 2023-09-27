@@ -1,7 +1,13 @@
 # Release Notes
 
-- 2.0.21 (in progress)
-  - ... 
+- 2.0.22 (in progress)
+  - ...
+
+- 2.0.21 (27.09.2023, https://github.com/LittleProxy/LittleProxy/milestone/26?closed=1)
+  - #301 Always use a new connection for websockets  --  thanks to Craig Andrews
+  - #299 fix problem with filtering proxy Authorization header  --  thanks to Matthias Kraaz for PR #304
+  - #297 #306 Bump org.seleniumhq.selenium:selenium-java from 4.12.0 to 4.13.0
+  - #303 Bump `netty.version` from 4.1.97.Final to 4.1.98.Final.
 
 - 2.0.20 (04.09.2023, https://github.com/LittleProxy/LittleProxy/milestone/25?closed=1)
   - #295 #131 fix memory leak "LEAK: ByteBuf.release() was not called..."  --  thanks to Sujit Joshi for the fix
