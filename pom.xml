@@ -14,7 +14,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <github.global.server>github</github.global.server>
-        <netty.version>4.1.98.Final</netty.version>
+        <netty.version>4.1.99.Final</netty.version>
         <slf4j.version>2.0.9</slf4j.version>
         <java.version>1.8</java.version>
     </properties>
