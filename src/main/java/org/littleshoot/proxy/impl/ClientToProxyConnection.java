@@ -451,7 +451,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return;
         }
 
-        boolean isSwitchingToWebSocketProtocol = false;
+        final boolean isSwitchingToWebSocketProtocol;
         if (httpObject instanceof HttpResponse) {
             HttpResponse httpResponse = (HttpResponse) httpObject;
 
@@ -480,25 +480,28 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
             fixHttpVersionHeaderIfNecessary(httpResponse);
             modifyResponseHeadersToReflectProxying(httpResponse);
+        } else {
+            isSwitchingToWebSocketProtocol = false;
         }
 
-        httpObject = filters.proxyToClientResponse(httpObject);
-        if (httpObject == null) {
+        final HttpObject filteredhttpObject = filters.proxyToClientResponse(httpObject);
+        if (filteredhttpObject == null) {
             forceDisconnect(serverConnection);
             return;
         }
 
-        write(httpObject);
+        write(filteredhttpObject).addListener(l -> {
 
-        if (ProxyUtils.isLastChunk(httpObject)) {
-            writeEmptyBuffer();
-        }
-        else if (isSwitchingToWebSocketProtocol) {
-            switchToWebSocketProtocol(serverConnection);
-        }
+	        if (ProxyUtils.isLastChunk(filteredhttpObject)) {
+	            writeEmptyBuffer();
+	        }
+	        else if (isSwitchingToWebSocketProtocol) {
+	            switchToWebSocketProtocol(serverConnection);
+	        }
 
-        closeConnectionsAfterWriteIfNecessary(serverConnection,
-                currentHttpRequest, currentHttpResponse, httpObject);
+	        closeConnectionsAfterWriteIfNecessary(serverConnection,
+	                currentHttpRequest, currentHttpResponse, filteredhttpObject);
+        });
     }
 
     private void resetCurrentRequest() {
