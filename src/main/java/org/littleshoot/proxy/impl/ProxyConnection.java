@@ -255,7 +255,11 @@ abstract class ProxyConnection<I extends HttpObject> extends
     }
 
     protected ChannelFuture writeToChannel(final Object msg) {
-        return channel.writeAndFlush(msg);
+        return channel.writeAndFlush(msg).addListener(l-> {
+            if (!l.isSuccess()) {
+                LOG.debug("writeToChannel failed sending message {}", msg, l.cause());
+            }
+        });
     }
 
     /* *************************************************************************
