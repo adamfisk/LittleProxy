@@ -490,6 +490,9 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
             return;
         }
 
+        if (isSwitchingToWebSocketProtocol) {
+            serverConnection.switchToWebSocketProtocol();
+        }
         write(filteredhttpObject).addListener(l -> {
 
 	        if (ProxyUtils.isLastChunk(filteredhttpObject)) {
@@ -519,7 +522,6 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                     new ProxyConnectionPipeHandler(serverConnection));
         }
         orderedHandlersToRemove.forEach(this::removeHandlerIfPresent);
-        serverConnection.switchToWebSocketProtocol();
     }
 
     /* *************************************************************************

@@ -1218,6 +1218,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                     new ProxyConnectionPipeHandler(clientConnection));
         }
         orderedHandlersToRemove.forEach(this::removeHandlerIfPresent);
+        tunneling = true;
     }
 
     /* *************************************************************************

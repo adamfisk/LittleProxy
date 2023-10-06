@@ -71,7 +71,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected volatile Channel channel;
 
     private volatile ConnectionState currentState;
-    private volatile boolean tunneling = false;
+    protected volatile boolean tunneling = false;
     protected volatile long lastReadTime = 0;
 
     /**
