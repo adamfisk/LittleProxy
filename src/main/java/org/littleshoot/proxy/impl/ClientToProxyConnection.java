@@ -4,6 +4,7 @@ import com.google.common.io.BaseEncoding;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.haproxy.HAProxyMessage;
 import io.netty.handler.codec.haproxy.HAProxyMessageDecoder;
@@ -1388,8 +1389,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * and using the empty buffer's future instead to handle any operations we
      * need to when responses are fully written back to clients.
      */
-    private void writeEmptyBuffer() {
-        write(Unpooled.EMPTY_BUFFER);
+    private ChannelFuture writeEmptyBuffer() {
+        return write(Unpooled.EMPTY_BUFFER);
     }
 
     public boolean isMitming() {

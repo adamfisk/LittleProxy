@@ -351,7 +351,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     }
 
     @Override
-    void write(Object msg) {
+    ChannelFuture write(Object msg) {
         LOG.debug("Requested write of {}", msg);
 
         if (msg instanceof ReferenceCounted) {
@@ -362,6 +362,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         if (is(DISCONNECTED) && msg instanceof HttpRequest) {
             LOG.debug("Currently disconnected, connect and then write the message");
             connectAndWrite((HttpRequest) msg);
+            return this.clientConnection.channel.newSucceededFuture();
         } else {
             if (isConnecting()) {
                 synchronized (connectLock) {
@@ -381,16 +382,16 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // already disconnected
             if (isConnecting() || getCurrentState().isDisconnectingOrDisconnected()) {
                 LOG.debug("Connection failed or timed out while waiting to write message to server. Message will be discarded: {}", msg);
-                return;
+                return channel.newFailedFuture(new Exception("Connection failed or timed out while waiting to write message to server. Message will be discarded."));
             }
 
             LOG.debug("Using existing connection to: {}", remoteAddress);
-            doWrite(msg);
+            return doWrite(msg);
         }
     }
 
     @Override
-    protected void writeHttp(HttpObject httpObject) {
+    protected ChannelFuture writeHttp(HttpObject httpObject) {
         if (chainedProxy != null) {
             chainedProxy.filterRequest(httpObject);
         }
@@ -398,7 +399,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             // Remember that we issued this HttpRequest for later
             currentHttpRequest = (HttpRequest) httpObject;
         }
-        super.writeHttp(httpObject);
+        return super.writeHttp(httpObject);
     }
 
     /* *************************************************************************

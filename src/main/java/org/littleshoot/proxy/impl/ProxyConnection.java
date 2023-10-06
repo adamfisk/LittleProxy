@@ -211,23 +211,23 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * This method is called by users of the ProxyConnection to send stuff out
      * over the socket.
      */
-    void write(Object msg) {
+    ChannelFuture write(Object msg) {
         if (msg instanceof ReferenceCounted) {
             LOG.debug("Retaining reference counted message");
             ((ReferenceCounted) msg).retain();
         }
 
-        doWrite(msg);
+        return doWrite(msg);
     }
 
-    void doWrite(Object msg) {
+    ChannelFuture doWrite(Object msg) {
         LOG.debug("Writing: {}", msg);
 
         try {
             if (msg instanceof HttpObject) {
-                writeHttp((HttpObject) msg);
+                return writeHttp((HttpObject) msg);
             } else {
-                writeRaw((ByteBuf) msg);
+                return writeRaw((ByteBuf) msg);
             }
         } finally {
             LOG.debug("Wrote: {}", msg);
@@ -237,21 +237,21 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * Writes HttpObjects to the connection asynchronously.
      */
-    protected void writeHttp(HttpObject httpObject) {
+    protected ChannelFuture writeHttp(HttpObject httpObject) {
         if (ProxyUtils.isLastChunk(httpObject)) {
             channel.write(httpObject);
             LOG.debug("Writing an empty buffer to signal the end of our chunked transfer");
-            writeToChannel(Unpooled.EMPTY_BUFFER);
+            return writeToChannel(Unpooled.EMPTY_BUFFER);
         } else {
-            writeToChannel(httpObject);
+            return writeToChannel(httpObject);
         }
     }
 
     /**
      * Writes raw buffers to the connection.
      */
-    protected void writeRaw(ByteBuf buf) {
-        writeToChannel(buf);
+    protected ChannelFuture writeRaw(ByteBuf buf) {
+        return writeToChannel(buf);
     }
 
     protected ChannelFuture writeToChannel(final Object msg) {
