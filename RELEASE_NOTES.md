@@ -1,6 +1,6 @@
 # Release Notes
 
-- 2.0.23 (in progress)
+- 2.0.23 (in progress, https://github.com/LittleProxy/LittleProxy/milestone/28?closed=1)
   - ...
  
 - 2.0.22 (08.10.2023, https://github.com/LittleProxy/LittleProxy/milestone/27?closed=1)
