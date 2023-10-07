@@ -1,7 +1,11 @@
 # Release Notes
 
-- 2.0.22 (in progress)
+- 2.0.23 (in progress)
   - ...
+ 
+- 2.0.22 (08.10.2023, https://github.com/LittleProxy/LittleProxy/milestone/27?closed=1)
+  - #35 Fix Websocket race condition while protocol switching  --  thanks to Craig Andrews for PR #308
+  - #307 bump Netty from 4.1.98.Final to 4.1.99.Final
 
 - 2.0.21 (27.09.2023, https://github.com/LittleProxy/LittleProxy/milestone/26?closed=1)
   - #301 Always use a new connection for websockets  --  thanks to Craig Andrews
