@@ -1,7 +1,15 @@
 # Release Notes
 
-- 2.0.23 (in progress, https://github.com/LittleProxy/LittleProxy/milestone/28?closed=1)
+- 2.1.1 (in progress, https://github.com/LittleProxy/LittleProxy/milestone/29?closed=1)
   - ...
+ 
+- 2.1.0 (20.11.2023, https://github.com/LittleProxy/LittleProxy/milestone/28?closed=1)
+  - Upgrade from Java 8 to Java 11+
+  - Bump Selenium from 4.13.0 to 4.15.0
+  - Bump Netty from 4.1.99.Final to 4.1.101.Final
+  - Bump Jackson from 2.15.2 to 2.16.0
+  - Bump Log4j from 2.20.0 to 2.21.1
+  - Bump Guava from 32.1.2-jre to 32.1.3-jre
  
 - 2.0.22 (08.10.2023, https://github.com/LittleProxy/LittleProxy/milestone/27?closed=1)
   - #35 Fix Websocket race condition while protocol switching  --  thanks to Craig Andrews for PR #308
