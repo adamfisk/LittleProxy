@@ -33,7 +33,7 @@ jobs:
         if: failure()
         run: mvn --batch-mode surefire-report:report-only
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: test-report
