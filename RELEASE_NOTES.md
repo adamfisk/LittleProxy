@@ -3,7 +3,7 @@
 - 2.1.2 (in progress, https://github.com/LittleProxy/LittleProxy/milestone/30?closed=1)
   - ...
 
-- 2.1.1 (in progress, https://github.com/LittleProxy/LittleProxy/milestone/29?closed=1)
+- 2.1.1 (15.12.2023, https://github.com/LittleProxy/LittleProxy/milestone/29?closed=1)
   - Bump Netty from 4.1.101.Final to 4.1.103.Final   #345 #346
   - Bump selenium from 4.15.0 to 4.16.1   #343 #344
   - Bump log4j from 2.21.1 to 2.22.0  #336
