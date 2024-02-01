@@ -1,26 +1,6 @@
 package org.littleshoot.proxy.websockets;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.URI;
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.base.Preconditions;
-
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -48,6 +28,20 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Simple WebSocket client for use in unit tests that sends and receives text
@@ -62,8 +56,7 @@ public class WebSocketClient {
     // According to RFC-6455 (https://tools.ietf.org/html/rfc6455#section-3)
     // only the ws and wss schemes should be used, but some applications incorrectly
     // use http/https anyway, so we allow both for testing those edge cases
-    private static final Set<String> SECURE_SCHEMES = Collections
-            .unmodifiableSet(new HashSet<>(Arrays.asList("wss", "https")));
+    private static final Set<String> SECURE_SCHEMES = Set.of("wss", "https");
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final BlockingQueue<String> receivedMessages = new LinkedBlockingQueue<>();
