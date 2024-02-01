@@ -10,7 +10,6 @@ log.txt
 *.orig
 target/
 dependency-reduced-pom.xml
-.idea/
 jmeter.log
 lib/
 LittleProxy.pro
