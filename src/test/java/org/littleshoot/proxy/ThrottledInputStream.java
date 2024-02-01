@@ -36,8 +36,8 @@ public class ThrottledInputStream extends InputStream {
   private final long maxBytesPerSec;
   private final long startTime = System.currentTimeMillis();
 
-  private long bytesRead = 0;
-  private long totalSleepTime = 0;
+  private long bytesRead;
+  private long totalSleepTime;
 
   private static final long SLEEP_DURATION_MS = 50;
 

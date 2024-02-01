@@ -582,18 +582,18 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     // TODO: refactor bootstrap into a separate class
     private static class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
         private String name = "LittleProxy";
-        private ServerGroup serverGroup = null;
+        private ServerGroup serverGroup;
         private TransportProtocol transportProtocol = TransportProtocol.TCP;
         private InetSocketAddress requestedAddress;
         private int port = 8080;
         private boolean allowLocalOnly = true;
-        private SslEngineSource sslEngineSource = null;
+        private SslEngineSource sslEngineSource;
         private boolean authenticateSslClients = true;
-        private ProxyAuthenticator proxyAuthenticator = null;
-        private ChainedProxyManager chainProxyManager = null;
-        private MitmManager mitmManager = null;
+        private ProxyAuthenticator proxyAuthenticator;
+        private ChainedProxyManager chainProxyManager;
+        private MitmManager mitmManager;
         private HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter();
-        private boolean transparent = false;
+        private boolean transparent;
         private int idleConnectionTimeout = 70;
         private final Collection<ActivityTracker> activityTrackers = new ConcurrentLinkedQueue<>();
         private int connectTimeout = 40000;
@@ -608,9 +608,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         private int maxInitialLineLength = MAX_INITIAL_LINE_LENGTH_DEFAULT;
         private int maxHeaderSize = MAX_HEADER_SIZE_DEFAULT;
         private int maxChunkSize = MAX_CHUNK_SIZE_DEFAULT;
-        private boolean allowRequestToOriginServer = false;
-        private boolean acceptProxyProtocol = false;
-        private boolean sendProxyProtocol = false;
+        private boolean allowRequestToOriginServer;
+        private boolean acceptProxyProtocol;
+        private boolean sendProxyProtocol;
 
         private DefaultHttpProxyServerBootstrap() {
         }

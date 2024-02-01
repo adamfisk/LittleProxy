@@ -145,7 +145,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * when retrying a connection without SNI to work around Java's SNI handling issue (see
      * {@link #connectionFailed(Throwable)}).
      */
-    private volatile boolean disableSni = false;
+    private volatile boolean disableSni;
 
     /**
      * While we're in the process of connecting, it's possible that we'll

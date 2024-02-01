@@ -23,7 +23,7 @@ class ConnectionFlow {
     private final ClientToProxyConnection clientConnection;
     private final ProxyToServerConnection serverConnection;
     private volatile ConnectionFlowStep currentStep;
-    private volatile boolean suppressInitialRequest = false;
+    private volatile boolean suppressInitialRequest;
     private final Object connectLock;
     
     /**
