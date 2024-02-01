@@ -195,7 +195,7 @@
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-server</artifactId>
-            <version>11.0.19</version>
+            <version>11.0.20</version>
             <scope>test</scope>
         </dependency>
 
