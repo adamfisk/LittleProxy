@@ -22,7 +22,7 @@ public class MitmWithUnencryptedUDTChainedProxyTest extends MitmWithChainedProxy
         return new BaseChainedProxy() {
             @Override
             public TransportProtocol getTransportProtocol() {
-                return TransportProtocol.UDT;
+                return UDT;
             }
 
             @Override

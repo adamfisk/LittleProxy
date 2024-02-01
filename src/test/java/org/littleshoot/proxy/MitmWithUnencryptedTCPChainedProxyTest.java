@@ -14,7 +14,7 @@ public class MitmWithUnencryptedTCPChainedProxyTest extends MitmWithChainedProxy
         return new BaseChainedProxy() {
             @Override
             public TransportProtocol getTransportProtocol() {
-                return TransportProtocol.TCP;
+                return TCP;
             }
 
             @Override

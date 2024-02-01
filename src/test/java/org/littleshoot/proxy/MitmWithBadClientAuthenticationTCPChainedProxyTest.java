@@ -35,7 +35,7 @@ public class MitmWithBadClientAuthenticationTCPChainedProxyTest extends
         return new BaseChainedProxy() {
             @Override
             public TransportProtocol getTransportProtocol() {
-                return TransportProtocol.TCP;
+                return TCP;
             }
 
             @Override

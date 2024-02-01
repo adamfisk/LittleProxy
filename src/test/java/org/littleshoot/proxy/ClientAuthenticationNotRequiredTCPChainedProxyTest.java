@@ -31,7 +31,7 @@ public class ClientAuthenticationNotRequiredTCPChainedProxyTest extends
         return new BaseChainedProxy() {
             @Override
             public TransportProtocol getTransportProtocol() {
-                return TransportProtocol.TCP;
+                return TCP;
             }
 
             @Override

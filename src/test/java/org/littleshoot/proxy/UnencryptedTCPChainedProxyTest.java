@@ -14,7 +14,7 @@ public class UnencryptedTCPChainedProxyTest extends BaseChainedProxyTest {
         return new BaseChainedProxy() {
             @Override
             public TransportProtocol getTransportProtocol() {
-                return TransportProtocol.TCP;
+                return TCP;
             }
 
             @Override
