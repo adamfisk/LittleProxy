@@ -115,7 +115,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * Keep track of proxy protocol header
      */
-    private HAProxyMessage haProxyMessage = null;
+    private HAProxyMessage haProxyMessage;
 
     /**
      * Keep track of how many servers are currently connected.
@@ -145,7 +145,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * Tracks whether this ClientToProxyConnection is current doing MITM.
      */
-    private volatile boolean mitming = false;
+    private volatile boolean mitming;
 
     private final AtomicBoolean authenticated = new AtomicBoolean();
 
