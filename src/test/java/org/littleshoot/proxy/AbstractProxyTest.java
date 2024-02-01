@@ -227,7 +227,7 @@ public abstract class AbstractProxyTest {
     }
 
     private void checkStatistics(HttpHost host) {
-        boolean isHTTPS = host.getSchemeName().equalsIgnoreCase("HTTPS");
+        boolean isHTTPS = "HTTPS".equalsIgnoreCase(host.getSchemeName());
         int numberOfExpectedClientInteractions = 1;
         int numberOfExpectedServerInteractions = 1;
         if (isAuthenticating()) {

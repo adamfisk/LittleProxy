@@ -164,7 +164,7 @@ public class HttpFilterTest {
                             HttpObject httpObject) {
                         if (httpObject instanceof HttpRequest) {
                             HttpRequest httpRequest = (HttpRequest) httpObject;
-                            if (httpRequest.uri().equals("/testing2")) {
+                            if ("/testing2".equals(httpRequest.uri())) {
                                 return new DefaultFullHttpResponse(
                                         HttpVersion.HTTP_1_1,
                                         HttpResponseStatus.FORBIDDEN);

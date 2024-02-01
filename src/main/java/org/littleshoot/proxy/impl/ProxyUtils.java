@@ -276,7 +276,7 @@ public class ProxyUtils {
             final String key) {
         final String throttle = props.getProperty(key);
         if (StringUtils.isNotBlank(throttle)) {
-            return throttle.trim().equalsIgnoreCase("true");
+            return "true".equalsIgnoreCase(throttle.trim());
         }
         return false;
     }
@@ -285,7 +285,7 @@ public class ProxyUtils {
             final String key) {
         final String throttle = props.getProperty(key);
         if (StringUtils.isNotBlank(throttle)) {
-            return throttle.trim().equalsIgnoreCase("true");
+            return "true".equalsIgnoreCase(throttle.trim());
         }
         return true;
     }
