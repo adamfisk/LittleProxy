@@ -241,7 +241,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private ConnectionState doReadHTTPInitial(HttpRequest httpRequest) {
         resetCurrentRequest();
         // Make a copy of the original request
-        this.currentRequest = copy(httpRequest);
+        currentRequest = copy(httpRequest);
 
         // Set up our filters based on the original request. If the HttpFiltersSource returns null (meaning the request/response
         // should not be filtered), fall back to the default no-op filter source.
@@ -294,8 +294,8 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         LOG.debug("Finding ProxyToServerConnection for: {}", serverHostAndPort);
         currentServerConnection = isMitming() || isTunneling() ?
-                this.currentServerConnection
-                : this.serverConnectionsByHostAndPort.get(serverHostAndPort);
+                currentServerConnection
+                : serverConnectionsByHostAndPort.get(serverHostAndPort);
 
         boolean newConnectionRequired = false;
         if (ProxyUtils.isCONNECT(httpRequest)) {
@@ -511,14 +511,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         if (currentRequest != null && currentRequest instanceof ReferenceCounted) {
             ((ReferenceCounted) currentRequest).release();
         }
-        this.currentRequest = null;
+        currentRequest = null;
     }
 
     private void switchToWebSocketProtocol(final ProxyToServerConnection serverConnection) {
         final List<String> orderedHandlersToRemove = Arrays.asList(HTTP_REQUEST_READ_MONITOR_NAME,
                 HTTP_RESPONSE_WRITTEN_MONITOR_NAME, HTTP_PROXY_DECODER_NAME, HTTP_ENCODER_NAME, HTTP_DECODER_NAME);
-        if (this.channel.pipeline().get(MAIN_HANDLER_NAME) != null) {
-            this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-server",
+        if (channel.pipeline().get(MAIN_HANDLER_NAME) != null) {
+            channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-server",
                     new ProxyConnectionPipeHandler(serverConnection));
         }
         orderedHandlersToRemove.forEach(this::removeHandlerIfPresent);
@@ -559,7 +559,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     void timedOut(ProxyToServerConnection serverConnection) {
-        if (currentServerConnection == serverConnection && this.lastReadTime > currentServerConnection.lastReadTime) {
+        if (currentServerConnection == serverConnection && lastReadTime > currentServerConnection.lastReadTime) {
             // the idle timeout fired on the active server connection. send a timeout response to the client.
             LOG.warn("Server timed out: {}", currentServerConnection);
             currentFilters.serverToProxyResponseTimedOut();
@@ -570,7 +570,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     @Override
     protected void timedOut() {
         // idle timeout fired on the client channel. if we aren't waiting on a response from a server, hang up
-        if (currentServerConnection == null || this.lastReadTime <= currentServerConnection.lastReadTime) {
+        if (currentServerConnection == null || lastReadTime <= currentServerConnection.lastReadTime) {
             super.timedOut();
         }
     }
@@ -594,7 +594,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     protected void serverConnectionFlowStarted(
             ProxyToServerConnection serverConnection) {
         stopReading();
-        this.numberOfCurrentlyConnectingServers.incrementAndGet();
+        numberOfCurrentlyConnectingServers.incrementAndGet();
     }
 
     /**
@@ -666,7 +666,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         // the connection to the server failed, so disconnect the server and remove the ProxyToServerConnection from the
         // map of open server connections
         serverConnection.disconnect();
-        this.serverConnectionsByHostAndPort.remove(serverConnection.getServerHostAndPort());
+        serverConnectionsByHostAndPort.remove(serverConnection.getServerHostAndPort());
 
         boolean keepAlive = writeBadGateway(initialRequest);
         if (keepAlive) {
@@ -677,7 +677,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     private void resumeReadingIfNecessary() {
-        if (this.numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
+        if (numberOfCurrentlyConnectingServers.decrementAndGet() == 0) {
             LOG.debug("All servers have finished attempting to connect, resuming reading from client.");
             resumeReading();
         }
@@ -713,7 +713,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
                 .values()) {
             synchronized (serverConnection) {
-                if (this.isSaturated()) {
+                if (isSaturated()) {
                     serverConnection.stopReading();
                 }
             }
@@ -730,7 +730,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         for (ProxyToServerConnection serverConnection : serverConnectionsByHostAndPort
                 .values()) {
             synchronized (serverConnection) {
-                if (!this.isSaturated()) {
+                if (!isSaturated()) {
                     serverConnection.resumeReading();
                 }
             }
@@ -1398,7 +1398,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     protected void setMitming(boolean isMitming) {
-        this.mitming = isMitming;
+        mitming = isMitming;
     }
 
     /* *************************************************************************

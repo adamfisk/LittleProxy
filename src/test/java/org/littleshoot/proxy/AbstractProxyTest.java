@@ -107,11 +107,11 @@ public abstract class AbstractProxyTest {
             tearDown();
         } finally {
             try {
-                if (this.proxyServer != null) {
-                    this.proxyServer.abort();
+                if (proxyServer != null) {
+                    proxyServer.abort();
                 }
             } finally {
-                if (this.webServer != null) {
+                if (webServer != null) {
                     webServer.stop();
                 }
             }

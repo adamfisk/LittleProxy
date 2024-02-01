@@ -84,7 +84,7 @@ public class HttpFilterTest {
      * @param filtersSource HTTP filters source
      */
     private void setUpHttpProxyServer(HttpFiltersSource filtersSource) {
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(filtersSource)
                 .start();
@@ -448,7 +448,7 @@ public class HttpFilterTest {
         HostResolver mockFailingResolver = mock(HostResolver.class);
         when(mockFailingResolver.resolve("www.doesnotexist", 80)).thenThrow(new UnknownHostException("www.doesnotexist"));
 
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(filtersSource)
                 .withServerResolver(mockFailingResolver)
@@ -538,7 +538,7 @@ public class HttpFilterTest {
         };
 
         // set up the proxy that the HTTP client will connect to
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(filtersSource)
                 .withChainProxyManager((httpRequest, chainedProxies, clientDetails) -> chainedProxies.add(new ChainedProxyAdapter() {
@@ -602,7 +602,7 @@ public class HttpFilterTest {
         };
 
         // set up the proxy that the HTTP client will connect to
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(filtersSource)
                 .withChainProxyManager((httpRequest, chainedProxies, clientDetails) -> chainedProxies.add(new ChainedProxyAdapter() {
@@ -673,7 +673,7 @@ public class HttpFilterTest {
             }
         };
 
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(filtersSource)
                 .withIdleConnectionTimeout(3)

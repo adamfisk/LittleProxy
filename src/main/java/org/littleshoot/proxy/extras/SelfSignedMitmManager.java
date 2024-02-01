@@ -13,7 +13,7 @@ public class SelfSignedMitmManager implements MitmManager {
     private final SelfSignedSslEngineSource selfSignedSslEngineSource;
 
     public SelfSignedMitmManager() {
-        this.selfSignedSslEngineSource = new SelfSignedSslEngineSource(true);
+        selfSignedSslEngineSource = new SelfSignedSslEngineSource(true);
     }
 
     public SelfSignedMitmManager(SelfSignedSslEngineSource selfSignedSslEngineSource) {

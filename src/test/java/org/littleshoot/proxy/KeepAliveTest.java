@@ -84,10 +84,10 @@ public class KeepAliveTest {
                         .withStatusCode(200)
                         .withBody("success"));
 
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .start();
-        this.socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
+        socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
 
         // construct the basic request: METHOD + URI + HTTP version + CRLF (to indicate the end of the request)
         String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\r\n"
@@ -128,10 +128,10 @@ public class KeepAliveTest {
                                 .withSuppressContentLengthHeader(true)
                                 .withCloseSocket(true)));
 
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .start();
-        this.socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
+        socket = SocketClientUtil.getSocketToProxyServer(proxyServer);
 
         // construct the basic request: METHOD + URI + HTTP version + CRLF (to indicate the end of the request)
         String successfulGet = "GET http://localhost:" + mockServerPort + "/success HTTP/1.1\r\n"
@@ -171,7 +171,7 @@ public class KeepAliveTest {
                         .withStatusCode(200)
                         .withBody("success"));
 
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .start();
 
@@ -210,7 +210,7 @@ public class KeepAliveTest {
                         .withDelay(TimeUnit.SECONDS, 10)
                         .withBody("success"));
 
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withIdleConnectionTimeout(2)
                 .withPort(0)
                 .start();
@@ -269,7 +269,7 @@ public class KeepAliveTest {
             }
         };
 
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(filtersSource)
                 .start();
@@ -328,7 +328,7 @@ public class KeepAliveTest {
             }
         };
 
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(filtersSource)
                 .start();

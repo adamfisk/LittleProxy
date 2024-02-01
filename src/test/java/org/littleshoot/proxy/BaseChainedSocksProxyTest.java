@@ -23,7 +23,7 @@ abstract public class BaseChainedSocksProxyTest extends BaseProxyTest {
     @Override
     protected void setUp() throws Exception {
         initializeSocksServer();
-        this.proxyServer = bootstrapProxy()
+        proxyServer = bootstrapProxy()
                 .withName("Downstream")
                 .withPort(0)
                 .withChainProxyManager(chainedProxyManager())

@@ -110,7 +110,7 @@ public class TimeoutTest {
      */
     @Test
     public void testClientIdleBeforeRequestReceived() throws IOException, InterruptedException {
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withIdleConnectionTimeout(1)
                 .start();

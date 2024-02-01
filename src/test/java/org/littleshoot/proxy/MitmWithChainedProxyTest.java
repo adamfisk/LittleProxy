@@ -33,9 +33,9 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
         REQUESTS_SENT_BY_DOWNSTREAM.set(0);
         REQUESTS_RECEIVED_BY_UPSTREAM.set(0);
         TRANSPORTS_USED.clear();
-        this.upstreamProxy = upstreamProxy().start();
+        upstreamProxy = upstreamProxy().start();
 
-        this.proxyServer = bootstrapProxy()
+        proxyServer = bootstrapProxy()
                 .withPort(0)
                 .withChainProxyManager(chainedProxyManager())
                 .plusActivityTracker(DOWNSTREAM_TRACKER)
@@ -175,6 +175,6 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
 
     @Override
     protected void tearDown() {
-        this.upstreamProxy.abort();
+        upstreamProxy.abort();
     }
 }

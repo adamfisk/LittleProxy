@@ -16,7 +16,7 @@ public class AuthenticatingProxyWithChainingTest extends BaseProxyTest
 
     @Override
     protected void setUp() {
-        this.proxyServer = bootstrapProxy()
+        proxyServer = bootstrapProxy()
                 .withPort(0)
                 .withProxyAuthenticator(this)
                 .withChainProxyManager(this)

@@ -14,8 +14,8 @@ public class FullFlowContext extends FlowContext {
     public FullFlowContext(ClientToProxyConnection clientConnection,
             ProxyToServerConnection serverConnection) {
         super(clientConnection);
-        this.serverHostAndPort = serverConnection.getServerHostAndPort();
-        this.chainedProxy = serverConnection.getChainedProxy();
+        serverHostAndPort = serverConnection.getServerHostAndPort();
+        chainedProxy = serverConnection.getChainedProxy();
     }
 
     /**

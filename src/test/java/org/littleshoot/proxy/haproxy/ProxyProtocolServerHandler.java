@@ -11,7 +11,7 @@ public class ProxyProtocolServerHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         if ( msg instanceof HAProxyMessage){
-            this.haProxyMessage = (HAProxyMessage) msg;
+            haProxyMessage = (HAProxyMessage) msg;
         }
     }
 

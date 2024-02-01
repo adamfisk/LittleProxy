@@ -11,7 +11,7 @@ public class MITMUsernamePasswordAuthenticatingProxyTest extends
         implements ProxyAuthenticator {
     @Override
     protected void setUp() {
-        this.proxyServer = bootstrapProxy()
+        proxyServer = bootstrapProxy()
                 .withPort(0)
                 .withProxyAuthenticator(this)
                 .withManInTheMiddle(new SelfSignedMitmManager())

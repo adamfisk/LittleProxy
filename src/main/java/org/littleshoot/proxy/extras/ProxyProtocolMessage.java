@@ -27,13 +27,13 @@ public class ProxyProtocolMessage {
     }
 
     public ProxyProtocolMessage(HAProxyMessage haProxyMessage) {
-        this.protocolVersion = haProxyMessage.protocolVersion();
-        this.command = haProxyMessage.command();
-        this.proxiedProtocol = haProxyMessage.proxiedProtocol();
-        this.sourceAddress = haProxyMessage.sourceAddress();
-        this.destinationAddress = haProxyMessage.destinationAddress();
-        this.sourcePort = haProxyMessage.sourcePort();
-        this.destinationPort = haProxyMessage.destinationPort();
+        protocolVersion = haProxyMessage.protocolVersion();
+        command = haProxyMessage.command();
+        proxiedProtocol = haProxyMessage.proxiedProtocol();
+        sourceAddress = haProxyMessage.sourceAddress();
+        destinationAddress = haProxyMessage.destinationAddress();
+        sourcePort = haProxyMessage.sourcePort();
+        destinationPort = haProxyMessage.destinationPort();
     }
 
     public HAProxyProtocolVersion getProtocolVersion() {

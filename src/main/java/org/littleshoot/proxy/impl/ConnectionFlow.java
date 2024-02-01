@@ -71,8 +71,8 @@ class ConnectionFlow {
      * current {@link ConnectionFlowStep}.
      */
     void read(Object msg) {
-        if (this.currentStep != null) {
-            this.currentStep.read(this, msg);
+        if (currentStep != null) {
+            currentStep.read(this, msg);
         }
     }
 

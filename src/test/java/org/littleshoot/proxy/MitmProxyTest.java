@@ -28,7 +28,7 @@ public class MitmProxyTest extends BaseProxyTest {
 
     @Override
     protected void setUp() {
-        this.proxyServer = bootstrapProxy()
+        proxyServer = bootstrapProxy()
                 .withPort(0)
                 .withManInTheMiddle(new SelfSignedMitmManager())
                 .withFiltersSource(new HttpFiltersSourceAdapter() {

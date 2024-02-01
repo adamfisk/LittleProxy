@@ -245,7 +245,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             LOG.debug(
                     "In the middle of connecting, forwarding message to connection flow: {}",
                     msg);
-            this.connectionFlow.read(msg);
+            connectionFlow.read(msg);
         } else {
             super.read(msg);
         }
@@ -346,7 +346,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * given value.
      */
     void write(Object msg, HttpFilters filters) {
-        this.currentFilters = filters;
+        currentFilters = filters;
         write(msg);
     }
 
@@ -362,7 +362,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         if (is(DISCONNECTED) && msg instanceof HttpRequest) {
             LOG.debug("Currently disconnected, connect and then write the message");
             connectAndWrite((HttpRequest) msg);
-            return this.clientConnection.channel.newSucceededFuture();
+            return clientConnection.channel.newSucceededFuture();
         } else {
             if (isConnecting()) {
                 synchronized (connectLock) {
@@ -436,13 +436,13 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void becameSaturated() {
         super.becameSaturated();
-        this.clientConnection.serverBecameSaturated(this);
+        clientConnection.serverBecameSaturated(this);
     }
 
     @Override
     protected void becameWritable() {
         super.becameWritable();
-        this.clientConnection.serverBecameWriteable(this);
+        clientConnection.serverBecameWriteable(this);
     }
 
     @Override
@@ -454,10 +454,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     @Override
     protected void disconnected() {
         super.disconnected();
-        if (this.chainedProxy != null) {
+        if (chainedProxy != null) {
             // Let the ChainedProxy know that we disconnected
             try {
-                this.chainedProxy.disconnected();
+                chainedProxy.disconnected();
             } catch (Exception e) {
                 LOG.error("Unable to record connectionFailed", e);
             }
@@ -487,7 +487,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
             if (!is(DISCONNECTED)) {
                 LOG.info("Disconnecting open connection to server");
                 disconnect();
-                this.clientConnection.serverConnectionFailed(this, getCurrentState(), cause);
+                clientConnection.serverConnectionFailed(this, getCurrentState(), cause);
             }
         }
         // This can happen if we couldn't make the initial connection due
@@ -583,7 +583,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * handling CONNECTs.
      */
     private void initializeConnectionFlow() {
-        this.connectionFlow = new ConnectionFlow(clientConnection, this,
+        connectionFlow = new ConnectionFlow(clientConnection, this,
                 connectLock)
                 .then(ConnectChannel);
 
@@ -1022,11 +1022,11 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     private void resetConnectionForRetry() throws UnknownHostException {
         // Remove ourselves as handler on the old context
-        this.ctx.pipeline().remove(this);
-        this.ctx.close();
-        this.ctx = null;
+        ctx.pipeline().remove(this);
+        ctx.close();
+        ctx = null;
 
-        this.setupConnectionParameters();
+        setupConnectionParameters();
     }
 
     /**
@@ -1038,46 +1038,45 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     private void setupConnectionParameters() throws UnknownHostException {
         if (chainedProxy != null
                 && chainedProxy != ChainedProxyAdapter.FALLBACK_TO_DIRECT_CONNECTION) {
-            this.transportProtocol = chainedProxy.getTransportProtocol();
-            this.chainedProxyType = chainedProxy.getChainedProxyType();
-            this.localAddress = chainedProxy.getLocalAddress();
-            this.remoteAddress = chainedProxy.getChainedProxyAddress();
-            this.remoteAddressResolver = DefaultAddressResolverGroup.INSTANCE;
-            this.username = chainedProxy.getUsername();
-            this.password = chainedProxy.getPassword();
+            transportProtocol = chainedProxy.getTransportProtocol();
+            chainedProxyType = chainedProxy.getChainedProxyType();
+            localAddress = chainedProxy.getLocalAddress();
+            remoteAddress = chainedProxy.getChainedProxyAddress();
+            remoteAddressResolver = DefaultAddressResolverGroup.INSTANCE;
+            username = chainedProxy.getUsername();
+            password = chainedProxy.getPassword();
         } else {
-            this.transportProtocol = TransportProtocol.TCP;
-            this.chainedProxyType = ChainedProxyType.HTTP;
-            this.username = null;
-            this.password = null;
+            transportProtocol = TransportProtocol.TCP;
+            chainedProxyType = ChainedProxyType.HTTP;
+            username = null;
+            password = null;
 
             // Report DNS resolution to HttpFilters
-            this.remoteAddress = this.currentFilters.proxyToServerResolutionStarted(serverHostAndPort);
+            remoteAddress = currentFilters.proxyToServerResolutionStarted(serverHostAndPort);
 
             // save the hostname and port of the unresolved address in hostAndPort, in case name resolution fails
             String hostAndPort = null;
             try {
-                if (this.remoteAddress == null) {
+                if (remoteAddress == null) {
                     hostAndPort = serverHostAndPort;
-                    this.remoteAddress = addressFor(serverHostAndPort, proxyServer);
-                } else if (this.remoteAddress.isUnresolved()) {
+                    remoteAddress = addressFor(serverHostAndPort, proxyServer);
+                } else if (remoteAddress.isUnresolved()) {
                     // filter returned an unresolved address, so resolve it using the proxy server's resolver
-                    hostAndPort = HostAndPort.fromParts(this.remoteAddress.getHostName(), this.remoteAddress.getPort()).toString();
-                    this.remoteAddress = proxyServer.getServerResolver().resolve(this.remoteAddress.getHostName(),
-                            this.remoteAddress.getPort());
+                    hostAndPort = HostAndPort.fromParts(remoteAddress.getHostName(), remoteAddress.getPort()).toString();
+                    remoteAddress = proxyServer.getServerResolver().resolve(remoteAddress.getHostName(), remoteAddress.getPort());
                 }
             } catch (UnknownHostException e) {
                 // unable to resolve the hostname to an IP address. notify the filters of the failure before allowing the
                 // exception to bubble up.
-                this.currentFilters.proxyToServerResolutionFailed(hostAndPort);
+                currentFilters.proxyToServerResolutionFailed(hostAndPort);
 
                 throw e;
             }
 
-            this.currentFilters.proxyToServerResolutionSucceeded(serverHostAndPort, this.remoteAddress);
+            currentFilters.proxyToServerResolutionSucceeded(serverHostAndPort, remoteAddress);
 
 
-            this.localAddress = proxyServer.getLocalAddress();
+            localAddress = proxyServer.getLocalAddress();
         }
     }
 
@@ -1142,10 +1141,10 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      */
     void connectionSucceeded(boolean shouldForwardInitialRequest) {
         become(AWAITING_INITIAL);
-        if (this.chainedProxy != null) {
+        if (chainedProxy != null) {
             // Notify the ChainedProxy that we successfully connected
             try {
-                this.chainedProxy.connectionSucceeded();
+                chainedProxy.connectionSucceeded();
             } catch (Exception e) {
                 LOG.error("Unable to record connectionSucceeded", e);
             }
@@ -1213,8 +1212,8 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     void switchToWebSocketProtocol() {
         final List<String> orderedHandlersToRemove = Arrays.asList(HTTP_REQUEST_WRITTEN_MONITOR_NAME,
                 HTTP_RESPONSE_READ_MONITOR_NAME, HTTP_PROXY_ENCODER_NAME, HTTP_ENCODER_NAME, HTTP_DECODER_NAME);
-        if (this.channel.pipeline().get(MAIN_HANDLER_NAME) != null) {
-            this.channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-client",
+        if (channel.pipeline().get(MAIN_HANDLER_NAME) != null) {
+            channel.pipeline().replace(MAIN_HANDLER_NAME, "pipe-to-client",
                     new ProxyConnectionPipeHandler(clientConnection));
         }
         orderedHandlersToRemove.forEach(this::removeHandlerIfPresent);

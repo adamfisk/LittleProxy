@@ -12,7 +12,7 @@ import static org.junit.Assert.assertEquals;
 public class IdlingProxyTest extends AbstractProxyTest {
     @Override
     protected void setUp() {
-        this.proxyServer = bootstrapProxy()
+        proxyServer = bootstrapProxy()
                 .withPort(0)
                 .withIdleConnectionTimeout(1)
                 .start();

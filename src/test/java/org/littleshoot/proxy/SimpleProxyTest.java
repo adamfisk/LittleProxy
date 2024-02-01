@@ -6,7 +6,7 @@ package org.littleshoot.proxy;
 public class SimpleProxyTest extends BaseProxyTest {
     @Override
     protected void setUp() {
-        this.proxyServer = bootstrapProxy()
+        proxyServer = bootstrapProxy()
                 .withPort(0)
                 .start();
     }

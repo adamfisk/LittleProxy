@@ -482,7 +482,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * writeable).
      */
     protected boolean isSaturated() {
-        return !this.channel.isWritable();
+        return !channel.isWritable();
     }
 
     /**
@@ -504,7 +504,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Updates the current state to the given value.
      */
     protected void become(ConnectionState state) {
-        this.currentState = state;
+        currentState = state;
     }
 
     protected ConnectionState getCurrentState() {
@@ -524,7 +524,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      */
     protected void stopReading() {
         LOG.debug("Stopped reading");
-        this.channel.config().setAutoRead(false);
+        channel.config().setAutoRead(false);
     }
 
     /**
@@ -532,7 +532,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      */
     protected void resumeReading() {
         LOG.debug("Resumed reading");
-        this.channel.config().setAutoRead(true);
+        channel.config().setAutoRead(true);
     }
 
     /**
@@ -564,8 +564,8 @@ abstract class ProxyConnection<I extends HttpObject> extends
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
         try {
             this.ctx = ctx;
-            this.channel = ctx.channel();
-            this.proxyServer.registerChannel(ctx.channel());
+            channel = ctx.channel();
+            proxyServer.registerChannel(ctx.channel());
         } finally {
             super.channelRegistered(ctx);
         }
@@ -573,7 +573,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
 
     @Override
     public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-        this.proxyServer.unregisterChannel(ctx.channel());
+        proxyServer.unregisterChannel(ctx.channel());
         super.channelUnregistered(ctx);
     }
 
@@ -608,7 +608,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
             throws Exception {
         LOG.debug("Writability changed. Is writable: {}", channel.isWritable());
         try {
-            if (this.channel.isWritable()) {
+            if (channel.isWritable()) {
                 becameWritable();
             } else {
                 becameSaturated();
@@ -631,7 +631,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * 
      * <p>
      * Note - we don't care what kind of IdleState we got. Thanks to <a
-     * href="https://github.com/qbast">qbast</a> for pointing this out.
+     * href="https://github.com/qbast">bast</a> for pointing this out.
      * </p>
      */
     @Override

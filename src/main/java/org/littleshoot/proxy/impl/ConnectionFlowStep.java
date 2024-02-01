@@ -24,7 +24,7 @@ abstract class ConnectionFlowStep {
         super();
         this.connection = connection;
         this.state = state;
-        this.LOG = connection.getLOG();
+        LOG = connection.getLOG();
     }
 
     ProxyConnection getConnection() {

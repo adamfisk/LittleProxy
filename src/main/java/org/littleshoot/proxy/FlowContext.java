@@ -17,11 +17,9 @@ public class FlowContext {
     private final SSLSession clientSslSession;
 
     public FlowContext(ClientToProxyConnection clientConnection) {
-        super();
-        this.clientAddress = clientConnection.getClientAddress();
+        clientAddress = clientConnection.getClientAddress();
         SSLEngine sslEngine = clientConnection.getSslEngine();
-        this.clientSslSession = sslEngine != null ? sslEngine.getSession()
-                : null;
+        clientSslSession = sslEngine != null ? sslEngine.getSession() : null;
     }
 
     /**

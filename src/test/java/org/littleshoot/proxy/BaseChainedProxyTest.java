@@ -52,8 +52,8 @@ public abstract class BaseChainedProxyTest extends BaseProxyTest {
         REQUESTS_SENT_BY_DOWNSTREAM.set(0);
         REQUESTS_RECEIVED_BY_UPSTREAM.set(0);
         TRANSPORTS_USED.clear();
-        this.upstreamProxy = upstreamProxy().start();
-        this.proxyServer = bootstrapProxy()
+        upstreamProxy = upstreamProxy().start();
+        proxyServer = bootstrapProxy()
                 .withName("Downstream")
                 .withPort(0)
                 .withChainProxyManager(chainedProxyManager())

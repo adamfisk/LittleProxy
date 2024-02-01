@@ -65,7 +65,7 @@ public class ProxyHeadersTest {
                                 .withSuppressConnectionHeader(true))
                 );
 
-        this.proxyServer = DefaultHttpProxyServer.bootstrap()
+        proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .start();
 
@@ -88,7 +88,7 @@ public class ProxyHeadersTest {
 		mockServer.when(expectedServerRequest, Times.exactly(1)) //
 				.respond(response().withStatusCode(200).withBody("success"));
 
-		this.proxyServer = DefaultHttpProxyServer.bootstrap().withPort(0).start();
+		proxyServer = DefaultHttpProxyServer.bootstrap().withPort(0).start();
 
 		try (CloseableHttpClient httpClient = TestUtils
 				.createProxiedHttpClient(proxyServer.getListenAddress().getPort())) {

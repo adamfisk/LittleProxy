@@ -8,7 +8,7 @@ import org.junit.Test;
 public class NoChainedProxiesTest extends AbstractProxyTest {
     @Override
     protected void setUp() {
-        this.proxyServer = bootstrapProxy()
+        proxyServer = bootstrapProxy()
                 .withPort(0)
                 .withChainProxyManager((httpRequest, chainedProxies, clientDetails) -> {
                     // Leave list empty

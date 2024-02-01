@@ -25,7 +25,7 @@ class ProxyConnectionLogger {
     private final ProxyConnection connection;
     private final LogDispatch dispatch;
     private final Logger logger;
-    private final String fqcn = this.getClass().getCanonicalName();
+    private final String fqcn = getClass().getCanonicalName();
 
     public ProxyConnectionLogger(ProxyConnection connection) {
         this.connection = connection;

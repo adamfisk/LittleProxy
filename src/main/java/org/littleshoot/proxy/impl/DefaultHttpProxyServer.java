@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -246,9 +247,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         this.serverResolver = serverResolver;
 
         if (writeThrottleBytesPerSecond > 0 || readThrottleBytesPerSecond > 0) {
-            this.globalTrafficShapingHandler = createGlobalTrafficShapingHandler(transportProtocol, readThrottleBytesPerSecond, writeThrottleBytesPerSecond);
+            globalTrafficShapingHandler = createGlobalTrafficShapingHandler(transportProtocol, readThrottleBytesPerSecond, writeThrottleBytesPerSecond);
         } else {
-            this.globalTrafficShapingHandler = null;
+            globalTrafficShapingHandler = null;
         }
         this.localAddress = localAddress;
 
@@ -274,7 +275,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      * Creates a new GlobalTrafficShapingHandler for this HttpProxyServer, using this proxy's proxyToServerEventLoop.
      */
     private GlobalTrafficShapingHandler createGlobalTrafficShapingHandler(TransportProtocol transportProtocol, long readThrottleBytesPerSecond, long writeThrottleBytesPerSecond) {
-        EventLoopGroup proxyToServerEventLoop = this.getProxyToServerWorkerFor(transportProtocol);
+        EventLoopGroup proxyToServerEventLoop = getProxyToServerWorkerFor(transportProtocol);
         return new GlobalTrafficShapingHandler(proxyToServerEventLoop,
                 writeThrottleBytesPerSecond,
                 readThrottleBytesPerSecond,
@@ -303,7 +304,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     @Override
     public void setConnectTimeout(int connectTimeoutMs) {
-        this.connectTimeout = connectTimeoutMs;
+        connectTimeout = connectTimeoutMs;
     }
 
     public HostResolver getServerResolver() {
@@ -485,7 +486,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
     private HttpProxyServer start() {
         if (!serverGroup.isStopped()) {
-            LOG.info("Starting proxy at address: {}", this.requestedAddress);
+            LOG.info("Starting proxy at address: {}", requestedAddress);
 
             serverGroup.registerProxyServer(this);
 
@@ -540,8 +541,8 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             throw new RuntimeException(cause);
         }
 
-        this.boundAddress = ((InetSocketAddress) future.channel().localAddress());
-        LOG.info("Proxy started at address: {}", this.boundAddress);
+        boundAddress = ((InetSocketAddress) future.channel().localAddress());
+        LOG.info("Proxy started at address: {}", boundAddress);
 
         Runtime.getRuntime().addShutdownHook(jvmShutdownHook);
     }
@@ -664,19 +665,19 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         private DefaultHttpProxyServerBootstrap(Properties props) {
-            this.withUseDnsSec(ProxyUtils.extractBooleanDefaultFalse(
+            withUseDnsSec(ProxyUtils.extractBooleanDefaultFalse(
                     props, "dnssec"));
-            this.transparent = ProxyUtils.extractBooleanDefaultFalse(
+            transparent = ProxyUtils.extractBooleanDefaultFalse(
                     props, "transparent");
-            this.idleConnectionTimeout = ProxyUtils.extractInt(props,
+            idleConnectionTimeout = ProxyUtils.extractInt(props,
                     "idle_connection_timeout");
-            this.connectTimeout = ProxyUtils.extractInt(props,
+            connectTimeout = ProxyUtils.extractInt(props,
                     "connect_timeout", 0);
-            this.maxInitialLineLength = ProxyUtils.extractInt(props,
+            maxInitialLineLength = ProxyUtils.extractInt(props,
                     "max_initial_line_length", MAX_INITIAL_LINE_LENGTH_DEFAULT);
-            this.maxHeaderSize = ProxyUtils.extractInt(props,
+            maxHeaderSize = ProxyUtils.extractInt(props,
                     "max_header_size", MAX_HEADER_SIZE_DEFAULT);
-            this.maxChunkSize = ProxyUtils.extractInt(props,
+            maxChunkSize = ProxyUtils.extractInt(props,
                     "max_chunk_size", MAX_CHUNK_SIZE_DEFAULT);
         }
 
@@ -695,26 +696,26 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         @Override
         public HttpProxyServerBootstrap withAddress(InetSocketAddress address) {
-            this.requestedAddress = address;
+            requestedAddress = address;
             return this;
         }
 
         @Override
         public HttpProxyServerBootstrap withPort(int port) {
-            this.requestedAddress = null;
+            requestedAddress = null;
             this.port = port;
             return this;
         }
 
         @Override
         public HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress) {
-            this.localAddress = inetSocketAddress;
+            localAddress = inetSocketAddress;
             return this;
         }
 
         @Override
         public HttpProxyServerBootstrap withProxyAlias(String alias) {
-            this.proxyAlias = alias;
+            proxyAlias = alias;
             return this;
         }
 
@@ -736,10 +737,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         public HttpProxyServerBootstrap withSslEngineSource(
                 SslEngineSource sslEngineSource) {
             this.sslEngineSource = sslEngineSource;
-            if (this.mitmManager != null) {
+            if (mitmManager != null) {
                 LOG.warn("Enabled encrypted inbound connections with man in the middle. "
                         + "These are mutually exclusive - man in the middle will be disabled.");
-                this.mitmManager = null;
+                mitmManager = null;
             }
             return this;
         }
@@ -769,10 +770,10 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         public HttpProxyServerBootstrap withManInTheMiddle(
                 MitmManager mitmManager) {
             this.mitmManager = mitmManager;
-            if (this.sslEngineSource != null) {
+            if (sslEngineSource != null) {
                 LOG.warn("Enabled man in the middle with encrypted inbound connections. "
                         + "These are mutually exclusive - encrypted inbound connections will be disabled.");
-                this.sslEngineSource = null;
+                sslEngineSource = null;
             }
             return this;
         }
@@ -787,9 +788,9 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         @Override
         public HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec) {
             if (useDnsSec) {
-                this.serverResolver = new DnsSecServerResolver();
+                serverResolver = new DnsSecServerResolver();
             } else {
-                this.serverResolver = new DefaultHostResolver();
+                serverResolver = new DefaultHostResolver();
             }
             return this;
         }
@@ -824,7 +825,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 	@Override
 	public HttpProxyServerBootstrap withServerGroup(
 		ServerGroup group) {
-	   this.serverGroup = group;
+	   serverGroup = group;
 	   return this;
 	}
 		
@@ -885,21 +886,16 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
 
         @Override
         public HttpProxyServerBootstrap withThreadPoolConfiguration(ThreadPoolConfiguration configuration) {
-            this.clientToProxyAcceptorThreads = configuration.getAcceptorThreads();
-            this.clientToProxyWorkerThreads = configuration.getClientToProxyWorkerThreads();
-            this.proxyToServerWorkerThreads = configuration.getProxyToServerWorkerThreads();
+            clientToProxyAcceptorThreads = configuration.getAcceptorThreads();
+            clientToProxyWorkerThreads = configuration.getClientToProxyWorkerThreads();
+            proxyToServerWorkerThreads = configuration.getProxyToServerWorkerThreads();
             return this;
         }
 
         private DefaultHttpProxyServer build() {
             final ServerGroup serverGroup;
 
-            if (this.serverGroup != null) {
-                serverGroup = this.serverGroup;
-            }
-            else {
-                serverGroup = new ServerGroup(name, clientToProxyAcceptorThreads, clientToProxyWorkerThreads, proxyToServerWorkerThreads);
-            }
+          serverGroup = Objects.requireNonNullElseGet(this.serverGroup, () -> new ServerGroup(name, clientToProxyAcceptorThreads, clientToProxyWorkerThreads, proxyToServerWorkerThreads));
 
             return new DefaultHttpProxyServer(serverGroup,
                     transportProtocol, determineListenAddress(),
