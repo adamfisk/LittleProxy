@@ -78,6 +78,43 @@ public class TestUtils {
      * @return Instance of Server
      */
     public static Server startWebServer(boolean enableHttps) {
+        final Server httpServer = createWebServer();
+
+        if (enableHttps) {
+            // Add SSL connector
+            SelfSignedSslEngineSource contextSource = new SelfSignedSslEngineSource();
+            ServerConnector connector = createServerConnector(contextSource, httpServer);
+            connector.setPort(0);
+            connector.setIdleTimeout(0);
+            httpServer.addConnector(connector);
+        }
+
+        try {
+            httpServer.start();
+        } catch (Exception e) {
+            throw new RuntimeException("Error starting Jetty web server", e);
+        }
+
+        return httpServer;
+    }
+
+    private static ServerConnector createServerConnector(SelfSignedSslEngineSource contextSource, Server httpServer) {
+        SSLContext sslContext = contextSource.getSslContext();
+
+        SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
+        sslContextFactory.setSslContext(sslContext);
+
+        SecureRequestCustomizer secureRequestCustomizer = new SecureRequestCustomizer();
+        secureRequestCustomizer.setSniHostCheck(false);
+
+        HttpConfiguration httpConfiguration = new HttpConfiguration();
+        httpConfiguration.addCustomizer(secureRequestCustomizer);
+
+        HttpConnectionFactory httpConnectionFactory = new HttpConnectionFactory(httpConfiguration);
+        return new ServerConnector(httpServer, sslContextFactory, httpConnectionFactory);
+    }
+
+    private static Server createWebServer() {
         final Server httpServer = new Server(0);
 
         httpServer.setHandler(new AbstractHandler() {
@@ -110,35 +147,6 @@ public class TestUtils {
                 response.getOutputStream().write(content);
             }
         });
-
-        if (enableHttps) {
-            // Add SSL connector
-            SelfSignedSslEngineSource contextSource = new SelfSignedSslEngineSource();
-            SSLContext sslContext = contextSource.getSslContext();
-
-            SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
-            sslContextFactory.setSslContext(sslContext);
-
-            SecureRequestCustomizer secureRequestCustomizer = new SecureRequestCustomizer();
-            secureRequestCustomizer.setSniHostCheck(false);
-
-            HttpConfiguration httpConfiguration = new HttpConfiguration();
-            httpConfiguration.addCustomizer(secureRequestCustomizer);
-
-            HttpConnectionFactory httpConnectionFactory = new HttpConnectionFactory(httpConfiguration);
-
-            ServerConnector connector = new ServerConnector(httpServer, sslContextFactory, httpConnectionFactory);
-            connector.setPort(0);
-            connector.setIdleTimeout(0);
-            httpServer.addConnector(connector);
-        }
-
-        try {
-            httpServer.start();
-        } catch (Exception e) {
-            throw new RuntimeException("Error starting Jetty web server", e);
-        }
-
         return httpServer;
     }
 
