@@ -121,7 +121,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     private final ChannelGroup allChannels = new DefaultChannelGroup("HTTP-Proxy-Server", GlobalEventExecutor.INSTANCE);
 
     /**
-     * JVM shutdown hook to shutdown this proxy server. Declared as a class-level variable to allow removing the shutdown hook when the
+     * JVM shutdown hook to shut down this proxy server. Declared as a class-level variable to allow removing the shutdown hook when the
      * proxy server is stopped normally.
      */
     private final Thread jvmShutdownHook = new Thread(this::abort, "LittleProxy-JVM-shutdown-hook");
@@ -166,7 +166,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            connections from clients using an {@link SSLEngine} obtained
      *            from this {@link SslEngineSource}.
      * @param authenticateSslClients
-     *            Indicate whether or not to authenticate clients when using SSL
+     *            Indicate whether to authenticate clients when using SSL
      * @param proxyAuthenticator
      *            (optional) If specified, requests to the proxy will be
      *            authenticated using HTTP BASIC authentication per the provided
@@ -175,7 +175,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            The proxy to send requests to if chaining proxies. Typically
      *            <code>null</code>.
      * @param mitmManager
-     *            The {@link MitmManager} to use for man in the middle'ing
+     *            The {@link MitmManager} to use for man in the middling
      *            CONNECT requests
      * @param filtersSource
      *            Source for {@link HttpFilters}
@@ -457,7 +457,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     /**
      * Closes all channels opened by this proxy server.
      *
-     * @param graceful when false, attempts to shutdown all channels immediately and ignores any channel-closing exceptions
+     * @param graceful when false, attempts to shut down all channels immediately and ignores any channel-closing exceptions
      */
     protected void closeAllChannels(boolean graceful) {
         LOG.info("Closing all channels {}", graceful ? "(graceful)" : "(non-graceful)");
