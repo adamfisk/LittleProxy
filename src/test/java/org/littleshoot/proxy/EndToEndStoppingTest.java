@@ -23,8 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.TimeUnit;
 
+import static java.time.Duration.ofSeconds;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,7 +34,7 @@ import static org.mockserver.model.HttpResponse.response;
 /**
  * End-to-end test making sure the proxy is able to service simple HTTP requests
  * and stop at the end. Made into a unit test from isopov and nasis's
- * contributions at: https://github.com/adamfisk/LittleProxy/issues/36
+ * contributions at: <a href="https://github.com/adamfisk/LittleProxy/issues/36">...</a>
  */
 public class EndToEndStoppingTest {
     private static final Logger log = LoggerFactory.getLogger(EndToEndStoppingTest.class);
@@ -76,9 +76,9 @@ public class EndToEndStoppingTest {
         FirefoxOptions capability = new FirefoxOptions();
         capability.setCapability(CapabilityType.PROXY, proxy);
 
-        String urlString = "http://www.yahoo.com/";
+        String urlString = "https://www.yahoo.com/";
         WebDriver driver = new FirefoxDriver(capability);
-        driver.manage().timeouts().pageLoadTimeout(30, TimeUnit.SECONDS);
+        driver.manage().timeouts().pageLoadTimeout(ofSeconds(30));
 
         driver.get(urlString);
 
@@ -99,30 +99,15 @@ public class EndToEndStoppingTest {
                                 .withStatusCode(200)
                                 .withBody("Success!")
                 );
-        // final String url = "https://www.exceptional.io/api/errors?" +
-        // "api_key="+"9848f38fb5ad1db0784675b75b9152c87dc1eb95"+"&protocol_version=6";
 
         final String url = "http://127.0.0.1:" + mockServerPort + "/success";
-        final String[] sites = { url };// "https://www.google.com.ua"};//"https://exceptional.io"};//"http://www.google.com.ua"};
+        final String[] sites = { url };
         for (final String site : sites) {
             runSiteTestWithHttpClient(site);
         }
     }
 
     private void runSiteTestWithHttpClient(final String site) throws Exception {
-        // HttpResponse response = client.execute(get);
-
-        // assertEquals(200, response.getStatusLine().getStatusCode());
-        // EntityUtils.consume(response.getEntity());
-        /*
-         * final HttpProxyServer ssl = new DefaultHttpProxyServer(PROXY_PORT,
-         * null, null, new SslHandshakeHandlerFactory(), new HttpRequestFilter()
-         * {
-         * 
-         * @Override public void filter(HttpRequest httpRequest) {
-         * System.out.println("Request went through proxy"); } });
-         */
-
         final HttpProxyServer proxy = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
@@ -178,11 +163,11 @@ public class EndToEndStoppingTest {
         FirefoxOptions capability = new FirefoxOptions();
         capability.setCapability(CapabilityType.PROXY, proxy);
 
-        final String urlString = "http://www.yahoo.com/";
+        final String urlString = "https://www.yahoo.com/";
 
         // Note this will actually launch a browser!!
         final WebDriver driver = new FirefoxDriver(capability);
-        driver.manage().timeouts().pageLoadTimeout(30, TimeUnit.SECONDS);
+        driver.manage().timeouts().pageLoadTimeout(ofSeconds(30));
 
         driver.get(urlString);
         final String source = driver.getPageSource();
