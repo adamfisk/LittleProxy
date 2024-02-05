@@ -37,6 +37,8 @@ import org.littleshoot.proxy.HttpFiltersAdapter;
 import org.littleshoot.proxy.ProxyAuthenticator;
 import org.littleshoot.proxy.SslEngineSource;
 
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.net.ssl.SSLSession;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -84,6 +86,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.NEGOTIATING_CONNECT;
  * .
  * </p>
  */
+@ParametersAreNonnullByDefault
 public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     private static final HttpResponseStatus CONNECTION_ESTABLISHED = new HttpResponseStatus(
             200, "Connection established");
@@ -161,7 +164,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     ClientToProxyConnection(
             final DefaultHttpProxyServer proxyServer,
-            SslEngineSource sslEngineSource,
+            @Nullable SslEngineSource sslEngineSource,
             boolean authenticateClients,
             ChannelPipeline pipeline,
             GlobalTrafficShapingHandler globalTrafficShapingHandler) {

@@ -12,6 +12,7 @@ import org.littleshoot.proxy.test.HttpClientUtil;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.net.ssl.SSLEngine;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -36,6 +37,7 @@ import static org.mockito.Mockito.when;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
+@ParametersAreNonnullByDefault
 public class HttpFilterTest {
     private Server webServer;
     private HttpProxyServer proxyServer;
@@ -138,6 +140,7 @@ public class HttpFilterTest {
         final String url4 = "http://localhost:" + webServerPort + "/testing3";
         final String url5 = "http://localhost:" + webServerPort + "/testing4";
 
+        @ParametersAreNonnullByDefault
         final HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
             public HttpFilters filterRequest(HttpRequest originalRequest) {
                 shouldFilterCalls.incrementAndGet();

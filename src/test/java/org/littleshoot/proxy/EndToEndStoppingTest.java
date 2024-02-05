@@ -22,6 +22,7 @@ import org.openqa.selenium.remote.CapabilityType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 
 import static java.time.Duration.ofSeconds;
@@ -112,7 +113,7 @@ public class EndToEndStoppingTest {
                 .withPort(0)
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
                     @Override
-                    public HttpFilters filterRequest(HttpRequest originalRequest) {
+                    public HttpFilters filterRequest(@Nonnull HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
                             public io.netty.handler.codec.http.HttpResponse proxyToServerRequest(

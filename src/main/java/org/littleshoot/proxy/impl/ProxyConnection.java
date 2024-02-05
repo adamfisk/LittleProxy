@@ -12,6 +12,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 import org.littleshoot.proxy.HttpFilters;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.net.ssl.SSLEngine;
 
 import static org.littleshoot.proxy.impl.ConnectionState.*;
@@ -60,6 +61,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.*;
  *            the type of "initial" message. This will be either
  *            {@link HttpResponse} or {@link HttpRequest}.
  */
+@ParametersAreNonnullByDefault
 abstract class ProxyConnection<I extends HttpObject> extends
         SimpleChannelInboundHandler<Object> {
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
@@ -432,14 +434,11 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * Removes the handler with the given name if it is present in the pipeline.
      * @param pipeline the pipeline from which to remove the handler.
      * @param handlerName the name of the handler to remove.
-     * @return true if the handler was found and removed; false otherwise.
      */
-    protected boolean removeHandlerIfPresent(ChannelPipeline pipeline, String handlerName) {
+    protected void removeHandlerIfPresent(ChannelPipeline pipeline, String handlerName) {
         if (pipeline.get(handlerName) != null) {
             pipeline.remove(handlerName);
-            return true;
         }
-        return false;
     }
 
     /* *************************************************************************

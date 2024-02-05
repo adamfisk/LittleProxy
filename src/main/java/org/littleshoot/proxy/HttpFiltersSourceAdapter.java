@@ -3,9 +3,13 @@ package org.littleshoot.proxy;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpRequest;
 
+import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
+
 /**
  * Convenience base class for implementations of {@link HttpFiltersSource}.
  */
+@ParametersAreNonnullByDefault
 public class HttpFiltersSourceAdapter implements HttpFiltersSource {
 
     public HttpFilters filterRequest(HttpRequest originalRequest) {
@@ -13,8 +17,8 @@ public class HttpFiltersSourceAdapter implements HttpFiltersSource {
     }
     
     @Override
-    public HttpFilters filterRequest(HttpRequest originalRequest,
-            ChannelHandlerContext ctx) {
+    @Nonnull
+    public HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext ctx) {
         return filterRequest(originalRequest);
     }
 

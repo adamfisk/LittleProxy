@@ -68,6 +68,7 @@ import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
 import org.littleshoot.proxy.extras.HAProxyMessageEncoder;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
@@ -106,6 +107,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
  * </p>
  */
 @Sharable
+@ParametersAreNonnullByDefault
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     // Pipeline handler names:
     private static final String HTTP_ENCODER_NAME = "encoder";
@@ -176,11 +178,6 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * Limits bandwidth when throttling is enabled.
      */
     private final GlobalTrafficShapingHandler trafficHandler;
-
-    /**
-     * Minimum size of the adaptive recv buffer when throttling is enabled.
-     */
-    private static final int MINIMUM_RECV_BUFFER_SIZE_BYTES = 64;
 
     /**
      * Create a new ProxyToServerConnection.
@@ -492,7 +489,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         }
         // This can happen if we couldn't make the initial connection due
         // to something like an unresolved address, for example, or a timeout.
-        // There will not have been be any requests written on an unopened
+        // There will not be any requests written on an unopened
         // connection, so there should not be any further action to take here.
     }
 
@@ -549,7 +546,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
         LOG.debug("Remembering the current response.");
         // We need to make a copy here because the response will be
         // modified in various ways before we need to do things like
-        // analyze response headers for whether or not to close the
+        // analyze response headers for whether to close the
         // connection (which may not happen for a while for large, chunked
         // responses, for example).
         currentHttpResponse = ProxyUtils.copyMutableResponseFields(response);
@@ -683,9 +680,9 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
                 throw new UnknownTransportProtocolException(transportProtocol);
             }
 
-            cb.handler(new ChannelInitializer<Channel>() {
+            cb.handler(new ChannelInitializer<>() {
                 protected void initChannel(Channel ch) {
-                    initChannelPipeline(ch.pipeline(), initialRequest);
+                    initChannelPipeline(ch.pipeline());
                 }
             });
             cb.option(ChannelOption.CONNECT_TIMEOUT_MILLIS,
@@ -1092,7 +1089,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * the {@link HttpResponseEncoder} or {@link HttpRequestEncoder} before the
      * {@link HttpObjectAggregator} in the {@link ChannelPipeline}.
      */
-    private void initChannelPipeline(ChannelPipeline pipeline, HttpRequest httpRequest) {
+    private void initChannelPipeline(ChannelPipeline pipeline) {
 
         if (trafficHandler != null) {
             pipeline.addLast("global-traffic-shaping", trafficHandler);
@@ -1136,7 +1133,7 @@ public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
      * </p>
      *
      * @param shouldForwardInitialRequest
-     *            whether or not we should forward the initial HttpRequest to
+     *            whether we should forward the initial HttpRequest to
      *            the server after the connection has been established.
      */
     void connectionSucceeded(boolean shouldForwardInitialRequest) {

@@ -1,7 +1,11 @@
 package org.littleshoot.proxy;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.littleshoot.proxy.impl.ThreadPoolConfiguration;
 import org.littleshoot.proxy.impl.ServerGroup;
+
+import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.net.InetSocketAddress;
 
 /**
@@ -10,6 +14,7 @@ import java.net.InetSocketAddress;
  * parameters such that {@link #start()} could be called immediately if you
  * wish.
  */
+@ParametersAreNonnullByDefault
 public interface HttpProxyServerBootstrap {
 
     /**
@@ -174,8 +179,8 @@ public interface HttpProxyServerBootstrap {
      * Default = false
      * </p>
      */
-    HttpProxyServerBootstrap withUseDnsSec(
-            boolean useDnsSec);
+    @CanIgnoreReturnValue
+    HttpProxyServerBootstrap withUseDnsSec(boolean useDnsSec);
 
     /**
      * <p>
@@ -247,6 +252,8 @@ public interface HttpProxyServerBootstrap {
      *
      * @param inetSocketAddress to be used for outgoing communication
      */
+    @CanIgnoreReturnValue
+    @Nonnull
     HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress);
     
     HttpProxyServerBootstrap withMaxInitialLineLength(int maxInitialLineLength);

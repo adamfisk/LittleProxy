@@ -13,6 +13,8 @@ import org.littleshoot.proxy.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.net.ssl.SSLEngine;
 import java.io.File;
 import java.io.FileInputStream;
@@ -197,9 +199,6 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
      *            read throttle bandwidth
      * @param writeThrottleBytesPerSecond
      *            write throttle bandwidth
-     * @param maxInitialLineLength
-     * @param maxHeaderSize
-     * @param maxChunkSize
      * @param allowRequestsToOriginServer
      *            when true, allow the proxy to handle requests that contain an origin-form URI, as defined in RFC 7230 5.3.1
      * @param acceptProxyProtocol when true, the proxy will accept a proxy protocol header from client
@@ -581,6 +580,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     // TODO: refactor bootstrap into a separate class
+    @ParametersAreNonnullByDefault
     private static class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
         private String name = "LittleProxy";
         private ServerGroup serverGroup;
@@ -627,7 +627,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 MitmManager mitmManager,
                 HttpFiltersSource filtersSource,
                 boolean transparent, int idleConnectionTimeout,
-                Collection<ActivityTracker> activityTrackers,
+                @Nullable Collection<ActivityTracker> activityTrackers,
                 int connectTimeout, HostResolver serverResolver,
                 long readThrottleBytesPerSecond,
                 long  writeThrottleBytesPerSecond,
