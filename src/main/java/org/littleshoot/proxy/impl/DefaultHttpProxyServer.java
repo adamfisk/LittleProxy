@@ -503,7 +503,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
                 serverGroup.getClientToProxyAcceptorPoolForTransport(transportProtocol),
                 serverGroup.getClientToProxyWorkerPoolForTransport(transportProtocol));
 
-        ChannelInitializer<Channel> initializer = new ChannelInitializer<Channel>() {
+        ChannelInitializer<Channel> initializer = new ChannelInitializer<>() {
             protected void initChannel(Channel ch) {
                 new ClientToProxyConnection(
                         DefaultHttpProxyServer.this,

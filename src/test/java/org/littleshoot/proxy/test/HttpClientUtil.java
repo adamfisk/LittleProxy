@@ -36,27 +36,21 @@ public class HttpClientUtil {
     }
 
     /**
-     * Creates a new HTTP client that uses the specified LittleProxy instance to perform a POST of the specified size to
+     * Creates a new HTTP client that uses the specified LittleProxy instance to perform a POST of the specified size
      * to the URL. The POST body will consist of a meaningless UTF-8-encoded String (currently, the letter 'q'). The
      * HTTP client is closed and discarded after the request is completed.
      *
      * @param url URL to post to
      * @param postSizeInBytes size of the POST body
      * @param proxyServer LittleProxy instance through which the POST will be proxied
-     * @return the HttpResponse from the server
      */
-    public static org.apache.http.HttpResponse performHttpPost(String url, int postSizeInBytes, HttpProxyServer proxyServer) {
+    public static void performHttpPost(String url, int postSizeInBytes, HttpProxyServer proxyServer) {
         CloseableHttpClient httpClient = buildHttpClient(proxyServer);
 
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < postSizeInBytes; i++) {
-            sb.append('q');
-        }
-
         HttpPost post = new HttpPost(url);
-        post.setEntity(new StringEntity(sb.toString(), UTF_8));
+        post.setEntity(new StringEntity("q".repeat(Math.max(0, postSizeInBytes)), UTF_8));
 
-        return performHttpRequest(httpClient, post);
+        performHttpRequest(httpClient, post);
     }
 
     /**
@@ -89,7 +83,7 @@ public class HttpClientUtil {
 
             return hr;
         } catch (IOException e) {
-            // this is test code; just let all exceptions bubble up the stack, which will cause the test to fail
+            // this is a test code; just let all exceptions bubble up the stack, which will cause the test to fail
             throw new RuntimeException("Unable to perform HTTP request", e);
         }
     }
