@@ -122,27 +122,8 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
                     .getInstance(algorithm);
             tmf.init(ks);
 
-            TrustManager[] trustManagers;
-            if (!trustAllServers) {
-                trustManagers = tmf.getTrustManagers();
-            } else {
-                trustManagers = new TrustManager[] { new X509TrustManager() {
-                    // TrustManager that trusts all servers
-                    @Override
-                    public void checkClientTrusted(X509Certificate[] arg0, String arg1) {
-                    }
+            TrustManager[] trustManagers = createTrustManagers(tmf);
 
-                    @Override
-                    public void checkServerTrusted(X509Certificate[] arg0, String arg1) {
-                    }
-
-                    @Override
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return null;
-                    }
-                } };
-            }
-            
             KeyManager[] keyManagers;
             if (sendCerts) {
                 keyManagers = kmf.getKeyManagers();
@@ -157,6 +138,30 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             throw new Error(
                     "Failed to initialize the server-side SSLContext", e);
         }
+    }
+
+    private TrustManager[] createTrustManagers(TrustManagerFactory tmf) {
+        TrustManager[] trustManagers;
+        if (!trustAllServers) {
+            trustManagers = tmf.getTrustManagers();
+        } else {
+            trustManagers = new TrustManager[] { new X509TrustManager() {
+                // TrustManager that trusts all servers
+                @Override
+                public void checkClientTrusted(X509Certificate[] arg0, String arg1) {
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] arg0, String arg1) {
+                }
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+            } };
+        }
+        return trustManagers;
     }
 
     private KeyStore loadKeyStore() throws IOException, GeneralSecurityException {
