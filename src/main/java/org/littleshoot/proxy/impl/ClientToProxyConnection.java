@@ -42,6 +42,8 @@ import javax.net.ssl.SSLSession;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -54,6 +56,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.format.DateTimeFormatter.ofPattern;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_CHUNK;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_INITIAL;
 import static org.littleshoot.proxy.impl.ConnectionState.AWAITING_PROXY_AUTHENTICATION;
@@ -1064,10 +1067,14 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
                 + "the credentials required.</p>\n" + "</body></html>\n";
         FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.PROXY_AUTHENTICATION_REQUIRED, body);
-        response.headers().set(HttpHeaderNames.DATE, new Date());
+        response.headers().set(HttpHeaderNames.DATE, dateHeaderValue());
         response.headers().set(HttpHeaderNames.PROXY_AUTHENTICATE,
                 "Basic realm=\"" + (realm == null ? "Restricted Files" : realm) + "\"");
         write(response);
+    }
+
+    private String dateHeaderValue() {
+        return LocalDateTime.now().atZone(ZoneId.of("GMT")).format(ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz"));
     }
 
     /* *************************************************************************
@@ -1188,7 +1195,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
              * that recipient or gatewayed via a protocol which requires a Date.
              */
             if (!headers.contains(HttpHeaderNames.DATE)) {
-                headers.set(HttpHeaderNames.DATE, new Date());
+                headers.set(HttpHeaderNames.DATE, dateHeaderValue());
             }
         }
     }
