@@ -533,8 +533,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * Tells the Client that its HTTP CONNECT request was successful.
      */
-    ConnectionFlowStep RespondCONNECTSuccessful = new ConnectionFlowStep(
-            this, NEGOTIATING_CONNECT) {
+    final ConnectionFlowStep RespondCONNECTSuccessful = new ConnectionFlowStep(this, NEGOTIATING_CONNECT) {
         @Override
         boolean shouldSuppressInitialRequest() {
             return true;
@@ -542,8 +541,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
         protected Future<?> execute() {
             LOG.debug("Responding with CONNECT successful");
-            HttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
-                    CONNECTION_ESTABLISHED);
+            HttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1, CONNECTION_ESTABLISHED);
             ProxyUtils.addVia(response, proxyServer.getProxyAlias());
             return writeToChannel(response);
         }
@@ -593,8 +591,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     /**
      * Called when {@link ProxyToServerConnection} starts its connection flow.
      */
-    protected void serverConnectionFlowStarted(
-            ProxyToServerConnection serverConnection) {
+    protected void serverConnectionFlowStarted(ProxyToServerConnection serverConnection) {
         stopReading();
         numberOfCurrentlyConnectingServers.incrementAndGet();
     }

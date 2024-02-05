@@ -15,7 +15,7 @@ import org.littleshoot.proxy.extras.SelfSignedSslEngineSource;
 public class SelfSignedGeneratedSslEngineChainedProxyTest extends BaseChainedProxyTest {
 
     @Rule
-    public TemporaryFolder temporaryFolder = new TemporaryFolder();
+    public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     private SslEngineSource sslEngineSource;
 

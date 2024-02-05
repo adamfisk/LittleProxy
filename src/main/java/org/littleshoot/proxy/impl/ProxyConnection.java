@@ -103,7 +103,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      **************************************************************************/
 
     /**
-     * Read is invoked automatically by Netty as messages arrive on the socket.
+     * Read is invoked automatically by Netty as messages arrive at the socket.
      */
     protected void read(Object msg) {
         LOG.debug("Reading: {}", msg);
@@ -306,14 +306,13 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * directly.
      * </p>
      */
-    protected ConnectionFlowStep StartTunneling = new ConnectionFlowStep(
-            this, NEGOTIATING_CONNECT) {
+    protected final ConnectionFlowStep StartTunneling = new ConnectionFlowStep(this, NEGOTIATING_CONNECT) {
         @Override
         boolean shouldSuppressInitialRequest() {
             return true;
         }
 
-        protected Future execute() {
+        protected ChannelFuture execute() {
             try {
                 ChannelPipeline pipeline = ctx.pipeline();
                 removeHandlerIfPresent(pipeline, "encoder");
@@ -478,7 +477,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     }
 
     /**
-     * Indicates whether or not this connection is saturated (i.e. not
+     * Indicates whether this connection is saturated (i.e. not
      * writeable).
      */
     protected boolean isSaturated() {

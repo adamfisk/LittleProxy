@@ -13,7 +13,7 @@ public class ChainedProxyAdapter implements ChainedProxy {
      * {@link ChainedProxy} that simply has the downstream proxy make a direct
      * connection to the upstream server.
      */
-    public static ChainedProxy FALLBACK_TO_DIRECT_CONNECTION = new ChainedProxyAdapter();
+    public static final ChainedProxy FALLBACK_TO_DIRECT_CONNECTION = new ChainedProxyAdapter();
 
     @Override
     public InetSocketAddress getChainedProxyAddress() {
