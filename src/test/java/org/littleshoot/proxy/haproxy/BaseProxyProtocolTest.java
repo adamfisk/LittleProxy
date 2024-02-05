@@ -30,7 +30,6 @@ public abstract class BaseProxyProtocolTest {
 
     private EventLoopGroup childGroup;
     private EventLoopGroup parentGroup;
-    private EventLoopGroup clientWorkGroup;
     private ProxyProtocolServerHandler proxyProtocolServerHandler;
     private HttpProxyServer proxyServer;
     private int proxyPort;
@@ -82,7 +81,7 @@ public abstract class BaseProxyProtocolTest {
 
     void startClient() throws Exception {
         String host = "localhost";
-        clientWorkGroup = new NioEventLoopGroup();
+        EventLoopGroup clientWorkGroup = new NioEventLoopGroup();
         Bootstrap b = new Bootstrap();
         b.group(clientWorkGroup);
         b.channel(NioSocketChannel.class);
