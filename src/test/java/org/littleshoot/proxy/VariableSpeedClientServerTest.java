@@ -59,28 +59,7 @@ public class VariableSpeedClientServerTest {
             log.info("------------------ Memory Usage At Beginning ------------------");
             TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
 
-            final String endpoint = "http://127.0.0.1:" + port + "/";
-            final HttpPost post = new HttpPost(endpoint);
-            post.setConfig(TestUtils.REQUEST_TIMEOUT_CONFIG);
-            post.setEntity(new InputStreamEntity(new InputStream() {
-                private int remaining = CONTENT_LENGTH;
-
-                @Override
-                public int read() {
-                    if (remaining > 0) {
-                        remaining -= 1;
-                        return 77;
-                    }
-                    else {
-                        return 0;
-                    }
-                }
-
-                @Override
-                public int available() {
-                    return remaining;
-                }
-            }, CONTENT_LENGTH));
+            final HttpPost post = createHttpPost("http://127.0.0.1:" + port + "/");
             final HttpResponse response = client.execute(post);
 
             final HttpEntity entity = response.getEntity();
@@ -103,6 +82,31 @@ public class VariableSpeedClientServerTest {
             log.info("------------------ Memory Usage At Beginning ------------------");
             TestUtils.getOpenFileDescriptorsAndPrintMemoryUsage();
         }
+    }
+
+    private static HttpPost createHttpPost(String endpoint) {
+        final HttpPost post = new HttpPost(endpoint);
+        post.setConfig(TestUtils.REQUEST_TIMEOUT_CONFIG);
+        post.setEntity(new InputStreamEntity(new InputStream() {
+            private int remaining = CONTENT_LENGTH;
+
+            @Override
+            public int read() {
+                if (remaining > 0) {
+                    remaining -= 1;
+                    return 77;
+                }
+                else {
+                    return 0;
+                }
+            }
+
+            @Override
+            public int available() {
+                return remaining;
+            }
+        }, CONTENT_LENGTH));
+        return post;
     }
 
     private void startServer(final int port, final boolean slowReader) {
