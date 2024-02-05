@@ -6,7 +6,20 @@ import com.google.common.collect.ImmutableSet;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.udt.nio.NioUdtProvider;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.DefaultHttpResponse;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMessage;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObject;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.util.AsciiString;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -16,8 +29,12 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -25,10 +42,11 @@ import java.util.regex.Pattern;
  */
 public class ProxyUtils {
     /**
-     * Hop-by-hop headers that should be removed when proxying, as defined by the HTTP 1.1 spec, section 13.5.1
-     * (https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1). Transfer-Encoding is NOT included in this list, since LittleProxy
+     * Hop-by-hop headers that should be removed when proxying, as defined by the
+     * (<a href="https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1">HTTP 1.1 spec, section 13.5.1</a>). 
+     * Transfer-Encoding is NOT included in this list, since LittleProxy
      * does not typically modify the transfer encoding. See also {@link #shouldRemoveHopByHopHeader(String)}.
-     *
+     * <p>
      * Header names are stored as lowercase to make case-insensitive comparisons easier.
      */
     @SuppressWarnings("deprecation") // Don't remove header names from this set until they're removed from Netty, just in case someone's still using them.
@@ -46,17 +64,10 @@ public class ProxyUtils {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
 
-    private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
-
     /**
      * Splits comma-separated header values (such as Connection) into their individual tokens.
      */
     private static final Splitter COMMA_SEPARATED_HEADER_VALUE_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
-    /**
-     * Date format pattern used to parse HTTP date headers in RFC 1123 format.
-     */
-    private static final String PATTERN_RFC1123 = "EEE, dd MMM yyyy HH:mm:ss zzz";
 
     // Schemes are case-insensitive:
     // https://tools.ietf.org/html/rfc3986#section-3.1
@@ -83,47 +94,6 @@ public class ProxyUtils {
             return "/";
         }
         return noHttpUri.substring(slashIndex);
-    }
-
-    /**
-     * Formats the given date according to the RFC 1123 pattern.
-     * 
-     * @param date
-     *            The date to format.
-     * @return An RFC 1123 formatted date string.
-     * 
-     * @see #PATTERN_RFC1123
-     */
-    public static String formatDate(final Date date) {
-        return formatDate(date, PATTERN_RFC1123);
-    }
-
-    /**
-     * Formats the given date according to the specified pattern. The pattern
-     * must conform to that used by the {@link SimpleDateFormat simple date
-     * format} class.
-     * 
-     * @param date
-     *            The date to format.
-     * @param pattern
-     *            The pattern to use for formatting the date.
-     * @return A formatted date string.
-     * 
-     * @throws IllegalArgumentException
-     *             If the given date pattern is invalid.
-     * 
-     * @see SimpleDateFormat
-     */
-    public static String formatDate(final Date date, final String pattern) {
-        if (date == null)
-            throw new IllegalArgumentException("date is null");
-        if (pattern == null)
-            throw new IllegalArgumentException("pattern is null");
-
-        final SimpleDateFormat formatter = new SimpleDateFormat(pattern,
-                Locale.US);
-        formatter.setTimeZone(GMT);
-        return formatter.format(date);
     }
 
     /**
@@ -281,15 +251,6 @@ public class ProxyUtils {
         return false;
     }
 
-    public static boolean extractBooleanDefaultTrue(final Properties props,
-            final String key) {
-        final String throttle = props.getProperty(key);
-        if (StringUtils.isNotBlank(throttle)) {
-            return "true".equalsIgnoreCase(throttle.trim());
-        }
-        return true;
-    }
-    
     public static int extractInt(final Properties props, final String key) {
         return extractInt(props, key, -1);
     }
@@ -495,21 +456,21 @@ public class ProxyUtils {
     /**
      * Determines if the specified header should be removed from the proxied response because it is a hop-by-hop header, as defined by the
      * HTTP 1.1 spec in section 13.5.1. The comparison is case-insensitive, so "Connection" will be treated the same as "connection" or "CONNECTION".
-     * From https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1 :
+     * From <a href="https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html#sec13.5.1">section 13.5.1</a> :
      * <pre>
-       The following HTTP/1.1 headers are hop-by-hop headers:
-        - Connection
-        - Keep-Alive
-        - Proxy-Authenticate
-        - Proxy-Authorization
-        - TE
-        - Trailers [LittleProxy note: actual header name is Trailer]
-        - Transfer-Encoding [LittleProxy note: this header is not normally removed when proxying, since the proxy does not re-chunk
-                            responses. The exception is when an HttpObjectAggregator is enabled, which aggregates chunked content and removes
-                            the 'Transfer-Encoding: chunked' header itself.]
-        - Upgrade
-
-       All other headers defined by HTTP/1.1 are end-to-end headers.
+     * The following HTTP/1.1 headers are hop-by-hop headers:
+     * - Connection
+     * - Keep-Alive
+     * - Proxy-Authenticate
+     * - Proxy-Authorization
+     * - TE
+     * - Trailers [LittleProxy note: actual header name is Trailer]
+     * - Transfer-Encoding [LittleProxy note: this header is not normally removed when proxying, since the proxy does not re-chunk
+     * responses. The exception is when an HttpObjectAggregator is enabled, which aggregates chunked content and removes
+     * the 'Transfer-Encoding: chunked' header itself.]
+     * - Upgrade
+     *
+     * All other headers defined by HTTP/1.1 are end-to-end headers.
      * </pre>
      *
      * @param headerName the header name
@@ -527,7 +488,7 @@ public class ProxyUtils {
      *            The headers to modify
      */
     public static void stripHopByHopHeaders(HttpHeaders headers) {
-      // Not explicitly documented, but remove is case insensitve as a HTTP header handling function should be
+      // Not explicitly documented, but remove is case-insensitive as HTTP header handling function should be
       SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS.forEach(headers::remove);
     }    
 
