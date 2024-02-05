@@ -14,7 +14,6 @@ import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.Security;
-import java.security.cert.X509Certificate;
 import java.util.Arrays;
 
 /**
@@ -141,27 +140,9 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     }
 
     private TrustManager[] createTrustManagers(TrustManagerFactory tmf) {
-        TrustManager[] trustManagers;
-        if (!trustAllServers) {
-            trustManagers = tmf.getTrustManagers();
-        } else {
-            trustManagers = new TrustManager[] { new X509TrustManager() {
-                // TrustManager that trusts all servers
-                @Override
-                public void checkClientTrusted(X509Certificate[] arg0, String arg1) {
-                }
-
-                @Override
-                public void checkServerTrusted(X509Certificate[] arg0, String arg1) {
-                }
-
-                @Override
-                public X509Certificate[] getAcceptedIssuers() {
-                    return null;
-                }
-            } };
-        }
-        return trustManagers;
+        return trustAllServers ?
+          new TrustManager[]{new TrustingTrustManager()} :
+          tmf.getTrustManagers();
     }
 
     private KeyStore loadKeyStore() throws IOException, GeneralSecurityException {
@@ -185,7 +166,7 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
         }
     }
 
-    private String nativeCall(final String... commands) {
+    private void nativeCall(final String... commands) {
         LOG.info("Running '{}'", Arrays.asList(commands));
         final ProcessBuilder pb = new ProcessBuilder(commands);
         try {
@@ -197,10 +178,8 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
             String dataAsString = new String(data);
 
             LOG.info("Completed native call: '{}'\nResponse: '{}'", Arrays.asList(commands), dataAsString);
-            return dataAsString;
         } catch (final IOException e) {
             LOG.error("Error running commands: {}", Arrays.asList(commands), e);
-            return "";
         }
     }
 
