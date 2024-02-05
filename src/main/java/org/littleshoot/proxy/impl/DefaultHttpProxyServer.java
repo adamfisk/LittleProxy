@@ -477,7 +477,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
             if (!future.isSuccess()) {
                 for (ChannelFuture cf : future) {
                     if (!cf.isSuccess()) {
-                        LOG.info("Unable to close channel.  Cause of failure for {} is {}", cf.channel(), cf.cause());
+                        LOG.info("Unable to close channel. Cause of failure for {} is {}", cf.channel(), String.valueOf(cf.cause()));
                     }
                 }
             }
