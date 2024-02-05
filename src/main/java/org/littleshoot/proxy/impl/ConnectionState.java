@@ -61,7 +61,7 @@ enum ConnectionState {
     /**
      * Indicates whether this ConnectionState corresponds to a step in a
      * {@link ConnectionFlow}. This is useful to distinguish so that we know
-     * whether or not we're in the process of establishing a connection.
+     * whether we're in the process of establishing a connection.
      * 
      * @return true if part of connection flow, otherwise false
      */

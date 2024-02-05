@@ -45,7 +45,6 @@ import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1309,7 +1308,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         FullHttpResponse response = ProxyUtils.createFullHttpResponse(HttpVersion.HTTP_1_1,
                 HttpResponseStatus.GATEWAY_TIMEOUT, body);
 
-        if (httpRequest != null && ProxyUtils.isHEAD(httpRequest)) {
+        if (ProxyUtils.isHEAD(httpRequest)) {
             // don't allow any body content in response to a HEAD request
             response.content().clear();
         }
