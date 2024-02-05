@@ -16,6 +16,8 @@ import java.security.KeyStore;
 import java.security.Security;
 import java.util.Arrays;
 
+import static java.util.Objects.requireNonNullElse;
+
 /**
  * Basic {@link SslEngineSource} for testing. The {@link SSLContext} uses
  * self-signed certificates that are generated lazily if the given key store
@@ -102,40 +104,27 @@ public class SelfSignedSslEngineSource implements SslEngineSource {
     }
 
     private void initializeSSLContext() {
-        String algorithm = Security
-                .getProperty("ssl.KeyManagerFactory.algorithm");
-        if (algorithm == null) {
-            algorithm = "SunX509";
-        }
+        String algorithm = requireNonNullElse(Security.getProperty("ssl.KeyManagerFactory.algorithm"), "SunX509");
 
         try {
             final KeyStore ks = loadKeyStore();
 
             // Set up key manager factory to use our key store
-            final KeyManagerFactory kmf =
-                    KeyManagerFactory.getInstance(algorithm);
+            final KeyManagerFactory kmf = KeyManagerFactory.getInstance(algorithm);
             kmf.init(ks, password.toCharArray());
 
             // Set up a trust manager factory to use our key store
-            TrustManagerFactory tmf = TrustManagerFactory
-                    .getInstance(algorithm);
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(algorithm);
             tmf.init(ks);
 
             TrustManager[] trustManagers = createTrustManagers(tmf);
-
-            KeyManager[] keyManagers;
-            if (sendCerts) {
-                keyManagers = kmf.getKeyManagers();
-            } else {
-                keyManagers = new KeyManager[0];
-            }
+            KeyManager[] keyManagers = sendCerts ? kmf.getKeyManagers() : new KeyManager[0];
 
             // Initialize the SSLContext to work with our key managers.
             sslContext = SSLContext.getInstance(PROTOCOL);
             sslContext.init(keyManagers, trustManagers, null);
-        } catch (final Exception e) {
-            throw new Error(
-                    "Failed to initialize the server-side SSLContext", e);
+        } catch (IOException | GeneralSecurityException e) {
+            throw new RuntimeException("Failed to initialize the server-side SSLContext", e);
         }
     }
 
