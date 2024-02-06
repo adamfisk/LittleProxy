@@ -29,15 +29,9 @@ class ProxyConnectionLogger {
 
     public ProxyConnectionLogger(ProxyConnection connection) {
         this.connection = connection;
-        final Logger lg = LoggerFactory.getLogger(connection
-                .getClass());
-        if (lg instanceof LocationAwareLogger) {
-            dispatch = new LocationAwareLoggerDispatch((LocationAwareLogger) lg);
-        }
-        else {
-            dispatch = new LoggerDispatch();
-        }
-        logger = lg;
+        logger = LoggerFactory.getLogger(connection.getClass());
+        dispatch = logger instanceof LocationAwareLogger ? 
+          new LocationAwareLoggerDispatch((LocationAwareLogger) logger) : new LoggerDispatch();
     }
 
     protected void error(String message, Object... params) {
