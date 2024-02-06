@@ -16,6 +16,8 @@ import org.junit.experimental.categories.Category;
 import org.junit.runners.MethodSorters;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
+import java.util.Arrays;
+
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.greaterThan;
@@ -54,9 +56,7 @@ public class ThrottlingTest {
     public void setUp() {
         // Set up some large data
         largeData = new byte[LARGE_DATA_SIZE];
-        for (int i = 0; i < largeData.length; i++) {
-            largeData[i] = 1 % 256;
-        }
+        Arrays.fill(largeData, (byte) (1 % 256));
 
         msToWriteThrottled = largeData.length  * 1000 / (int)THROTTLED_WRITE_BYTES_PER_SECOND;
         msToReadThrottled = largeData.length  * 1000 / (int)THROTTLED_READ_BYTES_PER_SECOND;

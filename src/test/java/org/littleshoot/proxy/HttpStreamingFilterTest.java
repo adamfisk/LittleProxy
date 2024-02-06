@@ -14,6 +14,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
+import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -41,7 +43,7 @@ public class HttpStreamingFilterTest {
         proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
-                    public HttpFilters filterRequest(HttpRequest originalRequest) {
+                    public HttpFilters filterRequest(@Nonnull HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
                             public HttpResponse clientToProxyRequest(
@@ -78,9 +80,7 @@ public class HttpStreamingFilterTest {
     public void testFiltering() throws Exception {
         // Set up some large data to make sure we get chunked encoding on post
         byte[] largeData = new byte[20000];
-        for (int i = 0; i < largeData.length; i++) {
-            largeData[i] = 1;
-        }
+        Arrays.fill(largeData, (byte) 1);
 
         final HttpPost request = new HttpPost("/");
         request.setConfig(TestUtils.REQUEST_TIMEOUT_CONFIG);
