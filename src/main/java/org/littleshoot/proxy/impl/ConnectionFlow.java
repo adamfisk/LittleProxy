@@ -18,7 +18,7 @@ import java.net.InetSocketAddress;
  * processing, and so on.
  */
 class ConnectionFlow {
-    private final Deque<ConnectionFlowStep> steps = new ConcurrentLinkedDeque<ConnectionFlowStep>();
+    private final Deque<ConnectionFlowStep> steps = new ConcurrentLinkedDeque<>();
 
     private final ClientToProxyConnection clientConnection;
     private final ProxyToServerConnection serverConnection;
