@@ -24,11 +24,6 @@ public class MitmWithUnencryptedUDTChainedProxyTest extends MitmWithChainedProxy
             public TransportProtocol getTransportProtocol() {
                 return UDT;
             }
-
-            @Override
-            public boolean requiresEncryption() {
-                return false;
-            }
         };
     }
 }

@@ -24,11 +24,6 @@ public class UnencryptedUDTChainedProxyTest extends BaseChainedProxyTest {
             public TransportProtocol getTransportProtocol() {
                 return UDT;
             }
-
-            @Override
-            public boolean requiresEncryption() {
-                return false;
-            }
         };
     }
 }

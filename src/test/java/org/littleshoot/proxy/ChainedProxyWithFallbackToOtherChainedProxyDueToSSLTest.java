@@ -5,7 +5,7 @@ import javax.net.ssl.SSLEngine;
 /**
  * Tests a proxy chained to a downstream proxy with an untrusted SSL cert. When
  * the downstream proxy is unavailable, the downstream proxy should just fall
- * back to a the next chained proxy.
+ * back to the next chained proxy.
  */
 public class ChainedProxyWithFallbackToOtherChainedProxyDueToSSLTest extends
         BadServerAuthenticationTCPChainedProxyTest {
@@ -20,12 +20,7 @@ public class ChainedProxyWithFallbackToOtherChainedProxyDueToSSLTest extends
             chainedProxies.add(newChainedProxy());
             // This 2nd one should work
             chainedProxies.add(new BaseChainedProxy() {
-                @Override
-                public TransportProtocol getTransportProtocol() {
-                    return TransportProtocol.TCP;
-                }
-
-                @Override
+              @Override
                 public boolean requiresEncryption() {
                     return true;
                 }

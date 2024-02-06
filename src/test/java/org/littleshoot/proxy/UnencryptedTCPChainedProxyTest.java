@@ -8,19 +8,4 @@ public class UnencryptedTCPChainedProxyTest extends BaseChainedProxyTest {
         return super.upstreamProxy()
                 .withTransportProtocol(TCP);
     }
-
-    @Override
-    protected ChainedProxy newChainedProxy() {
-        return new BaseChainedProxy() {
-            @Override
-            public TransportProtocol getTransportProtocol() {
-                return TCP;
-            }
-
-            @Override
-            public boolean requiresEncryption() {
-                return false;
-            }
-        };
-    }
 }

@@ -20,12 +20,7 @@ public class MitmWithEncryptedTCPChainedProxyTest extends MitmWithChainedProxyTe
     @Override
     protected ChainedProxy newChainedProxy() {
         return new BaseChainedProxy() {
-            @Override
-            public TransportProtocol getTransportProtocol() {
-                return TCP;
-            }
-
-            @Override
+          @Override
             public boolean requiresEncryption() {
                 return true;
             }
