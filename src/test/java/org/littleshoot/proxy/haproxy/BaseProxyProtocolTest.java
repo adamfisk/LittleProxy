@@ -72,11 +72,7 @@ public abstract class BaseProxyProtocolTest {
             throw new RuntimeException(cause);
         }
         serverPort = ((InetSocketAddress) f.channel().localAddress()).getPort();
-        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-            public void run() {
-                stopServer();
-            }
-        }, "stopServerHook"));
+        Runtime.getRuntime().addShutdownHook(new Thread(this::stopServer, "stopServerHook"));
     }
 
     void startClient() throws Exception {
