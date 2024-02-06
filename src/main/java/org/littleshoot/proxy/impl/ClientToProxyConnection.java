@@ -633,7 +633,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * @param cause
      *            what caused the failure
      *
-     * @return true if we're falling back to a another chained proxy (or direct
+     * @return true if we're falling back to another chained proxy (or direct
      *         connection) and trying again
      */
     protected boolean serverConnectionFailed(
@@ -863,7 +863,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
 
     /**
      * This method takes care of closing client to proxy and/or proxy to server
-     * connections after finishing a write.
+     * connections after finishing writing.
      */
     private void closeConnectionsAfterWriteIfNecessary(
             ProxyToServerConnection serverConnection,
@@ -892,7 +892,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
     }
 
     /**
-     * Determine whether or not the client connection should be closed.
+     * Determine whether the client connection should be closed.
      */
     private boolean shouldCloseClientConnection(HttpRequest req,
             HttpResponse res, HttpObject httpObject) {
@@ -942,7 +942,7 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
      * Connection: close
      *
      * in either the request or the response header fields indicates that the
-     * connection SHOULD NOT be considered `persistent' (section 8.1) after the
+     * connection SHOULD NOT be considered "persistent" (section 8.1) after the
      * current request/response is complete."
      *
      * @param req

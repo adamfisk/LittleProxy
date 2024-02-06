@@ -24,8 +24,7 @@ import static org.junit.Assert.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 /**
- * Base for tests that test the proxy. This base class encapsulates all of the
- * testing infrastructure.
+ * Base for tests that test the proxy. This base class encapsulates all the testing infrastructure.
  */
 public abstract class AbstractProxyTest {
     protected static final String DEFAULT_RESOURCE = "/";
@@ -262,7 +261,7 @@ public abstract class AbstractProxyTest {
     }
 
     /**
-     * Override this to indicate that the test uses authentication.
+     * Override this to indicate that the test does use authentication.
      */
     protected boolean isAuthenticating() {
         return false;

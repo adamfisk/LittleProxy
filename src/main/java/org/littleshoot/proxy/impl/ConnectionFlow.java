@@ -201,7 +201,7 @@ class ConnectionFlow {
                                 serverConnection,
                                 lastStateBeforeFailure,
                                 cause)) {
-                            // the connection to the server failed and we are not retrying, so transition to the
+                            // the connection to the server failed, and we are not retrying, so transition to the
                             // DISCONNECTED state
                             serverConnection.become(ConnectionState.DISCONNECTED);
 

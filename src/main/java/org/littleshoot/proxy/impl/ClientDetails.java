@@ -8,7 +8,7 @@ import java.net.InetSocketAddress;
 public class ClientDetails {
 
     /**
-     * The user name that was used for authentication, or null if authentication wasn't performed.
+     * The username that was used for authentication, or null if authentication wasn't performed.
      */
     private volatile String userName;
 

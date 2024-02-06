@@ -80,7 +80,7 @@ public class HttpFilterTest {
      * Sets up the HttpProxyServer instance for a test. This method initializes the proxyServer and proxyPort method variables, and should
      * be called before making any requests through the proxy server.
      *
-     * The proxy cannot be created in an @Before method because the filtersSource must be initialized by each test before the proxy is
+     * The proxy cannot be created in @Before method because the filtersSource must be initialized by each test before the proxy is
      * created.
      *
      * @param filtersSource HTTP filters source

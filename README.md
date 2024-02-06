@@ -38,7 +38,7 @@ HttpProxyServer server =
 
 To intercept and manipulate HTTPS traffic, LittleProxy uses a man-in-the-middle (MITM) manager. LittleProxy's default
 implementation (`SelfSignedMitmManager`) has a fairly limited feature set. For greater control over certificate impersonation,
-browser trust, the TLS handshake, and more, use a the LittleProxy-compatible MITM extension:
+browser trust, the TLS handshake, and more, use a LittleProxy-compatible MITM extension:
 - [LittleProxy-mitm](https://github.com/ganskef/LittleProxy-mitm) - A LittleProxy MITM extension that aims to support every Java platform including Android
 - [mitm](https://github.com/lightbody/browsermob-proxy/tree/master/mitm) - A LittleProxy MITM extension that supports elliptic curve cryptography and custom trust stores
 
@@ -74,8 +74,8 @@ methods you can use.
 
 To enable aggregator and inflater you have to return a value greater than 0 in 
 your `HttpFiltersSource#get(Request/Response)BufferSizeInBytes()` methods. This 
-provides to you a `FullHttp(Request/Response)' with the complete content in your 
-filter uncompressed. Otherwise you have to handle the chunks yourself.
+provides to you a `FullHttp(Request/Response)` with the complete content in your 
+filter uncompressed. Otherwise, you have to handle the chunks yourself.
 
 ```java
     @Override
@@ -106,7 +106,7 @@ return new HttpFiltersAdapter(originalRequest, serverCtx) {
 This enables huge downloads in an application, which regular handles size 
 limited `FullHttpResponse`s to modify its content, HTML for example. 
 
-A proxy server like LittleProxy contains always a web server, too. If you get an 
+A proxy server like LittleProxy contains always a web server, too. If you get a 
 URI without scheme, host and port in `originalRequest` it's a direct request to 
 your proxy. You can return a `HttpFilters` implementation which answers 
 responses with HTML content or redirects in `clientToProxyRequest` like this:
@@ -139,7 +139,7 @@ blocking behavior:
 ```java
 		HttpHeaders.setHeader(response, Names.CONNECTION, Values.CLOSE);
 ```
-With this trick, you can implement an UI to your application very easy.
+With this trick, you can implement a UI to your application very easy.
 
 If you want to create additional proxy servers with similar configuration but
 listening on different ports, you can clone an existing server.  The cloned

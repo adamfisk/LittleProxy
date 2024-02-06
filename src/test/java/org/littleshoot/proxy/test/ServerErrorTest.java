@@ -61,7 +61,7 @@ public class ServerErrorTest {
                         // read the request up to the double-CRLF
                     }
 
-                    // write a a response with an invalid HTTP version
+                    // write a response with an invalid HTTP version
                     out.write("HTTP/1.12312312312312411231231231 200 OK\r\n" +
                             "Connection: close\r\n" +
                             "Content-Length: 0\r\n" +

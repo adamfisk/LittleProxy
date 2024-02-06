@@ -36,7 +36,7 @@ abstract class ConnectionFlowStep {
     }
 
     /**
-     * Indicates whether or not to suppress the initial request. Defaults to
+     * Indicates whether to suppress the initial request. Defaults to
      * false, can be overridden.
      */
     boolean shouldSuppressInitialRequest() {

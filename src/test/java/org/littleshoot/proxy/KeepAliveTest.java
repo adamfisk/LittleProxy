@@ -226,7 +226,7 @@ public class KeepAliveTest {
 
             String response = SocketClientUtil.readStringFromSocket(socket);
 
-	        // match the whole response to make sure that the it is not repeated
+	          // match the whole response to make sure that it's not repeated
             assertThat("The response is repeated:", response, is("HTTP/1.1 504 Gateway Timeout\r\n" +
                     "content-length: 15\r\n" +
                     "content-type: text/html; charset=utf-8\r\n" +

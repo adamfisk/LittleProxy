@@ -71,7 +71,7 @@
   - Bump httpclient from 4.5.13 to 4.5.14
 
 - 2.0.14 (21.11.2022, https://github.com/LittleProxy/LittleProxy/milestone/19?closed=1)
-  - #184 Respect full KeyStore file path while generating certs by `SelfSignedMitmManager`  --  thanks to Valery Yatsynovich
+  - #184 Respectful KeyStore file path while generating certs by `SelfSignedMitmManager`  --  thanks to Valery Yatsynovich
   - #187 CI: run build on all major OS-s  --  thanks to Valery Yatsynovich
   - #183 Bump netty from 4.1.82.Final to 4.1.85.Final  --  thanks to Valery Yatsynovich for fixing tests after upgrading Netty.
   - #189 Bump slf4j.version from 2.0.3 to 2.0.4

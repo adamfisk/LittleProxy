@@ -8,12 +8,9 @@ public interface ProxyAuthenticator {
     /**
      * Authenticates the user using the specified userName and password.
      * 
-     * @param userName
-     *            The user name.
-     * @param password
-     *            The password.
-     * @return <code>true</code> if the credentials are acceptable, otherwise
-     *         <code>false</code>.
+     * @param userName The username.
+     * @param password The password.
+     * @return <code>true</code> if the credentials are acceptable, otherwise <code>false</code>.
      */
     boolean authenticate(String userName, String password);
     

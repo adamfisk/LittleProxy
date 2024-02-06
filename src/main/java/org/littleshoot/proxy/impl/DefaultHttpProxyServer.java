@@ -13,6 +13,7 @@ import org.littleshoot.proxy.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.net.ssl.SSLEngine;
@@ -708,6 +709,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
+        @Nonnull
         public HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress) {
             localAddress = inetSocketAddress;
             return this;

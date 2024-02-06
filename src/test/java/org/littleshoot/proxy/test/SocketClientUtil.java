@@ -82,7 +82,7 @@ public class SocketClientUtil {
         try {
             int readByte = in.read();
 
-            // we just lost that byte but it doesn't really matter for testing purposes
+            // we just lost that byte, but it doesn't really matter for testing purposes
             return readByte != -1;
         } catch (SocketException e) {
             // the socket couldn't be read, perhaps because the connection was reset or some other error. it cannot be read.
