@@ -38,10 +38,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Simple WebSocket client for use in unit tests that sends and receives text
@@ -123,8 +124,7 @@ public class WebSocketClient {
     }
 
     public String waitForResponse(final Duration timeout) throws InterruptedException {
-        return Optional.ofNullable(receivedMessages.poll(timeout.toMillis(), TimeUnit.MILLISECONDS))
-                .orElse(null);
+        return receivedMessages.poll(timeout.toMillis(), MILLISECONDS);
     }
 
     public void close() {
