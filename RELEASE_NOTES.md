@@ -1,7 +1,15 @@
 # Release Notes
 
-- 2.1.2 (in progress, https://github.com/LittleProxy/LittleProxy/milestone/30?closed=1)
+- 2.1.3 (in progress, https://github.com/LittleProxy/LittleProxy/milestone/31?closed=1)
   - ...
+
+- 2.1.2 (07.02.2024, https://github.com/LittleProxy/LittleProxy/milestone/30?closed=1)
+  - Refactoring & code cleanup & setup IDEA inspections (#370) (#371)
+  - Bump Netty from 4.1.103.Final to 4.1.106.Final
+  - Bump slf4j from 2.0.9 to 2.0.12
+  - Bump log4j from 2.22.0 to 2.22.1 (#357)
+  - Bump Selenium from 4.16.1 to 4.17.0 (#367)
+  - Bump Guava from 32.1.3-jre to 33.0.0-jre
 
 - 2.1.1 (15.12.2023, https://github.com/LittleProxy/LittleProxy/milestone/29?closed=1)
   - Bump Netty from 4.1.101.Final to 4.1.103.Final   #345 #346
