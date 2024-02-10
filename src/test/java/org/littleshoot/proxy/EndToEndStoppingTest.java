@@ -16,6 +16,8 @@ import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 import org.openqa.selenium.Proxy;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.remote.CapabilityType;
@@ -68,11 +70,7 @@ public class EndToEndStoppingTest {
                 .withPort(0)
                 .start();
 
-        Proxy proxy = new Proxy();
-        proxy.setProxyType(Proxy.ProxyType.MANUAL);
-        String proxyStr = String.format("localhost:%d", proxyServer.getListenAddress().getPort());
-        proxy.setHttpProxy(proxyStr);
-        proxy.setSslProxy(proxyStr);
+        Proxy proxy = createSeleniumProxy(proxyServer);
 
         FirefoxOptions capability = new FirefoxOptions();
         capability.setCapability(CapabilityType.PROXY, proxy);
@@ -149,35 +147,51 @@ public class EndToEndStoppingTest {
         }
     }
 
-    // @Test
+    /**
+     * This test actually launches a browser!
+     */
+    @Test
     public void testWithWebDriver() {
         HttpProxyServer proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .start();
 
+        try {
+            Proxy proxy = createSeleniumProxy(proxyServer);
+            tryProxyWithBrowser(proxy);
+        }
+        finally {
+            proxyServer.abort();
+        }
+    }
+
+    private static Proxy createSeleniumProxy(HttpProxyServer proxyServer) {
         Proxy proxy = new Proxy();
         proxy.setProxyType(Proxy.ProxyType.MANUAL);
         String proxyStr = String.format("localhost:%d", proxyServer.getListenAddress().getPort());
         proxy.setHttpProxy(proxyStr);
         proxy.setSslProxy(proxyStr);
+        return proxy;
+    }
 
-        FirefoxOptions capability = new FirefoxOptions();
-        capability.setCapability(CapabilityType.PROXY, proxy);
+    private void tryProxyWithBrowser(Proxy proxy) {
+        ChromeOptions options = new ChromeOptions();
+        options.setCapability(CapabilityType.PROXY, proxy);
+        options.addArguments("--headless=new");
 
-        final String urlString = "https://www.yahoo.com/";
+        WebDriver driver = new ChromeDriver(options);
+        try {
+            driver.manage().timeouts().pageLoadTimeout(ofSeconds(30));
 
-        // Note this will actually launch a browser!!
-        final WebDriver driver = new FirefoxDriver(capability);
-        driver.manage().timeouts().pageLoadTimeout(ofSeconds(30));
+            driver.get("https://github.com/littleProxy/LittleProxy//");
+            String source = driver.getPageSource();
 
-        driver.get(urlString);
-        final String source = driver.getPageSource();
-
-        // Just make sure it got something within reason.
-        assertThat(source.length(), greaterThan(100));
-        driver.close();
-
-        proxyServer.abort();
+            // Just make sure it got something within reason.
+            assertThat(source.length(), greaterThan(100));
+        }
+        finally {
+            driver.quit();
+        }
     }
 
 }
