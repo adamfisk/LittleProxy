@@ -1,6 +1,6 @@
 # Release Notes
 
-- 2.3.4 (??.??.2025, https://github.com/LittleProxy/LittleProxy/milestone/40)
+- 2.4.0 (??.01.2025, https://github.com/LittleProxy/LittleProxy/milestone/40)
   - 
 
 - 2.3.3 (04.12.2024, https://github.com/LittleProxy/LittleProxy/milestone/39?closed=1)

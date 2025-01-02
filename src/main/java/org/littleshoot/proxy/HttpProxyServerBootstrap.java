@@ -4,8 +4,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.littleshoot.proxy.impl.ServerGroup;
 import org.littleshoot.proxy.impl.ThreadPoolConfiguration;
 
-import javax.annotation.Nonnull;
-import javax.annotation.ParametersAreNonnullByDefault;
+import org.jspecify.annotations.NullMarked;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 
@@ -15,14 +14,14 @@ import java.time.Duration;
  * parameters such that {@link #start()} could be called immediately if you
  * wish.
  */
-@ParametersAreNonnullByDefault
+@NullMarked
 public interface HttpProxyServerBootstrap {
 
     /**
      * <p>
      * Give the server a name (used for naming threads, useful for logging).
      * </p>
-     * 
+     *
      * <p>
      * Default = LittleProxy
      * </p>
@@ -33,7 +32,7 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Specify the {@link TransportProtocol} to use for incoming connections.
      * </p>
-     * 
+     *
      * <p>
      * Default = TCP
      * </p>
@@ -45,7 +44,7 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Listen for incoming connections on the given address.
      * </p>
-     * 
+     *
      * <p>
      * Default = [bound ip]:8080
      * </p>
@@ -56,7 +55,7 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Listen for incoming connections on the given port.
      * </p>
-     * 
+     *
      * <p>
      * Default = 8080
      * </p>
@@ -67,7 +66,7 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Specify whether or not to only allow local connections.
      * </p>
-     * 
+     *
      * <p>
      * Default = true
      * </p>
@@ -87,11 +86,11 @@ public interface HttpProxyServerBootstrap {
      * connections. Enabling this will enable SSL client authentication
      * by default (see {@link #withAuthenticateSslClients(boolean)})
      * </p>
-     * 
+     *
      * <p>
      * Default = null
      * </p>
-     * 
+     *
      * <p>
      * Note - This and {@link #withManInTheMiddle(MitmManager)} are
      * mutually exclusive.
@@ -105,7 +104,7 @@ public interface HttpProxyServerBootstrap {
      * Specify whether or not to authenticate inbound SSL clients (only applies
      * if {@link #withSslEngineSource(SslEngineSource)} has been set).
      * </p>
-     * 
+     *
      * <p>
      * Default = true
      * </p>
@@ -118,7 +117,7 @@ public interface HttpProxyServerBootstrap {
      * Specify a {@link ProxyAuthenticator} to use for doing basic HTTP
      * authentication of clients.
      * </p>
-     * 
+     *
      * <p>
      * Default = null
      * </p>
@@ -131,7 +130,7 @@ public interface HttpProxyServerBootstrap {
      * Specify a {@link ChainedProxyManager} to use for chaining requests to
      * another proxy.
      * </p>
-     * 
+     *
      * <p>
      * Default = null
      * </p>
@@ -144,11 +143,11 @@ public interface HttpProxyServerBootstrap {
      * Specify an {@link MitmManager} to use for making this proxy act as an SSL
      * man in the middle
      * </p>
-     * 
+     *
      * <p>
      * Default = null
      * </p>
-     * 
+     *
      * <p>
      * Note - This and {@link #withSslEngineSource(SslEngineSource)} are
      * mutually exclusive.
@@ -162,7 +161,7 @@ public interface HttpProxyServerBootstrap {
      * Specify a {@link HttpFiltersSource} to use for filtering requests and/or
      * responses through this proxy.
      * </p>
-     * 
+     *
      * <p>
      * Default = null
      * </p>
@@ -175,7 +174,7 @@ public interface HttpProxyServerBootstrap {
      * Specify whether or not to use secure DNS lookups for outbound
      * connections.
      * </p>
-     * 
+     *
      * <p>
      * Default = false
      * </p>
@@ -187,7 +186,7 @@ public interface HttpProxyServerBootstrap {
      * <p>
      * Specify whether or not to run this proxy as a transparent proxy.
      * </p>
-     * 
+     *
      * <p>
      * Default = false
      * </p>
@@ -200,7 +199,7 @@ public interface HttpProxyServerBootstrap {
      * Specify the timeout after which to disconnect idle connections, in
      * seconds.
      * </p>
-     * 
+     *
      * <p>
      * Default = 70
      * </p>
@@ -220,7 +219,7 @@ public interface HttpProxyServerBootstrap {
      * Specify the timeout for connecting to the upstream server on a new
      * connection, in milliseconds.
      * </p>
-     * 
+     *
      * <p>
      * Default = 40000
      * </p>
@@ -236,11 +235,11 @@ public interface HttpProxyServerBootstrap {
     /**
     * Specify a custom {@link ServerGroup} to use for managing this server's resources and such.
     * If one isn't provided, a default one will be created using the {@link ThreadPoolConfiguration} provided
-    * 
+    *
     * @param group A custom server group
     */
     HttpProxyServerBootstrap withServerGroup(ServerGroup group);
-    
+
     /**
      * <p>
      * Add an {@link ActivityTracker} for tracking activity in this proxy.
@@ -261,13 +260,13 @@ public interface HttpProxyServerBootstrap {
      * @param inetSocketAddress to be used for outgoing communication
      */
     @CanIgnoreReturnValue
-    @Nonnull
+    @NullMarked
     HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress);
-    
+
     HttpProxyServerBootstrap withMaxInitialLineLength(int maxInitialLineLength);
-    
+
     HttpProxyServerBootstrap withMaxHeaderSize(int maxHeaderSize);
-    
+
     HttpProxyServerBootstrap withMaxChunkSize(int maxChunkSize);
 
     /**

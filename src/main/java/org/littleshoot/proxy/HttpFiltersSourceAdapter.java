@@ -2,23 +2,24 @@ package org.littleshoot.proxy;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpRequest;
-
-import javax.annotation.Nonnull;
-import javax.annotation.ParametersAreNonnullByDefault;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Convenience base class for implementations of {@link HttpFiltersSource}.
  */
-@ParametersAreNonnullByDefault
+@NullMarked
 public class HttpFiltersSourceAdapter implements HttpFiltersSource {
 
-    public HttpFilters filterRequest(HttpRequest originalRequest) {
+    @Nullable
+    public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
         return new HttpFiltersAdapter(originalRequest, null);
     }
-    
+
     @Override
-    @Nonnull
-    public HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext ctx) {
+    @Nullable
+    public HttpFilters filterRequest(@NonNull HttpRequest originalRequest, @NonNull ChannelHandlerContext ctx) {
         return filterRequest(originalRequest);
     }
 

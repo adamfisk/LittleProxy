@@ -8,6 +8,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,8 +25,6 @@ import org.openqa.selenium.remote.CapabilityType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.ParametersAreNonnullByDefault;
 import java.nio.charset.StandardCharsets;
 
 import static java.time.Duration.ofSeconds;
@@ -39,7 +38,6 @@ import static org.mockserver.model.HttpResponse.response;
  * and stop at the end. Made into a unit test from isopov and nasis's
  * contributions at: <a href="https://github.com/adamfisk/LittleProxy/issues/36">...</a>
  */
-@ParametersAreNonnullByDefault
 public final class EndToEndStoppingTest {
     private static final Logger log = LoggerFactory.getLogger(EndToEndStoppingTest.class);
 
@@ -111,12 +109,12 @@ public final class EndToEndStoppingTest {
         final HttpProxyServer proxy = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
+                    @NonNull
                     @Override
-                    public HttpFilters filterRequest(@Nonnull HttpRequest originalRequest) {
+                    public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
-                            public io.netty.handler.codec.http.HttpResponse proxyToServerRequest(
-                                    HttpObject httpObject) {
+                            public io.netty.handler.codec.http.HttpResponse proxyToServerRequest(@NonNull HttpObject httpObject) {
                                 System.out.println("Request with through proxy");
                                 return null;
                             }
@@ -142,9 +140,7 @@ public final class EndToEndStoppingTest {
 
             log.info("Stopping proxy");
         } finally {
-            if (proxy != null) {
-                proxy.abort();
-            }
+            proxy.abort();
         }
     }
 

@@ -30,9 +30,8 @@ import org.littleshoot.proxy.UnknownTransportProtocolException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.annotation.ParametersAreNonnullByDefault;
+import org.jspecify.annotations.Nullable;
+import org.jspecify.annotations.NullMarked;
 import javax.net.ssl.SSLEngine;
 import java.io.File;
 import java.io.FileInputStream;
@@ -598,7 +597,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
     }
 
     // TODO: refactor bootstrap into a separate class
-    @ParametersAreNonnullByDefault
+    @NullMarked
     private static class DefaultHttpProxyServerBootstrap implements HttpProxyServerBootstrap {
         private String name = "LittleProxy";
         private ServerGroup serverGroup;
@@ -726,7 +725,7 @@ public class DefaultHttpProxyServer implements HttpProxyServer {
         }
 
         @Override
-        @Nonnull
+        @NullMarked
         public HttpProxyServerBootstrap withNetworkInterface(InetSocketAddress inetSocketAddress) {
             localAddress = inetSocketAddress;
             return this;

@@ -7,13 +7,14 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
-import javax.annotation.ParametersAreNonnullByDefault;
 import javax.net.ssl.SSLException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -26,15 +27,11 @@ import static org.littleshoot.proxy.test.HttpClientUtil.performLocalHttpGet;
  * This class tests direct requests to the proxy server, which causes endless
  * loops (#205).
  */
-@ParametersAreNonnullByDefault
+@NullMarked
 public final class DirectRequestTest {
 
+    @Nullable
     private HttpProxyServer proxyServer;
-
-    @BeforeEach
-    void setUp() {
-        proxyServer = null;
-    }
 
     @AfterEach
     void tearDown() {
@@ -47,7 +44,7 @@ public final class DirectRequestTest {
     @Timeout(5)
     public void testAnswerBadRequestInsteadOfEndlessLoop() {
 
-        startProxyServer();
+        HttpProxyServer proxyServer = startProxyServer();
 
         int proxyPort = proxyServer.getListenAddress().getPort();
         org.apache.http.HttpResponse response = performHttpGet("http://127.0.0.1:" + proxyPort + "/directToProxy", proxyServer);
@@ -60,7 +57,7 @@ public final class DirectRequestTest {
     @Timeout(5)
     public void testAnswerFromFilterShouldBeServed() {
 
-        startProxyServerWithFilterAnsweringStatusCode(403);
+        HttpProxyServer proxyServer = startProxyServerWithFilterAnsweringStatusCode(403);
 
         int proxyPort = proxyServer.getListenAddress().getPort();
         org.apache.http.HttpResponse response = performLocalHttpGet(proxyPort, "/directToProxy", proxyServer);
@@ -69,14 +66,15 @@ public final class DirectRequestTest {
         assertThat(statusCode).as("Expected to receive an HTTP 403 from the server").isEqualTo(403);
     }
 
-    private void startProxyServerWithFilterAnsweringStatusCode(int statusCode) {
+    private HttpProxyServer startProxyServerWithFilterAnsweringStatusCode(int statusCode) {
         final HttpResponseStatus status = HttpResponseStatus.valueOf(statusCode);
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return new HttpFiltersAdapter(originalRequest) {
                     @Override
-                    public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+                    public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
                         return new DefaultHttpResponse(HttpVersion.HTTP_1_1, status);
                     }
                 };
@@ -87,15 +85,15 @@ public final class DirectRequestTest {
                 .withPort(0)
                 .withFiltersSource(filtersSource)
                 .start();
+        return proxyServer;
     }
 
     @Test
     @Timeout(5)
     public void testHttpsShouldCancelConnection() {
-        startProxyServer();
+        HttpProxyServer proxyServer = startProxyServer();
 
         int proxyPort = proxyServer.getListenAddress().getPort();
-
 
         assertThatThrownBy(() -> performHttpGet("https://localhost:" + proxyPort + "/directToProxy", proxyServer))
           .isInstanceOf(RuntimeException.class)
@@ -116,11 +114,13 @@ public final class DirectRequestTest {
                 .withAllowRequestToOriginServer(true)
                 .withProxyAlias("testAllowRequestToOriginServerWithOverride")
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
+                    @NonNull
                     @Override
-                    public HttpFilters filterRequest(HttpRequest originalRequest) {
+                    public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
+                            @Nullable
                             @Override
-                            public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+                            public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
                                     HttpRequest request = (HttpRequest) httpObject;
                                     String viaHeader = request.headers().get(HttpHeaderNames.VIA);
@@ -149,10 +149,10 @@ public final class DirectRequestTest {
           .isTrue();
     }
 
-    private void startProxyServer() {
+    private HttpProxyServer startProxyServer() {
         proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .start();
+        return proxyServer;
     }
-
 }

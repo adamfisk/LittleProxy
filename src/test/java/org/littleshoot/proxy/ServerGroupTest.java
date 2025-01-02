@@ -3,6 +3,7 @@ package org.littleshoot.proxy;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import org.apache.http.HttpResponse;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,7 +12,6 @@ import org.littleshoot.proxy.impl.ThreadPoolConfiguration;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 
-import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -24,7 +24,6 @@ import static org.littleshoot.proxy.test.HttpClientUtil.performLocalHttpGet;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
-@ParametersAreNonnullByDefault
 public final class ServerGroupTest {
     private ClientAndServer mockServer;
     private int mockServerPort;
@@ -90,11 +89,12 @@ public final class ServerGroupTest {
         proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
+                    @NonNull
                     @Override
-                    public HttpFilters filterRequest(HttpRequest originalRequest) {
+                    public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
                             @Override
-                            public io.netty.handler.codec.http.HttpResponse clientToProxyRequest(HttpObject httpObject) {
+                            public io.netty.handler.codec.http.HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
                                 if (originalRequest.uri().endsWith(firstRequestPath)) {
                                     firstClientThreadName.set(Thread.currentThread().getName());
                                 } else if (originalRequest.uri().endsWith(secondRequestPath)) {

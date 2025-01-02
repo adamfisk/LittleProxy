@@ -9,20 +9,19 @@ import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.eclipse.jetty.server.Server;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.littleshoot.proxy.TestUtils.createProxiedHttpClient;
 
-@ParametersAreNonnullByDefault
 public final class HttpStreamingFilterTest {
     private Server webServer;
     private int webServerPort = -1;
@@ -42,17 +41,17 @@ public final class HttpStreamingFilterTest {
         proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
-                    public HttpFilters filterRequest(@Nonnull HttpRequest originalRequest) {
+                    @NonNull
+                    @Override
+                    public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
+                            @Nullable
                             @Override
-                            public HttpResponse clientToProxyRequest(
-                                    HttpObject httpObject) {
+                            public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
-                                    numberOfInitialRequestsFiltered
-                                            .incrementAndGet();
+                                    numberOfInitialRequestsFiltered.incrementAndGet();
                                 } else {
-                                    numberOfSubsequentChunksFiltered
-                                            .incrementAndGet();
+                                    numberOfSubsequentChunksFiltered.incrementAndGet();
                                 }
                                 return null;
                             }

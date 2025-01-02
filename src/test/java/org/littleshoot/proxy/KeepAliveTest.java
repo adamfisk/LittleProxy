@@ -7,6 +7,9 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -19,7 +22,6 @@ import org.mockserver.model.ConnectionOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.net.Socket;
 import java.time.Duration;
@@ -34,12 +36,14 @@ import static org.mockserver.model.HttpResponse.response;
  * This class tests the proxy's keep alive/connection closure behavior.
  */
 @Tag("slow-test")
-@ParametersAreNonnullByDefault
+@NullMarked
 public final class KeepAliveTest {
     private static final Logger log = LoggerFactory.getLogger(KeepAliveTest.class);
+    @Nullable
     private HttpProxyServer proxyServer;
     private ClientAndServer mockServer;
     private int mockServerPort;
+    @Nullable
     private Socket socket;
 
     @BeforeEach
@@ -50,6 +54,7 @@ public final class KeepAliveTest {
     }
 
     @AfterEach
+    @SuppressWarnings("ConstantValue")
     void tearDown() throws Exception {
         try {
             if (proxyServer != null) {
@@ -282,11 +287,13 @@ public final class KeepAliveTest {
                         .withBody("this response should never be sent"));
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return new HttpFiltersAdapter(originalRequest) {
+                    @Nullable
                     @Override
-                    public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+                    public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
                         if (httpObject instanceof HttpRequest) {
                             HttpResponse shortCircuitResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
                             HttpUtil.setContentLength(shortCircuitResponse, 0);
@@ -348,11 +355,13 @@ public final class KeepAliveTest {
                         .withBody("this response should never be sent"));
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return new HttpFiltersAdapter(originalRequest) {
+                    @Nullable
                     @Override
-                    public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+                    public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
                         if (httpObject instanceof HttpRequest) {
                             HttpResponse shortCircuitResponse = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
                             HttpUtil.setContentLength(shortCircuitResponse, 0);

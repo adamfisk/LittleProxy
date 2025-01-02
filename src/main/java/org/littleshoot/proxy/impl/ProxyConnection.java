@@ -10,9 +10,10 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
+import org.jspecify.annotations.Nullable;
 import org.littleshoot.proxy.HttpFilters;
 
-import javax.annotation.ParametersAreNonnullByDefault;
+import org.jspecify.annotations.NullMarked;
 import javax.net.ssl.SSLEngine;
 
 import static org.littleshoot.proxy.impl.ConnectionState.*;
@@ -61,7 +62,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.*;
  *            the type of "initial" message. This will be either
  *            {@link HttpResponse} or {@link HttpRequest}.
  */
-@ParametersAreNonnullByDefault
+@NullMarked
 abstract class ProxyConnection<I extends HttpObject> extends
         SimpleChannelInboundHandler<Object> {
     protected final ProxyConnectionLogger LOG = new ProxyConnectionLogger(this);
@@ -69,7 +70,10 @@ abstract class ProxyConnection<I extends HttpObject> extends
     protected final DefaultHttpProxyServer proxyServer;
     protected final boolean runsAsSslClient;
 
+    @Nullable
     protected volatile ChannelHandlerContext ctx;
+
+    @Nullable
     protected volatile Channel channel;
 
     private volatile ConnectionState currentState;
@@ -79,6 +83,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
     /**
      * If using encryption, this holds our {@link SSLEngine}.
      */
+    @Nullable
     protected volatile SSLEngine sslEngine;
 
     /**
@@ -455,6 +460,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * @return {@code Future<Void>} for when we're done disconnecting. If we weren't
      *         connected, this returns null.
      */
+    @Nullable
     Future<Void> disconnect() {
         if (channel == null) {
             return null;
@@ -517,6 +523,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
         return tunneling;
     }
 
+    @Nullable
     public SSLEngine getSslEngine() {
         return sslEngine;
     }
@@ -546,6 +553,7 @@ abstract class ProxyConnection<I extends HttpObject> extends
      * @param httpRequest
      *            Filter attached to the give HttpRequest (if any)
      */
+    @Nullable
     protected HttpFilters getHttpFiltersFromProxyServer(HttpRequest httpRequest) {
         return proxyServer.getFiltersSource().filterRequest(httpRequest, ctx);
     }

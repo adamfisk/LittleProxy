@@ -67,7 +67,7 @@ import org.littleshoot.proxy.TransportProtocol;
 import org.littleshoot.proxy.UnknownTransportProtocolException;
 import org.littleshoot.proxy.extras.HAProxyMessageEncoder;
 
-import javax.annotation.ParametersAreNonnullByDefault;
+import org.jspecify.annotations.NullMarked;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
@@ -105,7 +105,7 @@ import static org.littleshoot.proxy.impl.ConnectionState.HANDSHAKING;
  * </p>
  */
 @Sharable
-@ParametersAreNonnullByDefault
+@NullMarked
 public class ProxyToServerConnection extends ProxyConnection<HttpResponse> {
     // Pipeline handler names:
     private static final String HTTP_ENCODER_NAME = "encoder";

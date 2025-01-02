@@ -5,9 +5,11 @@ import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.littleshoot.proxy.extras.TestMitmManager;
 
-import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -17,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Tests just a single basic proxy running as a man in the middle.
  */
-@ParametersAreNonnullByDefault
+@NullMarked
 public final class MitmProxyTest extends BaseProxyTest {
     private final Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
     private final Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
@@ -32,40 +34,34 @@ public final class MitmProxyTest extends BaseProxyTest {
                 .withPort(0)
                 .withManInTheMiddle(new TestMitmManager())
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
+                    @NonNull
                     @Override
-                    public HttpFilters filterRequest(HttpRequest originalRequest) {
+                    public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
+                            @Nullable
                             @Override
-                            public HttpResponse clientToProxyRequest(
-                                    HttpObject httpObject) {
+                            public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
-                                    requestPreMethodsSeen
-                                            .add(((HttpRequest) httpObject)
-                                                    .method());
+                                    requestPreMethodsSeen.add(((HttpRequest) httpObject).method());
+                                }
+                                return null;
+                            }
+
+                            @Nullable
+                            @Override
+                            public HttpResponse proxyToServerRequest(@NonNull HttpObject httpObject) {
+                                if (httpObject instanceof HttpRequest) {
+                                    requestPostMethodsSeen.add(((HttpRequest) httpObject).method());
                                 }
                                 return null;
                             }
 
                             @Override
-                            public HttpResponse proxyToServerRequest(
-                                    HttpObject httpObject) {
-                                if (httpObject instanceof HttpRequest) {
-                                    requestPostMethodsSeen
-                                            .add(((HttpRequest) httpObject)
-                                                    .method());
-                                }
-                                return null;
-                            }
-
-                            @Override
-                            public HttpObject serverToProxyResponse(
-                                    HttpObject httpObject) {
+                            public HttpObject serverToProxyResponse(HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
-                                    responsePreOriginalRequestMethodsSeen
-                                            .add(originalRequest.method());
+                                    responsePreOriginalRequestMethodsSeen.add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
-                                    responsePreBody.append(((HttpContent) httpObject)
-                                            .content().toString(UTF_8));
+                                    responsePreBody.append(((HttpContent) httpObject).content().toString(UTF_8));
                                 }
                                 return httpObject;
                             }
@@ -74,11 +70,9 @@ public final class MitmProxyTest extends BaseProxyTest {
                             public HttpObject proxyToClientResponse(
                                     HttpObject httpObject) {
                                 if (httpObject instanceof HttpResponse) {
-                                    responsePostOriginalRequestMethodsSeen
-                                            .add(originalRequest.method());
+                                    responsePostOriginalRequestMethodsSeen.add(originalRequest.method());
                                 } else if (httpObject instanceof HttpContent) {
-                                    responsePostBody.append(((HttpContent) httpObject)
-                                            .content().toString(UTF_8));
+                                    responsePostBody.append(((HttpContent) httpObject).content().toString(UTF_8));
                                 }
                                 return httpObject;
                             }

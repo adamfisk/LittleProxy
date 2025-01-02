@@ -6,20 +6,21 @@ import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 
-import javax.annotation.Nonnull;
-import javax.annotation.ParametersAreNonnullByDefault;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Factory for {@link HttpFilters}.
  */
-@ParametersAreNonnullByDefault
+@NullMarked
 public interface HttpFiltersSource {
     /**
      * Return an {@link HttpFilters} object for this request if and only if we
      * want to filter the request and/or its responses.
      */
-    @Nonnull
-    HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext ctx);
+    @Nullable
+    HttpFilters filterRequest(@NonNull HttpRequest originalRequest, @NonNull ChannelHandlerContext ctx);
 
     /**
      * Indicate how many (if any) bytes to buffer for incoming

@@ -10,6 +10,8 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import org.eclipse.jetty.server.Server;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,7 +21,6 @@ import org.littleshoot.proxy.test.HttpClientUtil;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 
-import javax.annotation.ParametersAreNonnullByDefault;
 import javax.net.ssl.SSLEngine;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -41,7 +42,6 @@ import static org.mockito.Mockito.when;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
-@ParametersAreNonnullByDefault
 public final class HttpFilterTest {
     private Server webServer;
     private HttpProxyServer proxyServer;
@@ -144,16 +144,17 @@ public final class HttpFilterTest {
         final String url4 = "http://localhost:" + webServerPort + "/testing3";
         final String url5 = "http://localhost:" + webServerPort + "/testing4";
 
-        @ParametersAreNonnullByDefault
         final HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            @NonNull
+            @Override
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 shouldFilterCalls.incrementAndGet();
                 associatedRequests.add(originalRequest);
 
                 return new HttpFiltersAdapter(originalRequest) {
+                    @Nullable
                     @Override
-                    public HttpResponse clientToProxyRequest(
-                            HttpObject httpObject) {
+                    public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
                         fullHttpRequestsReceived.incrementAndGet();
                         if (httpObject instanceof HttpRequest) {
                             HttpRequest httpRequest = (HttpRequest) httpObject;
@@ -166,9 +167,9 @@ public final class HttpFilterTest {
                         return null;
                     }
 
+                    @Nullable
                     @Override
-                    public HttpResponse proxyToServerRequest(
-                            HttpObject httpObject) {
+                    public HttpResponse proxyToServerRequest(@NonNull HttpObject httpObject) {
                         if (httpObject instanceof HttpRequest) {
                             HttpRequest httpRequest = (HttpRequest) httpObject;
                             if ("/testing2".equals(httpRequest.uri())) {
@@ -190,8 +191,8 @@ public final class HttpFilterTest {
                         proxyToServerRequestSentNanos.set(requestCount.get(), now());
                     }
 
-                    public HttpObject serverToProxyResponse(
-                            HttpObject httpObject) {
+                    @NonNull
+                    public HttpObject serverToProxyResponse(@NonNull HttpObject httpObject) {
                         if (originalRequest.uri().contains("testing3")) {
                             return new DefaultFullHttpResponse(
                                     HttpVersion.HTTP_1_1,
@@ -223,8 +224,8 @@ public final class HttpFilterTest {
                         serverToProxyResponseReceivedNanos.set(requestCount.get(), now());
                     }
 
-                    public HttpObject proxyToClientResponse(
-                            HttpObject httpObject) {
+                    @NonNull
+                    public HttpObject proxyToClientResponse(@NonNull HttpObject httpObject) {
                         if (originalRequest.uri().contains("testing4")) {
                             return new DefaultFullHttpResponse(
                                     HttpVersion.HTTP_1_1,
@@ -242,22 +243,23 @@ public final class HttpFilterTest {
                         proxyToServerConnectionQueuedNanos.set(requestCount.get(), now());
                     }
 
+                    @Nullable
                     @Override
-                    public InetSocketAddress proxyToServerResolutionStarted(
-                            String resolvingServerHostAndPort) {
+                    public InetSocketAddress proxyToServerResolutionStarted(@NonNull String resolvingServerHostAndPort) {
                         proxyToServerResolutionStartedNanos.set(requestCount.get(), now());
                         return super.proxyToServerResolutionStarted(resolvingServerHostAndPort);
                     }
 
                     @Override
-                    public void proxyToServerResolutionFailed(String hostAndPort) {
+                    public void proxyToServerResolutionFailed(@NonNull String hostAndPort) {
                         proxyToServerResolutionFailedNanos.set(requestCount.get(), now());
                     }
 
                     @Override
                     public void proxyToServerResolutionSucceeded(
-                            String serverHostAndPort,
-                            InetSocketAddress resolvedRemoteAddress) {
+                      @NonNull String serverHostAndPort,
+                      @NonNull InetSocketAddress resolvedRemoteAddress
+                    ) {
                         proxyToServerResolutionSucceededNanos.set(requestCount.get(), now());
                     }
 
@@ -277,7 +279,7 @@ public final class HttpFilterTest {
                     }
 
                     @Override
-                    public void proxyToServerConnectionSucceeded(ChannelHandlerContext ctx) {
+                    public void proxyToServerConnectionSucceeded(@NonNull ChannelHandlerContext ctx) {
                         proxyToServerConnectionSucceededNanos.set(requestCount.get(), now());
                         serverCtxReference.set(ctx);
                     }
@@ -403,7 +405,7 @@ public final class HttpFilterTest {
         assertThat(serverCtxReference.get())
           .as("Server channel context from proxyToServerConnectionSucceeded() should not be null")
           .isNotNull();
-        
+
         InetSocketAddress remoteAddress = (InetSocketAddress) serverCtxReference.get().channel().remoteAddress();
         assertThat(remoteAddress)
           .as("Server's remoteAddress from proxyToServerConnectionSucceeded() should not be null")
@@ -421,16 +423,17 @@ public final class HttpFilterTest {
         final AtomicBoolean resolutionSucceeded = new AtomicBoolean(false);
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return new HttpFiltersAdapter(originalRequest) {
                     @Override
-                    public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
+                    public InetSocketAddress proxyToServerResolutionStarted(@NonNull String resolvingServerHostAndPort) {
                         return InetSocketAddress.createUnresolved("localhost", webServerPort);
                     }
 
                     @Override
-                    public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
+                    public void proxyToServerResolutionSucceeded(@NonNull String serverHostAndPort, @NonNull InetSocketAddress resolvedRemoteAddress) {
                         assertThat(resolvedRemoteAddress.isUnresolved()).as("expected to receive a resolved InetSocketAddress").isFalse();
                         resolutionSucceeded.set(true);
                     }
@@ -451,14 +454,15 @@ public final class HttpFilterTest {
         final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return filter;
             }
         };
 
         HostResolver mockFailingResolver = mock();
-        when(mockFailingResolver.resolve("www.doesnotexist", 80)).thenThrow(new UnknownHostException("www.doesnotexist"));
+        when(mockFailingResolver.resolve("www.does-not-exist", 80)).thenThrow(new UnknownHostException("www.does-not-exist"));
 
         proxyServer = DefaultHttpProxyServer.bootstrap()
                 .withPort(0)
@@ -498,8 +502,9 @@ public final class HttpFilterTest {
         final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return filter;
             }
         };
@@ -543,8 +548,9 @@ public final class HttpFilterTest {
         final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return filter;
             }
         };
@@ -607,8 +613,9 @@ public final class HttpFilterTest {
         final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return filter;
             }
         };
@@ -679,8 +686,9 @@ public final class HttpFilterTest {
         final HttpFiltersMethodInvokedAdapter filter = new HttpFiltersMethodInvokedAdapter();
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return filter;
             }
         };
@@ -697,7 +705,7 @@ public final class HttpFilterTest {
           .isEqualTo(504);
 
         Thread.sleep(500);
-        
+
         // verify that the filters related to this functionality were correctly invoked/not invoked as appropriate, but also verify that
         // other filters were invoked/not invoked as expected
         assertThat(filter.isServerToProxyResponseTimedOutInvoked()).as("Expected filter method to be called").isTrue();
@@ -729,11 +737,13 @@ public final class HttpFilterTest {
         final AtomicBoolean requestSentCallbackInvoked = new AtomicBoolean(false);
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @NonNull
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return new HttpFiltersAdapter(originalRequest) {
+                    @Nullable
                     @Override
-                    public HttpResponse proxyToServerRequest(HttpObject httpObject) {
+                    public HttpResponse proxyToServerRequest(@NonNull HttpObject httpObject) {
                         if (httpObject instanceof LastHttpContent) {
                             assertThat(requestSentCallbackInvoked.get()).as("requestSentCallback should not be invoked until the LastHttpContent is processed").isFalse();
 
@@ -789,8 +799,9 @@ public final class HttpFilterTest {
                         .withBody("success"));
 
         HttpFiltersSource filtersSource = new HttpFiltersSourceAdapter() {
+            @Nullable
             @Override
-            public HttpFilters filterRequest(HttpRequest originalRequest) {
+            public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                 return null;
             }
         };
@@ -912,18 +923,20 @@ public final class HttpFilterTest {
         }
 
         @Override
-        public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
+        public void proxyToServerConnectionSucceeded(@NonNull ChannelHandlerContext serverCtx) {
             proxyToServerConnectionSucceeded.set(true);
         }
 
+        @Nullable
         @Override
-        public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+        public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
             clientToProxyRequest.set(true);
             return null;
         }
 
+        @Nullable
         @Override
-        public HttpResponse proxyToServerRequest(HttpObject httpObject) {
+        public HttpResponse proxyToServerRequest(@NonNull HttpObject httpObject) {
             proxyToServerRequest.set(true);
             return null;
         }
@@ -938,8 +951,9 @@ public final class HttpFilterTest {
             proxyToServerRequestSent.set(true);
         }
 
+        @Nullable
         @Override
-        public HttpObject serverToProxyResponse(HttpObject httpObject) {
+        public HttpObject serverToProxyResponse(@NonNull HttpObject httpObject) {
             serverToProxyResponse.set(true);
             return httpObject;
         }
@@ -960,7 +974,7 @@ public final class HttpFilterTest {
         }
 
         @Override
-        public HttpObject proxyToClientResponse(HttpObject httpObject) {
+        public HttpObject proxyToClientResponse(@NonNull HttpObject httpObject) {
             proxyToClientResponse.set(true);
             return httpObject;
         }
@@ -971,18 +985,18 @@ public final class HttpFilterTest {
         }
 
         @Override
-        public InetSocketAddress proxyToServerResolutionStarted(String resolvingServerHostAndPort) {
+        public InetSocketAddress proxyToServerResolutionStarted(@NonNull String resolvingServerHostAndPort) {
             proxyToServerResolutionStarted.set(true);
             return null;
         }
 
         @Override
-        public void proxyToServerResolutionFailed(String hostAndPort) {
+        public void proxyToServerResolutionFailed(@NonNull String hostAndPort) {
             proxyToServerResolutionFailed.set(true);
         }
 
         @Override
-        public void proxyToServerResolutionSucceeded(String serverHostAndPort, InetSocketAddress resolvedRemoteAddress) {
+        public void proxyToServerResolutionSucceeded(@NonNull String serverHostAndPort, @NonNull InetSocketAddress resolvedRemoteAddress) {
             proxyToServerResolutionSucceeded.set(true);
         }
 

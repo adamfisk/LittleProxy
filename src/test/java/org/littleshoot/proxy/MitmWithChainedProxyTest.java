@@ -5,9 +5,11 @@ import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.littleshoot.proxy.extras.TestMitmManager;
 
-import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -18,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests a proxy that runs as a MITM and which is chained with
  * another proxy.
  */
-@ParametersAreNonnullByDefault
+@NullMarked
 public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
     private final Set<HttpMethod> requestPreMethodsSeen = new HashSet<>();
     private final Set<HttpMethod> requestPostMethodsSeen = new HashSet<>();
@@ -40,27 +42,24 @@ public class MitmWithChainedProxyTest extends BaseChainedProxyTest {
                 .plusActivityTracker(DOWNSTREAM_TRACKER)
                 .withManInTheMiddle(new TestMitmManager())
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
+                    @NonNull
                     @Override
-                    public HttpFilters filterRequest(HttpRequest originalRequest) {
+                    public HttpFilters filterRequest(@NonNull HttpRequest originalRequest) {
                         return new HttpFiltersAdapter(originalRequest) {
+                            @Nullable
                             @Override
-                            public HttpResponse clientToProxyRequest(
-                                    HttpObject httpObject) {
+                            public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
-                                    requestPreMethodsSeen
-                                            .add(((HttpRequest) httpObject)
-                                                    .method());
+                                    requestPreMethodsSeen.add(((HttpRequest) httpObject).method());
                                 }
                                 return null;
                             }
 
+                            @Nullable
                             @Override
-                            public HttpResponse proxyToServerRequest(
-                                    HttpObject httpObject) {
+                            public HttpResponse proxyToServerRequest(@NonNull HttpObject httpObject) {
                                 if (httpObject instanceof HttpRequest) {
-                                    requestPostMethodsSeen
-                                            .add(((HttpRequest) httpObject)
-                                                    .method());
+                                    requestPostMethodsSeen.add(((HttpRequest) httpObject).method());
                                 }
                                 return null;
                             }

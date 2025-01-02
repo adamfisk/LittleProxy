@@ -4,38 +4,43 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import java.net.InetSocketAddress;
 
 /**
  * Convenience base class for implementations of {@link HttpFilters}.
  */
+@NullMarked
 public class HttpFiltersAdapter implements HttpFilters {
     /**
      * A default, stateless, no-op {@link HttpFilters} instance.
      */
     public static final HttpFiltersAdapter NOOP_FILTER = new HttpFiltersAdapter(null);
 
-    protected final HttpRequest originalRequest;
-    protected final ChannelHandlerContext ctx;
+    @Nullable protected final HttpRequest originalRequest;
+    @Nullable protected final ChannelHandlerContext ctx;
 
-    public HttpFiltersAdapter(HttpRequest originalRequest,
-            ChannelHandlerContext ctx) {
+    public HttpFiltersAdapter(@Nullable HttpRequest originalRequest, @Nullable ChannelHandlerContext ctx) {
         this.originalRequest = originalRequest;
         this.ctx = ctx;
     }
 
-    public HttpFiltersAdapter(HttpRequest originalRequest) {
+    public HttpFiltersAdapter(@Nullable HttpRequest originalRequest) {
         this(originalRequest, null);
     }
 
+    @Nullable
     @Override
-    public HttpResponse clientToProxyRequest(HttpObject httpObject) {
+    public HttpResponse clientToProxyRequest(@NonNull HttpObject httpObject) {
         return null;
     }
 
+    @Nullable
     @Override
-    public HttpResponse proxyToServerRequest(HttpObject httpObject) {
+    public HttpResponse proxyToServerRequest(@NonNull HttpObject httpObject) {
         return null;
     }
 
@@ -73,19 +78,19 @@ public class HttpFiltersAdapter implements HttpFilters {
     public void proxyToServerConnectionQueued() {
     }
 
+    @Nullable
     @Override
-    public InetSocketAddress proxyToServerResolutionStarted(
-            String resolvingServerHostAndPort) {
+    public InetSocketAddress proxyToServerResolutionStarted(@NonNull String resolvingServerHostAndPort) {
         return null;
     }
 
     @Override
-    public void proxyToServerResolutionFailed(String hostAndPort) {
+    public void proxyToServerResolutionFailed(@NonNull String hostAndPort) {
     }
 
     @Override
-    public void proxyToServerResolutionSucceeded(String serverHostAndPort,
-            InetSocketAddress resolvedRemoteAddress) {
+    public void proxyToServerResolutionSucceeded(@NonNull String serverHostAndPort,
+                                                 @NonNull InetSocketAddress resolvedRemoteAddress) {
     }
 
     @Override
@@ -101,7 +106,7 @@ public class HttpFiltersAdapter implements HttpFilters {
     }
 
     @Override
-    public void proxyToServerConnectionSucceeded(ChannelHandlerContext serverCtx) {
+    public void proxyToServerConnectionSucceeded(@NonNull ChannelHandlerContext serverCtx) {
     }
 
     @Override
