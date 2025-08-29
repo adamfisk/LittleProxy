@@ -669,6 +669,16 @@ abstract class ProxyConnection<I extends HttpObject> extends
         }
     }
 
+    protected boolean releaseIfNecessary(HttpRequest httpRequest) {
+		if (httpRequest != null && httpRequest instanceof ReferenceCounted) {
+			if (((ReferenceCounted) httpRequest).refCnt() > 0) {
+				((ReferenceCounted) httpRequest).release();
+				return true;
+			}
+		}
+		return false;
+	}
+    
     /***************************************************************************
      * Activity Tracking/Statistics
      **************************************************************************/
