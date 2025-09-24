@@ -1,6 +1,5 @@
 package org.littleshoot.proxy.impl;
 
-import com.google.common.io.BaseEncoding;
 import com.google.errorprone.annotations.CheckReturnValue;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -48,6 +47,7 @@ import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1026,12 +1026,10 @@ public class ClientToProxyConnection extends ProxyConnection<HttpRequest> {
         String fullValue = values.iterator().next();
         String value = StringUtils.substringAfter(fullValue, "Basic ").trim();
 
-        byte[] decodedValue = BaseEncoding.base64().decode(value);
+        String decodedValue = new String(Base64.getDecoder().decode(value), UTF_8);
 
-        String decodedString = new String(decodedValue, UTF_8);
-
-        String userName = StringUtils.substringBefore(decodedString, ":");
-        String password = StringUtils.substringAfter(decodedString, ":");
+        String userName = StringUtils.substringBefore(decodedValue, ":");
+        String password = StringUtils.substringAfter(decodedValue, ":");
         if (!authenticator.authenticate(userName, password)) {
             writeAuthenticationRequired(authenticator.getRealm());
             return true;

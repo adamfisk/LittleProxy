@@ -1,8 +1,5 @@
 package org.littleshoot.proxy.impl;
 
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CheckReturnValue;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -37,6 +34,9 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * Utilities for the proxy.
@@ -51,7 +51,7 @@ public class ProxyUtils {
      * Header names are stored as lowercase to make case-insensitive comparisons easier.
      */
     @SuppressWarnings("deprecation") // Don't remove header names from this set until they're removed from Netty, just in case someone's still using them.
-    private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = ImmutableSet.of(
+    private static final Set<String> SHOULD_NOT_PROXY_HOP_BY_HOP_HEADERS = Set.of(
             HttpHeaderNames.CONNECTION.toString(),
             HttpHeaderNames.KEEP_ALIVE.toString(),
             HttpHeaderNames.PROXY_AUTHENTICATE.toString(),
@@ -64,11 +64,6 @@ public class ProxyUtils {
     );
 
     private static final Logger LOG = LoggerFactory.getLogger(ProxyUtils.class);
-
-    /**
-     * Splits comma-separated header values (such as Connection) into their individual tokens.
-     */
-    private static final Splitter COMMA_SEPARATED_HEADER_VALUE_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     // Schemes are case-insensitive:
     // https://tools.ietf.org/html/rfc3986#section-3.1
@@ -418,13 +413,10 @@ public class ProxyUtils {
             return Collections.emptyList();
         }
 
-        ImmutableList.Builder<String> headerValues = ImmutableList.builder();
-        for (String header : allHeaders) {
-            List<String> commaSeparatedValues = splitCommaSeparatedHeaderValues(header);
-            headerValues.addAll(commaSeparatedValues);
-        }
-
-        return headerValues.build();
+        return allHeaders.stream()
+          .map(ProxyUtils::splitCommaSeparatedHeaderValues)
+          .flatMap(List::stream)
+          .collect(toList());
     }
 
     /**
@@ -498,8 +490,12 @@ public class ProxyUtils {
     }
 
     /**
-     * Splits comma-separated header values into tokens. For example, if the value of the Connection header is "Transfer-Encoding, close",
-     * this method will return "Transfer-Encoding" and "close". This method strips trims any optional whitespace from
+     * Splits comma-separated header values into tokens.
+     *
+     * For example, if the value of the Connection header is "Transfer-Encoding, close",
+     * this method will return "Transfer-Encoding" and "close".
+     *
+     * This method strips trims any optional whitespace from
      * the tokens. Unlike {@link #getAllCommaSeparatedHeaderValues(AsciiString, HttpMessage)}, this method only operates on
      * a single header value, rather than all instances of the header in a message.
      *
@@ -507,7 +503,10 @@ public class ProxyUtils {
      * @return all tokens within the header value, or an empty list if there are no values
      */
     public static List<String> splitCommaSeparatedHeaderValues(String headerValue) {
-        return ImmutableList.copyOf(COMMA_SEPARATED_HEADER_VALUE_SPLITTER.split(headerValue));
+      return Stream.of(headerValue.split(","))
+        .map(s -> s.trim())
+        .filter(s -> !s.isEmpty())
+        .collect(toList());
     }
 
     /**

@@ -1,6 +1,5 @@
 package org.littleshoot.proxy.impl;
 
-import com.google.common.collect.ImmutableList;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 
@@ -47,7 +46,7 @@ public class ProxyThreadPools {
      * Returns all event loops (acceptor and worker thread pools) in this pool.
      */
     public List<EventLoopGroup> getAllEventLoops() {
-        return ImmutableList.of(clientToProxyAcceptorPool, clientToProxyWorkerPool, proxyToServerWorkerPool);
+        return List.of(clientToProxyAcceptorPool, clientToProxyWorkerPool, proxyToServerWorkerPool);
     }
 
     public NioEventLoopGroup getClientToProxyAcceptorPool() {
