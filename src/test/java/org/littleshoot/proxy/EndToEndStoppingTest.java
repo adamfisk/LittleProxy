@@ -188,7 +188,7 @@ public final class EndToEndStoppingTest {
         try {
             driver.manage().timeouts().pageLoadTimeout(ofSeconds(30));
 
-            driver.get("https://github.com/littleProxy/LittleProxy//");
+            driver.get("https://github.com/littleProxy/LittleProxy");
             String source = driver.getPageSource();
 
             // Just make sure it got something within reason

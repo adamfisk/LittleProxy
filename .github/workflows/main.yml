@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - name: Set up JDK 11
+      - name: Set up JDK 11 for compilation
         uses: actions/setup-java@v5
         with:
           java-version: '11'
@@ -52,11 +52,19 @@ jobs:
         run: mvn --batch-mode compile
       - name: Branch name [env]
         run: echo running on branch ${GITHUB_REF##*/}
+
+      - name: Set up JDK 17 for running tests
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
       - name: Run smoke tests
         run: mvn --batch-mode package -Psmoke-test
       - name: Run slow tests
         if: success()
         run: mvn --batch-mode package -Pslow-tests
+
       - name: Generate Maven test report
         if: failure()
         run: mvn --batch-mode surefire-report:report-only
